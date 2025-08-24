@@ -1,4 +1,3 @@
-
 import abc
 import asyncio
 import base64
@@ -15,10 +14,28 @@ import twikit.media
 import urllib.parse
 from typing import Optional as Opt
 from dd import dd
-from app.utils.base import AIOHTTP_CONNECTOR_GETTER
-from app.utils.datetime_ import get_timestamp
-from .schema import Tweet, TweetPhoto, TweetVideo, VideoVariant
+from utils.base import AIOHTTP_CONNECTOR_GETTER
+from utils.datetime_ import get_timestamp
+from .schema import TweetPhoto, TweetVideo, VideoVariant
 from . import Extension
+
+
+class Tweet(sqlmodel.SQLModel):
+    id: int
+    user_id: str
+    """推文用户ID"""
+    conversation_id: Opt[int] = None
+    text: str
+    """推文文本内容
+    
+    - 移除回复提及
+    - 移除媒体、网页链接（用 `[photo]`、`[video]`、`[link]` 占位）
+    """
+    quote: Opt[int] = None
+    """引用推文ID"""
+    photos: tuple[TweetPhoto, ...] = ()
+    videos: tuple[TweetVideo, ...] = ()
+    urls: tuple[str, ...] = ()
 
 
 class TwitterAPIResult(sqlmodel.SQLModel):
@@ -38,7 +55,7 @@ class TwitterAPI(abc.ABC):
     @classmethod
     def new(cls, api_router: Opt[fastapi.APIRouter] = None) -> "TwitterAPI":
         """Create an instance of the Twitter API client.
-        
+
         Use `config.backend` to determine which backend to use.
         """
         if cls.SINGLETON is not None:
@@ -48,11 +65,15 @@ class TwitterAPI(abc.ABC):
             if backend_type == "official":
                 cls.SINGLETON = OfficialAPI(
                     client_id=Extension.config.client_id,
-                    client_secret=Extension.config.client_secret
+                    client_secret=Extension.config.client_secret,
                 )
                 if api_router:
-                    api_router.get("/auth/authorize")(cls.SINGLETON.get_oauth_authorize_url)
-                    api_router.get("/auth/callback")(cls.SINGLETON.handle_oauth_callback)
+                    api_router.get("/auth/authorize")(
+                        cls.SINGLETON.get_oauth_authorize_url
+                    )
+                    api_router.get("/auth/callback")(
+                        cls.SINGLETON.handle_oauth_callback
+                    )
                 else:
                     # log warning
                     pass
@@ -67,45 +88,37 @@ class TwitterAPI(abc.ABC):
                 )
             else:
                 raise ValueError(f"Unknown backend type: {backend_type}")
-            
+
             return cls.SINGLETON
-        
-    async def close(self):
-        ...
-        
-    @property
-    @abc.abstractmethod
-    def user_handle(self) -> str:
-        ...
+
+    async def close(self): ...
 
     @property
     @abc.abstractmethod
-    def user_id(self) -> str:
-        ...
+    def user_handle(self) -> str: ...
+
+    @property
+    @abc.abstractmethod
+    def user_id(self) -> str: ...
 
     @abc.abstractmethod
     async def get_bookmarks(
         self, max_results: int = 20, page: Opt[str] = None
-    ) -> TwitterAPIResult:
-        ...
+    ) -> TwitterAPIResult: ...
 
     @abc.abstractmethod
     async def get_tweets(
         self, query: str, max_results: int = 20, page: Opt[str] = None
-    ) -> TwitterAPIResult:
-        ...
+    ) -> TwitterAPIResult: ...
 
     @abc.abstractmethod
     async def get_replies(
-        self, *conversation_ids: str, from_: Opt[str] = None,
-        max_results: int = 20
-    ) -> TwitterAPIResult:
-        ...
+        self, *conversation_ids: str, from_: Opt[str] = None, max_results: int = 20
+    ) -> TwitterAPIResult: ...
 
 
 class OfficialAPI(TwitterAPI):
-    """Official Twitter API client.
-    """
+    """Official Twitter API client."""
 
     state = None
     challenge = None
@@ -129,7 +142,7 @@ class OfficialAPI(TwitterAPI):
         if self.__user_handle is None:
             raise ValueError("User handle is not set. Please authorize first.")
         return self.__user_handle
-    
+
     @property
     def user_id(self) -> str:
         if self.__user_id is None:
@@ -137,11 +150,13 @@ class OfficialAPI(TwitterAPI):
         return self.__user_id
 
     async def _request(
-        self, 
-        method: str, endpoint: str, 
+        self,
+        method: str,
+        endpoint: str,
         path_params: Opt[dict] = None,
-        query: Opt[dict] = None, body: Opt[dict] = None,
-        retried: int = 0
+        query: Opt[dict] = None,
+        body: Opt[dict] = None,
+        retried: int = 0,
     ) -> dict:
         """Make a request to the Twitter API.
 
@@ -152,20 +167,22 @@ class OfficialAPI(TwitterAPI):
         :param path_params: List of path parameters to format into the endpoint
         :param query: Query parameters as a dictionary
         :param body: Request body as a dictionary (for POST/PUT requests)
-        
+
         - Auto authorization header
         - Auto refresh access token
         - Rate limit
           - Failed requests also count
-        - TODO Monthly limit  
+        - TODO Monthly limit
         - Error handling
         - Resopnse body parsing
         """
         if not self.__access_token:
             # TODO raise Unauthorized
             raise ValueError("Access token is not set. Please authorize first.")
-        
-        endpoint_with_params = endpoint.format(**path_params) if path_params else endpoint
+
+        endpoint_with_params = (
+            endpoint.format(**path_params) if path_params else endpoint
+        )
         headers = {
             "Authorization": f"Bearer {self.__access_token}",
         }
@@ -192,15 +209,20 @@ class OfficialAPI(TwitterAPI):
         # else:
         #     last_request_count, last_15m_start_at = 0, datetime.datetime.now()
 
-        async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
+        async with aiohttp.ClientSession(
+            connector=AIOHTTP_CONNECTOR_GETTER()
+        ) as session:
             async with session.request(
-                method, f"https://api.x.com/2{endpoint_with_params}", params=query, headers=headers, 
+                method,
+                f"https://api.x.com/2{endpoint_with_params}",
+                params=query,
+                headers=headers,
             ) as resp:
                 if resp.status == 429:
                     x_rate_limit_reset = resp.headers.get("x-rate-limit-reset")
                     if x_rate_limit_reset:
                         self.rate_limit_reset[endpoint] = int(x_rate_limit_reset)
-                    
+
                     # # Rate limit exceeded but not expected, set request count to max
                     # # and request again when rate limit reset
                     # cls.request_records[endpoint] = (
@@ -230,13 +252,13 @@ class OfficialAPI(TwitterAPI):
         user_handle = user_info.get("data", {}).get("username")
         if not user_handle:
             raise ValueError("Failed to get user handle from Twitter API.")
-        
+
         # Extension.state["user_id"] = user_id
         # Extension.state["user_handle"] = user_handle
         self.__user_id = user_id
         self.__user_handle = user_handle
         return user_id, user_handle
-    
+
     def _resolve_tweets(
         self, raw_tweets: list[dict], includes: dict[str, list[dict]]
     ) -> list[Tweet]:
@@ -257,23 +279,29 @@ class OfficialAPI(TwitterAPI):
                     if include_media._.media_key() == media_key:
                         media_type = include_media._.type()
                         if media_type == "video":
-                            videos.append(TweetVideo(
-                                id=media_key,
-                                variants=tuple(
-                                    VideoVariant(**variant) 
-                                    for variant in (include_media._.variants() or ())
+                            videos.append(
+                                TweetVideo(
+                                    id=media_key,
+                                    variants=tuple(
+                                        VideoVariant(**variant)
+                                        for variant in (
+                                            include_media._.variants() or ()
+                                        )
+                                    ),
                                 )
-                            ))
+                            )
                         elif media_type == "photo":
-                            photos.append(TweetPhoto(
-                                id=media_key,
-                                url=include_media.url(lambda x: x or ""),
-                            ))
+                            photos.append(
+                                TweetPhoto(
+                                    id=media_key,
+                                    url=include_media.url(lambda x: x or ""),
+                                )
+                            )
                         else:
                             # TODO log warning for unsupported media type
                             pass
                         break
-                        
+
             # resolve conversation ID
             conversation_id = tweet._.conversation_id()
             if conversation_id == tweet_id:
@@ -281,31 +309,35 @@ class OfficialAPI(TwitterAPI):
 
             # resolve url entities
             urls: list[str] = []
-            for entity in (tweet._.entities.urls() or []):
+            for entity in tweet._.entities.urls() or []:
                 url = entity.get("expanded_url")
                 if url:
                     urls.append(url)
 
             # resolve text
             tweet_text = tweet.text()
-            tweet_text = re.sub(r'^(?:@\w+\s*)+', '', tweet_text)
-            
-            tweets.append(Tweet(
-                id=tweet_id,
-                lang=tweet.lang(),
-                text=tweet_text,
-                conversation_id=conversation_id,
-                photos=tuple(photos),
-                videos=tuple(videos),
-                urls=tuple(urls),
-            ))
+            tweet_text = re.sub(r"^(?:@\w+\s*)+", "", tweet_text)
+
+            tweets.append(
+                Tweet(
+                    id=tweet_id,
+                    # user_id=tweet._.user  # TODO
+                    text=tweet_text,
+                    conversation_id=conversation_id,
+                    photos=tuple(photos),
+                    videos=tuple(videos),
+                    urls=tuple(urls),
+                )
+            )
 
         return tweets
-    
-    async def get_bookmarks(self, max_results: int = 20, page: str | None = None) -> TwitterAPIResult:
+
+    async def get_bookmarks(
+        self, max_results: int = 20, page: str | None = None
+    ) -> TwitterAPIResult:
         """Get user bookmarks.
-        
-        Rate limit: 
+
+        Rate limit:
         - Free: 1 req per 15 minutes
         - Basic: 5 req per 15 minutes
         - Pro: 50 req per 15 minutes
@@ -319,44 +351,45 @@ class OfficialAPI(TwitterAPI):
         if page:
             bookmarks_query["pagination_token"] = page
         res = await self._request(
-            "GET", "/users/{id}/bookmarks",
+            "GET",
+            "/users/{id}/bookmarks",
             path_params={"id": self.__user_id},
-            query=bookmarks_query
+            query=bookmarks_query,
         )
         tweets = self._resolve_tweets(res.get("data", []), res.get("includes", {}))
         return TwitterAPIResult(
             next_page=res.get("meta", {}).get("next_token"),
             previous_page=res.get("meta", {}).get("previous_token"),
-            tweets=tuple(tweets)
+            tweets=tuple(tweets),
         )
-    
+
     async def get_tweets(
         self, query: str, max_results: int = 20, page: str | None = None
     ) -> TwitterAPIResult:
         res = await self._request(
-            "GET", "/tweets/search/recent",
+            "GET",
+            "/tweets/search/recent",
             query={
                 "query": query,
                 "max_results": max_results,
                 "tweet.fields": "attachments,entities,lang,conversation_id",
                 "media.fields": "alt_text,media_key,url,type",
                 "expansions": "attachments.media_keys,attachments.media_source_tweet",
-            }
+            },
         )
         tweets = self._resolve_tweets(res.get("data", []), res.get("includes", {}))
         return TwitterAPIResult(
             next_page=res.get("meta", {}).get("next_token"),
             previous_page=res.get("meta", {}).get("previous_token"),
-            tweets=tuple(tweets)
+            tweets=tuple(tweets),
         )
-    
+
     async def get_replies(
-        self, *conversation_ids: str, from_: str | None = None,
-        max_results: int = 20
+        self, *conversation_ids: str, from_: str | None = None, max_results: int = 20
     ) -> TwitterAPIResult:
         # TODO add query lenth limit auto adapt
         res = await self.get_tweets(
-            query=f"from:{from_} ({" OR ".join(map(lambda x: f"conversation_id:{x}", conversation_ids))})",
+            query=f"from:{from_} ({' OR '.join(map(lambda x: f'conversation_id:{x}', conversation_ids))})",
             max_results=max_results,
         )
         return res
@@ -364,21 +397,24 @@ class OfficialAPI(TwitterAPI):
     @staticmethod
     def _get_oauth_redirect_url():
         return os.getenv("API_BASE_URL", "") + "/twitter/auth/callback"
-    
-    def get_oauth_authorize_url(self) -> str:
 
+    def get_oauth_authorize_url(self) -> str:
         BASE_URL = "https://x.com/i/oauth2/authorize"
         REDIRECT_URL = self._get_oauth_redirect_url()
         CLIENT_ID = self.__client_id
 
-        scope = " ".join([
-            "tweet.read",
-            "users.read",
-            "bookmark.read",
-            "bookmark.write",
-            "offline.access",
-        ])
-        self.state = secrets.token_urlsafe(16)  # A random string to prevent CSRF attacks
+        scope = " ".join(
+            [
+                "tweet.read",
+                "users.read",
+                "bookmark.read",
+                "bookmark.write",
+                "offline.access",
+            ]
+        )
+        self.state = secrets.token_urlsafe(
+            16
+        )  # A random string to prevent CSRF attacks
         self.code_challenge = secrets.token_urlsafe(32)  # Code challenge for PKCE
 
         params = {
@@ -411,17 +447,19 @@ class OfficialAPI(TwitterAPI):
             "code": code,
             "redirect_uri": self._get_oauth_redirect_url(),
             "client_id": CLIENT_ID,
-            "code_verifier": self.code_challenge, 
+            "code_verifier": self.code_challenge,
         }
 
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Authorization": f"Basic {
-                base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
-            }"
+                base64.b64encode(f'{CLIENT_ID}:{CLIENT_SECRET}'.encode()).decode()
+            }",
         }
 
-        async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
+        async with aiohttp.ClientSession(
+            connector=AIOHTTP_CONNECTOR_GETTER()
+        ) as session:
             async with session.post(TOKEN_URL, data=data, headers=headers) as resp:
                 resp.raise_for_status()
                 resp_body = await resp.json()
@@ -434,14 +472,14 @@ class OfficialAPI(TwitterAPI):
                 self.__access_token = access_token
                 self.__refresh_token = refresh_token
 
-                self.state = None 
+                self.state = None
                 self.challenge = None
 
                 # Get user info and store to state
                 await self.get_user()
 
                 return resp_body
-    
+
     async def refresh_access_token(self, refresh_token: str) -> str:
         """Get a new access token using the refresh token.
 
@@ -460,7 +498,9 @@ class OfficialAPI(TwitterAPI):
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
-        async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
+        async with aiohttp.ClientSession(
+            connector=AIOHTTP_CONNECTOR_GETTER()
+        ) as session:
             async with session.post(TOKEN_URL, data=data, headers=headers) as resp:
                 resp.raise_for_status()
                 token_response = await resp.json()
@@ -468,14 +508,16 @@ class OfficialAPI(TwitterAPI):
 
 
 class TwikitAPI(TwitterAPI):
-    """Twikit API client.
-    """
+    """Twikit API client."""
 
     def __init__(
-        self, 
-        email: str, username: str, 
-        password: str, totp_secret: Opt[str] = None,
-        language: Opt[str] = None, proxy: Opt[str] = None
+        self,
+        email: str,
+        username: str,
+        password: str,
+        totp_secret: Opt[str] = None,
+        language: Opt[str] = None,
+        proxy: Opt[str] = None,
     ):
         """
         :param language: The language code to use in API requests.
@@ -495,83 +537,93 @@ class TwikitAPI(TwitterAPI):
     @property
     def user_handle(self) -> str:
         return self._username
-    
+
     @property
     def user_id(self) -> str:
         if not self._client._user_id:
             raise ValueError("User ID is not set. Please login first.")
-        return self._client._user_id    
+        return self._client._user_id
 
     async def _login(self):
         await self._client.login(
-            auth_info_1=self._email, auth_info_2=self._username, 
-            password=self._password, totp_secret=self._totp_secret,
-            cookies_file="data/extensions/twitter/twikit_cookies.json"
+            auth_info_1=self._email,
+            auth_info_2=self._username,
+            password=self._password,
+            totp_secret=self._totp_secret,
+            cookies_file="data/extensions/twitter/twikit_cookies.json",
         )
 
     @staticmethod
     def _resolve_tweet(tweet: twikit.Tweet) -> Tweet:
+        # resolve text
+        # remove reply mentions
+        tweet_text = re.sub(r"^(?:@\w+\s*)+", "", tweet.text)
+
         # resolve medias
         photos: list[TweetPhoto] = []
         videos: list[TweetVideo] = []
         for media in tweet.media:
+            media_url = media.url
             if isinstance(media, twikit.media.Photo):
-                photos.append(TweetPhoto(
-                    id=media.id,
-                    url=media.media_url
-                ))
+                photos.append(TweetPhoto(id=media.id, url=media.media_url))
+                tweet_text = tweet_text.replace(media_url, "[photo]")
             elif isinstance(media, twikit.media.Video):
-                videos.append(TweetVideo(
-                    id=media.id,
-                    variants=tuple(
-                        VideoVariant(
-                            bitrate=variant.bitrate,
-                            content_type=variant.content_type,
-                            url=variant.url or "",
-                        ) for variant in media.streams
+                videos.append(
+                    TweetVideo(
+                        id=media.id,
+                        variants=tuple(
+                            VideoVariant(
+                                bitrate=variant.bitrate,
+                                content_type=variant.content_type,
+                                url=variant.url or "",
+                            )
+                            for variant in media.streams
+                        ),
                     )
-                ))
+                )
+                tweet_text = tweet_text.replace(media_url, "[video]")
 
         # resolve urls
         urls: list[str] = []
         for i in typing.cast(dict, tweet.urls):
-            url = i["expanded_url"]
-            if url:
-                urls.append(url)
-        
-        tweet_text = re.sub(r'^(?:@\w+\s*)+', '', tweet.text)
+            i = dd(i)
+            ex_url = i._.expanded_url()
+            url = i._.url()
+            if ex_url:
+                urls.append(ex_url)
+                if url:
+                    tweet_text = tweet_text.replace(url, "[link]")
 
         return Tweet(
             id=int(tweet.id),
-            lang=tweet.lang,
-            text=tweet_text,
             conversation_id=int(tweet.in_reply_to) if tweet.in_reply_to else None,
+            user_id=tweet.user.screen_name,
+            text=tweet_text,
             photos=tuple(photos),
             videos=tuple(videos),
-            urls=tuple()
+            urls=tuple(),
         )
 
     @classmethod
-    def _resolve_tweets(cls, result: twikit.utils.Result[twikit.Tweet]) -> tuple[Tweet, ...]:
-        return tuple(
-            cls._resolve_tweet(tweet)
-            for tweet in result
-        )
+    def _resolve_tweets(
+        cls, result: twikit.utils.Result[twikit.Tweet]
+    ) -> tuple[Tweet, ...]:
+        return tuple(cls._resolve_tweet(tweet) for tweet in result)
 
-    async def get_bookmarks(self, max_results: int = 20, page: str | None = None) -> TwitterAPIResult:
+    async def get_bookmarks(
+        self, max_results: int = 20, page: str | None = None
+    ) -> TwitterAPIResult:
         if not self._client._user_id:
             await self._login()
         res = await self._client.get_bookmarks(count=max_results, cursor=page)
         return TwitterAPIResult(
             next_page=res.next_cursor,
             previous_page=res.previous_cursor,
-            tweets=tuple(self._resolve_tweets(res))
+            tweets=tuple(self._resolve_tweets(res)),
         )
-    
+
     async def get_tweets(
-        self, 
-        query: str, max_results: int = 20, page: str | None = None,
-        tried: int = 0
+        self, query: str, max_results: int = 20, page: str | None = None, tried: int = 0
     ) -> TwitterAPIResult:
         if not self._client._user_id:
             await self._login()
@@ -581,7 +633,7 @@ class TwikitAPI(TwitterAPI):
             )
         except twikit.errors.NotFound:
             if tried < 3:
-                await asyncio.sleep(3) 
+                await asyncio.sleep(3)
                 return await self.get_tweets(query, max_results, page, tried + 1)
             else:
                 return TwitterAPIResult()
@@ -589,9 +641,9 @@ class TwikitAPI(TwitterAPI):
             return TwitterAPIResult(
                 next_page=res.next_cursor,
                 previous_page=res.previous_cursor,
-                tweets=tuple(self._resolve_tweets(res))
+                tweets=tuple(self._resolve_tweets(res)),
             )
-    
+
     async def _get_a_reply_of(
         self, from_: str, replies: twikit.utils.Result[twikit.Tweet]
     ) -> Tweet | None:
