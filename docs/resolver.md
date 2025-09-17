@@ -1,0 +1,1 @@
+- `text` is a string only includes characters, numbers and punctuation (not includes format info)

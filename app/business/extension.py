@@ -30,11 +30,13 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
         return super().__init_subclass__(**kwargs)
 
     @classmethod
-    def on_start(cls, router: fastapi.APIRouter, config: dict, state: dict):
+    def on_start(cls, app: fastapi.FastAPI, config: dict, state: dict):
         cls.config = cls.__configcls__(**config)
         cls.state = cls.__statecls__(**state)
+
+        router = fastapi.APIRouter(prefix=f"/{cls.__extid__}")
         cls._register_apis(router)
-        cls._register_resolver()
+        app.include_router(router, tags=["extension", cls.__extid__])
 
     @classmethod
     async def on_close(cls):
@@ -45,11 +47,6 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
     @classmethod
     @abc.abstractmethod
     def _register_apis(cls, router: fastapi.APIRouter):
-        ...
-
-    @classmethod
-    @abc.abstractmethod
-    def _register_resolver(cls):
         ...
 
 
@@ -81,17 +78,11 @@ class ExtensionManager:
             extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
             cls.extention_classes.append(extension_class)
 
-            # Start the extension
-            extension_router = fastapi.APIRouter(prefix=f"/{extension.id}")
             extension_class.on_start(
-                router=extension_router,
+                app=app,
                 config=extension.config or {},
                 state=extension.state or {}
             )
-            app.include_router(extension_router, tags=["extension", extension.id])
-
-            # Register resolver
-            extension_class._register_resolver()
 
     @classmethod
     async def close_all(cls):
