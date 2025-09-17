@@ -7,11 +7,16 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
+from app.business.source import SourceManager
+from app.business.extension import ExtensionManager
+from app.business.root import RootManager
+from app.business.sink import SinkManager
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
     from app.task import scheduler
+
     scheduler.start()
     yield
     scheduler.shutdown(wait=True)
@@ -33,13 +38,26 @@ api_app.add_middleware(
 # Set up routes
 api_app.get("/heartbeat")(lambda: {"status": "ok"})
 
-from app.business.source import SourceManager  # noqa: E402
 source_router = fastapi.APIRouter(prefix="/source", tags=["sources"])
-source_router.get("/{source_id}/collect")(SourceManager.run_a_collect)
+root_router = fastapi.APIRouter(tags=["root"])
+sink_router = fastapi.APIRouter(prefix="/sink", tags=["sink"])
+
+source_router.get("/{source_id}/collect")(
+    SourceManager.run_a_collect
+)  # TODO move to business/source.py
+root_router.put("/graph")(RootManager.insert_grpah)
+sink_router.get("/rag")(SinkManager.rag)
+
 api_app.include_router(block_router)
 api_app.include_router(relation_router)
 api_app.include_router(source_router)
+api_app.include_router(root_router)
+api_app.include_router(sink_router)
+
+
 SourceManager.set_up_collect_jobs()
+
+ExtensionManager.start_all(api_app)
 
 
 if __name__ == "__main__":
