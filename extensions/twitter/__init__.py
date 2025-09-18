@@ -2,10 +2,8 @@ import typing
 import sqlmodel
 from typing import Optional as Opt
 from fastapi import APIRouter
-from app.business.extension import ExtensionBase, ExtensionManager
-from app.business.resolver import Resolver
+from app.business.extension import ExtensionBase
 from app.business.source import SourceManager
-from .resolver import TweetResolver
 
 
 class TwitterExtensionConfig(sqlmodel.SQLModel):
@@ -34,6 +32,14 @@ class Extension(
     config_cls=TwitterExtensionConfig,
     state_cls=TwitterExtensionState,
 ):
+    @classmethod
+    def _init_resolvers(cls):
+        from .resolver import TweetResolver
+
+    @classmethod
+    def _init_sources(cls):
+        from .bookmark import Source as BookmarkSource
+
     @classmethod
     async def on_close(cls):
         from .api import TwitterAPI

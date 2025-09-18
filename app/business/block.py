@@ -1,5 +1,6 @@
 __all__ = ["BlockManager"]
 
+import asyncio
 import json
 import typing
 import sqlmodel
@@ -18,6 +19,8 @@ from ..libs.ai import (
 )
 from ..schemas.block import BlockEmbeddingModel, BlockID, BlockModel, ResolverType
 from ..schemas.relation import RelationID, RelationModel
+from ..schemas.root import Vector
+from app.task import scheduler
 
 if typing.TYPE_CHECKING:
     from app.business.resolver import Resolver
@@ -70,10 +73,53 @@ class BlockManager:
             db_session.commit()
             db_session.refresh(block)
 
+        scheduler.add_job(
+            func=cls._upsert_embedding,
+            kwargs={"block_id": block.id},
+        )
+
         return block
 
     @classmethod
-    def fetchsert(cls, block: BlockModel, db_session: sqlmodel.Session) -> BlockModel:
+    async def refresh_embeddings(cls):
+        """Rebuild all blocks' embeddings"""
+        with SessionLocal() as db_session:
+            blocks = db_session.exec(
+                sqlmodel.select(BlockModel).where(
+                    BlockModel.resolver == "learn_english.lexical"
+                )  # FIXME
+            ).all()
+            tasks = tuple(cls._upsert_embedding(block, db_session) for block in blocks)
+            await asyncio.gather(*tasks)
+            db_session.commit()
+
+    @classmethod
+    async def _upsert_embedding(
+        cls, block: BlockModel, db_session: Opt[sqlmodel.Session] = None
+    ) -> BlockEmbeddingModel:
+        """Upsert a block's embedding
+
+        :param block: 块
+        :param db_session: 可选的数据库会话，如果提供则使用该会话；不会提交。
+        """
+        from .resolver import ResolverManager
+
+        resolver = ResolverManager.new_resolver(block)
+        embedding = BlockEmbeddingModel(
+            id=block.id,
+            embedding=Embedding("", "text-embedding-v3").embed(resolver.get_str_for_embedding()),
+        )
+        if db_session:
+            db_session.merge(embedding)
+            return embedding
+        with SessionLocal() as db_session:
+            db_session.merge(embedding)
+            db_session.commit()
+            db_session.refresh(embedding)
+        return embedding
+
+    @classmethod
+    async def fetchsert(cls, block: BlockModel, db_session: sqlmodel.Session) -> BlockModel:
         """Create if not exists, else return the existing one.
 
         Will not commit the session.
@@ -90,6 +136,9 @@ class BlockManager:
         db_session.add(block)
         db_session.flush()
         db_session.refresh(block)
+        # and embedding
+        await cls._upsert_embedding(block, db_session)
+
         return block
 
     @classmethod
@@ -117,13 +166,16 @@ class BlockManager:
     def query_by_embedding(
         cls,
         block_id: Opt[int] = None,
-        embedding: Opt[list[float]] = None,
+        embedding: Opt[Vector] = None,
+        resolver: Opt[ResolverType] = None,
         num: int = 10,
+        max_distance: float = 0.3,
     ) -> tuple[BlockModel, ...]:
         """根据余弦相似度查询块
 
         :param block_id: 用已有块的embedding查询
         :param embedding: 用给定的embedding查询
+        :param resolver: 限定解析器类型, None则不限定
         """
         with SessionLocal() as db_session:
             if block_id is not None:
@@ -139,16 +191,19 @@ class BlockManager:
                     raise ValueError("one of block_id or embedding must be provided")
 
             similar_blocks = db_session.exec(
-                sqlmodel.select(BlockModel, BlockEmbeddingModel)
+                sqlmodel.select(BlockModel)
                 .select_from(BlockModel)
                 .join(BlockEmbeddingModel, BlockEmbeddingModel.id == BlockModel.id)  # type: ignore
+                .where(BlockModel.resolver == resolver if resolver else True)
                 .where(BlockEmbeddingModel.embedding is not None)
                 .where(BlockEmbeddingModel.id != block_id)
-                .order_by(BlockEmbeddingModel.embedding.cosine_distance(base_embedding))  # type: ignore
+                .where(
+                    BlockEmbeddingModel.embedding.cosine_distance(base_embedding) < max_distance  # type: ignore
+                )
                 .limit(num)
             ).all()
 
-        return tuple(similar_blocks)
+        return tuple(similar_blocks)  # type: ignore
 
     @classmethod
     async def iterate_from_block(
@@ -169,9 +224,7 @@ class BlockManager:
             nonlocal depth
 
             relations = db_session.exec(
-                sqlmodel.select(RelationModel).where(
-                    RelationModel.from_ == inner_block_id
-                )
+                sqlmodel.select(RelationModel).where(RelationModel.from_ == inner_block_id)
             ).all()
 
             r_relations.update(relation.id for relation in relations)
@@ -211,18 +264,12 @@ class BlockManager:
                 ).all()
 
                 relations = db_session.exec(
-                    sqlmodel.select(RelationModel).where(
-                        RelationModel.id in body.relations
-                    )
+                    sqlmodel.select(RelationModel).where(RelationModel.id in body.relations)
                 ).all()
 
-            prompt = (
-                "下面有一组块和一组关系，根据关系对块的注释，选出最满足要求的几个块。"
-            )
+            prompt = "下面有一组块和一组关系，根据关系对块的注释，选出最满足要求的几个块。"
             prompt += "块的内容即信息。关系描述块和块之间的联系，是块的动态属性。"
-            prompt += (
-                "关系可以解读为：<to.content>是<from.content>的<relation.content>。"
-            )
+            prompt += "关系可以解读为：<to.content>是<from.content>的<relation.content>。"
             prompt += "务必只返回JSON，格式为整数数组。"
 
             prompt += "## 块\n```csv\n"
@@ -266,9 +313,7 @@ class BlockManager:
         res = []
 
         async def iterate_chat(*block_ids: Opt[BlockID]) -> None:
-            blocks = tuple(
-                cls.get(block_id) for block_id in block_ids if block_id is not None
-            )
+            blocks = tuple(cls.get(block_id) for block_id in block_ids if block_id is not None)
             relation2block: dict[RelationID, BlockID] = {}
 
             graph_tool_res = MessageContent("")
@@ -283,14 +328,10 @@ class BlockManager:
                 for relation in relations:
                     if relation.from_ == block.id:
                         outgoing_relations.append(relation)
-                        relation2block[typing.cast(RelationID, relation.id)] = (
-                            relation.to_
-                        )
+                        relation2block[typing.cast(RelationID, relation.id)] = relation.to_
                     elif relation.to_ == block.id:
                         incoming_relations.append(relation)
-                        relation2block[typing.cast(RelationID, relation.id)] = (
-                            relation.from_
-                        )
+                        relation2block[typing.cast(RelationID, relation.id)] = relation.from_
 
                 graph_tool_res_i = MessageContent(
                     "## 节点{block_id} \n节点内容: {block_content}\n### 出边\n{outgoing_relations}\n### 入边\n{incoming_relations}\n"
@@ -366,5 +407,10 @@ class BlockManager:
             db_session.add(block)
             db_session.commit()
             db_session.refresh(block)
+
+            scheduler.add_job(
+                func=cls._upsert_embedding,
+                kwargs={"block_id": block.id},
+            )
 
         return block

@@ -12,6 +12,9 @@ from openai.types.chat import (
     ChatCompletionToolMessageParam,
 )
 
+if typing.TYPE_CHECKING:
+    from ..schemas.root import Vector
+
 
 # Config
 LLM_SP_AK = os.getenv("LLM_SP_AK", "")
@@ -140,30 +143,28 @@ class Embedding:
         self._provider = provider
         self._model = model
 
-    def embed(self, text: str) -> list[float]:
+    def embed(self, text: str) -> "Vector":
         response = OPENAI_CLIENT.embeddings.create(
             model=self._model, input=text, encoding_format="float"
         )
-        return response.data[0].embedding
+        return tuple(response.data[0].embedding)
 
 
 def get_embeddings(
     text: str,
     model: str = "baai/bge-m3",
     encoding_format: typing.Literal["float", "base64"] = "float",
-):
+) -> "Vector":
     response = OPENAI_CLIENT.embeddings.create(
         model=model, input=text, encoding_format=encoding_format
     )
-    return response.data[0].embedding
+    return tuple(response.data[0].embedding)
 
 
 def one_chat(
     prompt: str | None = None,
     model: str = "deepseek/deepseek-v3-0324",
-    history_messages: list[
-        ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam
-    ]
+    history_messages: list[ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam]
     | None = None,
 ):
     chat_completion_res = OPENAI_CLIENT.chat.completions.create(

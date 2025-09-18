@@ -6,6 +6,9 @@ from app.schemas.block import BlockModel
 from app.schemas.relation import RelationModel
 
 
+Vector: typing.TypeAlias = tuple[float, ...]
+
+
 @dataclasses.dataclass
 class ArcForm:
     """A form for creating a relation, with its to/from block"""

@@ -1,5 +1,3 @@
-
-
 import abc
 import typing
 import fastapi
@@ -10,19 +8,21 @@ from app.engine import SessionLocal
 from app.schemas.extension import ExtensionModel, ExtensionID
 
 
+class EmptyConfig(sqlmodel.SQLModel): ...
+
+
 ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
 StateTV = typing.TypeVar("StateTV", bound=sqlmodel.SQLModel)
+
+
 class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
+    """InKCre Extension base class."""
 
     config: ConfigTV
     state: StateTV
 
     def __init_subclass__(
-        cls,
-        ext_id: ExtensionID,
-        config_cls: type[ConfigTV],
-        state_cls: type[StateTV],
-        **kwargs
+        cls, ext_id: ExtensionID, config_cls: type[ConfigTV], state_cls: type[StateTV], **kwargs
     ) -> None:
         cls.__extid__ = ext_id
         cls.__configcls__ = config_cls
@@ -38,6 +38,15 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
         cls._register_apis(router)
         app.include_router(router, tags=["extension", cls.__extid__])
 
+        cls._init_sources()
+        cls._init_resolvers()
+
+    @classmethod
+    def _init_resolvers(cls): ...
+
+    @classmethod
+    def _init_sources(cls): ...
+
     @classmethod
     async def on_close(cls):
         ExtensionManager.save_config_and_state(
@@ -46,12 +55,10 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
 
     @classmethod
     @abc.abstractmethod
-    def _register_apis(cls, router: fastapi.APIRouter):
-        ...
+    def _register_apis(cls, router: fastapi.APIRouter): ...
 
 
 class ExtensionManager:
-
     extention_classes: list[type[ExtensionBase]] = []
 
     @classmethod
@@ -61,15 +68,16 @@ class ExtensionManager:
 
     @classmethod
     def get_extensions(cls, enabled_only: bool = True) -> tuple[ExtensionModel, ...]:
-        """Get installed extensions.
-        """
+        """Get installed extensions."""
         with SessionLocal() as db:
-            return tuple(db.exec(
-                sqlmodel.select(ExtensionModel).where(
-                    ExtensionModel.disabled == (not enabled_only)
-                )
-            ).all())
-        
+            return tuple(
+                db.exec(
+                    sqlmodel.select(ExtensionModel).where(
+                        ExtensionModel.disabled == (not enabled_only)
+                    )
+                ).all()
+            )
+
     @classmethod
     def start_all(cls, app: fastapi.FastAPI):
         """Start enabled entensions."""
@@ -79,15 +87,13 @@ class ExtensionManager:
             cls.extention_classes.append(extension_class)
 
             extension_class.on_start(
-                app=app,
-                config=extension.config or {},
-                state=extension.state or {}
+                app=app, config=extension.config or {}, state=extension.state or {}
             )
 
     @classmethod
     async def close_all(cls):
         """Close all extensions.
-        
+
         It could involves closes of connections, so asynchronous.
         """
         for extension_class in cls.extention_classes:
@@ -95,9 +101,10 @@ class ExtensionManager:
 
     @classmethod
     def save_config_and_state(
-        cls, ext_id: ExtensionID, 
-        config: Opt[sqlmodel.SQLModel] = None, 
-        state: Opt[sqlmodel.SQLModel] = None
+        cls,
+        ext_id: ExtensionID,
+        config: Opt[sqlmodel.SQLModel] = None,
+        state: Opt[sqlmodel.SQLModel] = None,
     ) -> ExtensionModel:
         with SessionLocal() as db:
             extension_model = db.exec(
@@ -109,5 +116,5 @@ class ExtensionManager:
                 extension_model.state = state.model_dump()
             db.add(extension_model)
             db.commit()
-        
+
         return extension_model

@@ -4,7 +4,10 @@ __all__ = ["ROUTER"]
 
 import fastapi
 import typing
+from typing import Annotated as Anno, Literal as Lit, Optional as Opt
 from app.business.block import BlockManager, BlockModel
+from app.libs.ai import Embedding
+from app.schemas.block import BlockID, ResolverType
 
 ROUTER = fastapi.APIRouter(
     prefix="/blocks",
@@ -43,14 +46,26 @@ def create_block(
     return body
 
 
-@ROUTER.get("/by_embedding")
+@ROUTER.get("/query/by_embedding")
 def query_by_embedding(
-    block_id: int,
+    block_id: Opt[BlockID] = None,
+    query: Opt[str] = None,
+    resolver: Opt[ResolverType] = None,
     num: int = 10,
+    max_distance: float = 0.3,
 ) -> tuple[BlockModel, ...]:
+    embedding = None
+    if not block_id:
+        if query:
+            embedding = Embedding("", "text-embedding-v3").embed(query)
+        else:
+            raise ValueError("Either block_id or query must be provided.")
     return BlockManager.query_by_embedding(
         block_id=block_id,
+        embedding=embedding,
+        resolver=resolver,
         num=num,
+        max_distance=max_distance,
     )
 
 
@@ -74,3 +89,6 @@ def edit_block(
             background_tasks.add_task(BlockManager.organize, updated)
 
         return updated
+
+
+ROUTER.put("/embeddings")(BlockManager.refresh_embeddings)

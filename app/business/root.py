@@ -19,12 +19,12 @@ class RootManager:
 
     # TODO move to routes/base.py
     @classmethod
-    def insert_grpah(
+    async def insert_grpah(
         cls,
         body: StarGraphForm,
     ) -> RootV1InsertGraphResBody:
         with SessionLocal() as db_session:
-            cls.add_star_graph_to_session(body, db_session)
+            await cls.add_star_graph_to_session(body, db_session)
             db_session.commit()
             inserted = cls.get_star_graph_inserted(body, db_session)
         return RootV1InsertGraphResBody(
@@ -33,35 +33,35 @@ class RootManager:
         )
 
     @classmethod
-    def add_star_graph_to_session(
+    async def add_star_graph_to_session(
         cls,
         graph: StarGraphForm,
         db_session: sqlmodel.Session,
     ) -> None:
         if not graph.block.id:
-            graph.block = BlockManager.fetchsert(graph.block, db_session)
+            graph.block = await BlockManager.fetchsert(graph.block, db_session)
 
         if graph.out_relations:
             for relation in graph.out_relations:
                 relation.from_block = StarGraphForm(block=graph.block)
-                cls.add_arc_to_session(relation, db_session)
+                await cls.add_arc_to_session(relation, db_session)
 
         if graph.in_relations:
             for relation in graph.in_relations:
                 relation.to_block = StarGraphForm(block=graph.block)
-                cls.add_arc_to_session(relation, db_session)
+                await cls.add_arc_to_session(relation, db_session)
 
     @classmethod
-    def add_arc_to_session(
+    async def add_arc_to_session(
         cls,
         arc: "ArcForm",
         db_session: sqlmodel.Session,
     ) -> None:
         if arc.to_block:
-            cls.add_star_graph_to_session(arc.to_block, db_session)
+            await cls.add_star_graph_to_session(arc.to_block, db_session)
             arc.relation.to_ = typing.cast(BlockID, arc.to_block.block.id)
         if arc.from_block:
-            cls.add_star_graph_to_session(arc.from_block, db_session)
+            await cls.add_star_graph_to_session(arc.from_block, db_session)
             arc.relation.from_ = typing.cast(BlockID, arc.from_block.block.id)
 
         if not arc.relation.id:
@@ -78,16 +78,12 @@ class RootManager:
         db_session.refresh(form.block)
         if form.out_relations:
             for relation in form.out_relations:
-                ibs, irs = RootManager.get_arc_inserted(
-                    relation, db_session, ignore_from=True
-                )
+                ibs, irs = RootManager.get_arc_inserted(relation, db_session, ignore_from=True)
                 blocks.extend(ibs)
                 relations.extend(irs)
         if form.in_relations:
             for relation in form.in_relations:
-                ibs, irs = RootManager.get_arc_inserted(
-                    relation, db_session, ignore_to=True
-                )
+                ibs, irs = RootManager.get_arc_inserted(relation, db_session, ignore_to=True)
                 blocks.extend(ibs)
                 relations.extend(irs)
         return tuple(blocks), tuple(relations)

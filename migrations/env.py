@@ -20,6 +20,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from app.schemas import Base
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -40,7 +41,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = os.environ.get("DATABASE_URL", "")
+    url = os.environ.get("DB_CONN_STRING", "")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -61,16 +62,14 @@ def run_migrations_online() -> None:
     """
     connectable = engine_from_config(
         {
-            "sqlalchemy.url": os.environ.get("DATABASE_URL", ""),
+            "sqlalchemy.url": os.environ.get("DB_CONN_STRING", ""),
         },
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

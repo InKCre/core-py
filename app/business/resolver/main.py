@@ -2,6 +2,8 @@ import abc
 import typing
 from typing import Optional as Opt
 
+from app.business.storage.main import StorageManager
+
 from ...schemas.root import StarGraphForm
 from ...schemas.block import ResolverType, BlockModel
 from ...schemas.relation import RelationModel
@@ -42,21 +44,23 @@ class Resolver(abc.ABC):
         ResolverManager.register_resolver(cls)
         return super().__init_subclass__(**kwargs)
 
-    def __init__(
-        self, block: BlockModel, relations: Opt[tuple[RelationModel, ...]] = None
-    ):
+    def __init__(self, block: BlockModel, relations: Opt[tuple[RelationModel, ...]] = None):
         """
         :param block: Block to resolve.
         :param relations: Relations of the block.
         """
         self._block = block
         self._relations = relations or tuple()
+        self.__post_init__()
+
+    def __post_init__(self):
+        pass
 
     @classmethod
-    @abc.abstractmethod
+    # @abc.abstractmethod TODO
     def create_brs(cls, *args, **kwargs) -> StarGraphForm: ...
 
-    # @abc.abstractmethod
+    # @abc.abstractmethod TODO
     async def breakdown(self) -> typing.AsyncGenerator[BorRT, BorRT]:
         """Break down the block into smaller blocks and relations.
 
@@ -65,7 +69,11 @@ class Resolver(abc.ABC):
         """
         ...
 
-    @abc.abstractmethod
     async def get_text(self) -> str:
         """Get block content in text format."""
-        ...
+        storage = StorageManager.new_storage(self._block)
+        return storage.get_content()
+
+    def get_str_for_embedding(self) -> str:
+        """Get string representation for embedding generation."""
+        return self._block.content
