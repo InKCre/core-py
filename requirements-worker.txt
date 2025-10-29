@@ -1,0 +1,31 @@
+# Cloudflare Workers optimized requirements
+# This file contains only dependencies that are known to work well with Workers
+
+# Core framework
+pydantic>=2.11.7,<3.0.0
+fastapi>=0.116.1,<0.117.0
+sqlalchemy>=2.0.41,<3.0.0
+
+# HTTP client
+aiohttp>=3.12.14,<4.0.0
+requests>=2.32.4,<3.0.0
+
+# Database - Pure Python driver for Workers compatibility
+psycopg>=3.1.0
+sqlmodel>=0.0.24,<0.0.25
+
+# Note: pgvector may need verification for Workers compatibility
+# pgvector>=0.4.1,<0.5.0
+
+# Text processing
+html2text>=2025.4.15
+
+# AI/ML libraries
+openai>=1.97.1,<2.0.0
+litellm>=1.75.9
+
+# Minimal data processing
+datadot>=1.0.0,<2.0.0
+
+# Note: numpy, psycopg2-binary, tencentcloud-sdk, uvicorn, and apscheduler
+# are excluded due to Workers compatibility issues or being unnecessary

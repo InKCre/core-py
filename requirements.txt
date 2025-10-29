@@ -1,25 +1,33 @@
 # Core dependencies for Cloudflare Workers deployment
 # Generated from pyproject.toml
 
-# NOTE: Some dependencies may not be compatible with Cloudflare Workers
-# due to native extensions or unsupported libraries.
-# Test thoroughly and adjust as needed.
+# NOTE: This file is specifically for Cloudflare Workers deployment.
+# Some dependencies have been modified for Workers compatibility.
+# For traditional deployment, use pyproject.toml with pdm.
 
+# Core framework
 pydantic>=2.11.7,<3.0.0
 fastapi>=0.116.1,<0.117.0
 sqlalchemy>=2.0.41,<3.0.0
-aiohttp>=3.12.14,<4.0.0
 
-# Database drivers - psycopg2-binary may need to be replaced
-# with psycopg (pure Python) for Workers compatibility
+# HTTP client
+aiohttp>=3.12.14,<4.0.0
+requests>=2.32.4,<3.0.0
+
+# Database drivers
+# IMPORTANT: For Cloudflare Workers, use psycopg (pure Python) instead of psycopg2-binary
+# Uncomment one of the following based on your deployment:
+
+# For Cloudflare Workers (pure Python, no C extensions):
+# psycopg>=3.1.0
+
+# For traditional deployment (with C extensions, better performance):
 psycopg2-binary>=2.9.10,<3.0.0
-# Alternative: psycopg>=3.1.0  # Pure Python driver
 
 sqlmodel>=0.0.24,<0.0.25
 pgvector>=0.4.1,<0.5.0
 
-# HTTP and utilities
-requests>=2.32.4,<3.0.0
+# Text processing
 html2text>=2025.4.15
 
 # AI/ML libraries
@@ -27,12 +35,20 @@ openai>=1.97.1,<2.0.0
 litellm>=1.75.9
 
 # Data processing
+# WARNING: numpy has C extensions and may not work in Workers or be slower
+# Consider removing if not essential for your Workers deployment
 numpy>=2.3.2,<3.0.0
 datadot>=1.0.0,<2.0.0
 
-# Tencent Cloud SDK (optional - may not be needed in Workers)
+# Tencent Cloud SDK (optional - remove if not needed)
 tencentcloud-sdk-python-lke>=3.0.1427,<4.0.0
 
-# NOTE: The following are excluded from Workers deployment:
-# - uvicorn (not needed, Workers provide the runtime)
-# - apscheduler (not supported, use Cloudflare Cron Triggers instead)
+# ============================================================================
+# EXCLUDED FROM WORKERS DEPLOYMENT:
+# ============================================================================
+# uvicorn - Not needed; Workers provide the runtime
+# apscheduler - Not supported; use Cloudflare Cron Triggers instead
+#
+# These are handled automatically by the worker.py code which disables
+# scheduler functionality when CF_WORKER=true environment variable is set.
+# ============================================================================

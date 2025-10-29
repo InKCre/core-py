@@ -3,9 +3,8 @@ name = "inkcre-core"
 main = "worker.py"
 compatibility_date = "2024-10-01"
 
-# Python Workers configuration
-[build]
-command = ""
+# Compatibility flags for Python Workers
+compatibility_flags = ["python_workers"]
 
 # Environment variables
 # Note: Set these in Cloudflare dashboard or via wrangler secret
@@ -25,7 +24,3 @@ command = ""
 # Workers AI bindings (if using AI features)
 # [ai]
 # binding = "AI"
-
-# Compatibility flags for Python Workers
-[compatibility_flags]
-python_workers = true

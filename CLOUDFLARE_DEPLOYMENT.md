@@ -13,7 +13,22 @@ This guide explains how to deploy the InKCre Core application to Cloudflare Work
 
 ## Setup Steps
 
-### 1. Configure Hyperdrive
+### 1. Prepare Dependencies
+
+Cloudflare Workers requires specific dependency configuration:
+
+```bash
+# Use the Workers-optimized requirements file
+cp requirements-worker.txt requirements.txt
+
+# Or manually ensure you're using psycopg instead of psycopg2-binary
+# Edit requirements.txt and replace:
+# psycopg2-binary>=2.9.10,<3.0.0
+# with:
+# psycopg>=3.1.0
+```
+
+### 2. Configure Hyperdrive
 
 Create a Hyperdrive configuration for your PostgreSQL database:
 
@@ -24,7 +39,7 @@ wrangler hyperdrive create inkcre-db \
 
 Note the Hyperdrive ID from the output. You'll need it for the connection string.
 
-### 2. Update wrangler.toml
+### 3. Update wrangler.toml
 
 Edit `wrangler.toml` and uncomment the Hyperdrive binding section, adding your Hyperdrive ID:
 
@@ -34,7 +49,7 @@ binding = "HYPERDRIVE"
 id = "<your-hyperdrive-id-here>"
 ```
 
-### 3. Set Environment Variables
+### 4. Set Environment Variables
 
 Set the database connection string using the Hyperdrive local endpoint:
 
@@ -50,9 +65,7 @@ wrangler secret put CF_WORKER
 
 You can also configure other environment variables as needed (OpenAI API keys, etc.).
 
-### 4. Deploy to Cloudflare Workers
-
-Deploy the application:
+### 5. Deploy to Cloudflare Workers
 
 ```bash
 wrangler deploy
