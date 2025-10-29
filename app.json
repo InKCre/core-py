@@ -1,0 +1,30 @@
+{
+  "name": "InKCre Core",
+  "description": "Backend of InKCre - an information base to collect and organize information automatically",
+  "repository": "https://github.com/InKCre/core-py",
+  "keywords": ["python", "fastapi", "postgresql", "api"],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "env": {
+    "DB_CONN_STRING": {
+      "description": "PostgreSQL database connection string",
+      "value": "postgresql://user:password@host:port/database",
+      "required": true
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:essential-0",
+      "as": "DATABASE"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}
