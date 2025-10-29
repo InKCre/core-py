@@ -42,10 +42,10 @@ def get_database_url() -> str:
 DB_CONN_STRING = get_database_url()
 
 
-# Create engine - use a dummy URL if DB_CONN_STRING is empty to allow importing during tests
-# In production, DB_CONN_STRING should always be set
+# Create engine - use SQLite in-memory database if DB_CONN_STRING is empty
+# to allow importing during tests. In production, DB_CONN_STRING should always be set
 SQLDB_ENGINE = sqlmodel.create_engine(
-    url=DB_CONN_STRING or "postgresql://localhost/dummy",
+    url=DB_CONN_STRING or "sqlite:///:memory:",
     pool_pre_ping=True
 )
 
