@@ -1,0 +1,74 @@
+# Cloudflare Workers deployment ignore file
+# Excludes files that shouldn't be uploaded to Workers
+
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+
+# Virtual environments
+venv
+env
+.venv
+ENV
+env.bak
+venv.bak
+
+# PDM
+.pdm.toml
+.pdm-python
+__pypackages__
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+.tox
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Documentation
+docs/
+*.md
+!CLOUDFLARE_DEPLOYMENT.md
+
+# Development files
+.env
+.env.local
+.env.*
+*.log
+
+# Database migrations (run separately, not in Workers)
+migrations/
+alembic.ini
+
+# Tests
+tests/
+test_*.py
+*_test.py
+
+# Local data
+data/
+
+# Build artifacts
+*.lock
+pdm.lock
+
+# Other
+.DS_Store
+Thumbs.db
