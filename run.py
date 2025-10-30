@@ -1,7 +1,6 @@
 """Run API Service."""
 
 import contextlib
-import typing
 import fastapi
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,19 +10,29 @@ from app.business.source import SourceManager
 from app.business.extension import ExtensionManager
 from app.business.root import RootManager
 from app.business.sink import SinkManager
+from app.logging_config import setup_logging
+from app.middleware import LoggingMiddleware
+
+# Setup logging
+logger = setup_logging()
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
     from app.task import scheduler
 
+    logger.info("Application startup")
     scheduler.start()
     yield
+    logger.info("Application shutdown")
     scheduler.shutdown(wait=True)
     await ExtensionManager.close_all()
 
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
+
+# 添加日志中间件
+api_app.add_middleware(LoggingMiddleware)
 
 # 添加CORS中间件以支持跨域请求
 api_app.add_middleware(

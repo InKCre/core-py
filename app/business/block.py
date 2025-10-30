@@ -6,6 +6,7 @@ import typing
 import sqlmodel
 from typing import Optional as Opt
 from app.business.relation import RelationManager
+from app.logging_config import get_logger
 from utils.types_ import Undefined, _undefined
 from ..engine import SessionLocal
 from ..libs.ai import (
@@ -24,6 +25,8 @@ from app.task import scheduler
 
 if typing.TYPE_CHECKING:
     from app.business.resolver import Resolver
+
+logger = get_logger()
 
 
 class BlockManager:
@@ -68,10 +71,23 @@ class BlockManager:
 
     @classmethod
     def create(cls, block: BlockModel) -> BlockModel:
+        logger.info(
+            "Creating block",
+            extra={
+                "resolver": block.resolver,
+                "storage": block.storage,
+                "content_length": len(block.content) if block.content else 0,
+            }
+        )
         with SessionLocal() as db_session:
             db_session.add(block)
             db_session.commit()
             db_session.refresh(block)
+
+        logger.info(
+            "Block created successfully",
+            extra={"block_id": block.id, "resolver": block.resolver}
+        )
 
         scheduler.add_job(
             func=cls._upsert_embedding,
@@ -132,7 +148,16 @@ class BlockManager:
             )
         ).one_or_none()
         if existing is not None:
+            logger.debug(
+                "Block already exists, returning existing",
+                extra={"block_id": existing.id, "resolver": existing.resolver}
+            )
             return existing
+        
+        logger.info(
+            "Creating new block via fetchsert",
+            extra={"resolver": block.resolver, "storage": block.storage}
+        )
         db_session.add(block)
         db_session.flush()
         db_session.refresh(block)
@@ -390,11 +415,13 @@ class BlockManager:
         storage: Opt[str] | Undefined = _undefined,
     ) -> BlockModel:
         """编辑块"""
+        logger.info("Editing block", extra={"block_id": block_id})
         with SessionLocal() as db_session:
             block = db_session.exec(
                 sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
             ).one_or_none()
             if block is None:
+                logger.warning("Block not found for editing", extra={"block_id": block_id})
                 raise ValueError("Block not found")
 
             if content is not None:
@@ -407,6 +434,8 @@ class BlockManager:
             db_session.add(block)
             db_session.commit()
             db_session.refresh(block)
+
+            logger.info("Block edited successfully", extra={"block_id": block.id})
 
             scheduler.add_job(
                 func=cls._upsert_embedding,
