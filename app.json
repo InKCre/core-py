@@ -9,11 +9,6 @@
     }
   ],
   "env": {
-    "DB_CONN_STRING": {
-      "description": "PostgreSQL database connection string",
-      "value": "postgresql://user:password@host:port/database",
-      "required": true
-    }
   },
   "addons": [
     {

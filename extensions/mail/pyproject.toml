@@ -1,0 +1,15 @@
+[project]
+name = "inkcre-ext-mail"
+version = "0.1.0"
+description = "Mail extension for InKCre - provides IMAP email source"
+authors = [
+    {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"},
+]
+dependencies = []
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
