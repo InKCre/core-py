@@ -120,14 +120,14 @@ class ExtensionManager:
         return extension_model
 
     @classmethod
-    def update_config(cls, ext_id: ExtensionID, config: dict) -> Opt[dict]:
+    def update_config(cls, extension_id: ExtensionID, config: dict) -> Opt[dict]:
         """Update extension config with a dict.
         
         Returns the updated config, or None if extension not found.
         """
         with SessionLocal() as db:
             extension_model = db.exec(
-                sqlmodel.select(ExtensionModel).where(ExtensionModel.id == ext_id)
+                sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extension_id)
             ).first()
             
             if not extension_model:

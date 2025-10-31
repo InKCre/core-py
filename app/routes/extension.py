@@ -4,6 +4,7 @@ __all__ = ["ROUTER"]
 
 import fastapi
 import sqlmodel
+from app.business.extension import ExtensionManager
 from app.schemas.extension import ExtensionModel, ExtensionID
 from app.engine import SessionLocal
 
@@ -50,8 +51,6 @@ def update_extension_config(
     config: dict
 ) -> dict:
     """编辑插件配置 (Edit extension configuration)"""
-    from app.business.extension import ExtensionManager
-    
     updated_config = ExtensionManager.update_config(extension_id, config)
     
     if updated_config is None:
@@ -60,4 +59,4 @@ def update_extension_config(
             detail=f"Extension with id {extension_id} not found."
         )
     
-    return updated_config or {}
+    return updated_config
