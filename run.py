@@ -6,6 +6,7 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
+from app.routes.extension import ROUTER as extension_router
 from app.business.source import SourceManager
 from app.business.extension import ExtensionManager
 from app.business.root import RootManager
@@ -59,6 +60,7 @@ sink_router.get("/rag")(SinkManager.rag)
 
 api_app.include_router(block_router)
 api_app.include_router(relation_router)
+api_app.include_router(extension_router)
 api_app.include_router(source_router)
 api_app.include_router(root_router)
 api_app.include_router(sink_router)
