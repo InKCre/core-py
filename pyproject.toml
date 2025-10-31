@@ -25,6 +25,7 @@ dependencies = [
     "litellm>=1.75.9",
     "html2text>=2025.4.15",
     "logtail-python>=0.3.0",
+    "python-telegram-bot>=21.10.0",
 ]
 
 [dependency-groups]
