@@ -50,23 +50,14 @@ def update_extension_config(
     config: dict
 ) -> dict:
     """编辑插件配置 (Edit extension configuration)"""
-    with SessionLocal() as db:
-        # Get the extension
-        extension = db.exec(
-            sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extension_id)
-        ).first()
-        
-        if not extension:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_404_NOT_FOUND,
-                detail=f"Extension with id {extension_id} not found."
-            )
-        
-        # Update config
-        extension.config = config
-        db.add(extension)
-        db.commit()
-        db.refresh(extension)
-        
-        # Return the updated config
-        return extension.config or {}
+    from app.business.extension import ExtensionManager
+    
+    updated_config = ExtensionManager.update_config(extension_id, config)
+    
+    if updated_config is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail=f"Extension with id {extension_id} not found."
+        )
+    
+    return updated_config or {}

@@ -118,3 +118,24 @@ class ExtensionManager:
             db.commit()
 
         return extension_model
+
+    @classmethod
+    def update_config(cls, ext_id: ExtensionID, config: dict) -> Opt[dict]:
+        """Update extension config with a dict.
+        
+        Returns the updated config, or None if extension not found.
+        """
+        with SessionLocal() as db:
+            extension_model = db.exec(
+                sqlmodel.select(ExtensionModel).where(ExtensionModel.id == ext_id)
+            ).first()
+            
+            if not extension_model:
+                return None
+            
+            extension_model.config = config
+            db.add(extension_model)
+            db.commit()
+            db.refresh(extension_model)
+            
+            return extension_model.config
