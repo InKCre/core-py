@@ -1,6 +1,5 @@
 """Tests for telegram extension."""
 
-import sys
 import os
 
 # Set a dummy database connection string to avoid engine creation error

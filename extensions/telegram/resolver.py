@@ -6,7 +6,9 @@ from app.schemas.root import StarGraphForm
 from .schema import TelegramMessage
 
 
-class TelegramMessageResolver(Resolver, rso_type="extensions.telegram.resolver.TelegramMessageResolver"):
+class TelegramMessageResolver(
+    Resolver, rso_type="extensions.telegram.resolver.TelegramMessageResolver"
+):
     """Resolver for Telegram message blocks."""
 
     def __post_init__(self):
@@ -40,7 +42,11 @@ class TelegramMessageResolver(Resolver, rso_type="extensions.telegram.resolver.T
         
         # Fallback to sender info and media type
         sender = self.content.from_user
-        sender_info = f"From: @{sender.username}" if sender and sender.username else "From: Unknown"
+        sender_info = (
+            f"From: @{sender.username}"
+            if sender and sender.username
+            else "From: Unknown"
+        )
         if self.content.has_media:
             return f"{sender_info} (sent {self.content.media_type or 'media'})"
         return f"{sender_info} (empty message)"
@@ -55,7 +61,10 @@ class TelegramMessageResolver(Resolver, rso_type="extensions.telegram.resolver.T
         # Add sender information
         if self.content.from_user:
             if self.content.from_user.username:
-                parts.append(f"From: @{self.content.from_user.username} ({self.content.from_user.first_name})")
+                parts.append(
+                    f"From: @{self.content.from_user.username} "
+                    f"({self.content.from_user.first_name})"
+                )
             else:
                 parts.append(f"From: {self.content.from_user.first_name}")
         

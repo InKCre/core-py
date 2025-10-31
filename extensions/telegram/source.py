@@ -2,9 +2,8 @@
 
 import asyncio
 import typing
-from datetime import datetime
 from typing import Optional as Opt
-from telegram import Update, Bot
+from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from app.business.source import SourceBase
 from app.schemas.root import StarGraphForm
@@ -99,7 +98,9 @@ class Source(SourceBase):
             text=message.text,
             caption=caption,
             forward_from=forward_from,
-            reply_to_message_id=message.reply_to_message.message_id if message.reply_to_message else None,
+            reply_to_message_id=(
+                message.reply_to_message.message_id if message.reply_to_message else None
+            ),
             has_media=has_media,
             media_type=media_type
         )
