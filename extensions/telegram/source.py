@@ -13,7 +13,12 @@ from .schema import TelegramMessage, TelegramUser, TelegramChat
 
 
 class Source(SourceBase):
-    """Telegram Source - collects messages sent to the configured Telegram bot."""
+    """Telegram Source - collects messages sent to the configured Telegram bot.
+    
+    Note: This source uses class-level state for the Telegram application and message
+    collection. Only one collection run should be active at a time. Running multiple
+    concurrent collections may cause race conditions.
+    """
 
     _app: Opt[Application] = None
     _collected_messages: list[TelegramMessage] = []
@@ -107,9 +112,6 @@ class Source(SourceBase):
         
         # Store the message
         cls._collected_messages.append(telegram_msg)
-        
-        # Update last message ID in state
-        Extension.state.last_message_id = message.message_id
 
     async def _collect(  # type: ignore[override]
         self, full: bool = False
@@ -167,6 +169,10 @@ class Source(SourceBase):
                     ),
                     out_relations=()
                 )
+            
+            # Update last message ID in state after successful collection
+            if Source._collected_messages:
+                Extension.state.last_message_id = Source._collected_messages[-1].message_id
         
         finally:
             Source._collecting = False
@@ -177,7 +183,8 @@ class Source(SourceBase):
                         await Source._app.updater.stop()
                         await Source._app.stop()
                     await Source._app.shutdown()
-                except Exception:
+                except (RuntimeError, TimeoutError) as e:
+                    # Expected errors during cleanup can be safely ignored
                     pass
 
     async def _organize(self, block_id: BlockID) -> None:
