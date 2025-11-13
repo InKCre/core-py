@@ -1,0 +1,17 @@
+<file_path>
+core-py\.pre-commit-config.yaml
+</file_path>
+
+<edit_description>
+Create pre-commit configuration file to run PDM export before commit
+</edit_description>
+
+repos:
+- repo: local
+  hooks:
+  - id: export-requirements
+    name: Export requirements.txt
+    entry: pdm export -o requirements.txt --prod
+    language: system
+    pass_filenames: false
+    files: ^$

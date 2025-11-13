@@ -30,29 +30,16 @@ heroku create your-app-name
 
 ### 2. Add PostgreSQL Database
 
+You can create a new Heroku PostgreSQL add-on attached to the app by:
 ```bash
-heroku addons:create heroku-postgresql:essential-0
+heroku addons:create heroku-postgresql:standard-0 -a ${YOUR_APP_NAME}
 ```
-
-This will automatically set the `DATABASE_URL` environment variable.
 
 ### 3. Set Environment Variables
 
-The application requires the `DB_CONN_STRING` environment variable. You can set it to use the Heroku PostgreSQL database:
+The application use the `DB_CONN_STRING` or `DATABASE_URL`  environment variable to connect to the database. 
 
-```bash
-# Get the DATABASE_URL
-heroku config:get DATABASE_URL
-
-# Set DB_CONN_STRING (you can use the same value as DATABASE_URL)
-heroku config:set DB_CONN_STRING=$(heroku config:get DATABASE_URL)
-```
-
-If you have other environment variables needed by the application, set them now:
-
-```bash
-heroku config:set VARIABLE_NAME=value
-```
+If you are using Heroku PostgreSQL add-on, `DATABASE_URL` will be automatically configured.
 
 ### 4. Deploy the Application
 

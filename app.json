@@ -8,8 +8,7 @@
       "url": "heroku/python"
     }
   ],
-  "env": {
-  },
+  "env": {},
   "addons": [
     {
       "plan": "heroku-postgresql:essential-0",
