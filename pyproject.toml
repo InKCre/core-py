@@ -26,15 +26,15 @@ dependencies = [
     "html2text>=2025.4.15",
     "logtail-python>=0.3.0",
     "python-telegram-bot>=21.10.0",
+    "alembic>=1.16.4",
+    "alembic-utils>=0.8.8",
+    "alembic-postgresql-enum>=1.8.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
     "python-dotenv>=1.1.1",
-    "alembic>=1.16.4",
-    "alembic-utils>=0.8.8",
-    "alembic-postgresql-enum>=1.8.0",
     "pre-commit",
 ]
 
