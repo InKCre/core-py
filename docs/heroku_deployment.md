@@ -1,6 +1,6 @@
 # Heroku Deployment Guide
 
-This guide explains how to deploy the InKCre Core application to Heroku.
+This guide explains how to deploy the InKCre Core to Heroku.
 
 ## Prerequisites
 
@@ -34,6 +34,8 @@ You can create a new Heroku PostgreSQL add-on attached to the app by:
 ```bash
 heroku addons:create heroku-postgresql:standard-0 -a ${YOUR_APP_NAME}
 ```
+
+> It's recommended to use `standard-x` plan but not `essential-x` plan since `esstential` level does not support multiple credentials which make PostgREST not possible. 
 
 ### 3. Set Environment Variables
 
@@ -75,6 +77,28 @@ Or check the heartbeat endpoint:
 curl https://your-app-name.herokuapp.com/heartbeat
 ```
 
+## Additional Features
+
+### Logtail (Better Stack)
+
+### PostgREST
+
+Read [Deploy PostgREST on Heroku](https://docs.postgrest.org/en/v11/integrations/heroku.html).
+
+Note:
+- create `anonymous` credential instead of `api_user`.
+- create `authenticated` credential and attach to your PostgREST Heroku app also.
+
+Run following SQL commands using default credential:
+
+```sql
+GRANT usage on schema public to authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+
+-- For future tables in schema public
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
+```
+
 ## Files Added for Heroku Deployment
 
 ### Procfile
@@ -82,11 +106,13 @@ Defines how Heroku runs the application:
 - `release`: Runs database migrations before deploying
 - `web`: Starts the uvicorn server
 
-### runtime.txt
-Specifies the Python version (3.12.3)
+### .python-version
+Specifies the Python version.
 
 ### requirements.txt
-Lists all Python dependencies. Generated from `pyproject.toml`.
+Lists all Python dependencies. Generated from `pyproject.toml` using `pdm export -o requirements.txt --prod`.
+
+Normally, git hooks will export the requirements.txt file.
 
 ### app.json
 Configuration for one-click deployment, including:
@@ -116,46 +142,7 @@ heroku logs --tail
 heroku logs --source=release --tail
 ```
 
-## Troubleshooting
-
-### Database Connection Issues
-
-If you have database connection issues, verify the `DB_CONN_STRING` is set correctly:
-
-```bash
-heroku config:get DB_CONN_STRING
-```
-
-### Migration Issues
-
-Check the release phase logs:
-
-```bash
-heroku logs --source=release
-```
-
-### Application Crashes
-
-Check the application logs:
-
-```bash
-heroku logs --tail --dyno=web
-```
-
-## Environment Variables
-
-The application uses the following environment variables:
-
-- `DB_CONN_STRING` (required): PostgreSQL connection string
-- `PORT` (auto-set by Heroku): Port the application listens on
-
-Add any additional environment variables your application needs using:
-
-```bash
-heroku config:set VARIABLE_NAME=value
-```
-
-## Resources
+## References
 
 - [Heroku Python Documentation](https://devcenter.heroku.com/categories/python-support)
 - [Heroku PostgreSQL Documentation](https://devcenter.heroku.com/articles/heroku-postgresql)
@@ -164,5 +151,3 @@ heroku config:set VARIABLE_NAME=value
 ## Notes
 
 - The application uses PostgreSQL with pgvector extension. Ensure your Heroku PostgreSQL plan supports extensions.
-- The free tier of Heroku PostgreSQL has been discontinued. The minimum plan is `essential-0`.
-- Consider using a higher-tier plan for production workloads.
