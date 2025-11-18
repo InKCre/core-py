@@ -1,0 +1,19 @@
+[project]
+name = "inkcre-ext-telegram"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Lanzhijiang", email = "lanzhijiang@foxmail.com"},
+]
+dependencies = []
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[inkcre-ext]
+id = "telegram"
+nickname = "Telegram"

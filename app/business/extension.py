@@ -3,6 +3,8 @@ import typing
 import fastapi
 import sqlmodel
 import importlib
+import os
+import tomllib
 from typing import Optional as Opt
 from app.engine import SessionLocal
 from app.schemas.extension import ExtensionModel, ExtensionID
@@ -122,20 +124,62 @@ class ExtensionManager:
     @classmethod
     def update_config(cls, extension_id: ExtensionID, config: dict) -> Opt[dict]:
         """Update extension config with a dict.
-        
+
         Returns the updated config, or None if extension not found.
         """
         with SessionLocal() as db:
             extension_model = db.exec(
                 sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extension_id)
             ).first()
-            
+
             if not extension_model:
                 return None
-            
+
             extension_model.config = config
             db.add(extension_model)
             db.commit()
             db.refresh(extension_model)
-            
+
             return extension_model.config
+
+    @classmethod
+    def check_installed(cls):
+        """Check and record all installed extensions in the database."""
+        extensions_dir = "extensions"
+        if not os.path.exists(extensions_dir):
+            return
+        with SessionLocal() as db:
+            for item in os.listdir(extensions_dir):
+                ext_path = os.path.join(extensions_dir, item)
+                if os.path.isdir(ext_path):
+                    pyproject_path = os.path.join(ext_path, "pyproject.toml")
+                    if not os.path.exists(pyproject_path):
+                        continue
+                    ext_id = item  # Folder name is the extension ID
+                    try:
+                        with open(pyproject_path, "rb") as f:
+                            data = tomllib.load(f)
+                        inkcre_ext = data.get("inkcre-ext", {})
+                        nickname = inkcre_ext.get("nickname", None)
+                        version = data.get("project", {}).get("version", "0.1.0")
+                    except Exception:
+                        # Skip invalid pyproject.toml
+                        continue
+                    existing = db.exec(
+                        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == ext_id)
+                    ).first()
+                    if existing:
+                        existing.version = version
+                        existing.nickname = nickname
+                        db.add(existing)
+                    else:
+                        new_ext = ExtensionModel(
+                            id=ext_id,
+                            version=version,
+                            nickname=nickname,
+                            config={},
+                            state={},
+                            disabled=True,
+                        )
+                        db.add(new_ext)
+            db.commit()

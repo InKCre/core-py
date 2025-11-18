@@ -13,3 +13,7 @@ license = {text = "MIT"}
 
 [tool.pdm]
 distribution = false
+
+[inkcre-ext]
+id = "mail"
+nickname = "Mail"

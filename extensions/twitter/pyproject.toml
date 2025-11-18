@@ -1,7 +1,7 @@
 [project]
 name = "inkcre-ext-twitter"
 version = "0.1.0"
-description = "Default template for PDM package"
+description = "InKCre extension of Twitter"
 authors = [
     {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"},
 ]
@@ -13,3 +13,7 @@ license = {text = "MIT"}
 
 [tool.pdm]
 distribution = false
+
+[inkcre-ext]
+id = "twitter"
+nickname = "Twitter"

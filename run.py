@@ -69,6 +69,7 @@ api_app.include_router(sink_router)
 
 SourceManager.set_up_collect_jobs()
 
+ExtensionManager.check_installed()
 ExtensionManager.start_all(api_app)
 
 

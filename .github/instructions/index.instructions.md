@@ -14,22 +14,16 @@ This is a Python project. Aim to build an information base to collect, organize 
 - Alembic for database migration management.
 - Pip and `pyproject.toml` for package management.
 
-## File Structure
+## File Structure (Only Curcial Parts)
 
-- run.py
-- pyproject.toml
-- .env.example
+- run.py : include routes and launch app
 - app/
   - business/
-  - schemas/
+  - routes/
+  - schemas/ : tables and data models
   - libs/
   - utils/
   - engine.py
-- extentions/
-- data/
-  - extensions/
+- extensions/ : installed extensions (built-in maintained here)
 - migrations/
-  - alemibc.ini
-  - env.py
-  - versions/
 
