@@ -10,29 +10,21 @@ from alembic import context
 def get_database_url() -> str:
     """
     Get database URL from environment variables.
-    
+
     Heroku provides DATABASE_URL with 'postgres://' scheme, but SQLAlchemy 2.0+
     requires 'postgresql://' scheme. This function handles the conversion.
-    
-    Priority:
-    1. DB_CONN_STRING (if set)
-    2. DATABASE_URL (from Heroku, with scheme normalization)
-    
+
     Returns:
         Database connection URL string
     """
-    # First try DB_CONN_STRING (for backward compatibility)
-    db_url = os.getenv("DB_CONN_STRING", "")
-    
-    # If DB_CONN_STRING is not set, use DATABASE_URL (Heroku default)
-    if not db_url:
-        db_url = os.getenv("DATABASE_URL", "")
-    
+    db_url = os.getenv("DATABASE_URL", "")
+
     # Convert postgres:// to postgresql:// for SQLAlchemy 2.0+ compatibility
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
-    
+
     return db_url
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

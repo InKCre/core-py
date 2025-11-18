@@ -3,6 +3,7 @@
 import contextlib
 import fastapi
 import uvicorn
+import os
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
@@ -72,4 +73,6 @@ ExtensionManager.start_all(api_app)
 
 
 if __name__ == "__main__":
-    uvicorn.run(api_app, host="0.0.0.0", port=8000)
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(api_app, host=host, port=port)

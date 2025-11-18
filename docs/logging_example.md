@@ -231,7 +231,7 @@ Create a `.env` file in your project root:
 
 ```bash
 # Database
-DB_CONN_STRING=postgresql://user:pass@localhost:5432/inkcre
+DATABASE_URL=postgresql://user:pass@localhost:5432/inkcre
 
 # Better Stack Logging (optional)
 LOGTAIL_SOURCE_TOKEN=your_source_token_here

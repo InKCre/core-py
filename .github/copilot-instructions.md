@@ -5,7 +5,7 @@
 - 项目入口：`run.py`（定义了 FastAPI `api_app`，并在模块直接运行时使用 `uvicorn.run`）。在开发时常用命令：
 
   - 启动（虚拟环境存在情况下）：`python -m uvicorn run:api_app --reload` 或使用 PDM：`pdm run uvicorn run:api_app --reload`
-  - 关键环境变量：`DB_CONN_STRING`（用于 `app/engine.py` 中的 `create_engine`）。
+  - 关键环境变量：`DATABASE_URL`（用于 `app/engine.py` 中的 `create_engine`）。
 
 - 架构总览（大致）：
 
@@ -23,7 +23,7 @@
 
 - 交互点与外部依赖（可在 `pyproject.toml` 中查到）：
 
-  - 数据库：Postgres（通过 `psycopg2-binary` 和 `sqlmodel`），连接由 `DB_CONN_STRING` 环境变量提供。
+  - 数据库：Postgres（通过 `psycopg2-binary` 和 `sqlmodel`），连接由 `DATABASE_URL` 环境变量提供。
   - 模型/LLM：依赖 `openai`, `litellm`（注意：具体调用点分散在业务层与 libs）。
   - 网络/抓取：`aiohttp`, `requests`, `html2text`（在 `app/business/resolver/webpage.py` 中使用 `html2text` 转换 HTML 到文本）。
 
@@ -35,7 +35,7 @@
 
 - 参考文件（优先阅读顺序）：
   1. `run.py` — 服务入口与 lifecycle（了解启动流程、CORS 与扩展注册）
-  2. `app/engine.py` — DB session 与 `DB_CONN_STRING` 环境变量
+  2. `app/engine.py` — DB session 与 `DATABASE_URL` 环境变量
   3. `app/business/root.py` — 核心的“星形图”插入逻辑，展示 Manager/Session 使用模式
   4. `app/business/resolver/webpage.py` — Resolver 模式的最小示例
   5. `app/business/extension.py` + `extensions/` — 扩展加载与第三方集成示例

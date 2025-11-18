@@ -39,7 +39,7 @@ heroku addons:create heroku-postgresql:standard-0 -a ${YOUR_APP_NAME}
 
 ### 3. Set Environment Variables
 
-The application use the `DB_CONN_STRING` or `DATABASE_URL`  environment variable to connect to the database. 
+The application uses the `DATABASE_URL` environment variable to connect to the database. 
 
 If you are using Heroku PostgreSQL add-on, `DATABASE_URL` will be automatically configured.
 
