@@ -13,7 +13,7 @@ from app.business.extension import ExtensionManager
 from app.business.root import RootManager
 from app.business.sink import SinkManager
 from app.logging_config import setup_logging
-from app.middleware import LoggingMiddleware
+from app.middleware import LoggingMiddleware, JWTMiddleware
 
 # Setup logging
 logger = setup_logging()
@@ -35,6 +35,9 @@ api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
 
 # 添加日志中间件
 api_app.add_middleware(LoggingMiddleware)
+
+# 添加JWT认证中间件
+api_app.add_middleware(JWTMiddleware)
 
 # 添加CORS中间件以支持跨域请求
 api_app.add_middleware(

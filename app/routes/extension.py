@@ -3,60 +3,52 @@
 __all__ = ["ROUTER"]
 
 import fastapi
-import sqlmodel
 from app.business.extension import ExtensionManager
 from app.schemas.extension import ExtensionModel, ExtensionID
-from app.engine import SessionLocal
 
 ROUTER = fastapi.APIRouter(
     prefix="/extensions",
-    tags=["extension", "插件"],
+    tags=["extension"],
 )
 
 
-@ROUTER.post("/{extension_id}")
-def install_extension(extension_id: ExtensionID) -> ExtensionModel:
+@ROUTER.get("")
+def get_extensions() -> tuple[ExtensionModel, ...]:
+    """List all installed extensions"""
+    return ExtensionManager.get_installed(disabled=None)
+
+
+@ROUTER.post("/{extid}")
+def install_extension(
+    extid: ExtensionID,
+    disabled: bool = fastapi.Query(default=False),
+    version: str | None = fastapi.Query(default=None),
+) -> ExtensionModel:
     """安装插件 (Install extension)"""
-    with SessionLocal() as db:
-        # Check if extension already exists
-        existing = db.exec(
-            sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extension_id)
-        ).first()
-        
-        if existing:
-            # If already installed, return the existing extension
-            return existing
-        
-        # Create new extension record
-        # Default version format as shown in the spec: (0,1,0)
-        extension = ExtensionModel(
-            id=extension_id,
-            version="(0,1,0)",
-            disabled=False,
-            nickname=extension_id,  # Use id as default nickname
-            config={},
-            state={}
-        )
-        
-        db.add(extension)
-        db.commit()
-        db.refresh(extension)
-        
-        return extension
+    return ExtensionManager.install(extid, version=version)
 
 
-@ROUTER.put("/{extension_id}/config")
-def update_extension_config(
-    extension_id: ExtensionID,
-    config: dict
-) -> dict:
-    """编辑插件配置 (Edit extension configuration)"""
-    updated_config = ExtensionManager.update_config(extension_id, config)
-    
-    if updated_config is None:
+@ROUTER.put("/{extid}/disabled/{disabled}")
+def enable_extension(extid: ExtensionID, disabled: bool) -> ExtensionModel:
+    """启用/禁用插件 (Enable/Disable extension)"""
+    try:
+        return ExtensionManager.set_disabled(extid, disabled)
+    except ValueError:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND,
-            detail=f"Extension with id {extension_id} not found."
+            detail=f"Extension with id {extid} not found.",
         )
-    
-    return updated_config
+
+
+@ROUTER.put("/{extid}/config")
+def update_extension_config(extid: ExtensionID, config: dict) -> ExtensionModel:
+    """编辑插件配置 (Edit extension configuration)"""
+    updated = ExtensionManager.save_config_and_state(extid, config)
+
+    if updated is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail=f"Extension with id {extid} not found.",
+        )
+
+    return updated

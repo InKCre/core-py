@@ -1,17 +1,10 @@
-line-length = 98
+line-length = 92
+indent-width = 4
+
+[format]
+indent-style = "space"
 
 [lint]
-# Start with a base of common rules and then add specifics.
-# E: pycodestyle errors
-# F: Pyflakes
-# B: flake8-bugbear
-# S: flake8-bandit (security)
-# UP: pyupgrade
-# SIM: flake8-simplify
-# I: isort (import sorting)
-# PL: Pylint
-# D: pydocstyle
-# RUF: Ruff-specific rules
 select = [
     "E501",  # line length limit
     "F821",  # undefined-name
@@ -27,13 +20,6 @@ select = [
     "S603",  # subprocess-without-shell-equals-true (Bandit)
 
     "F401",  # unused-import
-    # "E501",  # line-too-long
-
-    # Pydocstyle rules for documenting public API
-    # "D100",  # Missing docstring in public module
-    # "D101",  # Missing docstring in public class
-    # "D102",  # Missing docstring in public method
-    # "D103",  # Missing docstring in public function
 
     "PLR0913", # too-many-arguments (Pylint)
 
@@ -45,15 +31,5 @@ select = [
     "RUF100", # unused-noqa
 ]
 
-# Optional: If you want to enable all rules from certain categories and then ignore some,
-# you could do something like:
-# select = ["E", "F", "B", "S", "UP", "SIM", "I", "PL", "D", "RUF"]
-# ignore = ["D203", "D212"] # Example ignores for pydocstyle
-
-# To enable McCabe complexity checks (C901), you might need to set a max complexity.
-# If not set, Ruff uses a default.
-# [lint.mccabe]
-# max-complexity = 10
-
 [lint.pycodestyle]
-max-line-length = 98
+max-line-length = 92
