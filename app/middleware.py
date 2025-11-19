@@ -3,9 +3,11 @@
 import logging
 import time
 import uuid
+import os
+import jwt
 from typing import Callable
 
-from fastapi import Request, Response
+from fastapi import Request, Response, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -14,27 +16,27 @@ from app.logging_config import get_logger, log_with_track_id
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     """Middleware for logging requests, responses, and exceptions with track ID."""
-    
+
     def __init__(self, app: ASGIApp):
         super().__init__(app)
         self.logger = get_logger()
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request and log with track ID.
-        
+
         Args:
             request: The incoming request
             call_next: Next middleware/handler in chain
-            
+
         Returns:
             Response from the handler
         """
         # Generate track ID for this request
         track_id = str(uuid.uuid4())
-        
+
         # Store track_id in request state for access in route handlers
         request.state.track_id = track_id
-        
+
         # Log request
         start_time = time.time()
         log_with_track_id(
@@ -46,14 +48,14 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             path=request.url.path,
             query_params=str(request.query_params),
         )
-        
+
         try:
             # Process request
             response = await call_next(request)
-            
+
             # Calculate duration
             duration = time.time() - start_time
-            
+
             # Log response
             log_with_track_id(
                 self.logger,
@@ -65,16 +67,16 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 status_code=response.status_code,
                 duration_ms=int(duration * 1000),
             )
-            
+
             # Add track ID to response headers
             response.headers["X-Track-ID"] = track_id
-            
+
             return response
-            
+
         except Exception as e:
             # Calculate duration
             duration = time.time() - start_time
-            
+
             # Log exception with full context
             log_with_track_id(
                 self.logger,
@@ -87,6 +89,54 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 error_message=str(e),
                 duration_ms=int(duration * 1000),
             )
-            
+
             # Re-raise exception to be handled by FastAPI's exception handlers
             raise
+
+
+class JWTMiddleware(BaseHTTPMiddleware):
+    """Middleware for JWT authentication."""
+
+    def __init__(self, app: ASGIApp):
+        super().__init__(app)
+        self.jwt_secret = os.getenv("JWT_SECRET")
+        if not self.jwt_secret:
+            raise ValueError("JWT_SECRET environment variable is not set")
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Validate JWT token from Authorization header.
+
+        Args:
+            request: The incoming request
+            call_next: Next middleware/handler in chain
+
+        Returns:
+            Response from the handler
+        """
+        # Skip JWT validation for heartbeat endpoint
+        if request.url.path == "/heartbeat":
+            return await call_next(request)
+
+        # Get Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            raise HTTPException(status_code=401, detail="Authorization header missing")
+
+        # Check Bearer token format
+        if not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=401, detail="Invalid authorization header format"
+            )
+
+        token = auth_header[7:]  # Remove "Bearer "
+
+        try:
+            # Decode JWT
+            jwt.decode(token, self.jwt_secret, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        # Proceed to next middleware/handler
+        return await call_next(request)
