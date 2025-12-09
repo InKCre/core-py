@@ -83,11 +83,44 @@ curl https://your-app-name.herokuapp.com/heartbeat
 
 ### PostgREST
 
-Read [Deploy PostgREST on Heroku](https://docs.postgrest.org/en/v11/integrations/heroku.html).
+> Read [Deploy PostgREST on Heroku](https://docs.postgrest.org/en/v11/integrations/heroku.html) for more.
 
-Note:
-- create `anonymous` credential instead of `api_user`.
-- create `authenticated` credential and attach to your PostgREST Heroku app also.
+1. Create a new Heroku App
+```bash
+heroku apps:create ${YOUR_APP_NAME} --buildpack https://github.com/PostgREST/postgrest-heroku.git`
+git init
+heroku git:remote -a ${YOUR_APP_NAME}
+```
+2. `vi Procfile`, write
+
+```
+web: PGRST_SERVER_HOST=0.0.0.0 PGRST_SERVER_PORT=${PORT} PGRST_DB_URI=${PGRST_DB_URI:-${DATABASE_URL}} ./postgrest-${POSTGREST_VER}
+```
+
+3. Set following env var
+
+```bash
+heroku config:set POSTGREST_VER=11.2.1
+heroku config:set PGRST_DB_SCHEMA=public
+heroku config:set PGRST_DB_ANON_ROLE=anonymous
+heroku config:set PGRST_JWT_SECRET=   # keep the same as .env
+heroku config:set PGRST_DB_URI=postgresql://  # set this if you are using PostgreSQL deployed elsewhere
+```
+
+4. Build and deploy
+
+```bash
+git add Procfile
+git commit -m "init"
+git push heroku master
+```
+
+
+If you are using Heroku PostgreSQL:
+1. `heroku pg:credentials:create --name anonymous -a ${YOUR_APP_NAME}`
+2. `heroku pg:credentials:create --name authenticated -a ${YOUR_APP_NAME}`
+3. `heroku addons:attach ${HEROKU_PG_DB_NAME} --credential anonymous -a ${YOUR_APP_NAME}`
+4. `heroku addons:attach ${HEROKU_PG_DB_NAME} --credential authenticated -a ${YOUR_APP_NAME}`
 
 Run following SQL commands using default credential:
 

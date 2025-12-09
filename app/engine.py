@@ -33,11 +33,8 @@ def get_database_url() -> str:
 DATABASE_URL = get_database_url()
 
 
-# Create engine - use SQLite in-memory database if DATABASE_URL is empty
-# to allow importing during tests. In production, DATABASE_URL should always be set
-SQLDB_ENGINE = sqlmodel.create_engine(
-    url=DATABASE_URL or "sqlite:///:memory:", pool_pre_ping=True
-)
+# Create engine
+SQLDB_ENGINE = sqlmodel.create_engine(url=DATABASE_URL, pool_pre_ping=True)
 
 
 # SessionLocal = sqlalchemy.orm.sessionmaker(autocommit=False, autoflush=False, bind=SQLDB_ENGINE)

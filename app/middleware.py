@@ -114,7 +114,11 @@ class JWTMiddleware(BaseHTTPMiddleware):
             Response from the handler
         """
         # Skip JWT validation for heartbeat endpoint
-        if request.url.path == "/heartbeat":
+        if (
+            request.url.path == "/heartbeat"
+            or request.url.path == "/docs"
+            or request.url.path.startswith("/openapi.json")
+        ):
             return await call_next(request)
 
         # Get Authorization header
@@ -132,11 +136,16 @@ class JWTMiddleware(BaseHTTPMiddleware):
 
         try:
             # Decode JWT
-            jwt.decode(token, self.jwt_secret, algorithms=["HS256"])
-        except jwt.ExpiredSignatureError:
+            jwt.decode(
+                token,
+                self.jwt_secret,
+                algorithms=["HS256"],
+                audience=("inkcre-client-web", "inkcre-client-webext"),
+            )
+        except jwt.exceptions.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token expired")
-        except jwt.InvalidTokenError:
-            raise HTTPException(status_code=401, detail="Invalid token")
+        except jwt.exceptions.InvalidTokenError as e:
+            raise HTTPException(status_code=401, detail=e)
 
         # Proceed to next middleware/handler
         return await call_next(request)

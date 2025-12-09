@@ -44,8 +44,7 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
                     func=self._organize,
                     kwargs={"block_id": graph.block.id},
                     trigger="date",
-                    run_date=get_datetime()
-                    + datetime.timedelta(seconds=(i * 1.5) + 30),
+                    run_date=get_datetime() + datetime.timedelta(seconds=(i * 1.5) + 30),
                 )
                 collected_blocks.append(graph.block)
             db.commit()
@@ -79,6 +78,7 @@ class SourceManager:
     """
 
     SOURCES: dict[SourceID, SourceBase] = {}
+    SOURCE_CLASSES: dict[str, type[SourceBase]] = {}
 
     @classmethod
     def set_up_collect_jobs(cls):
@@ -109,18 +109,19 @@ class SourceManager:
                 raise ValueError(
                     f"Source {source_id} not instantiated and path to the class not defined."
                 )
-            source_module = importlib.import_module(source_type)
-            source_class = typing.cast(
-                type[SourceBase], getattr(source_module, "Source")
-            )
+            source_class = cls.SOURCE_CLASSES.get(source_type, None)
+            if source_class is None:
+                source_module = importlib.import_module(source_type)
+                source_class = typing.cast(
+                    type[SourceBase], getattr(source_module, "Source")
+                )
+                cls.SOURCE_CLASSES[source_type] = source_class
             ins = source_class(_id=typing.cast(SourceID, source_id))
             cls.SOURCES[source_id] = ins
         return ins
 
     @classmethod
-    async def run_a_collect(
-        cls, source_id: int, full: bool = False
-    ) -> list[BlockModel]:
+    async def run_a_collect(cls, source_id: int, full: bool = False) -> list[BlockModel]:
         with SessionLocal() as db:
             source_model = db.exec(
                 sqlmodel.select(SourceModel).where(SourceModel.id == source_id)
@@ -140,3 +141,8 @@ class SourceManager:
             db.refresh(source)
 
         return source
+
+    @classmethod
+    def get_available_types(cls) -> list[str]:
+        """Get all available source types."""
+        return list(cls.SOURCE_CLASSES.keys())
