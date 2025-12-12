@@ -82,6 +82,17 @@ class Settings(BaseSettings):
         return v
 
 
+def get_settings() -> Settings:
+    """Get or create the global settings instance.
+    
+    This function can be used as a dependency in FastAPI endpoints.
+    
+    Returns:
+        Settings instance
+    """
+    return Settings()
+
+
 # Global settings instance
 # This should be imported and used throughout the application
-settings = Settings()
+settings = get_settings()
