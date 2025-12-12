@@ -1,3 +1,3 @@
-from .main import SourceBase, SourceManager
+from .main import SourceBase, SourceManager, SourceCollectJobManager
 
-__all__ = ["SourceBase", "SourceManager"]
+__all__ = ["SourceBase", "SourceManager", "SourceCollectJobManager"]

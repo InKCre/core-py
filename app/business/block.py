@@ -21,7 +21,7 @@ from ..libs.ai import (
 from ..schemas.block import BlockEmbeddingModel, BlockID, BlockModel, ResolverType
 from ..schemas.relation import RelationID, RelationModel
 from ..schemas.root import Vector
-from app.task import scheduler
+from app.scheduler import scheduler
 
 if typing.TYPE_CHECKING:
     from app.business.resolver import Resolver
@@ -77,7 +77,7 @@ class BlockManager:
                 "resolver": block.resolver,
                 "storage": block.storage,
                 "content_length": len(block.content) if block.content else 0,
-            }
+            },
         )
         with SessionLocal() as db_session:
             db_session.add(block)
@@ -86,12 +86,13 @@ class BlockManager:
 
         logger.info(
             "Block created successfully",
-            extra={"block_id": block.id, "resolver": block.resolver}
+            extra={"block_id": block.id, "resolver": block.resolver},
         )
 
         scheduler.add_job(
             func=cls._upsert_embedding,
             kwargs={"block_id": block.id},
+            misfire_grace_time=None,
         )
 
         return block
@@ -123,7 +124,9 @@ class BlockManager:
         resolver = ResolverManager.new_resolver(block)
         embedding = BlockEmbeddingModel(
             id=block.id,
-            embedding=Embedding("", "text-embedding-v3").embed(resolver.get_str_for_embedding()),
+            embedding=Embedding("", "text-embedding-v3").embed(
+                resolver.get_str_for_embedding()
+            ),
         )
         if db_session:
             db_session.merge(embedding)
@@ -150,13 +153,13 @@ class BlockManager:
         if existing is not None:
             logger.debug(
                 "Block already exists, returning existing",
-                extra={"block_id": existing.id, "resolver": existing.resolver}
+                extra={"block_id": existing.id, "resolver": existing.resolver},
             )
             return existing
-        
+
         logger.info(
             "Creating new block via fetchsert",
-            extra={"resolver": block.resolver, "storage": block.storage}
+            extra={"resolver": block.resolver, "storage": block.storage},
         )
         db_session.add(block)
         db_session.flush()
@@ -223,7 +226,8 @@ class BlockManager:
                 .where(BlockEmbeddingModel.embedding is not None)
                 .where(BlockEmbeddingModel.id != block_id)
                 .where(
-                    BlockEmbeddingModel.embedding.cosine_distance(base_embedding) < max_distance  # type: ignore
+                    BlockEmbeddingModel.embedding.cosine_distance(base_embedding)
+                    < max_distance  # type: ignore
                 )
                 .limit(num)
             ).all()
@@ -305,7 +309,9 @@ class BlockManager:
             prompt += "```\n## 关系\n```csv\n"
             prompt += "id,from,to,content\n"
             for relation in relations:
-                prompt += f"{relation.id},{relation.from_},{relation.to_},{relation.content}\n"
+                prompt += (
+                    f"{relation.id},{relation.from_},{relation.to_},{relation.content}\n"
+                )
 
             prompt += "```\n## 要求"
             if body.requirements:
@@ -338,7 +344,9 @@ class BlockManager:
         res = []
 
         async def iterate_chat(*block_ids: Opt[BlockID]) -> None:
-            blocks = tuple(cls.get(block_id) for block_id in block_ids if block_id is not None)
+            blocks = tuple(
+                cls.get(block_id) for block_id in block_ids if block_id is not None
+            )
             relation2block: dict[RelationID, BlockID] = {}
 
             graph_tool_res = MessageContent("")
@@ -356,7 +364,9 @@ class BlockManager:
                         relation2block[typing.cast(RelationID, relation.id)] = relation.to_
                     elif relation.to_ == block.id:
                         incoming_relations.append(relation)
-                        relation2block[typing.cast(RelationID, relation.id)] = relation.from_
+                        relation2block[typing.cast(RelationID, relation.id)] = (
+                            relation.from_
+                        )
 
                 graph_tool_res_i = MessageContent(
                     "## 节点{block_id} \n节点内容: {block_content}\n### 出边\n{outgoing_relations}\n### 入边\n{incoming_relations}\n"
@@ -440,6 +450,7 @@ class BlockManager:
             scheduler.add_job(
                 func=cls._upsert_embedding,
                 kwargs={"block_id": block.id},
+                misfire_grace_time=None,
             )
 
         return block

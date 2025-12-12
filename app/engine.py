@@ -31,13 +31,15 @@ def get_database_url() -> str:
 
 # configs
 DATABASE_URL = get_database_url()
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set.")
 
+database_scale_0 = os.getenv("DATABASE_SCALE_0", "false").lower() == "true"
 
 # Create engine
-SQLDB_ENGINE = sqlmodel.create_engine(url=DATABASE_URL, pool_pre_ping=True)
+SQLDB_ENGINE = sqlmodel.create_engine(url=DATABASE_URL, pool_pre_ping=database_scale_0)
 
 
-# SessionLocal = sqlalchemy.orm.sessionmaker(autocommit=False, autoflush=False, bind=SQLDB_ENGINE)
 def SessionLocal():
     return sqlmodel.Session(SQLDB_ENGINE)
 

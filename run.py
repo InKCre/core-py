@@ -1,5 +1,6 @@
 """Run API Service."""
 
+import asyncio
 import contextlib
 import fastapi
 import uvicorn
@@ -8,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
 from app.routes.extension import ROUTER as extension_router
+from app.routes.source import ROUTER as source_router
 from app.business.source import SourceManager
 from app.business.extension import ExtensionManager
 from app.business.root import RootManager
@@ -18,16 +20,36 @@ from app.middleware import LoggingMiddleware, JWTMiddleware
 # Setup logging
 logger = setup_logging()
 
+# Import scheduler
+from app.scheduler import scheduler
+
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
-    from app.task import scheduler
+    from app.pgsql_listen import listen_for_pgsql
+    from app.business.source import SourceCollectJobManager
 
     logger.info("Application startup")
     scheduler.start()
+
+    database_scale_0 = os.getenv("DATABASE_SCALE_0", "false").lower() == "true"
+
+    # Start the job listener task
+    listener_task = None
+    if not database_scale_0:
+        listener_task = asyncio.create_task(
+            listen_for_pgsql({"job_created": SourceCollectJobManager.handle_created})
+        )
+
     yield
     logger.info("Application shutdown")
     scheduler.shutdown(wait=True)
+    if listener_task:
+        listener_task.cancel()
+        try:
+            await listener_task
+        except asyncio.CancelledError:
+            pass
     await ExtensionManager.close_all()
 
 
@@ -52,13 +74,9 @@ api_app.add_middleware(
 # Set up routes
 api_app.get("/heartbeat")(lambda: {"status": "ok"})
 
-source_router = fastapi.APIRouter(prefix="/source", tags=["sources"])
 root_router = fastapi.APIRouter(tags=["root"])
 sink_router = fastapi.APIRouter(prefix="/sink", tags=["sink"])
 
-source_router.get("/{source_id}/collect")(
-    SourceManager.run_a_collect
-)  # TODO move to business/source.py
 root_router.put("/graph")(RootManager.insert_grpah)
 sink_router.get("/rag")(SinkManager.rag)
 
@@ -69,11 +87,11 @@ api_app.include_router(source_router)
 api_app.include_router(root_router)
 api_app.include_router(sink_router)
 
-
-SourceManager.set_up_collect_jobs()
-
+# must be prior
 ExtensionManager.sync()
 ExtensionManager.start_all(api_app)
+
+SourceManager.set_up_collect_jobs()
 
 
 if __name__ == "__main__":
