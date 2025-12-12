@@ -13,6 +13,7 @@ import json
 from typing import Optional as Opt
 from app.engine import SessionLocal
 from app.schemas.extension import ExtensionModel, ExtensionID
+from app.logging_config import get_logger
 
 
 class EmptyConfig(sqlmodel.SQLModel): ...
@@ -362,28 +363,46 @@ class ExtensionManager:
     @classmethod
     def sync(cls):
         """Sync locally installed extensions with database (bi-directional)."""
+        logger = get_logger()
+        logger.info("Starting extension synchronization")
+
         extensions_dir = "extensions"
         os.makedirs(extensions_dir, exist_ok=True)
 
         with SessionLocal() as db:
             # Get all locally installed extensions
             local_extensions = set()
+            local_count = 0
+            updated_count = 0
+            new_count = 0
+
+            logger.info(f"Scanning local extensions directory: {extensions_dir}")
+
             if os.path.exists(extensions_dir):
                 for item in os.listdir(extensions_dir):
                     ext_path = os.path.join(extensions_dir, item)
                     if os.path.isdir(ext_path):
                         ext_id = item  # Folder name is the extension ID
+                        logger.debug(f"Processing local extension: {ext_id}")
+
                         nickname, version = cls.read_metadata(ext_path)
 
                         # Skip if we couldn't read any metadata
                         if nickname is None and version is None:
+                            logger.warning(
+                                f"Skipping extension {ext_id}: no valid metadata found"
+                            )
                             continue
 
                         local_extensions.add(ext_id)
+                        local_count += 1
 
                         # Use default version if not found in metadata
                         if version is None:
                             version = "0.1.0"
+                            logger.info(
+                                f"Using default version {version} for extension {ext_id}"
+                            )
 
                         existing = db.exec(
                             sqlmodel.select(ExtensionModel).where(
@@ -391,10 +410,17 @@ class ExtensionManager:
                             )
                         ).first()
                         if existing:
+                            logger.info(
+                                f"Updating existing extension {ext_id}: version={version}, nickname={nickname}"
+                            )
                             existing.version = version
                             existing.nickname = nickname
                             db.add(existing)
+                            updated_count += 1
                         else:
+                            logger.info(
+                                f"Adding new extension {ext_id}: version={version}, nickname={nickname}"
+                            )
                             new_ext = ExtensionModel(
                                 id=ext_id,
                                 version=version,
@@ -402,16 +428,43 @@ class ExtensionManager:
                                 disabled=True,
                             )
                             db.add(new_ext)
+                            new_count += 1
 
             db.commit()
+            logger.info(
+                f"Local sync completed: {local_count} local extensions found, {updated_count} updated, {new_count} added"
+            )
 
             # Check for extensions in database but not locally installed
             all_db_extensions = db.exec(sqlmodel.select(ExtensionModel)).all()
+            db_only_count = 0
+            download_success_count = 0
+            download_error_count = 0
+
+            logger.info(f"Checking database extensions for missing local installations")
+
             for db_ext in all_db_extensions:
                 if db_ext.id not in local_extensions:
+                    db_only_count += 1
+                    logger.info(
+                        f"Extension {db_ext.id} exists in database but not locally, attempting download"
+                    )
                     # Download missing extension
                     try:
                         cls.download(db_ext.id, version=db_ext.version)
+                        download_success_count += 1
+                        logger.info(
+                            f"Successfully downloaded extension {db_ext.id} version {db_ext.version}"
+                        )
                     except Exception as e:
+                        download_error_count += 1
                         # Log error but continue syncing other extensions
-                        print(f"Failed to download extension {db_ext.id}: {e}")
+                        logger.error(
+                            f"Failed to download extension {db_ext.id}: {e}", exc_info=True
+                        )
+
+            logger.info(
+                f"Database sync completed: {db_only_count} database-only extensions found, "
+                f"{download_success_count} successfully downloaded, {download_error_count} download failures"
+            )
+            logger.info("Extension synchronization completed successfully")
