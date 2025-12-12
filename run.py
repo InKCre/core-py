@@ -1,5 +1,9 @@
 """Run API Service."""
 
+import sys
+
+sys.path.insert(0, "extensions")
+
 import asyncio
 import contextlib
 import fastapi
