@@ -4,8 +4,8 @@ import asyncio
 import contextlib
 import fastapi
 import uvicorn
-import os
 from fastapi.middleware.cors import CORSMiddleware
+from app.settings import settings
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
 from app.routes.extension import ROUTER as extension_router
@@ -32,11 +32,9 @@ async def lifespan(app: fastapi.FastAPI):
     logger.info("Application startup")
     scheduler.start()
 
-    database_scale_0 = os.getenv("DATABASE_SCALE_0", "false").lower() == "true"
-
     # Start the job listener task
     listener_task = None
-    if not database_scale_0:
+    if not settings.database_scale_0:
         listener_task = asyncio.create_task(
             listen_for_pgsql({"job_created": SourceCollectJobManager.handle_created})
         )
@@ -95,6 +93,4 @@ SourceManager.set_up_collect_jobs()
 
 
 if __name__ == "__main__":
-    host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(api_app, host=host, port=port)
+    uvicorn.run(api_app, host=settings.host, port=settings.port)

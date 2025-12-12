@@ -1,6 +1,5 @@
 __all__ = ["get_embeddings", "one_chat", "multi_chat"]
 
-import os
 import typing
 from typing import Annotated as Anno, Literal as Lit, Optional as Opt
 from openai import OpenAI
@@ -11,18 +10,19 @@ from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionToolMessageParam,
 )
+from app.settings import settings
 
 if typing.TYPE_CHECKING:
     from ..schemas.root import Vector
 
 
 # Config
-LLM_SP_AK = os.getenv("LLM_SP_AK", "")
-LLM_SP_BASE_URL = os.getenv("LLM_SP_BASE_URL", "")
-
+# Note: OPENAI_CLIENT is created at module import time with settings.
+# If llm_sp_ak or llm_sp_base_url are empty (default), the client will fail
+# at runtime when actually used. This is acceptable - LLM features are optional.
 OPENAI_CLIENT = OpenAI(
-    base_url=LLM_SP_BASE_URL,
-    api_key=LLM_SP_AK,
+    base_url=settings.llm_sp_base_url,
+    api_key=settings.llm_sp_ak,
 )
 
 
