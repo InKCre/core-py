@@ -45,7 +45,7 @@ async def lifespan(app: fastapi.FastAPI):
     yield
     logger.info("Application shutdown")
     scheduler.shutdown(wait=True)
-    await ExtensionManager.close_all()
+    await ExtensionManager.close_running()
 
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
@@ -84,7 +84,7 @@ api_app.include_router(sink_router)
 
 # must be prior
 ExtensionManager.sync()
-ExtensionManager.start_all(api_app)
+ExtensionManager.start_enabled(api_app)
 
 SourceManager.set_up_collect_jobs()
 

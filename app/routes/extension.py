@@ -29,10 +29,10 @@ def install_extension(
 
 
 @ROUTER.put("/{extid}/disabled/{disabled}")
-def enable_extension(extid: ExtensionID, disabled: bool) -> ExtensionModel:
+async def toggle_extension(extid: ExtensionID, disabled: bool) -> ExtensionModel:
     """启用/禁用插件 (Enable/Disable extension)"""
     try:
-        return ExtensionManager.set_disabled(extid, disabled)
+        return await ExtensionManager.set_disabled(extid, disabled)
     except ValueError:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND,

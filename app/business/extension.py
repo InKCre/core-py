@@ -1,4 +1,5 @@
 import abc
+import logging
 import typing
 import fastapi
 import sqlmodel
@@ -14,6 +15,9 @@ from typing import Optional as Opt
 from app.engine import SessionLocal
 from app.schemas.extension import ExtensionModel, ExtensionID
 from app.logging_config import get_logger
+
+
+LOGGER = get_logger().getChild(__name__)
 
 
 class EmptyConfig(sqlmodel.SQLModel): ...
@@ -53,6 +57,8 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
         cls._init_sources()
         cls._init_resolvers()
 
+        LOGGER.info(f"Extension {cls.__extid__} started.")
+
     @classmethod
     def _init_resolvers(cls): ...
 
@@ -64,6 +70,7 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
         ExtensionManager.save_config_and_state(
             ext_id=cls.__extid__, config=cls.config, state=cls.state
         )
+        LOGGER.info(f"Extension {cls.__extid__} closed.")
 
     @classmethod
     @abc.abstractmethod
@@ -71,28 +78,57 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
 
 
 class ExtensionManager:
-    extention_classes: list[type[ExtensionBase]] = []
+    RUNNING_EXTENSIONS: set[type[ExtensionBase]] = set()
+    FASTAPI_APP: fastapi.FastAPI
 
     @classmethod
-    def start_all(cls, app: fastapi.FastAPI):
-        """Start enabled entensions."""
+    def start_enabled(cls, app: fastapi.FastAPI):
+        """Start all enabled entensions."""
+        cls.FASTAPI_APP = app
         for extension in cls.get_installed():
-            extension_module = importlib.import_module(f"extensions.{extension.id}")
-            extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
-            cls.extention_classes.append(extension_class)
-
-            extension_class.on_start(
-                app=app, config=extension.config or {}, state=extension.state or {}
-            )
+            cls.start(extension=extension)
 
     @classmethod
-    async def close_all(cls):
-        """Close all extensions.
+    async def close_running(cls):
+        """Close all running extensions.
 
         It could involves closes of connections, so asynchronous.
         """
-        for extension_class in cls.extention_classes:
+        to_close = tuple(cls.RUNNING_EXTENSIONS)
+        for extension_class in to_close:
             await extension_class.on_close()
+            cls.RUNNING_EXTENSIONS.remove(extension_class)
+
+    @classmethod
+    def start(cls, extid: Opt[ExtensionID] = None, extension: Opt[ExtensionModel] = None):
+        """Start a specific extension."""
+        if extension is None and extid is not None:
+            extension = cls.get(extid)
+        if not extension:
+            raise ValueError(f"Extension not provided or not found: {extid}")
+        extension_module = importlib.import_module(f"extensions.{extension.id}")
+        extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
+
+        if extension_class in cls.RUNNING_EXTENSIONS:
+            LOGGER.warning(f"Extension {extension.id} is already running.")
+        else:
+            cls.RUNNING_EXTENSIONS.add(extension_class)
+            extension_class.on_start(
+                app=cls.FASTAPI_APP,
+                config=extension.config or {},
+                state=extension.state or {},
+            )
+
+    @classmethod
+    async def close(cls, extid: ExtensionID):
+        """Close a specific extension."""
+        extension_module = importlib.import_module(f"extensions.{extid}")
+        extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
+        if extension_class in cls.RUNNING_EXTENSIONS:
+            await extension_class.on_close()
+            cls.RUNNING_EXTENSIONS.remove(extension_class)
+        else:
+            LOGGER.warning(f"Extension {extid} is not running.")
 
     @classmethod
     def read_metadata(cls, ext_path: str) -> tuple[Opt[str], Opt[str]]:
@@ -273,9 +309,8 @@ class ExtensionManager:
 
             return extension
 
-    # TODO make into enable, disable; and apply immediate effect
     @classmethod
-    def set_disabled(cls, extid: ExtensionID, disabled: bool) -> ExtensionModel:
+    async def set_disabled(cls, extid: ExtensionID, disabled: bool) -> ExtensionModel:
         """Enable or disable an extension."""
         with SessionLocal() as db:
             extension = db.exec(
@@ -289,6 +324,11 @@ class ExtensionManager:
             db.add(extension)
             db.commit()
             db.refresh(extension)
+
+            if disabled:
+                await cls.close(extid)
+            else:
+                cls.start(extid)
 
             return extension
 
@@ -363,8 +403,7 @@ class ExtensionManager:
     @classmethod
     def sync(cls):
         """Sync locally installed extensions with database (bi-directional)."""
-        logger = get_logger()
-        logger.info("Starting extension synchronization")
+        LOGGER.info("Starting extension synchronization")
 
         extensions_dir = "extensions"
         os.makedirs(extensions_dir, exist_ok=True)
@@ -376,20 +415,20 @@ class ExtensionManager:
             updated_count = 0
             new_count = 0
 
-            logger.info(f"Scanning local extensions directory: {extensions_dir}")
+            LOGGER.info(f"Scanning local extensions directory: {extensions_dir}")
 
             if os.path.exists(extensions_dir):
                 for item in os.listdir(extensions_dir):
                     ext_path = os.path.join(extensions_dir, item)
                     if os.path.isdir(ext_path):
                         ext_id = item  # Folder name is the extension ID
-                        logger.debug(f"Processing local extension: {ext_id}")
+                        LOGGER.debug(f"Processing local extension: {ext_id}")
 
                         nickname, version = cls.read_metadata(ext_path)
 
                         # Skip if we couldn't read any metadata
                         if nickname is None and version is None:
-                            logger.warning(
+                            LOGGER.warning(
                                 f"Skipping extension {ext_id}: no valid metadata found"
                             )
                             continue
@@ -400,7 +439,7 @@ class ExtensionManager:
                         # Use default version if not found in metadata
                         if version is None:
                             version = "0.1.0"
-                            logger.info(
+                            LOGGER.info(
                                 f"Using default version {version} for extension {ext_id}"
                             )
 
@@ -410,7 +449,7 @@ class ExtensionManager:
                             )
                         ).first()
                         if existing:
-                            logger.info(
+                            LOGGER.info(
                                 f"Updating existing extension {ext_id}: version={version}, nickname={nickname}"
                             )
                             existing.version = version
@@ -418,7 +457,7 @@ class ExtensionManager:
                             db.add(existing)
                             updated_count += 1
                         else:
-                            logger.info(
+                            LOGGER.info(
                                 f"Adding new extension {ext_id}: version={version}, nickname={nickname}"
                             )
                             new_ext = ExtensionModel(
@@ -431,7 +470,7 @@ class ExtensionManager:
                             new_count += 1
 
             db.commit()
-            logger.info(
+            LOGGER.info(
                 f"Local sync completed: {local_count} local extensions found, {updated_count} updated, {new_count} added"
             )
 
@@ -441,30 +480,30 @@ class ExtensionManager:
             download_success_count = 0
             download_error_count = 0
 
-            logger.info(f"Checking database extensions for missing local installations")
+            LOGGER.info(f"Checking database extensions for missing local installations")
 
             for db_ext in all_db_extensions:
                 if db_ext.id not in local_extensions:
                     db_only_count += 1
-                    logger.info(
+                    LOGGER.info(
                         f"Extension {db_ext.id} exists in database but not locally, attempting download"
                     )
                     # Download missing extension
                     try:
                         cls.download(db_ext.id, version=db_ext.version)
                         download_success_count += 1
-                        logger.info(
+                        LOGGER.info(
                             f"Successfully downloaded extension {db_ext.id} version {db_ext.version}"
                         )
                     except Exception as e:
                         download_error_count += 1
                         # Log error but continue syncing other extensions
-                        logger.error(
+                        LOGGER.error(
                             f"Failed to download extension {db_ext.id}: {e}", exc_info=True
                         )
 
-            logger.info(
+            LOGGER.info(
                 f"Database sync completed: {db_only_count} database-only extensions found, "
                 f"{download_success_count} successfully downloaded, {download_error_count} download failures"
             )
-            logger.info("Extension synchronization completed successfully")
+            LOGGER.info("Extension synchronization completed successfully")

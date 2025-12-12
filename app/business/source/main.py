@@ -1,6 +1,5 @@
 import abc
 import datetime
-import importlib
 import logging
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
@@ -9,15 +8,15 @@ import typing
 from typing import Optional as Opt
 from app.business.root import RootManager
 from app.engine import SessionLocal
+from app.logging_config import get_logger
 from app.schemas.root import StarGraphForm
 from app.schemas.block import BlockID, BlockModel
 from app.schemas.source import SourceCollectJobID, SourceModel, SourceID, SourceTypesModel
 from app.schemas.source import SourceCollectJobModel, SourceCollectJobStatus
 from app.scheduler import scheduler
-from utils.datetime_ import get_datetime
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger().getChild(__name__)
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=dict)
 
