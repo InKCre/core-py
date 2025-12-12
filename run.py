@@ -4,7 +4,6 @@ import sys
 
 sys.path.insert(0, "extensions")
 
-import asyncio
 import contextlib
 import fastapi
 import uvicorn
@@ -30,28 +29,22 @@ from app.scheduler import scheduler
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
-    from app.pgsql_listen import listen_for_pgsql
     from app.business.source import SourceCollectJobManager
 
     logger.info("Application startup")
     scheduler.start()
 
-    # Start the job listener task
-    listener_task = None
-    if not settings.database_scale_0:
-        listener_task = asyncio.create_task(
-            listen_for_pgsql({"job_created": SourceCollectJobManager.handle_created})
-        )
+    # Add periodic job to check pending source collect jobs
+    scheduler.add_job(
+        SourceCollectJobManager.check_pending,
+        "interval",
+        seconds=30,
+        id="sources.collect_jobs.check_pending",
+    )
 
     yield
     logger.info("Application shutdown")
     scheduler.shutdown(wait=True)
-    if listener_task:
-        listener_task.cancel()
-        try:
-            await listener_task
-        except asyncio.CancelledError:
-            pass
     await ExtensionManager.close_all()
 
 

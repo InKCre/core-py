@@ -1,4 +1,12 @@
-__all__ = ["SourceID", "SourceModel", "SourceTypesModel", "CollectAt"]
+__all__ = [
+    "CollectAt",
+    "SourceID",
+    "SourceModel",
+    "SourceTypesModel",
+    "SourceCollectJobStatus",
+    "SourceCollectJobID",
+    "SourceCollectJobModel",
+]
 
 import datetime
 import enum
@@ -90,6 +98,9 @@ class SourceModel(sqlmodel.SQLModel, table=True):
     """
 
 
+SourceCollectJobID: typing.TypeAlias = int
+
+
 class SourceCollectJobStatus(str, enum.Enum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
@@ -100,7 +111,7 @@ class SourceCollectJobStatus(str, enum.Enum):
 class SourceCollectJobModel(sqlmodel.SQLModel, table=True):
     __tablename__: str = "sources_collect_jobs"  # type: ignore
 
-    id: Opt[int] = sqlmodel.Field(
+    id: Opt[SourceCollectJobID] = sqlmodel.Field(
         sa_column=sqlalchemy.Column(
             sqlalchemy.Integer, primary_key=True, autoincrement=True
         ),

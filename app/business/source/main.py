@@ -11,7 +11,7 @@ from app.business.root import RootManager
 from app.engine import SessionLocal
 from app.schemas.root import StarGraphForm
 from app.schemas.block import BlockID, BlockModel
-from app.schemas.source import SourceModel, SourceID, SourceTypesModel
+from app.schemas.source import SourceCollectJobID, SourceModel, SourceID, SourceTypesModel
 from app.schemas.source import SourceCollectJobModel, SourceCollectJobStatus
 from app.scheduler import scheduler
 from utils.datetime_ import get_datetime
@@ -174,46 +174,18 @@ class SourceCollectJobManager:
     """Manager for source collect jobs."""
 
     @classmethod
-    async def handle_created(cls, job_id_str: str):
-        """Handle a source collect job created."""
-
-        try:
-            job_id = int(job_id_str)
-        except ValueError:
-            LOGGER.error(f"Invalid source collect job_id: {job_id_str}")
-            return
-
-        with SessionLocal() as db:
-            job = db.exec(
-                sqlmodel.select(SourceCollectJobModel).where(
-                    SourceCollectJobModel.id == job_id
-                )
-            ).one_or_none()
-            if not job:
-                LOGGER.error(f"Job {job_id} not found")
-                return
-
-            # Update status to RUNNING
-            job.status = SourceCollectJobStatus.RUNNING
-            job.started_at = datetime.datetime.now(datetime.timezone.utc)
-            db.add(job)
-            db.commit()
-
-        # Schedule the collect
-        scheduler.add_job(
-            func=cls.run,
-            args=[job_id],
-            misfire_grace_time=None,
-        )
-
-    @classmethod
-    async def run(cls, job_id: int):
+    async def run(cls, job_id: SourceCollectJobID):
         with SessionLocal() as db:
             job = db.exec(
                 sqlmodel.select(SourceCollectJobModel).where(
                     SourceCollectJobModel.id == job_id
                 )
             ).one()
+
+            job.status = SourceCollectJobStatus.RUNNING
+            job.started_at = datetime.datetime.now(datetime.timezone.utc)
+            db.add(job)
+            db.commit()
 
             try:
                 # Run the collect
@@ -227,3 +199,21 @@ class SourceCollectJobManager:
                 job.closed_at = datetime.datetime.now(datetime.timezone.utc)
                 db.add(job)
                 db.commit()
+
+    @classmethod
+    async def check_pending(cls):
+        """Check for pending source collect jobs and handle them."""
+        with SessionLocal() as db:
+            pending_jobs = db.exec(
+                sqlmodel.select(SourceCollectJobModel).where(
+                    SourceCollectJobModel.status == SourceCollectJobStatus.PENDING
+                )
+            ).all()
+
+        for job in pending_jobs:
+            # Schedule the collect
+            scheduler.add_job(
+                func=cls.run,
+                args=[job.id],
+                misfire_grace_time=None,
+            )
