@@ -7,19 +7,6 @@ from alembic import context
 from app.settings import settings
 
 
-def get_database_url() -> str:
-    """
-    Get database URL from settings.
-
-    This function is kept for backward compatibility with Alembic,
-    but now delegates to the settings module.
-
-    Returns:
-        Database connection URL string
-    """
-    return settings.database_url
-
-
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -55,7 +42,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = get_database_url()
+    url = settings.database_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -76,7 +63,7 @@ def run_migrations_online() -> None:
     """
     connectable = engine_from_config(
         {
-            "sqlalchemy.url": get_database_url(),
+            "sqlalchemy.url": settings.database_url,
         },
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,

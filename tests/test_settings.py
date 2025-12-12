@@ -279,9 +279,8 @@ class TestSettingsIntegration:
             reload(settings_module)
             reload(engine_module)
             
-            # engine should use settings
-            db_url = engine_module.get_database_url()
-            assert db_url == 'postgresql://localhost/testdb'
+            # engine should use settings directly
+            assert engine_module.DATABASE_URL == 'postgresql://localhost/testdb'
     
     def test_settings_used_in_logging_config(self):
         """Test that logging config uses settings correctly."""
