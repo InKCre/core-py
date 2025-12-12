@@ -3,7 +3,6 @@
 import logging
 import time
 import uuid
-import os
 import jwt
 from typing import Callable
 
@@ -11,6 +10,7 @@ from fastapi import Request, Response, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from app.settings import settings
 from app.logging_config import get_logger, log_with_track_id
 
 
@@ -99,7 +99,7 @@ class JWTMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: ASGIApp):
         super().__init__(app)
-        self.jwt_secret = os.getenv("JWT_SECRET")
+        self.jwt_secret = settings.jwt_secret
         if not self.jwt_secret:
             raise ValueError("JWT_SECRET environment variable is not set")
 

@@ -1,9 +1,10 @@
 """Logging configuration for InKCre using Better Stack (Logtail)."""
 
 import logging
-import os
 import sys
 from typing import Optional
+
+from app.settings import settings
 
 # Try to import logtail, but make it optional
 try:
@@ -40,25 +41,22 @@ def setup_logging() -> logging.Logger:
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
     
-    # Better Stack handler (optional, based on env vars)
-    source_token = os.getenv("LOGTAIL_SOURCE_TOKEN")
-    logtail_host = os.getenv("LOGTAIL_HOST")
-    
-    if LOGTAIL_AVAILABLE and source_token:
+    # Better Stack handler (optional, based on settings)
+    if LOGTAIL_AVAILABLE and settings.logtail_source_token:
         try:
             # Create Logtail handler
-            logtail_handler = LogtailHandler(source_token=source_token)
-            if logtail_host:
+            logtail_handler = LogtailHandler(source_token=settings.logtail_source_token)
+            if settings.logtail_host:
                 # If host is provided, configure it
-                logtail_handler.host = logtail_host
+                logtail_handler.host = settings.logtail_host
             logtail_handler.setLevel(logging.INFO)
             logger.addHandler(logtail_handler)
             logger.info("Better Stack logging enabled", extra={
-                "logtail_host": logtail_host or "default"
+                "logtail_host": settings.logtail_host or "default"
             })
         except Exception as e:
             logger.warning(f"Failed to setup Better Stack logging: {e}")
-    elif source_token and not LOGTAIL_AVAILABLE:
+    elif settings.logtail_source_token and not LOGTAIL_AVAILABLE:
         logger.warning(
             "LOGTAIL_SOURCE_TOKEN is set but logtail-python is not installed"
         )
