@@ -1,7 +1,9 @@
 repos:
-  - repo: https://github.com/pdm-project/pdm
-    rev: 2.26.1
+  - repo: local
     hooks:
-      - id: pdm-export
-        name: pdm export requirements.txt
-        args: ["-o", "requirements.txt", "--prod"]
+      - id: export-requirements
+        name: Export requirements.txt
+        entry: cmd /c pdm export -o requirements.txt --prod && git add requirements.txt
+        language: system
+        files: ^pyproject\.toml$
+        pass_filenames: false
