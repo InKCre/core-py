@@ -26,8 +26,6 @@ def get_database_url() -> str:
 
 # configs
 DATABASE_URL = get_database_url()
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is not set.")
 
 # Create engine
 SQLDB_ENGINE = sqlmodel.create_engine(url=DATABASE_URL, pool_pre_ping=settings.database_scale_0)

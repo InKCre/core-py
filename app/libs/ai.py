@@ -17,6 +17,9 @@ if typing.TYPE_CHECKING:
 
 
 # Config
+# Note: OPENAI_CLIENT is created at module import time with settings.
+# If llm_sp_ak or llm_sp_base_url are empty (default), the client will fail
+# at runtime when actually used. This is acceptable - LLM features are optional.
 OPENAI_CLIENT = OpenAI(
     base_url=settings.llm_sp_base_url,
     api_key=settings.llm_sp_ak,

@@ -99,9 +99,8 @@ class JWTMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: ASGIApp):
         super().__init__(app)
+        # JWT secret is required in Settings, so it will always be set
         self.jwt_secret = settings.jwt_secret
-        if not self.jwt_secret:
-            raise ValueError("JWT_SECRET environment variable is not set")
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Validate JWT token from Authorization header.
