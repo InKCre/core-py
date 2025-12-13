@@ -554,9 +554,9 @@
         "tags": [
           "extension"
         ],
-        "summary": "Enable Extension",
+        "summary": "Toggle Extension",
         "description": "启用/禁用插件 (Enable/Disable extension)",
-        "operationId": "enable_extension_extensions__extid__disabled__disabled__put",
+        "operationId": "toggle_extension_extensions__extid__disabled__disabled__put",
         "parameters": [
           {
             "name": "extid",
@@ -818,46 +818,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/SinkV1RAGResBody"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/twitter/bookmark": {
-      "post": {
-        "tags": [
-          "extension",
-          "twitter"
-        ],
-        "summary": "<Lambda>",
-        "operationId": "_lambda__twitter_bookmark_post",
-        "parameters": [
-          {
-            "name": "nickname",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Nickname"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
