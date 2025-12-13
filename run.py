@@ -1,6 +1,7 @@
 """Run API Service."""
 
 import sys
+import os
 
 sys.path.insert(0, "extensions")
 
@@ -83,10 +84,11 @@ api_app.include_router(root_router)
 api_app.include_router(sink_router)
 
 # must be prior
-ExtensionManager.sync()
-ExtensionManager.start_enabled(api_app)
-
-SourceManager.set_up_collect_jobs()
+# Skip extension sync if EXTENSION_SYNC_SKIP is set (useful for OpenAPI generation)
+if not os.getenv("EXTENSION_SYNC_SKIP"):
+    ExtensionManager.sync()
+    ExtensionManager.start_enabled(api_app)
+    SourceManager.set_up_collect_jobs()
 
 
 if __name__ == "__main__":
