@@ -1,0 +1,61 @@
+name: Generate OpenAPI Documentation
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+
+jobs:
+  generate-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PDM
+        uses: pdm-project/setup-pdm@v3
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pdm install
+
+      - name: Generate OpenAPI schema
+        run: >
+          python -c
+          "import json;
+          from fastapi.openapi.utils import get_openapi;
+          from run import api_app;
+          openapi_schema = get_openapi(
+            title=api_app.title,
+            version=api_app.version,
+            description=api_app.description,
+            routes=api_app.routes,
+          );
+          with open('docs/openapi.json', 'w', encoding='utf-8') as f:
+            json.dump(openapi_schema, f, indent=2, ensure_ascii=False);
+          print('OpenAPI schema generated successfully')"
+
+      - name: Check if schema changed
+        id: check_changes
+        run: |
+          if git diff --quiet docs/openapi.json; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/openapi.json
+          git commit -m "chore: update OpenAPI documentation"
+          git push

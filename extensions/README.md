@@ -1,4 +1,6 @@
-- Every extension has a `pyproject.toml`, see template:
+- Built-in and third-party extensions placed here.
+- Folder name is the extension id.
+- Every extension has a `pyproject.toml`, following template:
 
 ```toml
 [project]
@@ -9,4 +11,4 @@ id = "mail"  # optional since folder name is already the extension id
 nickname = "Mail" 
 ```
 
-- Extensions won't be enabled until you manually enable it.
+- Extensions are disabled by default.
