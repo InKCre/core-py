@@ -96,6 +96,11 @@ class SourceModel(sqlmodel.SQLModel, table=True):
 
     None for disabled.
     """
+    state: dict = sqlmodel.Field(
+        sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB),
+        default_factory=dict,
+    )
+    """Store source-specific state (e.g., last_uid for mail, latest_tweet_id for twitter)."""
 
 
 SourceCollectJobID: typing.TypeAlias = int

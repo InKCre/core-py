@@ -31,6 +31,8 @@
 - [ ] Collect is an active way to gather data. Source should be able to configure webhooks or other ways to passively gathering data. Source can do this in `start` method which will be called once the application starts.
 - [x] 和 Resolver, Storage 一样采用子类自动注册的方式
 - [x] Source.collect 不应该有参数
+- [ ] Organize 不是 source 的职责，而是整个信息库的。Source会在 organize 过程中提供帮助，但绝不是 source 来执行。
+- [x] Source 也要有 state，反而是 extension 不应该有 state
 
 ### Resolver
 

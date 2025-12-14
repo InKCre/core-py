@@ -18,19 +18,10 @@ class TwitterExtensionConfig(sqlmodel.SQLModel):
     proxy: Opt[str] = None
 
 
-class TwitterExtensionState(sqlmodel.SQLModel):
-    access_token: Opt[str] = None
-    refresh_token: Opt[str] = None
-    user_id: str = ""
-    user_handle: str = ""
-    latest_tweet_id: Opt[int] = None
-
-
 class Extension(
-    ExtensionBase[TwitterExtensionConfig, TwitterExtensionState],
+    ExtensionBase[TwitterExtensionConfig],
     ext_id="twitter",
     config_cls=TwitterExtensionConfig,
-    state_cls=TwitterExtensionState,
 ):
     @classmethod
     def _init_resolvers(cls):

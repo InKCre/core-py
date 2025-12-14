@@ -1,3 +1,5 @@
+import sqlalchemy
+import sqlalchemy.dialects.postgresql
 import sqlmodel
 import typing
 from typing import Optional as Opt
@@ -24,7 +26,13 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
     """
     disabled: bool = sqlmodel.Field(default=False)
     nickname: Opt[str] = sqlmodel.Field(default=None)
-    config: Opt[dict] = sqlmodel.Field(default=None, sa_column=sqlmodel.Column(sqlmodel.JSON))
-    state: Opt[dict] = sqlmodel.Field(default=None, sa_column=sqlmodel.Column(sqlmodel.JSON))
-    """Store simple K-V state.
+    config: Opt[dict] = sqlmodel.Field(
+        default=None, sa_column=sqlmodel.Column(sqlalchemy.dialects.postgresql.JSONB)
+    )
+    config_schema: Opt[dict] = sqlmodel.Field(
+        default=None, sa_column=sqlmodel.Column(sqlalchemy.dialects.postgresql.JSONB)
+    )
+    """JSON schema for the config field.
+    
+    Auto-populated from config_cls.model_json_schema().
     """

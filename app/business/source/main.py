@@ -49,6 +49,24 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
         """Get the configuration of the source."""
         raise NotImplementedError
 
+    def get_state(self) -> dict:
+        """Get the source state from database."""
+        with SessionLocal() as db:
+            source = db.exec(
+                sqlmodel.select(SourceModel).where(SourceModel.id == self._id)
+            ).one()
+            return source.state or {}
+
+    def set_state(self, state: dict) -> None:
+        """Save the source state to database."""
+        with SessionLocal() as db:
+            source = db.exec(
+                sqlmodel.select(SourceModel).where(SourceModel.id == self._id)
+            ).one()
+            source.state = state
+            db.add(source)
+            db.commit()
+
 
 class SourceManager:
     """

@@ -180,7 +180,9 @@ class Source(SourceBase):
 
             # Update last message ID in state after successful collection
             if Source._collected_messages:
-                Extension.state.last_message_id = Source._collected_messages[-1].message_id
+                state = self.get_state()
+                state["last_message_id"] = Source._collected_messages[-1].message_id
+                self.set_state(state)
 
         finally:
             Source._collecting = False

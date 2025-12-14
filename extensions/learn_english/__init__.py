@@ -9,10 +9,9 @@ class LearnEnglishState(sqlmodel.SQLModel): ...
 
 
 class Extension(
-    ExtensionBase[LearnEnglishConfig, LearnEnglishState],
+    ExtensionBase[LearnEnglishConfig],
     ext_id="learn_english",
     config_cls=LearnEnglishConfig,
-    state_cls=LearnEnglishState,
 ):
     @classmethod
     def _init_resolvers(cls):

@@ -3,9 +3,9 @@
 import asyncio
 import email
 import imaplib
-import typing
 from datetime import datetime
 from email.header import decode_header
+from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
 from typing import Optional as Opt
 from app.business.source import SourceBase
@@ -17,7 +17,10 @@ from app.schemas.block import BlockID
 from app.schemas.source import SourceCollectJobModel
 from app.scheduler import scheduler
 from extensions.mail import Extension
+from app.logging_config import get_logger
 from .schema import Email, EmailAddress
+
+LOGGER = get_logger().getChild(__name__)
 
 
 class Source(SourceBase):
@@ -62,7 +65,7 @@ class Source(SourceBase):
                 addresses.append(parsed)
         return addresses
 
-    def _get_email_body(self, msg: email.message.Message) -> tuple[Opt[str], Opt[str]]:
+    def _get_email_body(self, msg: Message) -> tuple[Opt[str], Opt[str]]:
         """Extract plain text and HTML body from email message."""
         body_text = None
         body_html = None
@@ -106,7 +109,7 @@ class Source(SourceBase):
 
         return body_text, body_html
 
-    def _has_attachments(self, msg: email.message.Message) -> bool:
+    def _has_attachments(self, msg: Message) -> bool:
         """Check if email has attachments."""
         if not msg.is_multipart():
             return False
@@ -118,55 +121,119 @@ class Source(SourceBase):
         return False
 
     async def collect(self, job: SourceCollectJobModel) -> None:
-        """Collect emails from IMAP server.
-
-        :param job: The collect job containing config and state.
-        """
+        """Collect emails from IMAP server."""
+        logger = LOGGER.getChild(f"collect.{job.id}")
         ext_config = Extension.config
         config = job.config or {}
         full = config.get("full", False)
 
+        logger.info(
+            "Starting email collection",
+            extra={"job_id": job.id, "source": job.source, "full": full},
+        )
+
         # Connect to IMAP server
-        if ext_config.use_ssl:
-            mail = imaplib.IMAP4_SSL(ext_config.imap_server, ext_config.imap_port)
-        else:
-            mail = imaplib.IMAP4(ext_config.imap_server, ext_config.imap_port)
+        try:
+            if ext_config.use_ssl:
+                mail = imaplib.IMAP4_SSL(ext_config.imap_server, ext_config.imap_port)
+            else:
+                mail = imaplib.IMAP4(ext_config.imap_server, ext_config.imap_port)
+            logger.info(
+                "Connected to IMAP server",
+                extra={
+                    "server": ext_config.imap_server,
+                    "port": ext_config.imap_port,
+                    "ssl": ext_config.use_ssl,
+                },
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to connect to IMAP server",
+                extra={
+                    "server": ext_config.imap_server,
+                    "port": ext_config.imap_port,
+                    "error": str(e),
+                },
+                exc_info=True,
+            )
+            return
 
         collected = []
         try:
             # Login
-            mail.login(ext_config.username, ext_config.password)
+            try:
+                mail.login(ext_config.username, ext_config.password)
+                logger.info("Logged in to IMAP server")
+            except Exception as e:
+                logger.error(
+                    "Failed to login to IMAP server",
+                    extra={"username": ext_config.username, "error": str(e)},
+                    exc_info=True,
+                )
+                return
 
             # Select inbox
-            mail.select("INBOX")
+            try:
+                mail.select("INBOX")
+                logger.info("Selected mailbox INBOX")
+            except Exception as e:
+                logger.error(
+                    "Failed to select mailbox INBOX", extra={"error": str(e)}, exc_info=True
+                )
+                return
 
             # Search for emails
-            if full:
-                # Get all emails
-                _, message_numbers = mail.search(None, "ALL")
-            else:
-                # Get only new emails since last UID
-                last_uid = Extension.state.last_uid
-                if last_uid:
-                    _, message_numbers = mail.search(None, f"UID {last_uid + 1}:*")
+            try:
+                if full:
+                    # Get all emails
+                    _, message_numbers = mail.search(None, "ALL")
+                    logger.info("Searching for all emails")
                 else:
-                    # No last UID, get recent emails
-                    _, message_numbers = mail.search(None, "RECENT")
+                    # Get only new emails since last UID
+                    state = self.get_state()
+                    last_uid = state.get("last_uid")
+                    if last_uid:
+                        _, message_numbers = mail.search(None, f"UID {last_uid + 1}:*")
+                        logger.info(
+                            "Searching for new emails since UID",
+                            extra={"last_uid": last_uid},
+                        )
+                    else:
+                        # No last UID, get recent emails
+                        _, message_numbers = mail.search(None, "RECENT")
+                        logger.info("Searching for recent emails (no last UID)")
+            except Exception as e:
+                logger.error(
+                    "Failed to search emails", extra={"error": str(e)}, exc_info=True
+                )
+                return
 
             if not message_numbers or not message_numbers[0]:
+                logger.info("No emails found to process")
                 return
 
             msg_nums = message_numbers[0].split()
+            logger.info("Found emails to process", extra={"count": len(msg_nums)})
 
             # Process emails in reverse order for full collection
             if full:
                 msg_nums = reversed(msg_nums)
 
             for num in msg_nums:
+                logger.debug("Processing email", extra={"num": int(num)})
                 # Fetch email
-                _, msg_data = mail.fetch(num, "(RFC822 UID)")
+                try:
+                    _, msg_data = mail.fetch(num, "(RFC822 UID)")
+                except Exception as e:
+                    logger.warning(
+                        "Failed to fetch email",
+                        extra={"num": int(num), "error": str(e)},
+                        exc_info=True,
+                    )
+                    continue
 
                 if not msg_data or not msg_data[0]:
+                    logger.debug("Skipping email, no data", extra={"num": int(num)})
                     continue
 
                 # Parse UID
@@ -196,7 +263,11 @@ class Source(SourceBase):
                 date_str = msg.get("Date")
                 try:
                     date = parsedate_to_datetime(date_str) if date_str else datetime.now()
-                except Exception:
+                except Exception as e:
+                    logger.warning(
+                        "Failed to parse email date, using current time",
+                        extra={"num": int(num), "date_str": date_str, "error": str(e)},
+                    )
                     date = datetime.now()
 
                 # Get email body
@@ -219,10 +290,13 @@ class Source(SourceBase):
                     )
 
                     # Update last UID
+                    state = self.get_state()
                     if uid and (
-                        not Extension.state.last_uid or uid > Extension.state.last_uid
+                        not state.get("last_uid") or uid > state.get("last_uid", 0)
                     ):
-                        Extension.state.last_uid = uid
+                        state["last_uid"] = uid
+                        self.set_state(state)
+                        logger.debug("Updated last UID", extra={"new_uid": uid})
 
                     # Collect as StarGraphForm
                     collected.append(
@@ -234,6 +308,14 @@ class Source(SourceBase):
                             out_relations=(),
                         )
                     )
+                    logger.debug(
+                        "Collected email", extra={"uid": email_obj.uid, "subject": subject}
+                    )
+                else:
+                    logger.debug(
+                        "Skipping email, missing from or to addresses",
+                        extra={"num": int(num), "subject": subject},
+                    )
 
                 # Small delay to avoid overwhelming the server
                 await asyncio.sleep(0.1)
@@ -242,19 +324,32 @@ class Source(SourceBase):
             # Logout and close connection
             try:
                 mail.logout()
-            except Exception:
-                pass
+                logger.info("Logged out from IMAP server")
+            except Exception as e:
+                logger.warning("Failed to logout from IMAP server", extra={"error": str(e)})
 
-        with SessionLocal() as db:
-            for graph in reversed(collected) if full else collected:
-                RootManager.add_star_graph_to_session(graph, db)
-                # Schedule organize
-                scheduler.add_job(
-                    func=self._organize,
-                    kwargs={"block_id": graph.block.id},
-                    misfire_grace_time=None,
-                )
-            db.commit()
+        logger.info("Saving collected emails to database", extra={"count": len(collected)})
+        try:
+            with SessionLocal() as db:
+                for graph in reversed(collected) if full else collected:
+                    await RootManager.add_star_graph_to_session(graph, db)
+                    # Schedule organize
+                    scheduler.add_job(
+                        func=self._organize,
+                        kwargs={"block_id": graph.block.id},
+                        misfire_grace_time=None,
+                    )
+                db.commit()
+            logger.info(
+                "Email collection completed",
+                extra={"job_id": job.id, "emails_collected": len(collected)},
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to save emails to database",
+                extra={"job_id": job.id, "error": str(e)},
+                exc_info=True,
+            )
 
     async def _organize(self, block_id: BlockID) -> None:
         """Organize collected email block.

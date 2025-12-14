@@ -15,17 +15,10 @@ class TelegramExtensionConfig(sqlmodel.SQLModel):
     """Duration in seconds to collect messages during each collection run (default: 60)"""
 
 
-class TelegramExtensionState(sqlmodel.SQLModel):
-    """State for Telegram extension."""
-    last_message_id: Opt[int] = None
-    """Last processed message ID"""
-
-
 class Extension(
-    ExtensionBase[TelegramExtensionConfig, TelegramExtensionState],
+    ExtensionBase[TelegramExtensionConfig],
     ext_id="telegram",
     config_cls=TelegramExtensionConfig,
-    state_cls=TelegramExtensionState,
 ):
     """Telegram extension - provides bot message source for collecting messages."""
 

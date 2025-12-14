@@ -9,7 +9,8 @@ lication provides powerful and automatical collect, organize and use of informat
 - ORM and Data models: SQLModel
 - database migration: Alembic
 - Database: PostgreSQL
-- Package management and venv: PDM
+- Package management and venv: PDM 
+  - use `pdm run` to run scripts, executable or python code snippet. 
 
 ## Business Domains
 

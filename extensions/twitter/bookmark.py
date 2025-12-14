@@ -50,7 +50,8 @@ class Source(SourceBase):
         # find new tweets start point
         old_start_at = len(bookmarks_res.tweets)
         if not full:
-            latest_tweet_id = Extension.state.latest_tweet_id
+            state = self.get_state()
+            latest_tweet_id = state.get("latest_tweet_id")
             if latest_tweet_id:
                 old_start_at = next(
                     (
@@ -98,7 +99,9 @@ class Source(SourceBase):
             )
 
         if not full:
-            Extension.state.latest_tweet_id = bookmarks_res.tweets[0].id
+            state = self.get_state()
+            state["latest_tweet_id"] = bookmarks_res.tweets[0].id
+            self.set_state(state)
 
         with SessionLocal() as db:
             for graph in reversed(collected) if full else collected:

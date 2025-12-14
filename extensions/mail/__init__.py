@@ -21,18 +21,10 @@ class MailExtensionConfig(sqlmodel.SQLModel):
     """Email account password or app-specific password"""
 
 
-class MailExtensionState(sqlmodel.SQLModel):
-    """State for mail extension."""
-
-    last_uid: Opt[int] = None
-    """Last processed email UID"""
-
-
 class Extension(
-    ExtensionBase[MailExtensionConfig, MailExtensionState],
+    ExtensionBase[MailExtensionConfig],
     ext_id="mail",
     config_cls=MailExtensionConfig,
-    state_cls=MailExtensionState,
 ):
     """Mail extension - provides IMAP source for collecting emails."""
 

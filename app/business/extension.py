@@ -1,5 +1,4 @@
 import abc
-import logging
 import typing
 import fastapi
 import sqlmodel
@@ -24,31 +23,31 @@ class EmptyConfig(sqlmodel.SQLModel): ...
 
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
-StateTV = typing.TypeVar("StateTV", bound=sqlmodel.SQLModel)
 
 
-class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
+class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     """InKCre Extension base class."""
 
     config: ConfigTV
-    state: StateTV
 
     def __init_subclass__(
         cls,
         ext_id: ExtensionID,
         config_cls: type[ConfigTV],
-        state_cls: type[StateTV],
         **kwargs,
     ) -> None:
         cls.__extid__ = ext_id
         cls.__configcls__ = config_cls
-        cls.__statecls__ = state_cls
+        cls.__configschema__ = config_cls.model_json_schema()
         return super().__init_subclass__(**kwargs)
 
     @classmethod
-    def on_start(cls, app: fastapi.FastAPI, config: dict, state: dict):
-        cls.config = cls.__configcls__(**config)
-        cls.state = cls.__statecls__(**state)
+    def on_start(cls, app: fastapi.FastAPI, extension: ExtensionModel):
+        cls.config = cls.__configcls__(**(extension.config or {}))
+        with SessionLocal() as db:
+            extension.config_schema = cls.__configschema__
+            db.add(extension)
+            db.commit()
 
         router = fastapi.APIRouter(prefix=f"/{cls.__extid__}")
         cls._register_apis(router)
@@ -67,9 +66,7 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV, StateTV]):
 
     @classmethod
     async def on_close(cls):
-        ExtensionManager.save_config_and_state(
-            ext_id=cls.__extid__, config=cls.config, state=cls.state
-        )
+        ExtensionManager.save_config(ext_id=cls.__extid__, config=cls.config)
         LOGGER.info(f"Extension {cls.__extid__} closed.")
 
     @classmethod
@@ -112,12 +109,11 @@ class ExtensionManager:
         if extension_class in cls.RUNNING_EXTENSIONS:
             LOGGER.warning(f"Extension {extension.id} is already running.")
         else:
-            cls.RUNNING_EXTENSIONS.add(extension_class)
             extension_class.on_start(
                 app=cls.FASTAPI_APP,
-                config=extension.config or {},
-                state=extension.state or {},
+                extension=extension,
             )
+            cls.RUNNING_EXTENSIONS.add(extension_class)
 
     @classmethod
     async def close(cls, extid: ExtensionID):
@@ -285,7 +281,6 @@ class ExtensionManager:
             version=version or "0.0.0",
             nickname=nickname,
             config={},
-            state={},
             disabled=True,
         )
 
@@ -356,11 +351,10 @@ class ExtensionManager:
             ).first()
 
     @classmethod
-    def save_config_and_state(
+    def save_config(
         cls,
         ext_id: ExtensionID,
         config: Opt[sqlmodel.SQLModel | dict] = None,
-        state: Opt[sqlmodel.SQLModel | dict] = None,
     ) -> ExtensionModel:
         with SessionLocal() as db:
             extension_model = db.exec(
@@ -369,10 +363,6 @@ class ExtensionManager:
             if config:
                 extension_model.config = (
                     config.model_dump() if isinstance(config, sqlmodel.SQLModel) else config
-                )
-            if state:
-                extension_model.state = (
-                    state.model_dump() if isinstance(state, sqlmodel.SQLModel) else state
                 )
             db.add(extension_model)
             db.commit()
