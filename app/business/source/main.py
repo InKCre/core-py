@@ -31,41 +31,12 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     def __init__(self, _id: SourceID) -> None:
         self._id = _id
 
-    async def collect(self, full: bool = False) -> list[BlockModel]:
+    @abc.abstractmethod
+    async def collect(self, job: "SourceCollectJobModel") -> None:
         """Collect new data from the source.
 
-        :param full:
-            If True, collect all data, otherwise only new data.
-            If True, collected data blocks will be inserted in reverse order.
-
-        The order of collected blocks inserted into the database is the same
-        as the order of blocks yielded by the generator.
+        :param job: The collect job containing config and state.
         """
-        collected: list[StarGraphForm] = []
-        collected_blocks: list[BlockModel] = []
-        generator = self._collect(full=full)
-        async for item in generator:  # type: ignore[assignment] pyright bug
-            collected.append(item)
-
-        with SessionLocal() as db:
-            for i, graph in enumerate((reversed(collected) if full else collected)):
-                RootManager.add_star_graph_to_session(graph, db)
-                # therotically, self._organize will be run after all committed
-                scheduler.add_job(
-                    func=self._organize,
-                    kwargs={"block_id": graph.block.id},
-                    misfire_grace_time=None,
-                )
-                collected_blocks.append(graph.block)
-            db.commit()
-
-        return collected_blocks
-
-    @abc.abstractmethod
-    async def _collect(
-        self, full: bool = False
-    ) -> typing.AsyncGenerator[StarGraphForm, None]:
-        """The real collect implementation."""
 
     @abc.abstractmethod
     async def _organize(self, block_id: BlockID) -> None:
@@ -147,17 +118,6 @@ class SourceManager:
         return ins
 
     @classmethod
-    async def run_a_collect(cls, source_id: int, full: bool = False) -> list[BlockModel]:
-        with SessionLocal() as db:
-            source_model = db.exec(
-                sqlmodel.select(SourceModel).where(SourceModel.id == source_id)
-            ).one()
-
-        return await cls._get_source_ins(
-            typing.cast(SourceID, source_model.id), source_model.type
-        ).collect(full=full)
-
-    @classmethod
     def create(cls, type_: str, nickname: Opt[str] = None) -> SourceModel:
         """Add a new source."""
         with SessionLocal() as db:
@@ -187,8 +147,9 @@ class SourceCollectJobManager:
             db.commit()
 
             try:
-                # Run the collect
-                await SourceManager.run_a_collect(job.source)
+                # Fetch source instance and run collect
+                source_ins = SourceManager._get_source_ins(job.source)
+                await source_ins.collect(job)
                 job.status = SourceCollectJobStatus.FINISHED
             except Exception as e:
                 LOGGER.error(f"Error running job {job_id}: {e}")

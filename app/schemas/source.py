@@ -140,4 +140,11 @@ class SourceCollectJobModel(sqlmodel.SQLModel, table=True):
     """When this collect job is finished/failed.
     """
     status: SourceCollectJobStatus = sqlmodel.Field(default=SourceCollectJobStatus.PENDING)
-    state: dict = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.JSON), default=dict)
+    state: dict = sqlmodel.Field(
+        sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB),
+        default_factory=dict,
+    )
+    config: dict = sqlmodel.Field(
+        sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB),
+        default_factory=dict,
+    )

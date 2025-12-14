@@ -8,6 +8,7 @@ from app.business.extension import ExtensionBase
 
 class MailExtensionConfig(sqlmodel.SQLModel):
     """Configuration for mail extension."""
+
     imap_server: str = ""
     """IMAP server address (e.g., imap.gmail.com)"""
     imap_port: int = 993
@@ -22,6 +23,7 @@ class MailExtensionConfig(sqlmodel.SQLModel):
 
 class MailExtensionState(sqlmodel.SQLModel):
     """State for mail extension."""
+
     last_uid: Opt[int] = None
     """Last processed email UID"""
 
@@ -42,7 +44,7 @@ class Extension(
     @classmethod
     def _init_sources(cls):
         """Initialize IMAP source."""
-        from .imap_source import Source as IMAPSource  # noqa: F401
+        from .imap import Source as IMAPSource  # noqa: F401
 
     @classmethod
     def _register_apis(cls, router: APIRouter):

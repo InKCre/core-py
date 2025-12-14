@@ -9,9 +9,13 @@ from email.header import decode_header
 from email.utils import parseaddr, parsedate_to_datetime
 from typing import Optional as Opt
 from app.business.source import SourceBase
+from app.engine import SessionLocal
+from app.business.root import RootManager
 from app.schemas.root import StarGraphForm
 from app.schemas.block import BlockModel
 from app.schemas.block import BlockID
+from app.schemas.source import SourceCollectJobModel
+from app.scheduler import scheduler
 from extensions.mail import Extension
 from .schema import Email, EmailAddress
 
@@ -23,14 +27,14 @@ class Source(SourceBase):
         """Decode email header value."""
         if not header_value:
             return ""
-        
+
         decoded_parts = []
         for part, encoding in decode_header(header_value):
             if isinstance(part, bytes):
                 try:
-                    decoded_parts.append(part.decode(encoding or 'utf-8', errors='ignore'))
+                    decoded_parts.append(part.decode(encoding or "utf-8", errors="ignore"))
                 except (LookupError, AttributeError):
-                    decoded_parts.append(part.decode('utf-8', errors='ignore'))
+                    decoded_parts.append(part.decode("utf-8", errors="ignore"))
             else:
                 decoded_parts.append(str(part))
         return "".join(decoded_parts)
@@ -43,8 +47,7 @@ class Source(SourceBase):
         if not email_addr:
             return None
         return EmailAddress(
-            email=email_addr,
-            name=self._decode_header(name) if name else None
+            email=email_addr, name=self._decode_header(name) if name else None
         )
 
     def _parse_email_addresses(self, addr_str: Opt[str]) -> list[EmailAddress]:
@@ -53,7 +56,7 @@ class Source(SourceBase):
             return []
         addresses = []
         # Simple split on comma - may need more sophisticated parsing
-        for addr in addr_str.split(','):
+        for addr in addr_str.split(","):
             parsed = self._parse_email_address(addr.strip())
             if parsed:
                 addresses.append(parsed)
@@ -77,14 +80,14 @@ class Source(SourceBase):
                     try:
                         payload = part.get_payload(decode=True)
                         if payload:
-                            body_text = payload.decode(errors='ignore')
+                            body_text = payload.decode(errors="ignore")
                     except Exception:
                         pass
                 elif content_type == "text/html" and not body_html:
                     try:
                         payload = part.get_payload(decode=True)
                         if payload:
-                            body_html = payload.decode(errors='ignore')
+                            body_html = payload.decode(errors="ignore")
                     except Exception:
                         pass
         else:
@@ -93,7 +96,7 @@ class Source(SourceBase):
             try:
                 payload = msg.get_payload(decode=True)
                 if payload:
-                    decoded = payload.decode(errors='ignore')
+                    decoded = payload.decode(errors="ignore")
                     if content_type == "text/plain":
                         body_text = decoded
                     elif content_type == "text/html":
@@ -107,35 +110,36 @@ class Source(SourceBase):
         """Check if email has attachments."""
         if not msg.is_multipart():
             return False
-        
+
         for part in msg.walk():
             content_disposition = str(part.get("Content-Disposition", ""))
             if "attachment" in content_disposition:
                 return True
         return False
 
-    async def _collect(  # type: ignore[override]
-        self, full: bool = False
-    ) -> typing.AsyncGenerator[StarGraphForm, None]:
+    async def collect(self, job: SourceCollectJobModel) -> None:
         """Collect emails from IMAP server.
-        
-        :param full: If True, collect all emails, otherwise only new ones.
+
+        :param job: The collect job containing config and state.
         """
-        config = Extension.config
-        
+        ext_config = Extension.config
+        config = job.config or {}
+        full = config.get("full", False)
+
         # Connect to IMAP server
-        if config.use_ssl:
-            mail = imaplib.IMAP4_SSL(config.imap_server, config.imap_port)
+        if ext_config.use_ssl:
+            mail = imaplib.IMAP4_SSL(ext_config.imap_server, ext_config.imap_port)
         else:
-            mail = imaplib.IMAP4(config.imap_server, config.imap_port)
-        
+            mail = imaplib.IMAP4(ext_config.imap_server, ext_config.imap_port)
+
+        collected = []
         try:
             # Login
-            mail.login(config.username, config.password)
-            
+            mail.login(ext_config.username, ext_config.password)
+
             # Select inbox
             mail.select("INBOX")
-            
+
             # Search for emails
             if full:
                 # Get all emails
@@ -148,53 +152,57 @@ class Source(SourceBase):
                 else:
                     # No last UID, get recent emails
                     _, message_numbers = mail.search(None, "RECENT")
-            
+
             if not message_numbers or not message_numbers[0]:
                 return
-            
+
             msg_nums = message_numbers[0].split()
-            
+
             # Process emails in reverse order for full collection
             if full:
                 msg_nums = reversed(msg_nums)
-            
+
             for num in msg_nums:
                 # Fetch email
                 _, msg_data = mail.fetch(num, "(RFC822 UID)")
-                
+
                 if not msg_data or not msg_data[0]:
                     continue
-                
+
                 # Parse UID
-                uid_match = msg_data[0][0] if isinstance(msg_data[0], tuple) else msg_data[0]
+                uid_match = (
+                    msg_data[0][0] if isinstance(msg_data[0], tuple) else msg_data[0]
+                )
                 uid = None
                 if isinstance(uid_match, bytes):
                     uid_str = uid_match.decode()
                     if "UID" in uid_str:
                         uid = int(uid_str.split("UID")[1].split(")")[0].strip())
-                
+
                 # Parse email message
-                email_body = msg_data[0][1] if isinstance(msg_data[0], tuple) else msg_data[0]
+                email_body = (
+                    msg_data[0][1] if isinstance(msg_data[0], tuple) else msg_data[0]
+                )
                 msg = email.message_from_bytes(email_body)
-                
+
                 # Extract email data
                 subject = self._decode_header(msg.get("Subject", ""))
                 from_addr = self._parse_email_address(msg.get("From"))
                 to_addrs = self._parse_email_addresses(msg.get("To"))
                 cc_addrs = self._parse_email_addresses(msg.get("Cc"))
                 message_id = msg.get("Message-ID", "")
-                
+
                 # Parse date
                 date_str = msg.get("Date")
                 try:
                     date = parsedate_to_datetime(date_str) if date_str else datetime.now()
                 except Exception:
                     date = datetime.now()
-                
+
                 # Get email body
                 body_text, body_html = self._get_email_body(msg)
                 has_attachments = self._has_attachments(msg)
-                
+
                 # Create Email object
                 if from_addr and to_addrs:
                     email_obj = Email(
@@ -207,25 +215,29 @@ class Source(SourceBase):
                         date=date,
                         body_text=body_text,
                         body_html=body_html,
-                        has_attachments=has_attachments
+                        has_attachments=has_attachments,
                     )
-                    
+
                     # Update last UID
-                    if uid and (not Extension.state.last_uid or uid > Extension.state.last_uid):
+                    if uid and (
+                        not Extension.state.last_uid or uid > Extension.state.last_uid
+                    ):
                         Extension.state.last_uid = uid
-                    
-                    # Yield as StarGraphForm
-                    yield StarGraphForm(
-                        block=BlockModel(
-                            resolver="extensions.mail.resolver.EmailResolver",
-                            content=email_obj.model_dump_json(),
-                        ),
-                        out_relations=()
+
+                    # Collect as StarGraphForm
+                    collected.append(
+                        StarGraphForm(
+                            block=BlockModel(
+                                resolver="extensions.mail.resolver.EmailResolver",
+                                content=email_obj.model_dump_json(),
+                            ),
+                            out_relations=(),
+                        )
                     )
-                
+
                 # Small delay to avoid overwhelming the server
                 await asyncio.sleep(0.1)
-        
+
         finally:
             # Logout and close connection
             try:
@@ -233,9 +245,20 @@ class Source(SourceBase):
             except Exception:
                 pass
 
+        with SessionLocal() as db:
+            for graph in reversed(collected) if full else collected:
+                RootManager.add_star_graph_to_session(graph, db)
+                # Schedule organize
+                scheduler.add_job(
+                    func=self._organize,
+                    kwargs={"block_id": graph.block.id},
+                    misfire_grace_time=None,
+                )
+            db.commit()
+
     async def _organize(self, block_id: BlockID) -> None:
         """Organize collected email block.
-        
+
         Currently no additional organization needed for emails.
         """
         pass

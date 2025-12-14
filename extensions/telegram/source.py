@@ -6,15 +6,19 @@ from typing import Optional as Opt
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from app.business.source import SourceBase
+from app.engine import SessionLocal
+from app.business.root import RootManager
 from app.schemas.root import StarGraphForm
 from app.schemas.block import BlockModel, BlockID
+from app.schemas.source import SourceCollectJobModel
+from app.scheduler import scheduler
 from extensions.telegram import Extension
 from .schema import TelegramMessage, TelegramUser, TelegramChat
 
 
 class Source(SourceBase):
     """Telegram Source - collects messages sent to the configured Telegram bot.
-    
+
     Note: This source uses class-level state for the Telegram application and message
     collection. Only one collection run should be active at a time. Running multiple
     concurrent collections may cause race conditions.
@@ -25,16 +29,18 @@ class Source(SourceBase):
     _collecting: bool = False
 
     @classmethod
-    async def _message_handler(cls, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def _message_handler(
+        cls, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         """Handle incoming Telegram messages.
-        
+
         This is called by the Telegram bot when a message is received.
         """
         if not update.message or not cls._collecting:
             return
-        
+
         message = update.message
-        
+
         # Parse user information
         from_user = None
         if message.from_user:
@@ -43,22 +49,22 @@ class Source(SourceBase):
                 first_name=message.from_user.first_name,
                 last_name=message.from_user.last_name,
                 username=message.from_user.username,
-                is_bot=message.from_user.is_bot
+                is_bot=message.from_user.is_bot,
             )
-        
+
         # Parse chat information
         chat = TelegramChat(
             id=message.chat.id,
             type=message.chat.type,
             title=message.chat.title,
-            username=message.chat.username
+            username=message.chat.username,
         )
-        
+
         # Determine media type
         has_media = False
         media_type = None
         caption = None
-        
+
         if message.photo:
             has_media = True
             media_type = "photo"
@@ -82,7 +88,7 @@ class Source(SourceBase):
         elif message.sticker:
             has_media = True
             media_type = "sticker"
-        
+
         # Parse forward information
         forward_from = None
         if message.forward_from:
@@ -91,9 +97,9 @@ class Source(SourceBase):
                 first_name=message.forward_from.first_name,
                 last_name=message.forward_from.last_name,
                 username=message.forward_from.username,
-                is_bot=message.forward_from.is_bot
+                is_bot=message.forward_from.is_bot,
             )
-        
+
         # Create TelegramMessage object
         telegram_msg = TelegramMessage(
             message_id=message.message_id,
@@ -107,73 +113,75 @@ class Source(SourceBase):
                 message.reply_to_message.message_id if message.reply_to_message else None
             ),
             has_media=has_media,
-            media_type=media_type
+            media_type=media_type,
         )
-        
+
         # Store the message
         cls._collected_messages.append(telegram_msg)
 
-    async def _collect(  # type: ignore[override]
-        self, full: bool = False
-    ) -> typing.AsyncGenerator[StarGraphForm, None]:
+    async def collect(self, job: SourceCollectJobModel) -> None:
         """Collect messages from Telegram bot.
-        
-        :param full: If True, collect all messages (not supported for Telegram bot),
-                     otherwise only new messages received during collection period.
-        
+
+        :param job: The collect job containing config and state.
+
         Note: Telegram bots can only receive new messages sent to them in real-time.
         Historical messages cannot be retrieved via Bot API. For full collection,
         the bot needs to have been running and storing messages previously.
         """
-        config = Extension.config
-        
-        if not config.bot_token:
+        ext_config = Extension.config
+
+        if not ext_config.bot_token:
             # No bot token configured, cannot collect
             return
-        
+
+        config = job.config or {}
+        full = config.get("full", False)
+        duration = config.get("duration", ext_config.collection_duration_seconds or 60)
+
         # Initialize Telegram bot application if not already done
         if Source._app is None:
-            Source._app = Application.builder().token(config.bot_token).build()
-            
+            Source._app = Application.builder().token(ext_config.bot_token).build()
+
             # Add message handler
             Source._app.add_handler(MessageHandler(filters.ALL, Source._message_handler))
-        
+
         # Clear collected messages and start collecting
         Source._collected_messages = []
         Source._collecting = True
-        
+
+        collected = []
         try:
             # Start the bot in polling mode
             await Source._app.initialize()
             await Source._app.start()
             await Source._app.updater.start_polling(
-                allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=not full
+                allowed_updates=Update.ALL_TYPES, drop_pending_updates=not full
             )
-            
+
             # Collect for the configured duration
-            collection_duration = config.collection_duration_seconds or 60
-            await asyncio.sleep(collection_duration)
-            
+            await asyncio.sleep(duration)
+
             # Stop collecting
             Source._collecting = False
             await Source._app.updater.stop()
             await Source._app.stop()
-            
-            # Yield collected messages as StarGraphForm
+
+            # Collect messages as StarGraphForm
             for message in Source._collected_messages:
-                yield StarGraphForm(
-                    block=BlockModel(
-                        resolver="extensions.telegram.resolver.TelegramMessageResolver",
-                        content=message.model_dump_json(),
-                    ),
-                    out_relations=()
+                collected.append(
+                    StarGraphForm(
+                        block=BlockModel(
+                            resolver="extensions.telegram.resolver.TelegramMessageResolver",
+                            content=message.model_dump_json(),
+                        ),
+                        out_relations=(),
+                    )
                 )
-            
+
             # Update last message ID in state after successful collection
             if Source._collected_messages:
                 Extension.state.last_message_id = Source._collected_messages[-1].message_id
-        
+
         finally:
             Source._collecting = False
             # Clean up
@@ -187,9 +195,20 @@ class Source(SourceBase):
                     # Expected errors during cleanup can be safely ignored
                     pass
 
+        with SessionLocal() as db:
+            for graph in collected:
+                RootManager.add_star_graph_to_session(graph, db)
+                # Schedule organize
+                scheduler.add_job(
+                    func=self._organize,
+                    kwargs={"block_id": graph.block.id},
+                    misfire_grace_time=None,
+                )
+            db.commit()
+
     async def _organize(self, block_id: BlockID) -> None:
         """Organize collected Telegram message block.
-        
+
         Currently no additional organization needed for Telegram messages.
         """
         pass

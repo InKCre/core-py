@@ -1,7 +1,6 @@
 ## Fundaments
 
 - [ ] 可观测性
-  - 日志
 
 ### AI
 
@@ -11,12 +10,12 @@
 - [ ] 添加 `MarkdownMessageContent`
   - 可以由其它 `MessageContent` 组成 (比如 `CSVMessageContent`)
 
-## Base
+## Info-Base
 
 - [x] 添加插入图接口
   - [x] 不插入重复的块和关系。（当前实现是判断解析器、内容、存储器字段一致；来源、去向、内容一致。未来考虑将内容一致性的判断交给解析器）
 
-## Block
+### Block
 
 - [ ] 确保 Embedding 使用的模型一致
 - [ ] 定期检查 Embedding 是否过期，过期则刷新
@@ -24,16 +23,16 @@
 - [ ] 向量检索多模态对齐问题
   - 为不同的模态的向量设置不同的列
 
-## Source
+### Source
 
 - [x] Run collect intervally. 
   Each source can has their own interval.
 - [x] Collected data will be organized later by running a background task for each data item using `organize` of its resolver.
-- [ ] Collect is an active way to gather data. Source should be able to configure webhooks or other ways to passively gathering data. Source can done this in `start` method which will be called once the application starts.
-- [ ] Provide an API Endpoint for remote source (out source) to commit collected data. Collected data will be organized automatically also.
-- [ ] 和 Resolver, Storage 一样采用子类自动注册的方式
+- [ ] Collect is an active way to gather data. Source should be able to configure webhooks or other ways to passively gathering data. Source can do this in `start` method which will be called once the application starts.
+- [x] 和 Resolver, Storage 一样采用子类自动注册的方式
+- [x] Source.collect 不应该有参数
 
-## Resolver
+### Resolver
 
 - [ ] Standard of auto organization ? 
 - [ ] Resolver relies on Storage to get the actual content (don't do it yourself, never considering what storage is)
@@ -41,7 +40,7 @@
   - 在未找到时，按照类型（和 Python 导入路径语法一致）尝试从插件中导入 （否则插件就需要在初始化时导入）
 
 ## Extension
-- [ ] Run `pdm install` to install dependencies the extension required when install or upgrade an extension.
+- [x] Run `pdm install` to install dependencies the extension required when install or upgrade an extension.
 - [ ] Create `data/extensions/<ext_id>/` folder for extension to locally store its data.
 - [x] Add lifespan management: start and close.
 - [ ] 使用 git submodules ？ 
@@ -58,7 +57,10 @@
 - [ ] Twikit get_tweet_id and _get_more_replies has a bug: last item of entries does not has `itemContent` in `content`, should directly read `value` from `content`
   Follow up this [PR](https://github.com/d60/twikit/pull/377) for solving this issue.
 - [ ] Twikit type annotation for tweet.urls are wrong, it should be `list[dict]`, not `list[str]`
-- [ ] Use state to store the latest post
+
+### Email
+
+- [ ] 
 
 ### Github
 

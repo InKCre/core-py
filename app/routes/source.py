@@ -3,9 +3,10 @@
 __all__ = ["ROUTER"]
 
 import fastapi
-import typing
-from app.business.source import SourceManager
-from app.schemas.block import BlockModel
+from typing import Optional as Opt
+from app.business.source import SourceCollectJobManager
+from app.engine import SessionLocal
+from app.schemas.source import SourceCollectJobModel, SourceID
 
 ROUTER = fastapi.APIRouter(
     prefix="/sources",
@@ -14,7 +15,17 @@ ROUTER = fastapi.APIRouter(
 
 
 @ROUTER.post("/{source_id}/collect")
-async def collect_source(source_id: int, full: bool = False) -> list[BlockModel]:
-    """Create a source collect job."""
-    # TODO
-    return await SourceManager.run_a_collect(source_id, full)
+async def run_source_collect(
+    source_id: SourceID, body: Opt[dict] = None
+) -> SourceCollectJobModel:
+    """Run source collect (by creating a source collect job.)"""
+    with SessionLocal() as db:
+        if body is None:
+            body = {}
+        job = SourceCollectJobModel(source=source_id, config=body)
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+
+    await SourceCollectJobManager.check_pending()
+    return job
