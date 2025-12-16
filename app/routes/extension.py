@@ -2,6 +2,7 @@
 
 __all__ = ["ROUTER"]
 
+import typing
 import fastapi
 from app.business.extension import ExtensionManager
 from app.schemas.extension import ExtensionModel, ExtensionID
@@ -41,14 +42,23 @@ async def toggle_extension(extid: ExtensionID, disabled: bool) -> ExtensionModel
 
 
 @ROUTER.put("/{extid}/config")
-def update_extension_config(extid: ExtensionID, config: dict) -> ExtensionModel:
-    """编辑插件配置 (Edit extension configuration)"""
-    updated = ExtensionManager.save_config_and_state(extid, config)
+def update_extension_config(
+    extid: ExtensionID, body: dict[str, typing.Any] = fastapi.Body(...)
+) -> ExtensionModel:
+    """编辑插件配置 (Edit extension configuration)
 
-    if updated is None:
+    编辑成功将会立刻应用到插件中（如果正在运行）
+    """
+    updated_ext = ExtensionManager.save_config(extid, body)
+
+    if updated_ext is None:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND,
             detail=f"Extension with id {extid} not found.",
         )
 
-    return updated
+    ext_cls = ExtensionManager.RUNNING_EXTENSIONS.get(extid, None)
+    if ext_cls is not None:
+        ext_cls.update_config(updated_ext.config)
+
+    return updated_ext

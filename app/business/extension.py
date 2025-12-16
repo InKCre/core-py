@@ -73,9 +73,20 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     @abc.abstractmethod
     def _register_apis(cls, router: fastapi.APIRouter): ...
 
+    @classmethod
+    def update_config(cls, new_config: dict | ConfigTV):
+        """Update extension configuration at runtime.
+
+        :param new_config:
+        """
+        if isinstance(new_config, dict):
+            cls.config = cls.__configcls__(**new_config)
+        else:
+            cls.config = new_config
+
 
 class ExtensionManager:
-    RUNNING_EXTENSIONS: set[type[ExtensionBase]] = set()
+    RUNNING_EXTENSIONS: dict[ExtensionID, type[ExtensionBase]] = dict()
     FASTAPI_APP: fastapi.FastAPI
 
     @classmethod
@@ -91,14 +102,23 @@ class ExtensionManager:
 
         It could involves closes of connections, so asynchronous.
         """
-        to_close = tuple(cls.RUNNING_EXTENSIONS)
+        to_close = tuple(cls.RUNNING_EXTENSIONS.values())
         for extension_class in to_close:
             await extension_class.on_close()
-            cls.RUNNING_EXTENSIONS.remove(extension_class)
+            cls.RUNNING_EXTENSIONS.pop(extension_class.__extid__, None)
 
     @classmethod
-    def start(cls, extid: Opt[ExtensionID] = None, extension: Opt[ExtensionModel] = None):
+    def start(
+        cls,
+        extid: Opt[ExtensionID] = None,
+        extension: Opt[ExtensionModel] = None,
+        app: Opt[fastapi.FastAPI] = None,
+    ):
         """Start a specific extension."""
+        if app is None:
+            app = cls.FASTAPI_APP
+        if app is None:
+            raise ValueError("FastAPI app instance is required to start extension.")
         if extension is None and extid is not None:
             extension = cls.get(extid)
         if not extension:
@@ -110,10 +130,10 @@ class ExtensionManager:
             LOGGER.warning(f"Extension {extension.id} is already running.")
         else:
             extension_class.on_start(
-                app=cls.FASTAPI_APP,
+                app=app,
                 extension=extension,
             )
-            cls.RUNNING_EXTENSIONS.add(extension_class)
+            cls.RUNNING_EXTENSIONS[extension_class.__extid__] = extension_class
 
     @classmethod
     async def close(cls, extid: ExtensionID):
@@ -122,12 +142,12 @@ class ExtensionManager:
         extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
         if extension_class in cls.RUNNING_EXTENSIONS:
             await extension_class.on_close()
-            cls.RUNNING_EXTENSIONS.remove(extension_class)
+            cls.RUNNING_EXTENSIONS.pop(extension_class.__extid__, None)
         else:
             LOGGER.warning(f"Extension {extid} is not running.")
 
     @classmethod
-    def read_metadata(cls, ext_path: str) -> tuple[Opt[str], Opt[str]]:
+    def _read_metadata(cls, ext_path: str) -> tuple[Opt[str], Opt[str]]:
         """Read extension metadata (nickname, version) from a local extension
         directory.
 
@@ -274,7 +294,7 @@ class ExtensionManager:
                 shutil.copy2(pyproject_src, os.path.join(target_dir, "pyproject.toml"))
 
         # Return extension model with downloaded info
-        nickname, _ = cls.read_metadata(target_dir)
+        nickname, _ = cls._read_metadata(target_dir)
 
         return ExtensionModel(
             id=extid,
@@ -354,41 +374,29 @@ class ExtensionManager:
     def save_config(
         cls,
         ext_id: ExtensionID,
-        config: Opt[sqlmodel.SQLModel | dict] = None,
+        config: sqlmodel.SQLModel | dict,
     ) -> ExtensionModel:
+        """Save extension config to database.
+
+        Args:
+            ext_id (ExtensionID):
+            config (sqlmodel.SQLModel | dict):
+
+        Returns:
+            ExtensionModel: updated extension
+        """
         with SessionLocal() as db:
             extension_model = db.exec(
                 sqlmodel.select(ExtensionModel).where(ExtensionModel.id == ext_id)
             ).one()
-            if config:
-                extension_model.config = (
-                    config.model_dump() if isinstance(config, sqlmodel.SQLModel) else config
-                )
-            db.add(extension_model)
-            db.commit()
-
-        return extension_model
-
-    @classmethod
-    def update_config(cls, extension_id: ExtensionID, config: dict) -> Opt[dict]:
-        """Update extension config with a dict.
-
-        Returns the updated config, or None if extension not found.
-        """
-        with SessionLocal() as db:
-            extension_model = db.exec(
-                sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extension_id)
-            ).first()
-
-            if not extension_model:
-                return None
-
-            extension_model.config = config
+            extension_model.config = (
+                config.model_dump() if isinstance(config, sqlmodel.SQLModel) else config
+            )
             db.add(extension_model)
             db.commit()
             db.refresh(extension_model)
 
-            return extension_model.config
+            return extension_model
 
     @classmethod
     def sync(cls):
@@ -414,7 +422,7 @@ class ExtensionManager:
                         ext_id = item  # Folder name is the extension ID
                         LOGGER.debug(f"Processing local extension: {ext_id}")
 
-                        nickname, version = cls.read_metadata(ext_path)
+                        nickname, version = cls._read_metadata(ext_path)
 
                         # Skip if we couldn't read any metadata
                         if nickname is None and version is None:

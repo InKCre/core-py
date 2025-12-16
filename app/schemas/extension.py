@@ -26,8 +26,12 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
     """
     disabled: bool = sqlmodel.Field(default=False)
     nickname: Opt[str] = sqlmodel.Field(default=None)
-    config: Opt[dict] = sqlmodel.Field(
-        default=None, sa_column=sqlmodel.Column(sqlalchemy.dialects.postgresql.JSONB)
+    config: dict = sqlmodel.Field(
+        default_factory=dict,
+        sa_column=sqlmodel.Column(
+            sqlalchemy.dialects.postgresql.JSONB,
+            server_default=sqlalchemy.text("'{}'::jsonb"),
+        ),
     )
     config_schema: Opt[dict] = sqlmodel.Field(
         default=None, sa_column=sqlmodel.Column(sqlalchemy.dialects.postgresql.JSONB)

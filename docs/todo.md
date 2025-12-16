@@ -33,6 +33,8 @@
 - [x] Source.collect 不应该有参数
 - [ ] Organize 不是 source 的职责，而是整个信息库的。Source会在 organize 过程中提供帮助，但绝不是 source 来执行。
 - [x] Source 也要有 state，反而是 extension 不应该有 state
+- [ ] Source collect job logs
+- [ ] Source type also has config schema
 
 ### Resolver
 
@@ -46,6 +48,8 @@
 - [ ] Create `data/extensions/<ext_id>/` folder for extension to locally store its data.
 - [x] Add lifespan management: start and close.
 - [ ] 使用 git submodules ？ 
+- [ ] 插件提供将升级的迁移放在 `extensions/<extid>/mirgations/` 中，upgrade / downgrade 会执行；
+      关键的一件事就是迁移 SourceType
 
 ### Twitter
 
@@ -69,3 +73,8 @@
 ### Telegram
 
 ### Rsshub
+
+## Trivias
+
+- [ ] indent 修改为 2 spaces
+- [ ] 重新生成数据库迁移脚本
