@@ -1,7 +1,6 @@
 """Mail extension for InKCre - provides IMAP email source."""
 
 import sqlmodel
-from typing import Optional as Opt
 from fastapi import APIRouter
 from app.business.extension import ExtensionBase
 
@@ -9,16 +8,7 @@ from app.business.extension import ExtensionBase
 class MailExtensionConfig(sqlmodel.SQLModel):
     """Configuration for mail extension."""
 
-    imap_server: str = ""
-    """IMAP server address (e.g., imap.gmail.com)"""
-    imap_port: int = 993
-    """IMAP port (default: 993 for SSL)"""
-    use_ssl: bool = True
-    """Whether to use SSL/TLS connection"""
-    username: str = ""
-    """Email account username"""
-    password: str = ""
-    """Email account password or app-specific password"""
+    ...
 
 
 class Extension(
@@ -32,11 +22,13 @@ class Extension(
     def _init_resolvers(cls):
         """Initialize email resolver."""
         from .resolver import EmailResolver  # noqa: F401
+        from .resolver import NewsletterResolver  # noqa: F401
 
     @classmethod
     def _init_sources(cls):
         """Initialize IMAP source."""
         from .imap import Source as IMAPSource  # noqa: F401
+        from .newsletter import Source as NewsletterSource  # noqa: F401
 
     @classmethod
     def _register_apis(cls, router: APIRouter):
@@ -45,6 +37,12 @@ class Extension(
 
         router.post("/imap")(
             lambda nickname: SourceManager.create(
-                f"extensions.{cls.__extid__}.imap_source", nickname
+                f"extensions.{cls.__extid__}.imap.Source", nickname
+            )
+        )
+
+        router.post("/newsletter")(
+            lambda nickname: SourceManager.create(
+                f"extensions.{cls.__extid__}.newsletter.Source", nickname
             )
         )

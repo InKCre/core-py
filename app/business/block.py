@@ -6,7 +6,7 @@ import typing
 import sqlmodel
 from typing import Optional as Opt
 from app.business.relation import RelationManager
-from app.logging_config import get_logger
+from libs.obsrv.main import get_logger
 from utils.types_ import Undefined, _undefined
 from ..engine import SessionLocal
 from ..libs.ai import (

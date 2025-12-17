@@ -6,27 +6,27 @@ import sqlalchemy.dialects.postgresql
 import sqlmodel
 import typing
 from typing import Optional as Opt
-from app.business.root import RootManager
 from app.engine import SessionLocal
-from app.logging_config import get_logger
-from app.schemas.root import StarGraphForm
-from app.schemas.block import BlockID, BlockModel
+from libs.obsrv.main import get_logger
+from app.schemas.block import BlockID
 from app.schemas.source import SourceCollectJobID, SourceModel, SourceID, SourceTypesModel
 from app.schemas.source import SourceCollectJobModel, SourceCollectJobStatus
-from app.scheduler import scheduler
+from app.scheduler import scheduler, with_trace_id
 
 
 LOGGER = get_logger().getChild(__name__)
 
-ConfigTV = typing.TypeVar("ConfigTV", bound=dict)
+ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
 
 
 class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     """InkCre Source Base class."""
 
-    def __init_subclass__(cls, **kwargs) -> None:
+    def __init_subclass__(cls, config_cls: type[ConfigTV], **kwargs) -> None:
         SourceManager.add_source_type(cls)
-        return super().__init_subclass__()
+        cls.__configcls__ = config_cls
+        cls.__configschema__ = config_cls.model_json_schema()
+        return super().__init_subclass__(**kwargs)
 
     def __init__(self, _id: SourceID) -> None:
         self._id = _id
@@ -47,7 +47,11 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
 
     def get_config(self) -> ConfigTV:
         """Get the configuration of the source."""
-        raise NotImplementedError
+        with SessionLocal() as db:
+            source = db.exec(
+                sqlmodel.select(SourceModel).where(SourceModel.id == self._id)
+            ).one()
+            return typing.cast(ConfigTV, self.__configcls__.model_validate(source.config))
 
     def get_state(self) -> dict:
         """Get the source state from database."""
@@ -191,7 +195,7 @@ class SourceCollectJobManager:
         for job in pending_jobs:
             # Schedule the collect
             scheduler.add_job(
-                func=cls.run,
+                func=with_trace_id(f"source_collect_job.{job.id}", cls.run),
                 args=[job.id],
                 misfire_grace_time=None,
             )

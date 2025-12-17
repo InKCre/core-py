@@ -1,7 +1,7 @@
 import sqlmodel
 from typing import Optional as Opt
 from app.engine import SessionLocal
-from app.logging_config import get_logger
+from libs.obsrv.main import get_logger
 from ..schemas.block import BlockID
 from ..schemas.relation import RelationModel
 
@@ -18,7 +18,7 @@ class RelationManager:
                 "from_block": from_,
                 "to_block": to_,
                 "content": content,
-            }
+            },
         )
         relation = RelationModel(from_=from_, to_=to_, content=content)
         with SessionLocal() as db:
@@ -28,7 +28,7 @@ class RelationManager:
 
         logger.info(
             "Relation created successfully",
-            extra={"relation_id": relation.id, "from_block": from_, "to_block": to_}
+            extra={"relation_id": relation.id, "from_block": from_, "to_block": to_},
         )
         return relation
 
@@ -53,18 +53,18 @@ class RelationManager:
                 extra={
                     "relation_id": existing.id,
                     "from_block": existing.from_,
-                    "to_block": existing.to_
-                }
+                    "to_block": existing.to_,
+                },
             )
             return existing
-        
+
         logger.info(
             "Creating new relation via fetchsert",
             extra={
                 "from_block": relation.from_,
                 "to_block": relation.to_,
-                "content": relation.content
-            }
+                "content": relation.content,
+            },
         )
         db_session.add(relation)
         db_session.flush()

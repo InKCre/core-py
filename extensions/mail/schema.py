@@ -8,24 +8,13 @@ from pydantic import BaseModel, ConfigDict
 
 class EmailAddress(BaseModel):
     """Represents an email address with optional name."""
+
     email: str
     name: Opt[str] = None
 
 
 class Email(BaseModel):
     """Email data model."""
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "uid": 12345,
-            "message_id": "<abc123@example.com>",
-            "subject": "Test Email",
-            "from_": {"email": "sender@example.com", "name": "Sender Name"},
-            "to": [{"email": "recipient@example.com", "name": "Recipient"}],
-            "date": "2024-01-01T12:00:00",
-            "body_text": "This is the email body.",
-            "has_attachments": False
-        }
-    })
 
     uid: int
     """Unique identifier from IMAP server"""
@@ -47,5 +36,16 @@ class Email(BaseModel):
     """HTML body"""
     has_attachments: bool = False
     """Whether email has attachments"""
+
+    __resolver__: typing.ClassVar[typing.Any] = None
+
+
+class Newsletter(BaseModel):
+    """Newsletter data model."""
+
+    subject: str
+    """Newsletter subject"""
+    body: str
+    """Newsletter body (plain text preferred, HTML fallback)"""
 
     __resolver__: typing.ClassVar[typing.Any] = None

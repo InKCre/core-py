@@ -1,0 +1,102 @@
+__all__ = ["LogModel", "adapt_log_record", "TRACE_ID"]
+
+from contextvars import ContextVar
+import logging
+import datetime
+from typing import Mapping, Any, Dict, Optional as Opt
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB
+import sqlmodel
+
+
+TRACE_ID: ContextVar[str | None] = ContextVar("TRACE_ID", default=None)
+ENABLE_LOG_BACKEND: ContextVar[bool] = ContextVar("ENABLE_LOG_BACKEND", default=False)
+"""Whether the log backend emit the logs or not"""
+
+
+LOGGING_TO_OTEL: Mapping[int, int] = {
+    10: 5,  # DEBUG
+    20: 9,  # INFO
+    30: 13,  # WARNING
+    40: 17,  # ERROR
+    50: 21,  # CRITICAL
+}
+
+
+def logging_level_to_otel(levelno: int) -> int:
+    return LOGGING_TO_OTEL.get(levelno, 9)
+
+
+class LogModel(sqlmodel.SQLModel, table=True):
+    """Log model"""
+
+    __tablename__ = "logs"  # type: ignore
+
+    id: Opt[int] = sqlmodel.Field(default=None, primary_key=True)
+    timestamp: datetime.datetime = sqlmodel.Field(
+        default_factory=datetime.datetime.now,
+        sa_column=sa.Column(
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+    )
+    severity_number: int = sqlmodel.Field(sa_type=sa.SmallInteger)
+    severity_text: str
+    body: str
+    trace_id: Opt[str] = None
+    span_id: Opt[str] = None
+    attributes: Dict[str, Any] = sqlmodel.Field(
+        sa_type=JSONB,
+        default_factory=dict,
+        sa_column_kwargs={"server_default": sa.text("'{}'::jsonb")},
+    )
+
+
+def adapt_log_record(
+    record: logging.LogRecord,
+    # *,
+    # service_name: str,
+    # service_version: str | None = None,
+    # environment: str | None = None,
+) -> LogModel:
+    attributes = {
+        k: v
+        for k, v in record.__dict__.items()
+        # if k
+        # not in {
+        #     "name",
+        #     "msg",
+        #     "args",
+        #     "levelname",
+        #     "levelno",
+        #     "pathname",
+        #     "filename",
+        #     "module",
+        #     "exc_info",
+        #     "exc_text",
+        #     "stack_info",
+        #     "lineno",
+        #     "funcName",
+        #     "created",
+        #     "msecs",
+        #     "relativeCreated",
+        #     "thread",
+        #     "threadName",
+        #     "processName",
+        #     "process",
+        # }
+        # and not k.startswith("_")
+    }
+
+    return LogModel(
+        timestamp=datetime.datetime.fromtimestamp(record.created),
+        severity_number=logging_level_to_otel(record.levelno),
+        severity_text=record.levelname,
+        body=record.getMessage(),
+        trace_id=TRACE_ID.get(),
+        span_id=TRACE_ID.get(),
+        attributes=attributes,
+        # service_name=service_name,
+        # service_version=service_version,
+        # environment=environment,
+    )

@@ -18,11 +18,11 @@ from app.business.source import SourceManager
 from app.business.extension import ExtensionManager
 from app.business.root import RootManager
 from app.business.sink import SinkManager
-from app.logging_config import setup_logging
+from libs.obsrv.main import setup_obsrv
 from app.middleware import LoggingMiddleware, JWTMiddleware
 
 # Setup logging
-logger = setup_logging()
+logger = setup_obsrv()
 
 # Import scheduler
 from app.scheduler import scheduler

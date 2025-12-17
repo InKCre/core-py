@@ -3,7 +3,7 @@
 from app.business.resolver import Resolver
 from app.schemas.block import BlockModel
 from app.schemas.root import StarGraphForm
-from .schema import Email
+from .schema import Email, Newsletter
 
 
 class EmailResolver(Resolver, rso_type="extensions.mail.resolver.EmailResolver"):
@@ -16,7 +16,7 @@ class EmailResolver(Resolver, rso_type="extensions.mail.resolver.EmailResolver")
     @classmethod
     def create_brs(cls, email: Email) -> StarGraphForm:
         """Create a StarGraphForm from email data.
-        
+
         :param email: Email object to convert to block
         :return: StarGraphForm for the email
         """
@@ -25,37 +25,78 @@ class EmailResolver(Resolver, rso_type="extensions.mail.resolver.EmailResolver")
                 resolver=cls.__rsotype__,
                 content=email.model_dump_json(),
             ),
-            out_relations=()
+            out_relations=(),
         )
 
     async def get_text(self) -> str:
         """Get text representation of the email.
-        
+
         Returns the plain text body if available, otherwise a summary.
         """
         if self.content.body_text:
             return self.content.body_text
-        
+
         # Fallback to subject and sender info
         return f"Subject: {self.content.subject}\nFrom: {self.content.from_.email}"
 
     def get_str_for_embedding(self) -> str:
         """Get text for embedding generation.
-        
+
         Combines subject and body for better semantic search.
         """
         parts = [f"Subject: {self.content.subject}"]
-        
+
         if self.content.from_.name:
             parts.append(f"From: {self.content.from_.name} <{self.content.from_.email}>")
         else:
             parts.append(f"From: {self.content.from_.email}")
-        
+
         if self.content.body_text:
             parts.append(f"\n{self.content.body_text}")
-        
+
         return "\n".join(parts)
 
 
 # Register resolver with Email schema
 Email.__resolver__ = EmailResolver
+
+
+class NewsletterResolver(Resolver, rso_type="extensions.mail.resolver.NewsletterResolver"):
+    """Resolver for newsletter blocks."""
+
+    def __post_init__(self):
+        """Parse newsletter content after initialization."""
+        self.content = Newsletter.model_validate_json(self._block.content)
+
+    @classmethod
+    def create_brs(cls, newsletter: Newsletter) -> StarGraphForm:
+        """Create a StarGraphForm from newsletter data.
+
+        :param newsletter: Newsletter object to convert to block
+        :return: StarGraphForm for the newsletter
+        """
+        return StarGraphForm(
+            block=BlockModel(
+                resolver=cls.__rsotype__,
+                content=newsletter.model_dump_json(),
+            ),
+            out_relations=(),
+        )
+
+    async def get_text(self) -> str:
+        """Get text representation of the newsletter.
+
+        Returns the newsletter body.
+        """
+        return self.content.body
+
+    def get_str_for_embedding(self) -> str:
+        """Get text for embedding generation.
+
+        Combines subject and body for better semantic search.
+        """
+        return f"Subject: {self.content.subject}\n\n{self.content.body}"
+
+
+# Register resolver with Newsletter schema
+Newsletter.__resolver__ = NewsletterResolver

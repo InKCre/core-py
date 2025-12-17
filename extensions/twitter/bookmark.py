@@ -4,6 +4,8 @@ import asyncio
 import typing
 import json
 from typing import Optional as Opt
+
+import sqlmodel
 from app.business.block import BlockManager
 from app.business.relation import RelationManager
 from app.business.resolver import ImageResolver, VideoResolver, WebpageResolver
@@ -20,7 +22,13 @@ from .api import TwitterAPI
 from .schema import Tweet, TweetID
 
 
-class Source(SourceBase):
+class SourceConfig(sqlmodel.SQLModel):
+    """Configuration for Twitter Bookmark Source."""
+
+    ...
+
+
+class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     """Twitter Bookmark as Source"""
 
     API_BASE_URL = "https://api.x.com/2"

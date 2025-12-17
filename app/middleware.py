@@ -10,19 +10,20 @@ from fastapi import Request, Response, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from libs.obsrv.log_record import TRACE_ID
 from app.settings import settings
-from app.logging_config import get_logger, log_with_track_id
+from libs.obsrv.main import get_logger
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware for logging requests, responses, and exceptions with track ID."""
+    """Middleware for logging requests, responses, and exceptions with trace ID."""
 
     def __init__(self, app: ASGIApp):
         super().__init__(app)
         self.logger = get_logger()
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Process request and log with track ID.
+        """Process request and log with trace ID.
 
         Args:
             request: The incoming request
@@ -31,22 +32,22 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         Returns:
             Response from the handler
         """
-        # Generate track ID for this request
-        track_id = str(uuid.uuid4())
+        # Generate trace ID for this request
+        trace_id = f"fastapi.request.${str(uuid.uuid4())}"
 
-        # Store track_id in request state for access in route handlers
-        request.state.track_id = track_id
+        # Store trace_id in request state and context variable
+        request.state.trace_id = trace_id
+        TRACE_ID.set(trace_id)
 
         # Log request
         start_time = time.time()
-        log_with_track_id(
-            self.logger,
-            logging.INFO,
+        self.logger.debug(
             f"Request started: {request.method} {request.url.path}",
-            track_id=track_id,
-            method=request.method,
-            path=request.url.path,
-            query_params=str(request.query_params),
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "query_params": str(request.query_params),
+            },
         )
 
         try:
@@ -57,19 +58,16 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             duration = time.time() - start_time
 
             # Log response
-            log_with_track_id(
-                self.logger,
-                logging.INFO,
+            self.logger.debug(
                 f"Request completed: {request.method} {request.url.path}",
-                track_id=track_id,
-                method=request.method,
-                path=request.url.path,
-                status_code=response.status_code,
-                duration_ms=int(duration * 1000),
+                extra={
+                    "status_code": response.status_code,
+                    "duration_ms": int(duration * 1000),
+                },
             )
 
-            # Add track ID to response headers
-            response.headers["X-Track-ID"] = track_id
+            # Add trace ID to response headers
+            response.headers["X-trace-ID"] = trace_id
 
             return response
 
@@ -77,17 +75,14 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             # Calculate duration
             duration = time.time() - start_time
 
-            # Log exception with full context
-            log_with_track_id(
-                self.logger,
-                logging.ERROR,
+            # Log exception
+            self.logger.error(
                 f"Request failed: {request.method} {request.url.path} - {str(e)}",
-                track_id=track_id,
-                method=request.method,
-                path=request.url.path,
-                error_type=type(e).__name__,
-                error_message=str(e),
-                duration_ms=int(duration * 1000),
+                extra={
+                    "error.type": type(e).__name__,
+                    "error.message": str(e),
+                    "duration_ms": int(duration * 1000),
+                },
             )
 
             # Re-raise exception to be handled by FastAPI's exception handlers

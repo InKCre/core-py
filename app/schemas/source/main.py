@@ -3,13 +3,8 @@ __all__ = [
     "SourceID",
     "SourceModel",
     "SourceTypesModel",
-    "SourceCollectJobStatus",
-    "SourceCollectJobID",
-    "SourceCollectJobModel",
 ]
 
-import datetime
-import enum
 import apscheduler.triggers.cron
 import sqlalchemy
 import typing
@@ -85,7 +80,17 @@ class SourceModel(sqlmodel.SQLModel, table=True):
     """
     nickname: Opt[str] = sqlmodel.Field(nullable=True, default=None)
     config: dict = sqlmodel.Field(
-        sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB),
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.dialects.postgresql.JSONB,
+            server_default=sqlalchemy.text("'{}'::jsonb"),
+        ),
+        default=dict,
+    )
+    config_schema: dict = sqlmodel.Field(
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.dialects.postgresql.JSONB,
+            server_default=sqlalchemy.text("'{}'::jsonb"),
+        ),
         default=dict,
     )
     collect_at: Opt[CollectAt] = sqlmodel.Field(
@@ -97,59 +102,11 @@ class SourceModel(sqlmodel.SQLModel, table=True):
     None for disabled.
     """
     state: dict = sqlmodel.Field(
-        sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB),
-        default_factory=dict,
-    )
-    """Store source-specific state (e.g., last_uid for mail, latest_tweet_id for twitter)."""
-
-
-SourceCollectJobID: typing.TypeAlias = int
-
-
-class SourceCollectJobStatus(str, enum.Enum):
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    FINISHED = "FINISHED"
-    FAILED = "FAILED"
-
-
-class SourceCollectJobModel(sqlmodel.SQLModel, table=True):
-    __tablename__: str = "sources_collect_jobs"  # type: ignore
-
-    id: Opt[SourceCollectJobID] = sqlmodel.Field(
         sa_column=sqlalchemy.Column(
-            sqlalchemy.Integer, primary_key=True, autoincrement=True
+            sqlalchemy.dialects.postgresql.JSONB,
+            server_default=sqlalchemy.text("'{}'::jsonb"),
         ),
-        default=None,
-    )
-    source: SourceID = sqlmodel.Field(
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.Integer,
-            sqlalchemy.ForeignKey("sources.id", onupdate="CASCADE", ondelete="CASCADE"),
-        )
-    )
-    created_at: datetime.datetime = sqlmodel.Field(
-        default_factory=datetime.datetime.now,
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.TIMESTAMP(timezone=True), onupdate=datetime.datetime.now
-        ),
-    )
-    started_at: Opt[datetime.datetime] = sqlmodel.Field(
-        default=None,
-        sa_column=sqlalchemy.Column(sqlalchemy.TIMESTAMP(timezone=True), nullable=True),
-    )
-    closed_at: Opt[datetime.datetime] = sqlmodel.Field(
-        default=None,
-        sa_column=sqlalchemy.Column(sqlalchemy.TIMESTAMP(timezone=True), nullable=True),
-    )
-    """When this collect job is finished/failed.
-    """
-    status: SourceCollectJobStatus = sqlmodel.Field(default=SourceCollectJobStatus.PENDING)
-    state: dict = sqlmodel.Field(
-        sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB),
         default_factory=dict,
     )
-    config: dict = sqlmodel.Field(
-        sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB),
-        default_factory=dict,
-    )
+    """Store source-specific state (e.g., last_uid for mail,
+    latest_tweet_id for twitter)."""

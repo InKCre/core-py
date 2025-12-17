@@ -8,6 +8,8 @@ from email.header import decode_header
 from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
 from typing import Optional as Opt
+
+import sqlmodel
 from app.business.source import SourceBase
 from app.engine import SessionLocal
 from app.business.root import RootManager
@@ -16,17 +18,32 @@ from app.schemas.block import BlockModel
 from app.schemas.block import BlockID
 from app.schemas.source import SourceCollectJobModel
 from app.scheduler import scheduler
-from extensions.mail import Extension
-from app.logging_config import get_logger
+from libs.obsrv.main import get_logger
 from .schema import Email, EmailAddress
 
 LOGGER = get_logger().getChild(__name__)
 
 
-class Source(SourceBase):
+class SourceConfig(sqlmodel.SQLModel):
+    """Configuration of IMAP Source."""
+
+    imap_server: str = ""
+    """IMAP server address (e.g., imap.gmail.com)"""
+    imap_port: int = 993
+    """IMAP port (default: 993 for SSL)"""
+    use_ssl: bool = True
+    """Whether to use SSL/TLS connection"""
+    username: str = ""
+    """Email account username"""
+    password: str = ""
+    """Email account password or app-specific password"""
+
+
+class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     """IMAP Source - collects emails from IMAP server."""
 
-    def _decode_header(self, header_value: Opt[str]) -> str:
+    @classmethod
+    def _decode_header(cls, header_value: Opt[str]) -> str:
         """Decode email header value."""
         if not header_value:
             return ""
@@ -42,7 +59,8 @@ class Source(SourceBase):
                 decoded_parts.append(str(part))
         return "".join(decoded_parts)
 
-    def _parse_email_address(self, addr_str: Opt[str]) -> Opt[EmailAddress]:
+    @classmethod
+    def _parse_email_address(cls, addr_str: Opt[str]) -> Opt[EmailAddress]:
         """Parse email address from string."""
         if not addr_str:
             return None
@@ -50,22 +68,24 @@ class Source(SourceBase):
         if not email_addr:
             return None
         return EmailAddress(
-            email=email_addr, name=self._decode_header(name) if name else None
+            email=email_addr, name=cls._decode_header(name) if name else None
         )
 
-    def _parse_email_addresses(self, addr_str: Opt[str]) -> list[EmailAddress]:
+    @classmethod
+    def _parse_email_addresses(cls, addr_str: Opt[str]) -> list[EmailAddress]:
         """Parse multiple email addresses from string."""
         if not addr_str:
             return []
         addresses = []
         # Simple split on comma - may need more sophisticated parsing
         for addr in addr_str.split(","):
-            parsed = self._parse_email_address(addr.strip())
+            parsed = cls._parse_email_address(addr.strip())
             if parsed:
                 addresses.append(parsed)
         return addresses
 
-    def _get_email_body(self, msg: Message) -> tuple[Opt[str], Opt[str]]:
+    @classmethod
+    def _get_email_body(cls, msg: Message) -> tuple[Opt[str], Opt[str]]:
         """Extract plain text and HTML body from email message."""
         body_text = None
         body_html = None
@@ -109,7 +129,8 @@ class Source(SourceBase):
 
         return body_text, body_html
 
-    def _has_attachments(self, msg: Message) -> bool:
+    @classmethod
+    def _has_attachments(cls, msg: Message) -> bool:
         """Check if email has attachments."""
         if not msg.is_multipart():
             return False
@@ -123,9 +144,9 @@ class Source(SourceBase):
     async def collect(self, job: SourceCollectJobModel) -> None:
         """Collect emails from IMAP server."""
         logger = LOGGER.getChild(f"collect.{job.id}")
-        ext_config = Extension.config
-        config = job.config or {}
-        full = config.get("full", False)
+        config = self.get_config()
+        job_config = job.config or {}
+        full = job_config.get("full", False)
 
         logger.info(
             "Starting email collection",
@@ -134,24 +155,24 @@ class Source(SourceBase):
 
         # Connect to IMAP server
         try:
-            if ext_config.use_ssl:
-                mail = imaplib.IMAP4_SSL(ext_config.imap_server, ext_config.imap_port)
+            if config.use_ssl:
+                mail = imaplib.IMAP4_SSL(config.imap_server, config.imap_port)
             else:
-                mail = imaplib.IMAP4(ext_config.imap_server, ext_config.imap_port)
+                mail = imaplib.IMAP4(config.imap_server, config.imap_port)
             logger.info(
                 "Connected to IMAP server",
                 extra={
-                    "server": ext_config.imap_server,
-                    "port": ext_config.imap_port,
-                    "ssl": ext_config.use_ssl,
+                    "server": config.imap_server,
+                    "port": config.imap_port,
+                    "ssl": config.use_ssl,
                 },
             )
         except Exception as e:
             logger.error(
                 "Failed to connect to IMAP server",
                 extra={
-                    "server": ext_config.imap_server,
-                    "port": ext_config.imap_port,
+                    "server": config.imap_server,
+                    "port": config.imap_port,
                     "error": str(e),
                 },
                 exc_info=True,
@@ -162,12 +183,12 @@ class Source(SourceBase):
         try:
             # Login
             try:
-                mail.login(ext_config.username, ext_config.password)
+                mail.login(config.username, config.password)
                 logger.info("Logged in to IMAP server")
             except Exception as e:
                 logger.error(
                     "Failed to login to IMAP server",
-                    extra={"username": ext_config.username, "error": str(e)},
+                    extra={"username": config.username, "error": str(e)},
                     exc_info=True,
                 )
                 return

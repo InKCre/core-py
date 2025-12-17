@@ -7,15 +7,16 @@ from app.business.source import SourceManager
 
 
 class TwitterExtensionConfig(sqlmodel.SQLModel):
+    # TODO move to SourceConfig
+    backend: typing.Literal["official", "twikit"] = "official"
+    api_language: str = "en-US"
+    proxy: Opt[str] = None
     client_id: str = ""
     client_secret: str = ""
-    backend: typing.Literal["official", "twikit"] = "official"
     email: str = ""
     username: str = ""
     password: str = ""
     totp_secret: Opt[str] = None
-    api_language: str = "en-US"
-    proxy: Opt[str] = None
 
 
 class Extension(

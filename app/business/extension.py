@@ -13,7 +13,7 @@ import json
 from typing import Optional as Opt
 from app.engine import SessionLocal
 from app.schemas.extension import ExtensionModel, ExtensionID
-from app.logging_config import get_logger
+from libs.obsrv.main import get_logger
 
 
 LOGGER = get_logger().getChild(__name__)

@@ -1,6 +1,6 @@
 ## Fundaments
 
-- [ ] 可观测性
+- [ ] 持久化日志（主要是为了 source collect job）（与 OpenTelemetry 对齐）（复用 PostgreSQL）
 
 ### AI
 
@@ -33,8 +33,7 @@
 - [x] Source.collect 不应该有参数
 - [ ] Organize 不是 source 的职责，而是整个信息库的。Source会在 organize 过程中提供帮助，但绝不是 source 来执行。
 - [x] Source 也要有 state，反而是 extension 不应该有 state
-- [ ] Source collect job logs
-- [ ] Source type also has config schema
+- [ ] SourceType also has config schema  !!! 不是 Source，是 SourceType
 
 ### Resolver
 
