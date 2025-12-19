@@ -4,8 +4,7 @@ import sqlalchemy
 import pgvector.sqlalchemy
 import sqlmodel
 from typing import Optional as Opt
-from app.engine import SessionLocal
-from .storage import StorageTable, StorageModel
+from .storage import StorageTable, StorageType
 
 if typing.TYPE_CHECKING:
     from .root import Vector
@@ -38,10 +37,16 @@ class BlockModel(sqlmodel.SQLModel, table=True):
     )
     storage: Opt[str] = sqlmodel.Field(
         default=None,
-        sa_column=sqlalchemy.Column(sqlalchemy.ForeignKey(StorageTable.name), nullable=True),
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.ForeignKey(StorageTable.name), nullable=True
+        ),
     )
-    resolver: str = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False))
-    content: str = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False))
+    resolver: ResolverType = sqlmodel.Field(
+        sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+    )
+    content: StorageType = sqlmodel.Field(
+        sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+    )
 
     async def get_context_as_text(self) -> str:
         from app.business.resolver import ResolverManager

@@ -1,10 +1,8 @@
-import enum
 import typing
-import aiohttp
 import pydantic
 import sqlalchemy
 from . import Base
-from utils.base import enum_serializer, AIOHTTP_CONNECTOR_GETTER
+from utils.base import enum_serializer
 
 
 StorageType: typing.TypeAlias = str
