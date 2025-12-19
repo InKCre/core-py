@@ -1,4 +1,4 @@
-__all__ = ["LogModel", "adapt_log_record", "TRACE_ID"]
+__all__ = ["LogModel", "adapt_log_record", "TRACE_ID", "SPAN_ID", "ENABLE_LOG_BACKEND"]
 
 from contextvars import ContextVar
 import logging
@@ -10,6 +10,7 @@ import sqlmodel
 
 
 TRACE_ID: ContextVar[str | None] = ContextVar("TRACE_ID", default=None)
+SPAN_ID: ContextVar[str | None] = ContextVar("SPAN_ID", default=None)
 ENABLE_LOG_BACKEND: ContextVar[bool] = ContextVar("ENABLE_LOG_BACKEND", default=False)
 """Whether the log backend emit the logs or not"""
 
@@ -62,30 +63,30 @@ def adapt_log_record(
     attributes = {
         k: v
         for k, v in record.__dict__.items()
-        # if k
-        # not in {
-        #     "name",
-        #     "msg",
-        #     "args",
-        #     "levelname",
-        #     "levelno",
-        #     "pathname",
-        #     "filename",
-        #     "module",
-        #     "exc_info",
-        #     "exc_text",
-        #     "stack_info",
-        #     "lineno",
-        #     "funcName",
-        #     "created",
-        #     "msecs",
-        #     "relativeCreated",
-        #     "thread",
-        #     "threadName",
-        #     "processName",
-        #     "process",
-        # }
-        # and not k.startswith("_")
+        if k
+        not in {
+            "name",
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+        }
+        and not k.startswith("_")
     }
 
     return LogModel(
@@ -94,7 +95,7 @@ def adapt_log_record(
         severity_text=record.levelname,
         body=record.getMessage(),
         trace_id=TRACE_ID.get(),
-        span_id=TRACE_ID.get(),
+        span_id=SPAN_ID.get(),
         attributes=attributes,
         # service_name=service_name,
         # service_version=service_version,
