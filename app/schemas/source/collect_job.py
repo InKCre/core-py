@@ -19,11 +19,11 @@ from .main import SourceID
 SourceCollectJobID: typing.TypeAlias = int
 
 
-class SourceCollectJobStatus(str, enum.Enum):
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    FINISHED = "FINISHED"
-    FAILED = "FAILED"
+class SourceCollectJobStatus(enum.StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    FINISHED = "finished"
+    FAILED = "failed"
 
 
 class SourceCollectJobModel(sqlmodel.SQLModel, table=True):
