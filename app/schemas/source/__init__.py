@@ -6,15 +6,7 @@ __all__ = [
     "SourceCollectJobStatus",
     "SourceCollectJobID",
     "SourceCollectJobModel",
-    "SourceCollectJobLogID",
-    "SourceCollectJobLogModel",
 ]
 
 from .main import CollectAt, SourceID, SourceModel, SourceTypesModel
-from .collect_job import (
-    SourceCollectJobStatus,
-    SourceCollectJobID,
-    SourceCollectJobModel,
-    SourceCollectJobLogID,
-    SourceCollectJobLogModel,
-)
+from .collect_job import SourceCollectJobStatus, SourceCollectJobID, SourceCollectJobModel
