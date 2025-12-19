@@ -65,7 +65,8 @@
 
 ### Email
 
-- [ ] 
+- [x] 测试 IMAP Source 可以收集最近的邮件
+- [ ] 优化 IMAP Source : 避免重复的部分，比如收件人、发件人；支持配置仅收集 body_text 或 body_html
 
 ### Github
 

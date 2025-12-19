@@ -216,3 +216,6 @@ pdm.lock
 data/
 scratch/
 ipynb
+
+# extensions scripts
+extensions/**/scripts/*
