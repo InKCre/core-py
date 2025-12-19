@@ -22,10 +22,14 @@ ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
 class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     """InkCre Source Base class."""
 
+    __configschema__: dict
+    """Source configuration JSON schema"""
+    __configcls__: type[ConfigTV]
+
     def __init_subclass__(cls, config_cls: type[ConfigTV], **kwargs) -> None:
-        SourceManager.add_source_type(cls)
         cls.__configcls__ = config_cls
         cls.__configschema__ = config_cls.model_json_schema()
+        SourceManager.add_source_type(cls)
         return super().__init_subclass__(**kwargs)
 
     def __init__(self, _id: SourceID) -> None:
@@ -92,14 +96,22 @@ class SourceManager:
         stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
             id=source_type,
             description=source_cls.__doc__ or "No description.",
+            config_schema=source_cls.__configschema__,
         )
         stmt = stmt.on_conflict_do_update(
             index_elements=[SourceTypesModel.id],
-            set_=dict(description=stmt.excluded.description),
+            set_=dict(
+                description=stmt.excluded.description,
+                config_schema=stmt.excluded.config_schema,
+            ),
         )
-        session = SessionLocal()
-        session.exec(stmt)  # type: ignore
-        session.commit()
+
+        with SessionLocal() as db:
+            db.exec(stmt)  # type: ignore
+            db.commit()
+            # return db.exec(
+            #     sqlmodel.select(SourceTypesModel).where(SourceTypesModel.id == source_type)
+            # ).one()
 
     @classmethod
     def set_up_collect_jobs(cls):

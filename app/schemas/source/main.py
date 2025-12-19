@@ -54,6 +54,13 @@ class SourceTypesModel(sqlmodel.SQLModel, table=True):
     """
     description: str = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.Text))
     """Description of this source type."""
+    config_schema: dict = sqlmodel.Field(
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.dialects.postgresql.JSONB,
+            server_default=sqlalchemy.text("'{}'::jsonb"),
+        ),
+        default=dict,
+    )
 
 
 class SourceModel(sqlmodel.SQLModel, table=True):
@@ -80,13 +87,6 @@ class SourceModel(sqlmodel.SQLModel, table=True):
     """
     nickname: Opt[str] = sqlmodel.Field(nullable=True, default=None)
     config: dict = sqlmodel.Field(
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.dialects.postgresql.JSONB,
-            server_default=sqlalchemy.text("'{}'::jsonb"),
-        ),
-        default=dict,
-    )
-    config_schema: dict = sqlmodel.Field(
         sa_column=sqlalchemy.Column(
             sqlalchemy.dialects.postgresql.JSONB,
             server_default=sqlalchemy.text("'{}'::jsonb"),
