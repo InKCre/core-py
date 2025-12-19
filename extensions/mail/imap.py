@@ -3,7 +3,7 @@
 import asyncio
 import email
 import imaplib
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.header import decode_header
 from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
@@ -142,7 +142,12 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
         return False
 
     async def collect(self, job: SourceCollectJobModel) -> None:
-        """Collect emails from IMAP server."""
+        """Collect emails from IMAP server.
+
+        By default, collects new unseen emails since last collection by UID.
+        If last UID is not available, collects recent unseen emails.
+        (recent refers to since last 7 days)
+        """
         logger = LOGGER.getChild(f"collect.{job.id}")
         config = self.get_config()
         job_config = job.config or {}
@@ -221,7 +226,11 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                         )
                     else:
                         # No last UID, get recent emails
-                        _, message_numbers = mail.search(None, "RECENT")
+                        _, message_numbers = mail.search(
+                            None,
+                            "UNSEEN SINCE "
+                            + (datetime.now() - timedelta(days=7)).strftime("%d-%b-%Y"),
+                        )
                         logger.info("Searching for recent emails (no last UID)")
             except Exception as e:
                 logger.error(
@@ -241,7 +250,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                 msg_nums = reversed(msg_nums)
 
             for num in msg_nums:
-                logger.debug("Processing email", extra={"num": int(num)})
+                logger.info("Processing email", extra={"num": int(num)})
                 # Fetch email
                 try:
                     _, msg_data = mail.fetch(num, "(RFC822 UID)")
@@ -254,7 +263,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                     continue
 
                 if not msg_data or not msg_data[0]:
-                    logger.debug("Skipping email, no data", extra={"num": int(num)})
+                    logger.warning("Skipping email, no data", extra={"num": int(num)})
                     continue
 
                 # Parse UID
@@ -329,11 +338,11 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                             out_relations=(),
                         )
                     )
-                    logger.debug(
+                    logger.info(
                         "Collected email", extra={"uid": email_obj.uid, "subject": subject}
                     )
                 else:
-                    logger.debug(
+                    logger.warning(
                         "Skipping email, missing from or to addresses",
                         extra={"num": int(num), "subject": subject},
                     )

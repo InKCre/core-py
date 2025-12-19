@@ -27,6 +27,11 @@ class SourceCollectJobStatus(str, enum.Enum):
 
 
 class SourceCollectJobModel(sqlmodel.SQLModel, table=True):
+    """Model for source collect jobs.
+
+    Source collect jobs should be handled as soon as possible, no schedule given.
+    """
+
     __tablename__: str = "sources_collect_jobs"  # type: ignore
 
     id: Opt[SourceCollectJobID] = sqlmodel.Field(
@@ -57,7 +62,15 @@ class SourceCollectJobModel(sqlmodel.SQLModel, table=True):
     )
     """When this collect job is finished/failed.
     """
-    status: SourceCollectJobStatus = sqlmodel.Field(default=SourceCollectJobStatus.PENDING)
+    status: SourceCollectJobStatus = sqlmodel.Field(
+        default=SourceCollectJobStatus.PENDING,
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.Enum(
+                SourceCollectJobStatus, values_callable=lambda x: [e.value for e in x]
+            ),
+            server_default=SourceCollectJobStatus.PENDING,
+        ),
+    )
     state: dict = sqlmodel.Field(
         sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB),
         default_factory=dict,

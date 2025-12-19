@@ -129,9 +129,10 @@ class SourceManager:
         ins = cls.SOURCES.get(source_id, None)
         if ins is None:
             if source_type is None:
-                raise ValueError(
-                    f"Source {source_id} not instantiated and path to the class not defined."
-                )
+                with SessionLocal() as db:
+                    source_type = db.exec(
+                        sqlmodel.select(SourceModel.type).where(SourceModel.id == source_id)
+                    ).one()
             source_class = cls._SOURCE_CLASSES.get(source_type, None)
             if source_class is None:
                 raise ValueError(f"Source class {source_type} not registered.")
@@ -167,10 +168,12 @@ class SourceCollectJobManager:
             job.started_at = datetime.datetime.now(datetime.timezone.utc)
             db.add(job)
             db.commit()
+            db.refresh(job)
 
             try:
                 # Fetch source instance and run collect
                 source_ins = SourceManager._get_source_ins(job.source)
+
                 await source_ins.collect(job)
                 job.status = SourceCollectJobStatus.FINISHED
             except Exception as e:
