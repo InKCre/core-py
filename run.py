@@ -2,12 +2,18 @@
 
 import sys
 import os
-
-sys.path.insert(0, "extensions")
-
 import contextlib
 import fastapi
 import uvicorn
+
+# Setup logging
+from libs.obsrv.main import setup_obsrv
+
+logger = setup_obsrv()
+# Setup logging end
+
+sys.path.insert(0, "extensions")
+
 from fastapi.middleware.cors import CORSMiddleware
 from app.settings import settings
 from app.routes.block import ROUTER as block_router
@@ -18,11 +24,8 @@ from app.business.source import SourceManager
 from app.business.extension import ExtensionManager
 from app.business.root import RootManager
 from app.business.sink import SinkManager
-from libs.obsrv.main import setup_obsrv
 from app.middleware import LoggingMiddleware, JWTMiddleware
 
-# Setup logging
-logger = setup_obsrv()
 
 # Import scheduler
 from app.scheduler import scheduler

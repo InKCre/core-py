@@ -214,3 +214,4 @@ class SourceCollectJobManager:
                 args=[job.id],
                 misfire_grace_time=None,
             )
+            LOGGER.info(f"Scheduled pending source collect job {job.id}")

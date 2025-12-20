@@ -67,6 +67,7 @@ def adapt_log_record(
         not in {
             "name",
             "msg",
+            "message",
             "args",
             "levelname",
             "levelno",
@@ -85,6 +86,7 @@ def adapt_log_record(
             "threadName",
             "processName",
             "process",
+            "taskName",
         }
         and not k.startswith("_")
     }
