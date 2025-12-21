@@ -1,6 +1,6 @@
 name: Check & deploy API documentation
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 on:
   push:
@@ -68,7 +68,7 @@ jobs:
         uses: bump-sh/github-action@v1
         with:
           doc: core
-          token: cX29rC6DDwNjArBuEB2hwEA74FM6chjE
+          token: ${{secrets.BUMP_SH_TOKEN}}
           file: docs/openapi.json
   api-diff:
     if: ${{ github.event_name == 'pull_request' }}
@@ -81,7 +81,7 @@ jobs:
         uses: bump-sh/github-action@v1
         with:
           doc: core
-          token: cX29rC6DDwNjArBuEB2hwEA74FM6chjE
+          token: ${{secrets.BUMP_SH_TOKEN}}
           file: docs/openapi.json
           command: diff
         env:
