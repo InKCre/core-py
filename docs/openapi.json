@@ -607,7 +607,7 @@
           "extension"
         ],
         "summary": "Update Extension Config",
-        "description": "编辑插件配置 (Edit extension configuration)",
+        "description": "编辑插件配置 (Edit extension configuration)\n\n编辑成功将会立刻应用到插件中（如果正在运行）",
         "operationId": "update_extension_config_extensions__extid__config_put",
         "parameters": [
           {
@@ -627,7 +627,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "title": "Config"
+                "title": "Body"
               }
             }
           }
@@ -661,9 +661,9 @@
         "tags": [
           "source"
         ],
-        "summary": "Collect Source",
-        "description": "Create a source collect job.",
-        "operationId": "collect_source_sources__source_id__collect_post",
+        "summary": "Run Source Collect",
+        "description": "Run source collect (by creating a source collect job.)",
+        "operationId": "run_source_collect_sources__source_id__collect_post",
         "parameters": [
           {
             "name": "source_id",
@@ -673,29 +673,33 @@
               "type": "integer",
               "title": "Source Id"
             }
-          },
-          {
-            "name": "full",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Full"
-            }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BlockModel"
-                  },
-                  "title": "Response Collect Source Sources  Source Id  Collect Post"
+                  "$ref": "#/components/schemas/SourceCollectJobModel"
                 }
               }
             }
@@ -946,18 +950,11 @@
             "title": "Nickname"
           },
           "config": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": true,
+            "type": "object",
             "title": "Config"
           },
-          "state": {
+          "config_schema": {
             "anyOf": [
               {
                 "additionalProperties": true,
@@ -967,7 +964,7 @@
                 "type": "null"
               }
             ],
-            "title": "State"
+            "title": "Config Schema"
           }
         },
         "type": "object",
@@ -1074,6 +1071,84 @@
           "message"
         ],
         "title": "SinkV1RAGResBody"
+      },
+      "SourceCollectJobModel": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "source": {
+            "type": "integer",
+            "title": "Source"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SourceCollectJobStatus",
+            "default": "pending"
+          },
+          "state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "State"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source"
+        ],
+        "title": "SourceCollectJobModel",
+        "description": "Model for source collect jobs.\n\nSource collect jobs should be handled as soon as possible, no schedule given."
+      },
+      "SourceCollectJobStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "finished",
+          "failed"
+        ],
+        "title": "SourceCollectJobStatus"
       },
       "StarGraphForm": {
         "properties": {
