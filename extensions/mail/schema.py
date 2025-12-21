@@ -1,20 +1,34 @@
-"""Schema definitions for email data."""
+"""InKCre Mail Extension Schemas."""
 
-import typing
+__all__ = [
+    "EmailAddress",
+    "Email",
+    "Newsletter",
+]
+
 from datetime import datetime
 from typing import Optional as Opt
-from pydantic import BaseModel, ConfigDict
+import sqlmodel
+import pydantic
 
 
-class EmailAddress(BaseModel):
-    """Represents an email address with optional name."""
+class EmailAddress(sqlmodel.SQLModel):
+    """Email address."""
 
     email: str
+    """Normalized email address (lowercase)"""
     name: Opt[str] = None
+    """Display name for the email address"""
+
+    @pydantic.field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        """Normalize email address to lowercase."""
+        return v.lower().strip()
 
 
-class Email(BaseModel):
-    """Email data model."""
+class Email(sqlmodel.SQLModel):
+    """Email block content model."""
 
     uid: int
     """Unique identifier from IMAP server"""
@@ -22,12 +36,6 @@ class Email(BaseModel):
     """Email message ID from headers"""
     subject: str
     """Email subject"""
-    from_: EmailAddress
-    """Sender email address"""
-    to: list[EmailAddress]
-    """List of recipient email addresses"""
-    cc: list[EmailAddress] = []
-    """List of CC email addresses"""
     date: datetime
     """Email date"""
     body_text: Opt[str] = None
@@ -37,15 +45,11 @@ class Email(BaseModel):
     has_attachments: bool = False
     """Whether email has attachments"""
 
-    __resolver__: typing.ClassVar[typing.Any] = None
 
-
-class Newsletter(BaseModel):
+class Newsletter(sqlmodel.SQLModel):
     """Newsletter data model."""
 
     subject: str
     """Newsletter subject"""
     body: str
     """Newsletter body (plain text preferred, HTML fallback)"""
-
-    __resolver__: typing.ClassVar[typing.Any] = None

@@ -1,6 +1,12 @@
-- Built-in and third-party extensions placed here.
+# README of InKCre extensions
+
+- Built-in and third-party extensions placed under `extensions/`.
 - Folder name is the extension id.
-- Every extension has a `pyproject.toml`, following template:
+- Extensions are disabled by default.
+
+## Development
+
+- Every extension has a `pyproject.toml` storing the extension metadata:
 
 ```toml
 [project]
@@ -11,4 +17,9 @@ id = "mail"  # optional since folder name is already the extension id
 nickname = "Mail" 
 ```
 
-- Extensions are disabled by default.
+### Source
+
+Sources collects data as graphs and insert into the info-base.
+
+Graphs are consist of blocks and relations. To avoid complex database interaction, use `StarGraphForm`
+to automatically resolves references and insert all at once.

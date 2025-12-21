@@ -14,6 +14,7 @@
 
 - [x] 添加插入图接口
   - [x] 不插入重复的块和关系。（当前实现是判断解析器、内容、存储器字段一致；来源、去向、内容一致。未来考虑将内容一致性的判断交给解析器）
+- [ ] Embedding 也是 interval job 运行
 
 ### Block
 
@@ -22,6 +23,7 @@
 - [ ] 推理检索不一定要基于 LLM，可以基于传统规则（如 Resolver 自己配置的，举例 learn_english.lexical）
 - [ ] 向量检索多模态对齐问题
   - 为不同的模态的向量设置不同的列
+- [x] fetchsert 由 resolver 来决定是否相同
 
 ### Source
 
@@ -33,12 +35,12 @@
 - [x] Source.collect 不应该有参数
 - [ ] Organize 不是 source 的职责，而是整个信息库的。Source会在 organize 过程中提供帮助，但绝不是 source 来执行。
 - [x] Source 也要有 state，反而是 extension 不应该有 state
-- [ ] SourceType also has config schema  !!! 不是 Source，是 SourceType
+- [x] SourceType also has config schema  !!! 不是 Source，是 SourceType
 
 ### Resolver
 
 - [ ] Standard of auto organization ? 
-- [ ] Resolver relies on Storage to get the actual content (don't do it yourself, never considering what storage is)
+- [x] Resolver relies on Storage to get the actual content (don't do it yourself, never considering what storage is)
 - [ ] 改进加载模式
   - 在未找到时，按照类型（和 Python 导入路径语法一致）尝试从插件中导入 （否则插件就需要在初始化时导入）
 
@@ -67,6 +69,7 @@
 
 - [x] 测试 IMAP Source 可以收集最近的邮件
 - [ ] 优化 IMAP Source : 避免重复的部分，比如收件人、发件人；支持配置仅收集 body_text 或 body_html
+- [x] Mark collected as seen
 
 ### Github
 
@@ -77,4 +80,3 @@
 ## Trivias
 
 - [ ] indent 修改为 2 spaces
-- [ ] 重新生成数据库迁移脚本

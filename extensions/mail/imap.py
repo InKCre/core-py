@@ -7,17 +7,16 @@ from datetime import datetime, timedelta
 from email.header import decode_header
 from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
-from typing import Optional as Opt
+from typing import Optional as Opt, Literal as Lit
 
 import sqlmodel
 from app.business.source import SourceBase
 from app.engine import SessionLocal
 from app.business.root import RootManager
 from app.schemas.root import StarGraphForm
-from app.schemas.block import BlockModel
 from app.schemas.block import BlockID
 from app.schemas.source import SourceCollectJobModel
-from app.scheduler import scheduler
+from extensions.mail.resolver import EmailResolver
 from libs.obsrv.main import get_logger
 from .schema import Email, EmailAddress
 
@@ -37,6 +36,10 @@ class SourceConfig(sqlmodel.SQLModel):
     """Email account username"""
     password: str = ""
     """Email account password or app-specific password"""
+    mark_as_seen: bool = True
+    """Whether to mark collected emails as seen"""
+    body_types: Lit["text", "html", "both"] = "text"
+    """Body types to collect: 'text' (plain text only), 'html' (HTML only), or 'both'"""
 
 
 class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
@@ -85,10 +88,21 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
         return addresses
 
     @classmethod
-    def _get_email_body(cls, msg: Message) -> tuple[Opt[str], Opt[str]]:
-        """Extract plain text and HTML body from email message."""
+    def _get_email_body(
+        cls, msg: Message, body_types: str = "text"
+    ) -> tuple[Opt[str], Opt[str]]:
+        """Extract plain text and HTML body from email message.
+
+        :param msg: Email message to extract body from
+        :param body_types: Body types to extract: 'text', 'html', or 'both'
+        :return: Tuple of (body_text, body_html) based on body_types config
+        """
         body_text = None
         body_html = None
+
+        # Skip extraction if not needed
+        extract_text = body_types in ("text", "both")
+        extract_html = body_types in ("html", "both")
 
         if msg.is_multipart():
             for part in msg.walk():
@@ -99,17 +113,17 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                 if "attachment" in content_disposition:
                     continue
 
-                if content_type == "text/plain" and not body_text:
+                if content_type == "text/plain" and not body_text and extract_text:
                     try:
                         payload = part.get_payload(decode=True)
-                        if payload:
+                        if payload and isinstance(payload, bytes):
                             body_text = payload.decode(errors="ignore")
                     except Exception:
                         pass
-                elif content_type == "text/html" and not body_html:
+                elif content_type == "text/html" and not body_html and extract_html:
                     try:
                         payload = part.get_payload(decode=True)
-                        if payload:
+                        if payload and isinstance(payload, bytes):
                             body_html = payload.decode(errors="ignore")
                     except Exception:
                         pass
@@ -118,11 +132,11 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
             content_type = msg.get_content_type()
             try:
                 payload = msg.get_payload(decode=True)
-                if payload:
+                if payload and isinstance(payload, bytes):
                     decoded = payload.decode(errors="ignore")
-                    if content_type == "text/plain":
+                    if content_type == "text/plain" and extract_text:
                         body_text = decoded
-                    elif content_type == "text/html":
+                    elif content_type == "text/html" and extract_html:
                         body_html = decoded
             except Exception:
                 pass
@@ -184,7 +198,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
             )
             return
 
-        collected = []
+        collected: list[StarGraphForm] = []
         try:
             # Login
             try:
@@ -300,8 +314,8 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                     )
                     date = datetime.now()
 
-                # Get email body
-                body_text, body_html = self._get_email_body(msg)
+                # Get email body (respect body_types config)
+                body_text, body_html = self._get_email_body(msg, config.body_types)
                 has_attachments = self._has_attachments(msg)
 
                 # Create Email object
@@ -310,9 +324,6 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                         uid=uid or int(num),
                         message_id=message_id,
                         subject=subject,
-                        from_=from_addr,
-                        to=to_addrs,
-                        cc=cc_addrs,
                         date=date,
                         body_text=body_text,
                         body_html=body_html,
@@ -330,17 +341,23 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
                     # Collect as StarGraphForm
                     collected.append(
-                        StarGraphForm(
-                            block=BlockModel(
-                                resolver="extensions.mail.resolver.EmailResolver",
-                                content=email_obj.model_dump_json(),
-                            ),
-                            out_relations=(),
-                        )
+                        EmailResolver.create_graph(email_obj, from_addr, to_addrs, cc_addrs)
                     )
                     logger.info(
                         "Collected email", extra={"uid": email_obj.uid, "subject": subject}
                     )
+
+                    # Mark as seen if configured
+                    if config.mark_as_seen:
+                        try:
+                            mail.store(num, "+FLAGS", "\\Seen")
+                            logger.debug("Marked email as seen", extra={"num": int(num)})
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to mark email as seen",
+                                extra={"num": int(num), "error": str(e)},
+                            )
+
                 else:
                     logger.warning(
                         "Skipping email, missing from or to addresses",
@@ -363,12 +380,6 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
             with SessionLocal() as db:
                 for graph in reversed(collected) if full else collected:
                     await RootManager.add_star_graph_to_session(graph, db)
-                    # Schedule organize
-                    scheduler.add_job(
-                        func=self._organize,
-                        kwargs={"block_id": graph.block.id},
-                        misfire_grace_time=None,
-                    )
                 db.commit()
             logger.info(
                 "Email collection completed",
