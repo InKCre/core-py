@@ -34,9 +34,7 @@ class RootManager:
 
     @classmethod
     async def add_star_graph_to_session(
-        cls,
-        graph: StarGraphForm,
-        db_session: sqlmodel.Session,
+        cls, graph: StarGraphForm, db_session: sqlmodel.Session
     ) -> None:
         if not graph.block.id:
             graph.block = await BlockManager.fetchsert(graph.block, db_session)
@@ -78,12 +76,16 @@ class RootManager:
         db_session.refresh(form.block)
         if form.out_relations:
             for relation in form.out_relations:
-                ibs, irs = RootManager.get_arc_inserted(relation, db_session, ignore_from=True)
+                ibs, irs = RootManager.get_arc_inserted(
+                    relation, db_session, ignore_from=True
+                )
                 blocks.extend(ibs)
                 relations.extend(irs)
         if form.in_relations:
             for relation in form.in_relations:
-                ibs, irs = RootManager.get_arc_inserted(relation, db_session, ignore_to=True)
+                ibs, irs = RootManager.get_arc_inserted(
+                    relation, db_session, ignore_to=True
+                )
                 blocks.extend(ibs)
                 relations.extend(irs)
         return tuple(blocks), tuple(relations)

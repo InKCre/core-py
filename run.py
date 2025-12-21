@@ -34,8 +34,13 @@ from app.scheduler import scheduler
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
     from app.business.source import SourceCollectJobManager
+    from app.business.storage import StorageManager
 
     logger.info("Application startup")
+
+    # Setup built-in storage instances
+    StorageManager.setup_builtin_storages()
+
     scheduler.start()
 
     # Add periodic job to check pending source collect jobs

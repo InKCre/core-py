@@ -6,6 +6,7 @@ import typing
 import sqlmodel
 from typing import Optional as Opt
 from app.business.relation import RelationManager
+from app.business.resolver.main import ResolverManager
 from libs.obsrv.main import get_logger
 from utils.types_ import Undefined, _undefined
 from ..engine import SessionLocal
@@ -70,7 +71,9 @@ class BlockManager:
         return ResolverManager.new_resolver(block)
 
     @classmethod
-    def create(cls, block: BlockModel) -> BlockModel:
+    def create(
+        cls, block: BlockModel, db_session: Opt[sqlmodel.Session] = None
+    ) -> BlockModel:
         logger.info(
             "Creating block",
             extra={
@@ -79,9 +82,14 @@ class BlockManager:
                 "content_length": len(block.content) if block.content else 0,
             },
         )
-        with SessionLocal() as db_session:
+        if db_session is None:
+            with SessionLocal() as db_session:
+                db_session.add(block)
+                db_session.commit()
+                db_session.refresh(block)
+        else:
             db_session.add(block)
-            db_session.commit()
+            db_session.flush()
             db_session.refresh(block)
 
         logger.info(
@@ -123,7 +131,7 @@ class BlockManager:
 
         resolver = ResolverManager.new_resolver(block)
         embedding = BlockEmbeddingModel(
-            id=block.id,
+            id=block.id,  # type: ignore[arg-type]
             embedding=Embedding("", "text-embedding-v3").embed(
                 resolver.get_str_for_embedding()
             ),
@@ -141,15 +149,10 @@ class BlockManager:
     async def fetchsert(cls, block: BlockModel, db_session: sqlmodel.Session) -> BlockModel:
         """Create if not exists, else return the existing one.
 
-        Will not commit the session.
+        Will NOT commit the session.
         """
-        existing = db_session.exec(
-            sqlmodel.select(BlockModel).where(
-                BlockModel.resolver == block.resolver,
-                BlockModel.storage == block.storage,
-                BlockModel.content == block.content,
-            )
-        ).one_or_none()
+        resolver = ResolverManager.new_resolver(block)
+        existing = resolver.get_existing(db_session)
         if existing is not None:
             logger.debug(
                 "Block already exists, returning existing",
@@ -439,7 +442,7 @@ class BlockManager:
             if resolver is not None:
                 block.resolver = resolver
             if storage is not _undefined:
-                block.storage = storage
+                block.storage = storage  # type: ignore
 
             db_session.add(block)
             db_session.commit()

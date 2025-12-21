@@ -37,9 +37,9 @@ class Img2TextResult(typing.TypedDict):
 
 class ImageResolver(Resolver, rso_type="image"):
     @classmethod
-    def create_brs(cls, url: str, alt_text: Opt[str] = None) -> StarGraphForm:
+    def create_graph(cls, url: str, alt_text: Opt[str] = None) -> StarGraphForm:
         return StarGraphForm(
-            block=BlockModel(resolver=cls.__rsotype__, content=url, storage="URL"),
+            block=BlockModel(resolver=cls.__rsotype__, content=url, storage=-1),
             out_relations=(
                 ArcForm(
                     relation=RelationModel(content="alt:text"),
@@ -54,7 +54,7 @@ class ImageResolver(Resolver, rso_type="image"):
     def __create_text_brs(cls, text: str) -> StarGraphForm:
         from .text import TextResolver
 
-        return TextResolver.create_brs(text)
+        return TextResolver.create_graph(text)
 
     async def breakdown(self) -> typing.AsyncGenerator[Resolver.BorRT, Resolver.BorRT]:
         img2text_result = await self.__img2text()
@@ -64,9 +64,9 @@ class ImageResolver(Resolver, rso_type="image"):
     def __get_custom_variables(self) -> dict:
         if self._block.storage is None:
             return {
-                "ImgSource": base64.b64encode(
-                    self._block.content.encode("utf-8")
-                ).decode("utf-8")
+                "ImgSource": base64.b64encode(self._block.content.encode("utf-8")).decode(
+                    "utf-8"
+                )
             }
         elif self._block.get_storage_type() != "URL":
             raise NotImplementedError
@@ -133,9 +133,7 @@ class ImageResolver(Resolver, rso_type="image"):
         alt_text_block = yield BlockModel(
             resolver="text", content=img2text_result["summary"]
         )
-        yield RelationModel(
-            from_=self._block.id, to_=alt_text_block.id, content="alt:text"
-        )
+        yield RelationModel(from_=self._block.id, to_=alt_text_block.id, content="alt:text")
 
         # info (key information)
         for item in img2text_result["details"]:
@@ -144,13 +142,9 @@ class ImageResolver(Resolver, rso_type="image"):
                 from_=self._block.id, to_=info_block.id, content="has content"
             )
             info_type_block = yield BlockModel(resolver="text", content=item["type"])
-            yield RelationModel(
-                from_=info_block.id, to_=info_type_block.id, content="is"
-            )
+            yield RelationModel(from_=info_block.id, to_=info_type_block.id, content="is")
             for action in item["actions"]:
-                action_block = yield BlockModel(
-                    resolver=ResolverType.TEXT, content=action
-                )
+                action_block = yield BlockModel(resolver=ResolverType.TEXT, content=action)
                 yield RelationModel(
                     from_=action_block.id, to_=info_type_block.id, content="needs"
                 )

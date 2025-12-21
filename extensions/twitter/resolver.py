@@ -22,7 +22,7 @@ class TweetResolver(Resolver, rso_type="tweet"):
             return
         with SessionLocal() as db:
             graph = StarGraphForm(
-                block=TextResolver.create_brs(text=res).block,
+                block=TextResolver.create_graph(text=res).block,
                 in_relations=(
                     ArcForm(
                         relation=RelationModel(

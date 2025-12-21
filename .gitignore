@@ -219,3 +219,6 @@ ipynb
 
 # extensions scripts
 extensions/**/scripts/*
+
+# Database migrations
+migrations/versions/

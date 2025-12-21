@@ -4,13 +4,15 @@ import sqlalchemy
 import pgvector.sqlalchemy
 import sqlmodel
 from typing import Optional as Opt
-from .storage import StorageTable, StorageType
+from .storage import StorageID
 
 if typing.TYPE_CHECKING:
     from .root import Vector
 
 ResolverType: typing.TypeAlias = str
 BlockID: typing.TypeAlias = int
+ResolverTV = typing.TypeVar("ResolverTV", bound="ResolverType")
+"""Resolver type variable"""
 
 
 class BlockModel(sqlmodel.SQLModel, table=True):
@@ -35,16 +37,18 @@ class BlockModel(sqlmodel.SQLModel, table=True):
             onupdate=datetime.datetime.now,
         ),
     )
-    storage: Opt[str] = sqlmodel.Field(
+    storage: Opt[StorageID] = sqlmodel.Field(
         default=None,
         sa_column=sqlalchemy.Column(
-            sqlalchemy.ForeignKey(StorageTable.name), nullable=True
+            sqlalchemy.Integer,
+            sqlalchemy.ForeignKey("storages.id", onupdate="CASCADE", ondelete="SET NULL"),
+            nullable=True,
         ),
     )
     resolver: ResolverType = sqlmodel.Field(
         sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
     )
-    content: StorageType = sqlmodel.Field(
+    content: str = sqlmodel.Field(
         sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
     )
 

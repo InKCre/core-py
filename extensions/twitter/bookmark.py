@@ -8,7 +8,7 @@ from typing import Optional as Opt
 import sqlmodel
 from app.business.block import BlockManager
 from app.business.relation import RelationManager
-from app.business.resolver import ImageResolver, VideoResolver, WebpageResolver
+from app.business.resolver import ImageResolver, VideoResolver, HTMLResolver
 from app.business.source import SourceBase
 from app.engine import SessionLocal
 from app.schemas.root import StarGraphForm
@@ -83,7 +83,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                     out_relations=tuple(
                         ArcForm(
                             relation=RelationModel(content="attachment:photo"),
-                            to_block=ImageResolver.create_brs(
+                            to_block=ImageResolver.create_graph(
                                 url=photo.url, alt_text=photo.alt_text
                             ),
                         )
@@ -92,14 +92,14 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                     + tuple(
                         ArcForm(
                             relation=RelationModel(content="attachment:video"),
-                            to_block=VideoResolver.create_brs(url=video.variants[0].url),
+                            to_block=VideoResolver.create_graph(url=video.variants[0].url),
                         )
                         for video in tweet.videos
                     )
                     + tuple(
                         ArcForm(
                             relation=RelationModel(content="entities:url"),
-                            to_block=WebpageResolver.create_brs(url=url),
+                            to_block=HTMLResolver.create_graph(url=url),
                         )
                         for url in tweet.urls
                     ),
