@@ -27,5 +27,5 @@ async def run_source_collect(
         db.commit()
         db.refresh(job)
 
-    await SourceCollectJobManager.check_pending()
+    await SourceCollectJobManager.check()
     return job

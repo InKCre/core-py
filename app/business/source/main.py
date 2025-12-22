@@ -12,6 +12,7 @@ from app.schemas.block import BlockID
 from app.schemas.source import SourceCollectJobID, SourceModel, SourceID, SourceTypesModel
 from app.schemas.source import SourceCollectJobModel, SourceCollectJobStatus
 from app.scheduler import scheduler, with_trace_id
+from utils.datetime_ import get_datetimez
 
 
 LOGGER = get_logger().getChild(__name__)
@@ -20,7 +21,10 @@ ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
 
 
 class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
-    """InkCre Source Base class."""
+    """InkCre Source Base class.
+
+    The config is not cached in memory, if it is someday, instantiate every time you use, instead of caching the instance.
+    """
 
     __configschema__: dict
     """Source configuration JSON schema"""
@@ -180,7 +184,7 @@ class SourceCollectJobManager:
             ).one()
 
             job.status = SourceCollectJobStatus.RUNNING
-            job.started_at = datetime.datetime.now(datetime.timezone.utc)
+            job.started_at = get_datetimez()
             db.add(job)
             db.commit()
             db.refresh(job)
@@ -196,25 +200,46 @@ class SourceCollectJobManager:
                 job.status = SourceCollectJobStatus.FAILED
                 job.state = {"error": str(e)}
             finally:
-                job.closed_at = datetime.datetime.now(datetime.timezone.utc)
+                job.closed_at = get_datetimez()
                 db.add(job)
                 db.commit()
 
     @classmethod
-    async def check_pending(cls):
-        """Check for pending source collect jobs and handle them."""
+    async def check(cls):
+        """Check source collect jobs
+        - pending: schedule for handling
+        - running: timeout check
+
+        """
         with SessionLocal() as db:
             pending_jobs = db.exec(
                 sqlmodel.select(SourceCollectJobModel).where(
                     SourceCollectJobModel.status == SourceCollectJobStatus.PENDING
                 )
             ).all()
+            running_jobs = db.exec(
+                sqlmodel.select(SourceCollectJobModel).where(
+                    SourceCollectJobModel.status == SourceCollectJobStatus.RUNNING
+                )
+            ).all()
 
-        for job in pending_jobs:
-            # Schedule the collect
-            scheduler.add_job(
-                func=with_trace_id(f"source_collect_job.{job.id}", cls.run),
-                args=[job.id],
-                misfire_grace_time=None,
-            )
-            LOGGER.info(f"Scheduled pending source collect job {job.id}")
+            for job in pending_jobs:
+                # Schedule the collect
+                scheduler.add_job(
+                    func=with_trace_id(f"source_collect_job.{job.id}", cls.run),
+                    args=[job.id],
+                    misfire_grace_time=None,
+                )
+                LOGGER.info(f"Scheduled pending source collect job {job.id}")
+
+            for job in running_jobs:
+                # Check for timeout (e.g., running for more than 5 minutes)
+                if (
+                    job.started_at is not None
+                    and get_datetimez() - job.started_at > datetime.timedelta(minutes=5)
+                ):
+                    LOGGER.warning(f"Source collect job {job.id} timed out.")
+                    job.status = SourceCollectJobStatus.FAILED
+                    job.closed_at = get_datetimez()
+                    db.add(job)
+                    db.commit()

@@ -45,7 +45,7 @@ async def lifespan(app: fastapi.FastAPI):
 
     # Add periodic job to check pending source collect jobs
     scheduler.add_job(
-        SourceCollectJobManager.check_pending,
+        SourceCollectJobManager.check,
         "interval",
         seconds=30,
         id="sources.collect_jobs.check_pending",
