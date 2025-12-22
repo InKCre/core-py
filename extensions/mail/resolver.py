@@ -2,9 +2,6 @@
 
 from typing import Optional as Opt
 
-import sqlalchemy
-import sqlalchemy.dialects
-import sqlalchemy.dialects.postgresql
 from sqlmodel import Session
 import sqlmodel
 from app.business.resolver import Resolver
@@ -48,12 +45,7 @@ class EmailResolver(Resolver, rso_type="email"):
             in_relations=(
                 ArcForm(
                     relation=RelationModel(content="from"),
-                    to_block=StarGraphForm(
-                        block=BlockModel(
-                            resolver=EmailAddressResolver.__rsotype__,
-                            content=from_.model_dump_json(),
-                        )
-                    ),
+                    from_block=EmailAddressResolver.create_graph(from_),
                 ),
             ),
             block=BlockModel(
@@ -64,24 +56,14 @@ class EmailResolver(Resolver, rso_type="email"):
                 *(
                     ArcForm(
                         relation=RelationModel(content="to"),
-                        to_block=StarGraphForm(
-                            block=BlockModel(
-                                resolver=EmailAddressResolver.__rsotype__,
-                                content=addr.model_dump_json(),
-                            )
-                        ),
+                        to_block=EmailAddressResolver.create_graph(addr),
                     )
                     for addr in to
                 ),
                 *(
                     ArcForm(
                         relation=RelationModel(content="cc"),
-                        to_block=StarGraphForm(
-                            block=BlockModel(
-                                resolver=EmailAddressResolver.__rsotype__,
-                                content=addr.model_dump_json(),
-                            )
-                        ),
+                        to_block=EmailAddressResolver.create_graph(addr),
                     )
                     for addr in (cc or [])
                 ),
@@ -138,6 +120,18 @@ class EmailAddressResolver(Resolver, rso_type="email_address"):
         self._solved_content: EmailAddress = EmailAddress.model_validate_json(
             self._block.content
         )
+
+    @classmethod
+    def create_block(cls, content: EmailAddress | dict, storage=None) -> BlockModel:
+        return BlockModel(
+            resolver=cls.__rsotype__,
+            content=EmailAddress.model_validate(content).model_dump_json(),
+            storage=storage,
+        )
+
+    @classmethod
+    def create_graph(cls, email: EmailAddress | dict) -> StarGraphForm:
+        return StarGraphForm(block=cls.create_block(email))
 
     async def get_text(self) -> str:
         """Get text representation of the email address.

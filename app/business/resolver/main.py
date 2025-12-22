@@ -9,6 +9,7 @@ from app.business.storage.main import StorageManager
 from app.schemas.root import StarGraphForm
 from app.schemas.block import ResolverType, BlockModel
 from app.schemas.relation import RelationModel
+from app.schemas.storage import StorageID
 
 
 class ResolverManager:
@@ -60,6 +61,10 @@ class Resolver(abc.ABC):
         self.__post_init__()
 
     def __post_init__(self): ...
+
+    @classmethod
+    # @abc.abstractmethod TODO
+    def create_block(cls, content, storage: Opt[StorageID] = None) -> BlockModel: ...
 
     @classmethod
     # @abc.abstractmethod TODO

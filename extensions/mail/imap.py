@@ -196,7 +196,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                 },
                 exc_info=True,
             )
-            return
+            raise e
 
         collected: list[StarGraphForm] = []
         try:
@@ -210,7 +210,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                     extra={"username": config.username, "error": str(e)},
                     exc_info=True,
                 )
-                return
+                raise e
 
             # Select inbox
             try:
@@ -220,7 +220,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                 logger.error(
                     "Failed to select mailbox INBOX", extra={"error": str(e)}, exc_info=True
                 )
-                return
+                raise e
 
             # Search for emails
             try:
@@ -250,7 +250,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                 logger.error(
                     "Failed to search emails", extra={"error": str(e)}, exc_info=True
                 )
-                return
+                raise e
 
             if not message_numbers or not message_numbers[0]:
                 logger.info("No emails found to process")
@@ -378,7 +378,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
         logger.info("Saving collected emails to database", extra={"count": len(collected)})
         try:
             with SessionLocal() as db:
-                for graph in reversed(collected) if full else collected:
+                for graph in collected:
                     await RootManager.add_star_graph_to_session(graph, db)
                 db.commit()
             logger.info(
@@ -391,6 +391,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
                 extra={"job_id": job.id, "error": str(e)},
                 exc_info=True,
             )
+            raise e
 
     async def _organize(self, block_id: BlockID) -> None:
         """Organize collected email block.

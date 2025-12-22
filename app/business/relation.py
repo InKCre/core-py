@@ -38,7 +38,7 @@ class RelationManager:
     ) -> RelationModel:
         """Create if not exists, else return the existing one.
 
-        Will not commit the session.
+        Will NOT commit the session.
         """
         existing = db_session.exec(
             sqlmodel.select(RelationModel).where(
@@ -59,7 +59,7 @@ class RelationManager:
             return existing
 
         logger.info(
-            "Creating new relation via fetchsert",
+            "Flushing new relation via fetchsert",
             extra={
                 "from_block": relation.from_,
                 "to_block": relation.to_,

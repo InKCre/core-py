@@ -40,6 +40,9 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
         """Collect new data from the source.
 
         :param job: The collect job containing config and state.
+
+        Notes:
+        - Should not surpress exceptions, raise it.
         """
 
     @abc.abstractmethod

@@ -161,7 +161,7 @@ class BlockManager:
             return existing
 
         logger.info(
-            "Creating new block via fetchsert",
+            "Flushing new block via fetchsert",
             extra={"resolver": block.resolver, "storage": block.storage},
         )
         db_session.add(block)
