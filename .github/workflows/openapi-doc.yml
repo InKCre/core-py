@@ -35,9 +35,10 @@ jobs:
 
       - name: Generate OpenAPI schema
         env:
-          DATABASE_URL: "postgresql+psycopg://localhost/dummy"
+          DATABASE_URL: ${{secrets.DATABASE_URL}}
+          DATABASE_SCALE_0: ${{vars.DATABASE_SCALE_0}}
           JWT_SECRET: "dummy-secret-for-openapi-generation"
-          IN_CI: "1"
+          SKIP_EXTENSIONS_SYNC: "1"
           OBSRV__LOGGING_BACKEND: "none"
         run: pdm run python scripts/generate-openapi.py
 

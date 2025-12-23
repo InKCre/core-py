@@ -13,7 +13,12 @@ logger = setup_obsrv()
 # Setup logging end
 
 # Load flags
-IN_CI: bool = os.getenv("IN_CI", "").lower() in ("1", "true", "yes")
+SKIP_EXTENSIONS_SYNC: bool = os.getenv("SKIP_EXTENSIONS_SYNC", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+# Load flags end
 
 sys.path.insert(0, "extensions")
 
@@ -42,19 +47,17 @@ async def lifespan(app: fastapi.FastAPI):
     logger.info("Application startup")
 
     # Setup built-in storage instances
-    if not IN_CI:
-        StorageManager.setup_builtin_storages()
+    StorageManager.setup_builtin_storages()
 
     scheduler.start()
 
     # Add periodic job to check pending source collect jobs
-    if not IN_CI:
-        scheduler.add_job(
-            SourceCollectJobManager.check,
-            "interval",
-            seconds=30,
-            id="sources.collect_jobs.check_pending",
-        )
+    scheduler.add_job(
+        SourceCollectJobManager.check,
+        "interval",
+        seconds=30,
+        id="sources.collect_jobs.check_pending",
+    )
 
     yield
     logger.info("Application shutdown")
@@ -97,8 +100,8 @@ api_app.include_router(root_router)
 api_app.include_router(sink_router)
 
 # must be prior
-# Skip extension sync if IN_CI is set (useful for OpenAPI generation)
-if not IN_CI:
+# Skip extension sync if SKIP_EXTENSIONS_SYNC is set (useful for OpenAPI generation)
+if not SKIP_EXTENSIONS_SYNC:
     ExtensionManager.sync()
     ExtensionManager.start_enabled(api_app)
     SourceManager.set_up_collect_jobs()
