@@ -87,6 +87,7 @@ def adapt_log_record(
             "processName",
             "process",
             "taskName",
+            "asctime",
         }
         and not k.startswith("_")
     }

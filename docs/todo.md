@@ -1,6 +1,7 @@
 ## Fundaments
 
-- [ ] 持久化日志（主要是为了 source collect job）（与 OpenTelemetry 对齐）（复用 PostgreSQL）
+- [x] 持久化日志（主要是为了 source collect job）（与 OpenTelemetry 对齐）（复用 PostgreSQL）
+- [ ] 使 `OBSRV__LOGGING_BACKEND` 为数组
 
 ### AI
 
@@ -41,8 +42,9 @@
 
 - [ ] Standard of auto organization ? 
 - [x] Resolver relies on Storage to get the actual content (don't do it yourself, never considering what storage is)
-- [ ] 改进加载模式
+- [x] 改进加载模式
   - 在未找到时，按照类型（和 Python 导入路径语法一致）尝试从插件中导入 （否则插件就需要在初始化时导入）
+- [ ] Resolver 和 Storage 应该解耦；比如 ImageResolver 要的就是 content 为图片二进制的 block，storage就负责搞定这件事，resolver不应该在乎
 
 ## Extension
 - [x] Run `pdm install` to install dependencies the extension required when install or upgrade an extension.
@@ -68,8 +70,9 @@
 ### Email
 
 - [x] 测试 IMAP Source 可以收集最近的邮件
-- [ ] 优化 IMAP Source : 避免重复的部分，比如收件人、发件人；支持配置仅收集 body_text 或 body_html
+- [x] 优化 IMAP Source : 避免重复的部分，比如收件人、发件人；支持配置仅收集 body_text 或 body_html
 - [x] Mark collected as seen
+- [ ] 优化 IMAP Source: 也收集附件
 
 ### Github
 
@@ -80,3 +83,4 @@
 ## Trivias
 
 - [ ] indent 修改为 2 spaces
+- [ ] 替换所有 datetime.datetime.now 为 get_datetimez
