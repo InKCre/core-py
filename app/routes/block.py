@@ -6,7 +6,7 @@ import fastapi
 import typing
 from typing import Annotated as Anno, Literal as Lit, Optional as Opt
 from app.business.block import BlockManager, BlockModel
-from app.libs.ai import Embedding
+from libs.ai import Embedding
 from app.schemas.block import BlockID, ResolverType
 
 ROUTER = fastapi.APIRouter(

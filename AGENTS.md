@@ -5,38 +5,59 @@ lication provides powerful and automatical collect, organize and use of informat
 
 ## Tech Stack
 
-- API over HTTP: FastAPI
-- ORM and Data models: SQLModel
-- database migration: Alembic
+- API Framework: FastAPI
+- Background Task: Apscheduler
+- Database management: SQLModel as ORM, Alembic as migration tool
 - Database: PostgreSQL
-- Package management and venv: PDM 
-  - use `pdm run` to run scripts, executable or python code snippet. 
+- Configuration management: pydantic-settings + env file
 
 ## Business Domains
 
-- extension
+- source: Data collectors, the input of info-base
 - info-base
-  - block
-  - relation
-  - storage
-  - resolver
-  - source
-- sink: wrapping the info-base to provide use of information features like querying, insights and more.
+  - block: Content units
+  - relation: Links between blocks
+  - storage: Store block content somewhere else than database.
+  - resolver: resolves block content
+- sink: Interface to use information base, the output of info-base
+- extension: extends info-base, source and sink abilities
 
 ## Project Structure
 
 - `pyproject.toml`
-- `requirements.txt`: the prod requirements generated from `pyproject.toml` using pdm.
-  - Required by Heroku python build pack.
+- `requirements.txt`: the prod requirements generated from `pyproject.toml` using PDM.
 - `run.py`: include routes and launch the app
 - `app/`
-  - `business/`
+  - `business/`: service layer, by domains
   - `schemas/`: tables and data models
   - `routes/`: register/wrap/expose business methods to FastAPI
-  - `libs/`
   - `engine.py`: db session
   - `settings.py`: centeralized application settings based on pydantic-settings
   - `scheduler.py`: apscheduler
-- `utils/`: utils both app and extensions can use
-- `extensions/`: installed extensions (build-in extensions also maintained here)
+- `extensions/`: built-in extensions (also where installed extensions stored)
+- `utils/`
+- `libs/`
+  - `obsrv`: observability
+  - `ai`: embedding, LLM completion
+- `tests/`: unit tests
 - `migrations/`: db migrations
+- `scripts/`
+- `docs/`
+
+## Development Workflow
+
+- Package management: Use PDM (`pdm run` for scripts/executables)
+- Database Migrations: `pdm run alembic-gengrade "message"` (autogenerates + upgrades)
+- Run dev server: `uvicorn run:api_app --reload` (sets up extensions, scheduler)
+
+## Coding Guideline
+
+- Do not repeat yourself.
+  - If the same code is used at over two places, extract it.
+
+## Deployment
+
+This project supports following deployments:
+
+- Heroku App
+- Docker Compose / Docker

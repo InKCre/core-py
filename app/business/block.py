@@ -10,7 +10,7 @@ from app.business.resolver.main import ResolverManager
 from libs.obsrv.main import get_logger
 from utils.types_ import Undefined, _undefined
 from ..engine import SessionLocal
-from ..libs.ai import (
+from ...libs.ai import (
     CSVMessageContent,
     Chat,
     Embedding,

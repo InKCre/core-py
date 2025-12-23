@@ -13,7 +13,7 @@ from openai.types.chat import (
 from app.settings import settings
 
 if typing.TYPE_CHECKING:
-    from ..schemas.root import Vector
+    from ..app.schemas.root import Vector
 
 
 # Config
@@ -164,7 +164,9 @@ def get_embeddings(
 def one_chat(
     prompt: str | None = None,
     model: str = "deepseek/deepseek-v3-0324",
-    history_messages: list[ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam]
+    history_messages: list[
+        ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam
+    ]
     | None = None,
 ):
     chat_completion_res = OPENAI_CLIENT.chat.completions.create(

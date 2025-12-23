@@ -1,11 +1,10 @@
 ---
 applyTo: "**/schemas/**.py"
-description: "When you editing a schema"
 ---
 
-- The database is PostgreSQL, make sure your column type, default follows PostgreSQL best practices:
+- ORM is SQLModel and database is PostgreSQL, use correct types:
   - use `sqlalchemy.dialects.postgresql.JSONB` instead of `sqlmodel.JSON`
-  - If JSONB column uses default factory `dict`, set `server_default=sa.text("'{}'::jsonb")`
+- If JSONB column uses default factory `dict`, set `server_default=sa.text("'{}'::jsonb")`
 - For enum
   - Use StrEnum
-  - Set `values_callable` for `sqlalchemy.Enum` to `lambda x: [e.value for e in x]` to use enum values in DB
+  - Set `sqlalchemy.Enum(values_callable=lambda x: [e.value for e in x])` for enum columns

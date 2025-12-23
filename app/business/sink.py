@@ -6,7 +6,7 @@ import fastapi
 import sqlmodel
 
 from app.business.block import BlockManager
-from app.libs.ai import Chat, Message, MessageContent, Prompt
+from libs.ai import Chat, Message, MessageContent, Prompt
 from app.schemas.block import BlockID
 
 

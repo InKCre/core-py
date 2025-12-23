@@ -3,7 +3,7 @@ from app.business.root import RootManager
 from app.business.resolver import Resolver
 from app.business.resolver.text import TextResolver
 from app.engine import SessionLocal
-from app.libs.ai import one_chat_with_vlm
+from libs.ai import one_chat_with_vlm
 from app.schemas.root import StarGraphForm
 from app.schemas.block import BlockID
 from app.schemas.relation import RelationModel
