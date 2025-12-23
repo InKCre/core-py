@@ -2,8 +2,8 @@ import sqlmodel
 from typing import Optional as Opt
 from app.engine import SessionLocal
 from libs.obsrv.main import get_logger
-from ..schemas.block import BlockID
-from ..schemas.relation import RelationModel
+from app.schemas.block import BlockID
+from app.schemas.relation import RelationModel
 
 logger = get_logger()
 

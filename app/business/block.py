@@ -9,8 +9,8 @@ from app.business.relation import RelationManager
 from app.business.resolver.main import ResolverManager
 from libs.obsrv.main import get_logger
 from utils.types_ import Undefined, _undefined
-from ..engine import SessionLocal
-from ...libs.ai import (
+from app.engine import SessionLocal
+from libs.ai import (
     CSVMessageContent,
     Chat,
     Embedding,
@@ -19,9 +19,9 @@ from ...libs.ai import (
     Prompt,
     one_chat,
 )
-from ..schemas.block import BlockEmbeddingModel, BlockID, BlockModel, ResolverType
-from ..schemas.relation import RelationID, RelationModel
-from ..schemas.root import Vector
+from app.schemas.block import BlockEmbeddingModel, BlockID, BlockModel, ResolverType
+from app.schemas.relation import RelationID, RelationModel
+from app.schemas.root import Vector
 from app.scheduler import scheduler
 
 if typing.TYPE_CHECKING:

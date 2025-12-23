@@ -11,10 +11,10 @@ import aiohttp
 from typing import Optional as Opt
 
 from .main import Resolver
-from ...schemas.root import StarGraphForm, ArcForm
-from ...schemas.block import ResolverType, BlockModel
-from ...schemas.relation import RelationModel
-from ...engine import SessionLocal
+from app.schemas.root import StarGraphForm, ArcForm
+from app.schemas.block import ResolverType, BlockModel
+from app.schemas.relation import RelationModel
+from app.engine import SessionLocal
 from utils.base import AIOHTTP_CONNECTOR_GETTER
 
 

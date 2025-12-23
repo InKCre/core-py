@@ -1,7 +1,7 @@
 ## Project Overview
 
-This is the Python backend of InKCre. InKCre aims to build an information management app-
-lication provides powerful and automatical collect, organize and use of information. 
+This is the Python implementation of InKCre. 
+InKCre aims to build an information management application that provides automatic information collection, organization and powerful use of information. 
 
 ## Tech Stack
 

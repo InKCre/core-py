@@ -13,7 +13,7 @@ from openai.types.chat import (
 from app.settings import settings
 
 if typing.TYPE_CHECKING:
-    from ..app.schemas.root import Vector
+    from app.schemas.root import Vector
 
 
 # Config
