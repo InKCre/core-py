@@ -37,7 +37,7 @@ jobs:
         env:
           DATABASE_URL: "postgresql+psycopg://localhost/dummy"
           JWT_SECRET: "dummy-secret-for-openapi-generation"
-          EXTENSION_SYNC_SKIP: "1"
+          IN_CI: "1"
           OBSRV__LOGGING_BACKEND: "none"
         run: pdm run python scripts/generate-openapi.py
 

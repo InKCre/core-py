@@ -12,6 +12,9 @@ from libs.obsrv.main import setup_obsrv
 logger = setup_obsrv()
 # Setup logging end
 
+# Load flags
+IN_CI: bool = os.getenv("IN_CI", "").lower() in ("1", "true", "yes")
+
 sys.path.insert(0, "extensions")
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,17 +42,19 @@ async def lifespan(app: fastapi.FastAPI):
     logger.info("Application startup")
 
     # Setup built-in storage instances
-    StorageManager.setup_builtin_storages()
+    if not IN_CI:
+        StorageManager.setup_builtin_storages()
 
     scheduler.start()
 
     # Add periodic job to check pending source collect jobs
-    scheduler.add_job(
-        SourceCollectJobManager.check,
-        "interval",
-        seconds=30,
-        id="sources.collect_jobs.check_pending",
-    )
+    if not IN_CI:
+        scheduler.add_job(
+            SourceCollectJobManager.check,
+            "interval",
+            seconds=30,
+            id="sources.collect_jobs.check_pending",
+        )
 
     yield
     logger.info("Application shutdown")
@@ -92,8 +97,8 @@ api_app.include_router(root_router)
 api_app.include_router(sink_router)
 
 # must be prior
-# Skip extension sync if EXTENSION_SYNC_SKIP is set (useful for OpenAPI generation)
-if not os.getenv("EXTENSION_SYNC_SKIP"):
+# Skip extension sync if IN_CI is set (useful for OpenAPI generation)
+if not IN_CI:
     ExtensionManager.sync()
     ExtensionManager.start_enabled(api_app)
     SourceManager.set_up_collect_jobs()
