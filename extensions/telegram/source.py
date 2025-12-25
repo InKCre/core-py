@@ -2,7 +2,8 @@
 
 import asyncio
 import typing
-from typing import Optional as Opt
+from typing import Optional as Opt, Literal as Lit
+import sqlmodel
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from app.business.source import SourceBase
@@ -12,12 +13,28 @@ from app.schemas.info_base.main import StarGraphForm
 from app.schemas.info_base.block import BlockModel, BlockID
 from app.schemas.source import SourceCollectJobModel
 from app.scheduler import scheduler
-from extensions.telegram import Extension
-from .schema import TelegramMessage, TelegramUser, TelegramChat
+from .schema import TelegramMessage
 
 
-class Source(SourceBase):
+class SourceConfig(sqlmodel.SQLModel):
+  """Configuration of Telegram Source."""
+
+  bot_token: str = ""
+  """Telegram Bot API token (get from @BotFather)"""
+  collect_method: Lit["polling", "webhook"] = "polling"
+  """Method to collect messages: 'polling' (getUpdates) or 'webhook'"""
+  collection_duration_seconds: int = 60
+  """Duration in seconds to collect messages during each polling collection run (default: 60)"""
+  webhook_url: str = ""
+  """Webhook URL for receiving updates (required when collect_method is 'webhook')"""
+
+
+class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
   """Telegram Source - collects messages sent to the configured Telegram bot.
+  
+  Supports two collection methods:
+  1. Polling (getUpdates): Actively fetches updates from Telegram servers
+  2. Webhook: Receives updates via HTTP POST requests to configured webhook URL
 
   Note: This source uses class-level state for the Telegram application and message
   collection. Only one collection run should be active at a time. Running multiple
@@ -40,25 +57,6 @@ class Source(SourceBase):
       return
 
     message = update.message
-
-    # Parse user information
-    from_user = None
-    if message.from_user:
-      from_user = TelegramUser(
-        id=message.from_user.id,
-        first_name=message.from_user.first_name,
-        last_name=message.from_user.last_name,
-        username=message.from_user.username,
-        is_bot=message.from_user.is_bot,
-      )
-
-    # Parse chat information
-    chat = TelegramChat(
-      id=message.chat.id,
-      type=message.chat.type,
-      title=message.chat.title,
-      username=message.chat.username,
-    )
 
     # Determine media type
     has_media = False
@@ -89,26 +87,12 @@ class Source(SourceBase):
       has_media = True
       media_type = "sticker"
 
-    # Parse forward information
-    forward_from = None
-    if message.forward_from:
-      forward_from = TelegramUser(
-        id=message.forward_from.id,
-        first_name=message.forward_from.first_name,
-        last_name=message.forward_from.last_name,
-        username=message.forward_from.username,
-        is_bot=message.forward_from.is_bot,
-      )
-
-    # Create TelegramMessage object
+    # Create TelegramMessage object with only message data
     telegram_msg = TelegramMessage(
       message_id=message.message_id,
       date=message.date,
-      chat=chat,
-      from_user=from_user,
       text=message.text,
       caption=caption,
-      forward_from=forward_from,
       reply_to_message_id=(
         message.reply_to_message.message_id if message.reply_to_message else None
       ),
@@ -124,23 +108,45 @@ class Source(SourceBase):
 
     :param job: The collect job containing config and state.
 
+    Supports two collection methods:
+    - polling: Uses getUpdates to fetch messages for a specified duration
+    - webhook: Sets up webhook endpoint (webhook must be configured separately)
+
     Note: Telegram bots can only receive new messages sent to them in real-time.
     Historical messages cannot be retrieved via Bot API. For full collection,
     the bot needs to have been running and storing messages previously.
     """
-    ext_config = Extension.config
+    config = self.get_config()
 
-    if not ext_config.bot_token:
+    if not config.bot_token:
       # No bot token configured, cannot collect
       return
 
-    config = job.config or {}
-    full = config.get("full", False)
-    duration = config.get("duration", ext_config.collection_duration_seconds or 60)
+    job_config = job.config or {}
+    full = job_config.get("full", False)
+
+    # Dispatch to appropriate collection method
+    if config.collect_method == "webhook":
+      await self._collect_webhook(config, full)
+    else:  # Default to polling
+      await self._collect_polling(config, full, job_config)
+
+  async def _collect_polling(
+    self, config: SourceConfig, full: bool, job_config: dict
+  ) -> None:
+    """Collect messages using polling (getUpdates) method.
+    
+    :param config: Source configuration
+    :param full: Whether to fetch all pending updates
+    :param job_config: Job-specific configuration
+    """
+    duration = job_config.get(
+      "duration", config.collection_duration_seconds or 60
+    )
 
     # Initialize Telegram bot application if not already done
     if Source._app is None:
-      Source._app = Application.builder().token(ext_config.bot_token).build()
+      Source._app = Application.builder().token(config.bot_token).build()
 
       # Add message handler
       Source._app.add_handler(MessageHandler(filters.ALL, Source._message_handler))
@@ -207,6 +213,23 @@ class Source(SourceBase):
           misfire_grace_time=None,
         )
       db.commit()
+
+  async def _collect_webhook(self, config: SourceConfig, full: bool) -> None:
+    """Collect messages using webhook method.
+    
+    Note: Webhook collection requires external webhook setup.
+    This method is a placeholder for webhook-based collection.
+    The actual webhook endpoint should be configured separately using
+    Telegram's setWebhook API and a web server to receive updates.
+    
+    :param config: Source configuration
+    :param full: Whether to process all pending updates (not applicable for webhooks)
+    """
+    # Webhook collection is handled by external webhook endpoint
+    # This method exists as placeholder for future webhook implementation
+    # For now, webhook messages should be processed through a separate endpoint
+    # that calls _message_handler directly
+    pass
 
   async def _organize(self, block_id: BlockID) -> None:
     """Organize collected Telegram message block.

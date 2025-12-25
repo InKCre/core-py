@@ -8,12 +8,13 @@ from app.business.source import SourceManager
 
 
 class TelegramExtensionConfig(sqlmodel.SQLModel):
-  """Configuration for Telegram extension."""
+  """Configuration for Telegram extension.
+  
+  Note: Telegram source-specific configuration (bot_token, collect_method)
+  should be set in the individual source instance configuration, not here.
+  """
 
-  bot_token: str = ""
-  """Telegram Bot API token (get from @BotFather)"""
-  collection_duration_seconds: int = 60
-  """Duration in seconds to collect messages during each collection run (default: 60)"""
+  pass
 
 
 class Extension(
@@ -37,5 +38,7 @@ class Extension(
   def _register_apis(cls, router: APIRouter):
     """Register API endpoints for Telegram extension."""
     router.post("/bot")(
-      lambda nickname: SourceManager.create(f"extensions.{cls.__extid__}.source", nickname)
+      lambda nickname: SourceManager.create(
+        f"extensions.{cls.__extid__}.source.Source", nickname
+      )
     )
