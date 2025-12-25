@@ -29,6 +29,7 @@ dependencies = [
     "alembic-utils>=0.8.8",
     "alembic-postgresql-enum>=1.8.0",
     "PyJWT>=2.10.1",
+    "PyGithub>=2.8.1",
 ]
 
 [dependency-groups]
