@@ -7,7 +7,7 @@ from typing import Optional as Opt
 from .storage import StorageID
 
 if typing.TYPE_CHECKING:
-    from .root import Vector
+    from .main import Vector
 
 ResolverType: typing.TypeAlias = str
 BlockID: typing.TypeAlias = int
@@ -53,7 +53,7 @@ class BlockModel(sqlmodel.SQLModel, table=True):
     )
 
     async def get_context_as_text(self) -> str:
-        from app.business.resolver import ResolverManager
+        from app.business.info_base.resolver import ResolverManager
 
         resolver = ResolverManager.new_resolver(self)
         return await resolver.get_text()

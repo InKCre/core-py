@@ -1,8 +1,8 @@
 """Telegram message resolver for handling Telegram message blocks."""
 
-from app.business.resolver import Resolver
-from app.schemas.block import BlockModel
-from app.schemas.root import StarGraphForm
+from app.business.info_base.resolver import Resolver
+from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.main import StarGraphForm
 from .schema import TelegramMessage
 
 

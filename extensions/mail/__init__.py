@@ -2,7 +2,7 @@
 
 import sqlmodel
 from fastapi import APIRouter
-from app.business.extension import ExtensionBase
+from app.business.extension.main import ExtensionBase
 
 
 class MailExtensionConfig(sqlmodel.SQLModel):

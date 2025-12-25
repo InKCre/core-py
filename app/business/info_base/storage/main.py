@@ -10,8 +10,8 @@ import sqlmodel
 import typing
 from typing import Optional as Opt
 from app.engine import SessionLocal
-from app.schemas.block import BlockModel
-from app.schemas.storage import StorageID, StorageModel, StorageTypesModel
+from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.storage import StorageID, StorageModel, StorageTypesModel
 
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)

@@ -5,8 +5,8 @@ import json
 import typing
 import sqlmodel
 from typing import Optional as Opt
-from app.business.relation import RelationManager
-from app.business.resolver.main import ResolverManager
+from app.business.info_base.relation import RelationManager
+from app.business.info_base.resolver.main import ResolverManager
 from libs.obsrv.main import get_logger
 from utils.types_ import Undefined, _undefined
 from app.engine import SessionLocal
@@ -19,13 +19,18 @@ from libs.ai import (
     Prompt,
     one_chat,
 )
-from app.schemas.block import BlockEmbeddingModel, BlockID, BlockModel, ResolverType
-from app.schemas.relation import RelationID, RelationModel
-from app.schemas.root import Vector
+from app.schemas.info_base.block import (
+    BlockEmbeddingModel,
+    BlockID,
+    BlockModel,
+    ResolverType,
+)
+from app.schemas.info_base.relation import RelationID, RelationModel
+from app.schemas.info_base.main import Vector
 from app.scheduler import scheduler
 
 if typing.TYPE_CHECKING:
-    from app.business.resolver import Resolver
+    from app.business.info_base.resolver import Resolver
 
 logger = get_logger()
 

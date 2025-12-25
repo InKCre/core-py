@@ -14,7 +14,7 @@ __all__ = [
 import aiohttp
 import base64
 import sqlmodel
-from app.schemas.block import BlockModel
+from app.schemas.info_base.block import BlockModel
 from .main import Storage
 from utils.base import AIOHTTP_CONNECTOR_GETTER
 

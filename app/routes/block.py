@@ -5,9 +5,9 @@ __all__ = ["ROUTER"]
 import fastapi
 import typing
 from typing import Annotated as Anno, Literal as Lit, Optional as Opt
-from app.business.block import BlockManager, BlockModel
+from app.business.info_base.block import BlockManager, BlockModel
 from libs.ai import Embedding
-from app.schemas.block import BlockID, ResolverType
+from app.schemas.info_base.block import BlockID, ResolverType
 
 ROUTER = fastapi.APIRouter(
     prefix="/blocks",

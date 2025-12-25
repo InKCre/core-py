@@ -1,13 +1,13 @@
 import typing
-from app.business.root import RootManager
-from app.business.resolver import Resolver
-from app.business.resolver.text import TextResolver
+from app.business.info_base.root import RootManager
+from app.business.info_base.resolver import Resolver
+from app.business.info_base.resolver.text import TextResolver
 from app.engine import SessionLocal
 from libs.ai import one_chat_with_vlm
-from app.schemas.root import StarGraphForm
-from app.schemas.block import BlockID
-from app.schemas.relation import RelationModel
-from app.schemas.root import ArcForm
+from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.block import BlockID
+from app.schemas.info_base.relation import RelationModel
+from app.schemas.info_base.main import ArcForm
 
 
 class TweetResolver(Resolver, rso_type="tweet"):

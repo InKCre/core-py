@@ -1,7 +1,7 @@
 """LearnEnglish's Resolvers"""
 
 import json
-from app.business.resolver.main import Resolver
+from app.business.info_base.resolver.main import Resolver
 from .schema import LexicalItem
 
 

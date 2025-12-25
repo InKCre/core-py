@@ -8,7 +8,7 @@ import typing
 from typing import Optional as Opt
 from app.engine import SessionLocal
 from libs.obsrv.main import get_logger
-from app.schemas.block import BlockID
+from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceCollectJobID, SourceModel, SourceID, SourceTypesModel
 from app.schemas.source import SourceCollectJobModel, SourceCollectJobStatus
 from app.scheduler import scheduler, with_trace_id

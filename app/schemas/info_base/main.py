@@ -2,8 +2,8 @@ import typing
 import sqlmodel
 from typing import Annotated as Anno, Literal as Lit, Optional as Opt
 import dataclasses
-from app.schemas.block import BlockModel
-from app.schemas.relation import RelationModel
+from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.relation import RelationModel
 
 
 Vector: typing.TypeAlias = tuple[float, ...]

@@ -7,7 +7,7 @@ import pgvector.sqlalchemy
 import sqlmodel
 
 if typing.TYPE_CHECKING:
-    from .root import Vector
+    from .main import Vector
 
 RelationID: typing.TypeAlias = int
 
@@ -41,7 +41,9 @@ class RelationModel(sqlmodel.SQLModel, table=True):
         ),
         default=0,
     )
-    content: str = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False))
+    content: str = sqlmodel.Field(
+        sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+    )
 
 
 class RelationEmbeddingModel(sqlmodel.SQLModel, table=True):

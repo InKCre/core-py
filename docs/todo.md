@@ -1,5 +1,7 @@
 ## Fundaments
 
+### Observability
+
 - [x] 持久化日志（主要是为了 source collect job）（与 OpenTelemetry 对齐）（复用 PostgreSQL）
 - [ ] 使 `OBSRV__LOGGING_BACKEND` 为数组
 
@@ -10,6 +12,18 @@
 - [ ] 多提供商多凭证管理
 - [ ] 添加 `MarkdownMessageContent`
   - 可以由其它 `MessageContent` 组成 (比如 `CSVMessageContent`)
+
+## Source
+
+- [x] Run collect intervally. 
+  Each source can has their own interval.
+- [x] Collected data will be organized later by running a background task for each data item using `organize` of its resolver.
+- [ ] Collect is an active way to gather data. Source should be able to configure webhooks or other ways to passively gathering data. Source can do this in `start` method which will be called once the application starts.
+- [x] 和 Resolver, Storage 一样采用子类自动注册的方式
+- [x] Source.collect 不应该有参数
+- [ ] Organize 不是 source 的职责，而是整个信息库的。Source会在 organize 过程中提供帮助，但绝不是 source 来执行。
+- [x] Source 也要有 state，反而是 extension 不应该有 state
+- [x] SourceType also has config schema  !!! 不是 Source，是 SourceType
 
 ## Info-Base
 
@@ -26,18 +40,6 @@
   - 为不同的模态的向量设置不同的列
 - [x] fetchsert 由 resolver 来决定是否相同
 
-### Source
-
-- [x] Run collect intervally. 
-  Each source can has their own interval.
-- [x] Collected data will be organized later by running a background task for each data item using `organize` of its resolver.
-- [ ] Collect is an active way to gather data. Source should be able to configure webhooks or other ways to passively gathering data. Source can do this in `start` method which will be called once the application starts.
-- [x] 和 Resolver, Storage 一样采用子类自动注册的方式
-- [x] Source.collect 不应该有参数
-- [ ] Organize 不是 source 的职责，而是整个信息库的。Source会在 organize 过程中提供帮助，但绝不是 source 来执行。
-- [x] Source 也要有 state，反而是 extension 不应该有 state
-- [x] SourceType also has config schema  !!! 不是 Source，是 SourceType
-
 ### Resolver
 
 - [ ] Standard of auto organization ? 
@@ -45,6 +47,11 @@
 - [x] 改进加载模式
   - 在未找到时，按照类型（和 Python 导入路径语法一致）尝试从插件中导入 （否则插件就需要在初始化时导入）
 - [ ] Resolver 和 Storage 应该解耦；比如 ImageResolver 要的就是 content 为图片二进制的 block，storage就负责搞定这件事，resolver不应该在乎
+
+## Sink
+
+- [ ] Embbedding 等 indexing 都是 Sink 的职责
+- [ ] 真正地实现 RAG <https://blog.yakkomajuri.com/blog/local-rag>
 
 ## Extension
 - [x] Run `pdm install` to install dependencies the extension required when install or upgrade an extension.
@@ -78,9 +85,14 @@
 
 ### Telegram
 
+- [ ] 通过 Webhook 收集消息 / 通过 Collect Job 收集消息
+- [ ] ExtensionConfig 其实是 SourceConfig
+- [ ] 仅收集消息内容，不收集用户信息
+
 ### Rsshub
 
 ## Trivias
 
 - [ ] indent 修改为 2 spaces
 - [ ] 替换所有 datetime.datetime.now 为 get_datetimez
+- [ ] Github CI environment

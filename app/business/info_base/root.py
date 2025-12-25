@@ -1,12 +1,12 @@
 import typing
 import sqlmodel
-from app.business.block import BlockManager
-from app.business.relation import RelationManager
+from app.business.info_base.block import BlockManager
+from app.business.info_base.relation import RelationManager
 from app.engine import SessionLocal
-from app.schemas.root import StarGraphForm, ArcForm
-from app.schemas.block import BlockModel
-from app.schemas.relation import RelationModel
-from app.schemas.block import BlockID
+from app.schemas.info_base.main import StarGraphForm, ArcForm
+from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.relation import RelationModel
+from app.schemas.info_base.block import BlockID
 
 
 class RootV1InsertGraphResBody(sqlmodel.SQLModel):

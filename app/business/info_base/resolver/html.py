@@ -5,17 +5,17 @@ from .main import Resolver
 class HTMLResolver(Resolver, rso_type="html"):
     @classmethod
     def create_graph(cls, url: str):
-        from app.schemas.root import StarGraphForm
-        from app.schemas.block import BlockModel
+        from app.schemas.info_base.main import StarGraphForm
+        from app.schemas.info_base.block import BlockModel
 
         return StarGraphForm(
             block=BlockModel(resolver=cls.__rsotype__, content=url, storage=-3)
         )
 
     async def get_text(self) -> str:
-        from app.business.block import BlockManager
-        from app.business.relation import RelationManager
-        from app.business.storage import StorageManager
+        from app.business.info_base.block import BlockManager
+        from app.business.info_base.relation import RelationManager
+        from app.business.info_base.storage import StorageManager
 
         out_relations = RelationManager.get(
             self._block.id, include_in=False, content="text content"

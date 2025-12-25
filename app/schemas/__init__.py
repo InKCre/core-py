@@ -15,8 +15,8 @@ import sqlmodel
 Base = sqlalchemy.orm.declarative_base()
 sqlmodel.SQLModel.metadata = Base.metadata
 
-from .block import BlockModel
-from .storage import StorageModel, StorageTypesModel
-from .relation import RelationModel
+from .info_base.block import BlockModel
+from .info_base.storage import StorageModel, StorageTypesModel
+from .info_base.relation import RelationModel
 from .source import SourceModel, SourceCollectJobModel
-from .extension import ExtensionModel
+from .extension.main import ExtensionModel

@@ -4,8 +4,8 @@ __all__ = ["ROUTER"]
 
 import typing
 import fastapi
-from app.business.extension import ExtensionManager
-from app.schemas.extension import ExtensionModel, ExtensionID
+from app.business.extension.main import ExtensionManager
+from app.schemas.extension.main import ExtensionModel, ExtensionID
 
 ROUTER = fastapi.APIRouter(
     prefix="/extensions",

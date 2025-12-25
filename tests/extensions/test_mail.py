@@ -135,7 +135,7 @@ def test_email_address_normalization():
 def test_email_address_resolver_get_text_with_name():
     """Test EmailAddressResolver.get_text() with name."""
     from extensions.mail.resolver import EmailAddressResolver
-    from app.schemas.block import BlockModel
+    from app.schemas.info_base.block import BlockModel
 
     email_block_data = EmailAddressBlock(email="test@example.com", name="Test User")
 
@@ -154,7 +154,7 @@ def test_email_address_resolver_get_text_with_name():
 def test_email_address_resolver_get_text_without_name():
     """Test EmailAddressResolver.get_text() without name."""
     from extensions.mail.resolver import EmailAddressResolver
-    from app.schemas.block import BlockModel
+    from app.schemas.info_base.block import BlockModel
 
     email_block_data = EmailAddressBlock(email="test@example.com", name=None)
 
@@ -173,7 +173,7 @@ def test_email_address_resolver_get_text_without_name():
 def test_email_address_resolver_embedding_string():
     """Test EmailAddressResolver.get_str_for_embedding()."""
     from extensions.mail.resolver import EmailAddressResolver
-    from app.schemas.block import BlockModel
+    from app.schemas.info_base.block import BlockModel
 
     email_block_data = EmailAddressBlock(email="test@example.com", name="Test User")
 

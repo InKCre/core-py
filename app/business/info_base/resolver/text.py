@@ -5,8 +5,8 @@ import typing
 class TextResolver(Resolver, rso_type="text"):
     @classmethod
     def create_graph(cls, text: str):
-        from app.schemas.root import StarGraphForm
-        from app.schemas.block import BlockModel
+        from app.schemas.info_base.main import StarGraphForm
+        from app.schemas.info_base.block import BlockModel
 
         return StarGraphForm(block=BlockModel(resolver=cls.__rsotype__, content=text))
 

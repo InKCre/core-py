@@ -12,9 +12,9 @@ from typing import Optional as Opt, Literal as Lit
 import sqlmodel
 from app.business.source import SourceBase
 from app.engine import SessionLocal
-from app.business.root import RootManager
-from app.schemas.root import StarGraphForm
-from app.schemas.block import BlockID
+from app.business.info_base.root import RootManager
+from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceCollectJobModel
 from extensions.mail.resolver import EmailResolver
 from libs.obsrv.main import get_logger

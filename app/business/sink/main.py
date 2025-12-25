@@ -5,9 +5,9 @@ from typing import Annotated as Anno, Literal as Lit, Optional as Opt
 import fastapi
 import sqlmodel
 
-from app.business.block import BlockManager
+from app.business.info_base.block import BlockManager
 from libs.ai import Chat, Message, MessageContent, Prompt
-from app.schemas.block import BlockID
+from app.schemas.info_base.block import BlockID
 
 
 class SinkV1RAGResBody(sqlmodel.SQLModel):

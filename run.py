@@ -30,7 +30,7 @@ from app.routes.extension import ROUTER as extension_router
 from app.routes.source import ROUTER as source_router
 from app.business.source import SourceManager
 from app.business.extension import ExtensionManager
-from app.business.root import RootManager
+from app.business.info_base.root import RootManager
 from app.business.sink import SinkManager
 from app.middleware import LoggingMiddleware, JWTMiddleware
 
@@ -42,7 +42,7 @@ from app.scheduler import scheduler
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
     from app.business.source import SourceCollectJobManager
-    from app.business.storage import StorageManager
+    from app.business.info_base.storage import StorageManager
 
     logger.info("Application startup")
 

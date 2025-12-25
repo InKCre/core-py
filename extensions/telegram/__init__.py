@@ -3,12 +3,13 @@
 import sqlmodel
 from typing import Optional as Opt
 from fastapi import APIRouter
-from app.business.extension import ExtensionBase
+from app.business.extension.main import ExtensionBase
 from app.business.source import SourceManager
 
 
 class TelegramExtensionConfig(sqlmodel.SQLModel):
     """Configuration for Telegram extension."""
+
     bot_token: str = ""
     """Telegram Bot API token (get from @BotFather)"""
     collection_duration_seconds: int = 60

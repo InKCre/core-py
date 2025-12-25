@@ -1,5 +1,5 @@
 import sqlmodel
-from app.business.extension import ExtensionBase
+from app.business.extension.main import ExtensionBase
 
 
 class LearnEnglishConfig(sqlmodel.SQLModel): ...

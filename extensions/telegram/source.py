@@ -7,9 +7,9 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from app.business.source import SourceBase
 from app.engine import SessionLocal
-from app.business.root import RootManager
-from app.schemas.root import StarGraphForm
-from app.schemas.block import BlockModel, BlockID
+from app.business.info_base.root import RootManager
+from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.block import BlockModel, BlockID
 from app.schemas.source import SourceCollectJobModel
 from app.scheduler import scheduler
 from extensions.telegram import Extension

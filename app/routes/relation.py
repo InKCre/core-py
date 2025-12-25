@@ -5,8 +5,8 @@ __all__ = ["ROUTER"]
 
 import fastapi
 
-from app.business.relation import RelationManager
-from app.schemas.relation import RelationModel
+from app.business.info_base.relation import RelationManager
+from app.schemas.info_base.relation import RelationModel
 
 
 ROUTER = fastapi.APIRouter(

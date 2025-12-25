@@ -4,10 +4,10 @@ from typing import Optional as Opt
 
 from sqlmodel import Session
 import sqlmodel
-from app.business.resolver import Resolver
-from app.schemas.block import BlockModel
-from app.schemas.relation import RelationModel
-from app.schemas.root import ArcForm, StarGraphForm
+from app.business.info_base.resolver import Resolver
+from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.relation import RelationModel
+from app.schemas.info_base.main import ArcForm, StarGraphForm
 from utils.sql import find_by_json_contains
 from .schema import Email, EmailAddress, Newsletter
 

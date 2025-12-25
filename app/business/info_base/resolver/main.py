@@ -4,12 +4,12 @@ from typing import Optional as Opt
 
 import sqlmodel
 
-from app.business.storage.main import StorageManager
+from app.business.info_base.storage.main import StorageManager
 
-from app.schemas.root import StarGraphForm
-from app.schemas.block import ResolverType, BlockModel
-from app.schemas.relation import RelationModel
-from app.schemas.storage import StorageID
+from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.block import ResolverType, BlockModel
+from app.schemas.info_base.relation import RelationModel
+from app.schemas.info_base.storage import StorageID
 
 
 class ResolverManager:
