@@ -1,7 +1,6 @@
 """GitHub Stars Source for collecting starred repositories."""
 
 import asyncio
-from datetime import datetime
 
 import sqlmodel
 from app.business.source import SourceBase
