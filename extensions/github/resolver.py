@@ -1,7 +1,5 @@
 """GitHub resolver for handling GitHub blocks."""
 
-from typing import Optional as Opt
-
 from sqlmodel import Session
 import sqlmodel
 from app.business.info_base.resolver import Resolver

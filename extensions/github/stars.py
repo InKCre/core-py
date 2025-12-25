@@ -2,7 +2,6 @@
 
 import asyncio
 from datetime import datetime
-from typing import Optional as Opt, Literal as Lit
 
 import sqlmodel
 from app.business.source import SourceBase
@@ -93,16 +92,18 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       # Process starred repositories
       processed_count = 0
       new_stars_count = 0
+      reached_last_star = False
       
       for starred_repo in starred:
         processed_count += 1
         
-        # Skip if we've seen this before (not in full mode)
+        # Stop if we've reached the last collected star (not in full mode)
         if not full and last_starred_id and starred_repo.id == last_starred_id:
           logger.info(
             "Reached last collected star, stopping",
             extra={"repo_id": starred_repo.id},
           )
+          reached_last_star = True
           break
 
         # Skip private repos if not configured to include them
@@ -120,18 +121,9 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
         # Extract repository data
         try:
-          # Get starred_at timestamp (requires special API call)
+          # Note: starred_at timestamp requires GitHub's Star API which is not
+          # directly available in PyGithub's starred repos. We use None here.
           starred_at = None
-          try:
-            # Note: starred_at requires specific API endpoint
-            # For now, we'll use updated_at as a fallback
-            starred_at = starred_repo.updated_at
-          except Exception as e:
-            logger.debug(
-              "Could not get starred_at timestamp",
-              extra={"repo": starred_repo.full_name, "error": str(e)},
-            )
-            starred_at = datetime.now()
 
           repo = GithubRepo(
             id=starred_repo.id,
@@ -145,7 +137,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
             watchers_count=starred_repo.watchers_count,
             forks_count=starred_repo.forks_count,
             open_issues_count=starred_repo.open_issues_count,
-            topics=starred_repo.get_topics() if hasattr(starred_repo, 'get_topics') else [],
+            topics=starred_repo.get_topics() if starred_repo.get_topics else [],
             created_at=starred_repo.created_at,
             updated_at=starred_repo.updated_at,
             pushed_at=starred_repo.pushed_at,
@@ -156,7 +148,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
           owner = GithubUser(
             login=starred_repo.owner.login,
             id=starred_repo.owner.id,
-            name=starred_repo.owner.name if hasattr(starred_repo.owner, 'name') else None,
+            name=starred_repo.owner.name if starred_repo.owner.name else None,
             avatar_url=starred_repo.owner.avatar_url,
             html_url=starred_repo.owner.html_url,
           )
@@ -191,12 +183,8 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
         await asyncio.sleep(0.1)
 
     finally:
-      # Close GitHub connection
-      try:
-        gh.close()
-        logger.info("Closed GitHub connection")
-      except Exception as e:
-        logger.warning("Failed to close GitHub connection", extra={"error": str(e)})
+      # PyGithub doesn't require explicit connection closing
+      logger.info("GitHub collection session ended")
 
     logger.info(
       "Saving collected stars to database",
