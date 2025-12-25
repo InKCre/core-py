@@ -10,11 +10,10 @@ from app.business.source import SourceManager
 class TelegramExtensionConfig(sqlmodel.SQLModel):
   """Configuration for Telegram extension.
   
-  Note: Telegram source-specific configuration (bot_token, collect_method)
-  should be set in the individual source instance configuration, not here.
+  This extension has no extension-level configuration.
+  Source-specific configuration (bot_token, collect_method)
+  should be set in the individual source instance configuration.
   """
-
-  pass
 
 
 class Extension(
