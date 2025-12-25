@@ -96,3 +96,4 @@
 - [x] indent 修改为 2 spaces
 - [ ] 替换所有 datetime.datetime.now 为 get_datetimez
 - [ ] Github CI environment
+- [ ] AGENTS.md / Agent Skills to keep coding guideline (schema, business, basic pattern like use class, extension skill)
