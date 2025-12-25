@@ -37,6 +37,7 @@ dev = [
     "python-dotenv>=1.1.1",
     "pre-commit>=4.4.0",
     "pytest-mock>=3.15.1",
+    "ruff>=0.14.10",
 ]
 
 [tool.poetry]

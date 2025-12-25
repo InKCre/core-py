@@ -4,16 +4,16 @@ from .storage import StorageModel, StorageID, StorageTypesModel
 from .main import StarGraphForm, ArcForm, Vector
 
 __all__ = [
-    "BlockModel",
-    "BlockID",
-    "ResolverType",
-    "BlockEmbeddingModel",
-    "RelationModel",
-    "RelationID",
-    "StorageModel",
-    "StorageID",
-    "StorageTypesModel",
-    "StarGraphForm",
-    "ArcForm",
-    "Vector",
+  "BlockModel",
+  "BlockID",
+  "ResolverType",
+  "BlockEmbeddingModel",
+  "RelationModel",
+  "RelationID",
+  "StorageModel",
+  "StorageID",
+  "StorageTypesModel",
+  "StarGraphForm",
+  "ArcForm",
+  "Vector",
 ]

@@ -14,9 +14,9 @@ logger = setup_obsrv()
 
 # Load flags
 SKIP_EXTENSIONS_SYNC: bool = os.getenv("SKIP_EXTENSIONS_SYNC", "").lower() in (
-    "1",
-    "true",
-    "yes",
+  "1",
+  "true",
+  "yes",
 )
 # Load flags end
 
@@ -41,28 +41,28 @@ from app.scheduler import scheduler
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
-    from app.business.source import SourceCollectJobManager
-    from app.business.info_base.storage import StorageManager
+  from app.business.source import SourceCollectJobManager
+  from app.business.info_base.storage import StorageManager
 
-    logger.info("Application startup")
+  logger.info("Application startup")
 
-    # Setup built-in storage instances
-    StorageManager.setup_builtin_storages()
+  # Setup built-in storage instances
+  StorageManager.setup_builtin_storages()
 
-    scheduler.start()
+  scheduler.start()
 
-    # Add periodic job to check pending source collect jobs
-    scheduler.add_job(
-        SourceCollectJobManager.check,
-        "interval",
-        seconds=30,
-        id="sources.collect_jobs.check_pending",
-    )
+  # Add periodic job to check pending source collect jobs
+  scheduler.add_job(
+    SourceCollectJobManager.check,
+    "interval",
+    seconds=30,
+    id="sources.collect_jobs.check_pending",
+  )
 
-    yield
-    logger.info("Application shutdown")
-    scheduler.shutdown(wait=True)
-    await ExtensionManager.close_running()
+  yield
+  logger.info("Application shutdown")
+  scheduler.shutdown(wait=True)
+  await ExtensionManager.close_running()
 
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
@@ -75,11 +75,11 @@ api_app.add_middleware(JWTMiddleware)
 
 # 添加CORS中间件以支持跨域请求
 api_app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 在生产环境中应该设置为具体的域名
-    allow_credentials=True,
-    allow_methods=["*"],  # 允许所有HTTP方法
-    allow_headers=["*"],  # 允许所有请求头
+  CORSMiddleware,
+  allow_origins=["*"],  # 在生产环境中应该设置为具体的域名
+  allow_credentials=True,
+  allow_methods=["*"],  # 允许所有HTTP方法
+  allow_headers=["*"],  # 允许所有请求头
 )
 
 
@@ -102,10 +102,10 @@ api_app.include_router(sink_router)
 # must be prior
 # Skip extension sync if SKIP_EXTENSIONS_SYNC is set (useful for OpenAPI generation)
 if not SKIP_EXTENSIONS_SYNC:
-    ExtensionManager.sync()
-    ExtensionManager.start_enabled(api_app)
-    SourceManager.set_up_collect_jobs()
+  ExtensionManager.sync()
+  ExtensionManager.start_enabled(api_app)
+  SourceManager.set_up_collect_jobs()
 
 
 if __name__ == "__main__":
-    uvicorn.run(api_app, host=settings.host, port=settings.port)
+  uvicorn.run(api_app, host=settings.host, port=settings.port)

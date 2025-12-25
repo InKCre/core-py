@@ -1,34 +1,34 @@
 line-length = 92
-indent-width = 4
+indent-width = 2
 
 [format]
 indent-style = "space"
 
 [lint]
 select = [
-    "E501",  # line length limit
-    "F821",  # undefined-name
-    "B006",  # mutable-argument-default
-    "E722",  # bare-except
+    "E501",    # line length limit
+    "F821",    # undefined-name
+    "B006",    # mutable-argument-default
+    "E722",    # bare-except
     "PLE0101", # return-in-init (Pylint)
-    "RUF006", # asyncio-dangling-task
+    "RUF006",  # asyncio-dangling-task
 
-    "S105",  # hardcoded-password-string (Bandit)
-    "S301",  # suspicious-pickle-usage (Bandit)
-    "S307",  # suspicious-eval-usage (Bandit)
-    "S602",  # subprocess-popen-with-shell-equals-true (Bandit)
-    "S603",  # subprocess-without-shell-equals-true (Bandit)
+    "S105", # hardcoded-password-string (Bandit)
+    "S301", # suspicious-pickle-usage (Bandit)
+    "S307", # suspicious-eval-usage (Bandit)
+    "S602", # subprocess-popen-with-shell-equals-true (Bandit)
+    "S603", # subprocess-without-shell-equals-true (Bandit)
 
-    "F401",  # unused-import
+    "F401", # unused-import
 
     "PLR0913", # too-many-arguments (Pylint)
 
     "UP007", # non-pep604-annotation (pyupgrade)
     "UP032", # f-string (pyupgrade)
 
-    "SIM115", # open-file-with-context-handler (flake8-simplify)
+    "SIM115",  # open-file-with-context-handler (flake8-simplify)
     "PLW1510", # subprocess-run-without-check (Pylint)
-    "RUF100", # unused-noqa
+    "RUF100",  # unused-noqa
 ]
 
 [lint.pycodestyle]

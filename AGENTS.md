@@ -22,31 +22,14 @@ InKCre aims to build an information management application that provides automat
 - sink: Interface to use information base, the output of info-base
 - extension: extends info-base, source and sink abilities
 
-## Project Structure
+## Project Structure (Only Crucial)
 
 - `pyproject.toml`
 - `requirements.txt`: the prod requirements generated from `pyproject.toml` using PDM.
 - `run.py`: include routes and launch the app
 - `app/`
   - `business/`: service layer, by domains
-    - `source/`: data collection services
-    - `info_base/`: core information management
-      - `block.py`: content unit management
-      - `relation.py`: relationship management
-      - `storage/`: storage backends
-      - `resolver/`: content resolvers
-      - `root.py`: information base manager
-    - `sink/`: information output/usage services
-    - `extension/`: extension management
   - `schemas/`: tables and data models
-    - `source/`: source models
-    - `info_base/`: core data models
-      - `block.py`: block model
-      - `relation.py`: relation model
-      - `storage.py`: storage model
-      - `root.py`: graph forms and types
-    - `sink/`: sink models
-    - `extension/`: extension models
   - `routes/`: register/wrap/expose business methods to FastAPI
   - `engine.py`: db session
   - `settings.py`: centeralized application settings based on pydantic-settings
@@ -61,9 +44,12 @@ InKCre aims to build an information management application that provides automat
 - `scripts/`
 - `docs/`
 
+> Read each folder's AGENTS.md for their details and coding guideline.
+
 ## Development Workflow
 
-- Package management: Use PDM (`pdm run` for scripts/executables)
+- Package management: PDM (`pdm install`, `pdm add`)
+- Python environemnt: PDM (`pdm run` for scripts/executables)
 - Database Migrations: `pdm run alembic-gengrade "message"` (autogenerates + upgrades)
 - Run dev server to validate your changes: `uvicorn run:api_app --reload` (sets up extensions, scheduler)
 

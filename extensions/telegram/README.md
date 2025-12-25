@@ -10,50 +10,7 @@ This extension provides Telegram bot message source functionality for InKCre.
 - Support for forwarded messages and replies
 - Automatic tracking of processed messages
 
-## Configuration
-
-The extension requires the following configuration:
-
-- `bot_token`: Telegram Bot API token (obtain from [@BotFather](https://t.me/botfather))
-- `collection_duration_seconds`: Duration in seconds to collect messages during each collection run (default: `60`)
-
-## Usage
-
-### 1. Create a Telegram Bot
-
-1. Message [@BotFather](https://t.me/botfather) on Telegram
-2. Send `/newbot` and follow the instructions
-3. Copy the bot token provided by BotFather
-
-### 2. Install and Configure the Extension
-
-1. Install the extension in the InKCre database
-2. Configure the bot token in the extension config:
-   ```json
-   {
-     "bot_token": "YOUR_BOT_TOKEN_HERE",
-     "collection_duration_seconds": 60
-   }
-   ```
-
-### 3. Create a Telegram Source
-
-Create a Telegram bot source via the API endpoint: `POST /telegram/bot`
-
-### 4. Start Collecting Messages
-
-- Messages will be collected based on the configured schedule
-- During collection, the bot will listen for incoming messages for the specified duration
-- All messages received during that period will be stored as blocks
-
-## How It Works
-
-1. When a collection run starts, the bot begins polling for new messages
-2. All messages sent to the bot during the collection period are captured
-3. Each message is stored as a block with its full metadata
-4. The extension tracks the last message ID to maintain state
-
-## Message Types Supported
+### Message Types Supported
 
 - Text messages
 - Photos (with captions)
@@ -65,10 +22,36 @@ Create a Telegram bot source via the API endpoint: `POST /telegram/bot`
 - Forwarded messages
 - Reply messages
 
+## Usage
+
+### 1. Create a Telegram Bot
+
+1. Message [@BotFather](https://t.me/botfather) on Telegram
+2. Send `/newbot` and follow the instructions
+3. Copy the bot token provided by BotFather
+
+### 2. Install
+
+Install the extension into `extensions/` and restart the core-py
+
+### 3. Create a Telegram Source
+
+Create source which type is `extensions.telegram.source.Source` in `sources` table with following values:
+
+- `config`: A dict
+  - `bot_token`: Telegram Bot API token (obtain from [@BotFather](https://t.me/botfather))
+  - `passive`: Whether to register a handler to FastAPI router so that once you sent messages to the Telegram Bot, we will collect the messages immediately. (You will have to configure it following <https://core.telegram.org/bots/api#getting-updates>)
+- `auto_collect`: set to a Dict follows CollectAt if you want to enable the system to run the collection intervally, instead, set to null.
+
+### 4. Start Collecting Messages
+
+And now your messages sent to the bot will be automatically collected to the info-base.
+
+All collected messages will be stored as `telegram message` type block
+
 ## Notes
 
 - The Telegram Bot API only allows bots to receive messages sent to them in real-time
-- Historical messages cannot be retrieved via the Bot API
+- Historical messages cannot be retrieved via the Bot API (over 24 hours)
 - The bot needs appropriate permissions in group chats to receive messages
 - For private chats, users must start the conversation with the bot first
-- The `collection_duration_seconds` parameter determines how long each collection run will listen for messages
