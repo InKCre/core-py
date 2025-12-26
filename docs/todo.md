@@ -85,9 +85,9 @@
 
 ### Telegram
 
-- [ ] 通过 Webhook 收集消息 / 通过 Collect Job 收集消息
-- [ ] ExtensionConfig 其实是 SourceConfig
-- [ ] 仅收集消息内容，不收集用户信息
+- [x] 通过 Webhook 收集消息 / 通过 Collect Job 收集消息
+- [x] ExtensionConfig 其实是 SourceConfig
+- [x] 仅收集消息内容，不收集用户信息
 
 ### Rsshub
 

@@ -148,6 +148,8 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
   async def record(self, data: typing.Any) -> None:
     """Record message from webhook (passive collection).
 
+    TODO: extract common parts with collect()
+
     :param data: Update data from Telegram webhook (dict or Update object)
 
     This method is called when a webhook receives an update from Telegram.
@@ -165,13 +167,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     telegram_msg = self._parse_telegram_message(update.message)
 
     # Create StarGraphForm
-    graph = StarGraphForm(
-      block=BlockModel(
-        resolver="extensions.telegram.resolver.TelegramMessageResolver",
-        content=telegram_msg.model_dump_json(),
-      ),
-      out_relations=(),
-    )
+    graph = TelegramMessageResolver.create_graph(telegram_msg)
 
     # Save to database
     with SessionLocal() as db:
