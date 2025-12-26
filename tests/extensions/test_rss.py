@@ -7,8 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Set a dummy database connection string to avoid engine creation error
-os.environ.setdefault("DB_CONN_STRING", "sqlite:///:memory:")
+# Set required environment variables before any app imports
+os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing")
 
 # Initialize logger before importing extensions
 from libs.obsrv.main import setup_obsrv
@@ -265,20 +266,6 @@ RSS_FEED_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
 </rss>"""
 
 
-RSS_FEED_LONG_DESC = """<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
-  <channel>
-    <title>Long Description Feed</title>
-    <item>
-      <guid>long-1</guid>
-      <title>Long Description Article</title>
-      <link>https://example.com/long</link>
-      <description>""" + "A" * 600 + """</description>
-    </item>
-  </channel>
-</rss>"""
-
-
 def test_rss_source_is_content_truncated_with_content_encoded():
   """Test _is_content_truncated returns False when content:encoded exists."""
   from extensions.rss.rss import Source as RssSource
@@ -480,7 +467,9 @@ def mock_aiohttp_session():
   mock_response.text = AsyncMock(return_value=RSS_FEED_SAMPLE)
 
   mock_session = AsyncMock()
-  mock_session.get = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response)))
+  mock_session.get = MagicMock(
+    return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response))
+  )
 
   return mock_session
 
