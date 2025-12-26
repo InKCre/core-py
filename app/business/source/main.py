@@ -52,6 +52,17 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     Organization to collected blocks are concurrently.
     """
 
+  @abc.abstractmethod
+  async def record(self, data: typing.Any) -> None:
+    """Record data passively (e.g., from webhook).
+
+    :param data: The data to record from external source (e.g., webhook payload).
+
+    Notes:
+    - Should not suppress exceptions, raise it.
+    - Used for passive collection methods like webhooks.
+    """
+
   def get_config(self) -> ConfigTV:
     """Get the configuration of the source."""
     with SessionLocal() as db:
@@ -144,6 +155,15 @@ class SourceManager:
       ins = source_class(_id=typing.cast(SourceID, source_id))
       cls.SOURCES[source_id] = ins
     return ins
+
+  @classmethod
+  def get_source_ins(cls, source_id: SourceID) -> SourceBase:
+    """Get source instance by ID.
+    
+    :param source_id: The source ID
+    :return: Source instance
+    """
+    return cls._get_source_ins(source_id)
 
   @classmethod
   def create(cls, type_: str, nickname: Opt[str] = None) -> SourceModel:

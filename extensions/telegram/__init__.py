@@ -1,19 +1,22 @@
 """Telegram extension for InKCre - provides Telegram bot message source."""
 
 import sqlmodel
+import typing
 from typing import Optional as Opt
 from fastapi import APIRouter
 from app.business.extension.main import ExtensionBase
-from app.business.source import SourceManager
+
+if typing.TYPE_CHECKING:
+  from app.schemas.source import SourceID
 
 
 class TelegramExtensionConfig(sqlmodel.SQLModel):
-  """Configuration for Telegram extension."""
+  """Configuration for Telegram extension.
 
-  bot_token: str = ""
-  """Telegram Bot API token (get from @BotFather)"""
-  collection_duration_seconds: int = 60
-  """Duration in seconds to collect messages during each collection run (default: 60)"""
+  This extension has no extension-level configuration.
+  Source-specific configuration (bot_token, collect_method)
+  should be set in the individual source instance configuration.
+  """
 
 
 class Extension(
@@ -36,6 +39,18 @@ class Extension(
   @classmethod
   def _register_apis(cls, router: APIRouter):
     """Register API endpoints for Telegram extension."""
-    router.post("/bot")(
-      lambda nickname: SourceManager.create(f"extensions.{cls.__extid__}.source", nickname)
-    )
+    from fastapi import Request
+    from .source import Source as TelegramSource
+
+    async def telegram_webhook(source_id: SourceID, request: Request):
+      """Webhook endpoint for receiving Telegram updates.
+
+      :param source_id: The source instance ID
+      :param request: FastAPI request containing webhook payload
+      """
+      source = TelegramSource(source_id)
+      data = await request.json()
+      await source.record(data)
+      return {"ok": True}
+
+    router.post("/bot/{source_id}")(telegram_webhook)

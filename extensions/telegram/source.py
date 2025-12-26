@@ -1,65 +1,46 @@
 """Telegram Source for collecting messages sent to the bot."""
 
-import asyncio
 import typing
-from typing import Optional as Opt
+from typing import Optional as Opt, Literal as Lit
+import sqlmodel
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram.ext import Application
 from app.business.source import SourceBase
 from app.engine import SessionLocal
 from app.business.info_base.root import RootManager
-from app.schemas.info_base.main import StarGraphForm
-from app.schemas.info_base.block import BlockModel, BlockID
+from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceCollectJobModel
-from app.scheduler import scheduler
-from extensions.telegram import Extension
-from .schema import TelegramMessage, TelegramUser, TelegramChat
+from extensions.telegram.resolver import TelegramMessageResolver
+from .schema import TelegramMessage
 
 
-class Source(SourceBase):
+class SourceConfig(sqlmodel.SQLModel):
+  """Configuration of Telegram Source."""
+
+  bot_token: str = ""
+  """Telegram Bot API token (get from @BotFather)"""
+  collect_method: Lit["default", "webhook"] = "default"
+  """Method to collect messages: 'default' (getUpdates periodically) or 'webhook'"""
+
+
+class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
   """Telegram Source - collects messages sent to the configured Telegram bot.
 
-  Note: This source uses class-level state for the Telegram application and message
-  collection. Only one collection run should be active at a time. Running multiple
-  concurrent collections may cause race conditions.
+  Supports two collection methods:
+  1. Default (getUpdates): Periodically fetches updates via scheduled collect()
+  2. Webhook: Receives updates via HTTP POST to /bot/{source_id} endpoint
+
+  Note: Telegram message queue can hold up to 100 updates. If collect() is not
+  called within 24 hours or queue exceeds 100 messages, message loss may occur.
+  This is controllable by the user via the collect_at schedule configuration.
   """
 
-  _app: Opt[Application] = None
-  _collected_messages: list[TelegramMessage] = []
-  _collecting: bool = False
+  def _parse_telegram_message(self, message) -> TelegramMessage:
+    """Parse Telegram message into TelegramMessage object.
 
-  @classmethod
-  async def _message_handler(
-    cls, update: Update, context: ContextTypes.DEFAULT_TYPE
-  ) -> None:
-    """Handle incoming Telegram messages.
-
-    This is called by the Telegram bot when a message is received.
+    :param message: Telegram message object
+    :return: TelegramMessage data model
     """
-    if not update.message or not cls._collecting:
-      return
-
-    message = update.message
-
-    # Parse user information
-    from_user = None
-    if message.from_user:
-      from_user = TelegramUser(
-        id=message.from_user.id,
-        first_name=message.from_user.first_name,
-        last_name=message.from_user.last_name,
-        username=message.from_user.username,
-        is_bot=message.from_user.is_bot,
-      )
-
-    # Parse chat information
-    chat = TelegramChat(
-      id=message.chat.id,
-      type=message.chat.type,
-      title=message.chat.title,
-      username=message.chat.username,
-    )
-
     # Determine media type
     has_media = False
     media_type = None
@@ -89,26 +70,12 @@ class Source(SourceBase):
       has_media = True
       media_type = "sticker"
 
-    # Parse forward information
-    forward_from = None
-    if message.forward_from:
-      forward_from = TelegramUser(
-        id=message.forward_from.id,
-        first_name=message.forward_from.first_name,
-        last_name=message.forward_from.last_name,
-        username=message.forward_from.username,
-        is_bot=message.forward_from.is_bot,
-      )
-
-    # Create TelegramMessage object
-    telegram_msg = TelegramMessage(
+    # Create TelegramMessage object with only message data
+    return TelegramMessage(
       message_id=message.message_id,
       date=message.date,
-      chat=chat,
-      from_user=from_user,
       text=message.text,
       caption=caption,
-      forward_from=forward_from,
       reply_to_message_id=(
         message.reply_to_message.message_id if message.reply_to_message else None
       ),
@@ -116,96 +83,91 @@ class Source(SourceBase):
       media_type=media_type,
     )
 
-    # Store the message
-    cls._collected_messages.append(telegram_msg)
-
   async def collect(self, job: SourceCollectJobModel) -> None:
-    """Collect messages from Telegram bot.
+    """Collect messages using getUpdates (default method).
 
     :param job: The collect job containing config and state.
 
-    Note: Telegram bots can only receive new messages sent to them in real-time.
-    Historical messages cannot be retrieved via Bot API. For full collection,
-    the bot needs to have been running and storing messages previously.
+    Fetches all pending updates from Telegram using getUpdates API.
+    Should be called periodically (at least every 24 hours) to avoid message loss.
     """
-    ext_config = Extension.config
+    config = self.get_config()
 
-    if not ext_config.bot_token:
+    if not config.bot_token:
       # No bot token configured, cannot collect
       return
 
-    config = job.config or {}
-    full = config.get("full", False)
-    duration = config.get("duration", ext_config.collection_duration_seconds or 60)
-
-    # Initialize Telegram bot application if not already done
-    if Source._app is None:
-      Source._app = Application.builder().token(ext_config.bot_token).build()
-
-      # Add message handler
-      Source._app.add_handler(MessageHandler(filters.ALL, Source._message_handler))
-
-    # Clear collected messages and start collecting
-    Source._collected_messages = []
-    Source._collecting = True
+    # Initialize Telegram bot application
+    app = Application.builder().token(config.bot_token).build()
 
     collected = []
     try:
-      # Start the bot in polling mode
-      await Source._app.initialize()
-      await Source._app.start()
-      await Source._app.updater.start_polling(
-        allowed_updates=Update.ALL_TYPES, drop_pending_updates=not full
+      await app.initialize()
+
+      # Get last update_id from state
+      state = self.get_state()
+      last_update_id = state.get("last_update_id", 0)
+
+      # Fetch updates using getUpdates
+      # offset = last_update_id + 1 to get only new updates
+      updates = await app.bot.get_updates(
+        offset=last_update_id + 1 if last_update_id else None,
+        allowed_updates=Update.ALL_TYPES,
       )
 
-      # Collect for the configured duration
-      await asyncio.sleep(duration)
+      # Process each update
+      for update in updates:
+        if update.message:
+          telegram_msg = self._parse_telegram_message(update.message)
 
-      # Stop collecting
-      Source._collecting = False
-      await Source._app.updater.stop()
-      await Source._app.stop()
+          # Create StarGraphForm
+          collected.append(TelegramMessageResolver.create_graph(telegram_msg))
 
-      # Collect messages as StarGraphForm
-      for message in Source._collected_messages:
-        collected.append(
-          StarGraphForm(
-            block=BlockModel(
-              resolver="extensions.telegram.resolver.TelegramMessageResolver",
-              content=message.model_dump_json(),
-            ),
-            out_relations=(),
-          )
-        )
+        # Update last_update_id
+        if update.update_id > last_update_id:
+          last_update_id = update.update_id
 
-      # Update last message ID in state after successful collection
-      if Source._collected_messages:
-        state = self.get_state()
-        state["last_message_id"] = Source._collected_messages[-1].message_id
+      # Save last_update_id to state
+      if last_update_id > state.get("last_update_id", 0):
+        state["last_update_id"] = last_update_id
         self.set_state(state)
 
     finally:
-      Source._collecting = False
-      # Clean up
-      if Source._app is not None:
-        try:
-          if Source._app.running:
-            await Source._app.updater.stop()
-            await Source._app.stop()
-          await Source._app.shutdown()
-        except (RuntimeError, TimeoutError) as e:
-          # Expected errors during cleanup can be safely ignored
-          pass
+      await app.shutdown()
 
+    # Save collected messages to database
     with SessionLocal() as db:
       for graph in collected:
-        RootManager.add_star_graph_to_session(graph, db)
-        # Schedule organize
-        scheduler.add_job(
-          func=self._organize,
-          kwargs={"block_id": graph.block.id},
-          misfire_grace_time=None,
-        )
+        await RootManager.add_star_graph_to_session(graph, db)
+      db.commit()
+
+  async def record(self, data: typing.Any) -> None:
+    """Record message from webhook (passive collection).
+
+    TODO: extract common parts with collect()
+
+    :param data: Update data from Telegram webhook (dict or Update object)
+
+    This method is called when a webhook receives an update from Telegram.
+    """
+    # Parse the update
+    if isinstance(data, dict):
+      update = Update.de_json(data, None)
+    else:
+      update = data
+
+    if not update or not update.message:
+      return
+
+    # Parse message
+    telegram_msg = self._parse_telegram_message(update.message)
+
+    # Create StarGraphForm
+    graph = TelegramMessageResolver.create_graph(telegram_msg)
+
+    # Save to database
+    with SessionLocal() as db:
+      await RootManager.add_star_graph_to_session(graph, db)
       db.commit()
 
   async def _organize(self, block_id: BlockID) -> None:
