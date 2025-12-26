@@ -1,0 +1,21 @@
+[project]
+name = "inkcre-ext-github"
+version = "0.1.0"
+description = "GitHub extension for InKCre - provides GitHub Stars source"
+authors = [
+    {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"},
+]
+dependencies = [
+    "PyGithub>=2.8.1",
+]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[inkcre-ext]
+id = "github"
+nickname = "GitHub"

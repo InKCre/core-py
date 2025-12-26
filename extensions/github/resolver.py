@@ -1,5 +1,7 @@
 """GitHub resolver for handling GitHub blocks."""
 
+from typing import Optional as Opt
+
 from sqlmodel import Session
 import sqlmodel
 from app.business.info_base.resolver import Resolver
@@ -21,25 +23,29 @@ class GithubRepoResolver(Resolver, rso_type="github_repo"):
   def create_graph(
     cls,
     repo: GithubRepo,
-    owner: GithubUser,
+    owner: Opt[GithubUser] = None,
   ) -> StarGraphForm:
     """Create a StarGraphForm from GitHub repository data.
 
     :param repo: GitHub repository
-    :param owner: Repository owner (GitHub user)
+    :param owner: Repository owner (GitHub user), optional
     :return: StarGraphForm representing the repository graph
     ```mermaid
     graph TD
         A[GitHub User] -->|owns| B[GitHub Repo]
     ```
     """
-    return StarGraphForm(
-      in_relations=(
+    in_relations = ()
+    if owner:
+      in_relations = (
         ArcForm(
           relation=RelationModel(content="owns"),
           from_block=GithubUserResolver.create_graph(owner),
         ),
-      ),
+      )
+    
+    return StarGraphForm(
+      in_relations=in_relations,
       block=BlockModel(
         resolver=cls.__rsotype__,
         content=repo.model_dump_json(),

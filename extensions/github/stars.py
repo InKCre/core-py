@@ -143,14 +143,16 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
             starred_at=starred_at,
           )
 
-          # Extract owner data
-          owner = GithubUser(
-            login=starred_repo.owner.login,
-            id=starred_repo.owner.id,
-            name=starred_repo.owner.name if starred_repo.owner.name else None,
-            avatar_url=starred_repo.owner.avatar_url,
-            html_url=starred_repo.owner.html_url,
-          )
+          # Extract owner data (owner can be None for deleted accounts)
+          owner = None
+          if starred_repo.owner:
+            owner = GithubUser(
+              login=starred_repo.owner.login,
+              id=starred_repo.owner.id,
+              name=starred_repo.owner.name if starred_repo.owner.name else None,
+              avatar_url=starred_repo.owner.avatar_url,
+              html_url=starred_repo.owner.html_url,
+            )
 
           # Create graph
           collected.append(GithubRepoResolver.create_graph(repo, owner))
