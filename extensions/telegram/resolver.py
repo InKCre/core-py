@@ -63,7 +63,3 @@ class TelegramMessageResolver(
       parts.append(f"[{self.content.media_type}]")
 
     return "\n".join(parts) if parts else "[empty message]"
-
-
-# Register resolver with TelegramMessage schema
-TelegramMessage.__resolver__ = TelegramMessageResolver

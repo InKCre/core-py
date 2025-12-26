@@ -29,6 +29,7 @@ class Settings(BaseSettings):
   # Server settings
   host: str = Field(default="0.0.0.0", description="Server host address")
   port: int = Field(default=8000, description="Server port")
+  https_url: str = Field(default="", description="Public HTTPS URL for the application (e.g., https://example.com)")
 
   # Database settings
   database_url: str = Field(

@@ -82,10 +82,6 @@ Graphs consist of blocks and relations. To avoid complex database interaction, u
        pass
    ```
 
-4. **Configuration vs Extension Config**:
-   - Source-specific config (API keys, URLs, etc.) should be in `SourceConfig`
-   - Extension-level config should be minimal or empty
-   - Each source instance can have its own configuration
 
 ### Schema
 

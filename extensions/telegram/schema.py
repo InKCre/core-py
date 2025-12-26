@@ -3,7 +3,7 @@
 import typing
 from datetime import datetime
 from typing import Optional as Opt
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
 class TelegramMessage(BaseModel):
@@ -11,16 +11,6 @@ class TelegramMessage(BaseModel):
   
   Stores only the message content without user/chat information.
   """
-
-  model_config = ConfigDict(
-    json_schema_extra={
-      "example": {
-        "message_id": 12345,
-        "date": "2024-01-01T12:00:00",
-        "text": "Hello from Telegram!",
-      }
-    }
-  )
 
   message_id: int
   """Unique message identifier"""

@@ -36,6 +36,23 @@ class Extension(
   @classmethod
   def _register_apis(cls, router: APIRouter):
     """Register API endpoints for Telegram extension."""
+    from app.business.source import SourceManager
+    from fastapi import Request
+    from app.schemas.source import SourceID
+    
+    @router.post("/bot/{source_id}")
+    async def telegram_webhook(source_id: SourceID, request: Request):
+      """Webhook endpoint for receiving Telegram updates.
+      
+      :param source_id: The source instance ID
+      :param request: FastAPI request containing webhook payload
+      """
+      source = SourceManager.get_source_ins(source_id)
+      data = await request.json()
+      await source.record(data)
+      return {"ok": True}
+    
+    # Also register a simple POST endpoint to create new source instances
     router.post("/bot")(
       lambda nickname: SourceManager.create(
         f"extensions.{cls.__extid__}.source.Source", nickname
