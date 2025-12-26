@@ -71,7 +71,11 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
 
   @classmethod
   @abc.abstractmethod
-  def _register_apis(cls, router: fastapi.APIRouter): ...
+  def _register_apis(cls, router: fastapi.APIRouter):
+    """Register API endpoints for the extension here.
+
+    - Do not register API bypass or duplicate with the core APIs.
+    """
 
   @classmethod
   def update_config(cls, new_config: dict | ConfigTV):

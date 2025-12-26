@@ -1,0 +1,19 @@
+[project]
+name = "inkcre-ext-rss"
+version = "0.1.0"
+description = "RSS/Atom feed extension for InKCre"
+authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
+dependencies = [
+  "beautifulsoup4>=4.12.0",
+  "lxml>=5.0.0",
+  "readability-lxml>=0.8.0",
+]
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+
+[tool.pdm]
+distribution = false
+
+[tool.inkcre-ext]
+nickname = "RSS/Atom Feeds"
