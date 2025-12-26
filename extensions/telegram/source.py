@@ -12,6 +12,7 @@ from app.schemas.info_base.main import StarGraphForm
 from app.schemas.info_base.block import BlockModel, BlockID
 from app.schemas.source import SourceCollectJobModel
 from app.scheduler import scheduler
+from extensions.telegram.resolver import TelegramMessageResolver
 from .schema import TelegramMessage
 
 
@@ -28,7 +29,7 @@ class SourceConfig(sqlmodel.SQLModel):
 
 class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
   """Telegram Source - collects messages sent to the configured Telegram bot.
-  
+
   Supports two collection methods:
   1. Default (getUpdates): Periodically fetches updates via scheduled collect()
   2. Webhook: Receives updates via HTTP POST to /bot/{source_id} endpoint
@@ -40,7 +41,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
   def _parse_telegram_message(self, message) -> TelegramMessage:
     """Parse Telegram message into TelegramMessage object.
-    
+
     :param message: Telegram message object
     :return: TelegramMessage data model
     """
@@ -102,67 +103,53 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
     # Initialize Telegram bot application
     app = Application.builder().token(config.bot_token).build()
-    
+
     collected = []
     try:
       await app.initialize()
-      
+
       # Get last update_id from state
       state = self.get_state()
       last_update_id = state.get("last_update_id", 0)
-      
+
       # Fetch updates using getUpdates
       # offset = last_update_id + 1 to get only new updates
       updates = await app.bot.get_updates(
         offset=last_update_id + 1 if last_update_id else None,
-        allowed_updates=Update.ALL_TYPES
+        allowed_updates=Update.ALL_TYPES,
       )
-      
+
       # Process each update
       for update in updates:
         if update.message:
           telegram_msg = self._parse_telegram_message(update.message)
-          
+
           # Create StarGraphForm
-          collected.append(
-            StarGraphForm(
-              block=BlockModel(
-                resolver="extensions.telegram.resolver.TelegramMessageResolver",
-                content=telegram_msg.model_dump_json(),
-              ),
-              out_relations=(),
-            )
-          )
-        
+          collected.append(TelegramMessageResolver.create_graph(telegram_msg))
+
         # Update last_update_id
         if update.update_id > last_update_id:
           last_update_id = update.update_id
-      
+
       # Save last_update_id to state
       if last_update_id > state.get("last_update_id", 0):
         state["last_update_id"] = last_update_id
         self.set_state(state)
-      
+
     finally:
       await app.shutdown()
 
     # Save collected messages to database
     with SessionLocal() as db:
       for graph in collected:
-        RootManager.add_star_graph_to_session(graph, db)
-        # Schedule organize
-        scheduler.add_job(
-          func=self._organize,
-          kwargs={"block_id": graph.block.id},
-          misfire_grace_time=None,
-        )
+        await RootManager.add_star_graph_to_session(graph, db)
       db.commit()
 
   async def record(self, data: typing.Any) -> None:
     """Record message from webhook (passive collection).
 
     :param data: Update data from Telegram webhook (dict or Update object)
-    
+
     This method is called when a webhook receives an update from Telegram.
     """
     # Parse the update
@@ -170,13 +157,13 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       update = Update.de_json(data, None)
     else:
       update = data
-    
+
     if not update or not update.message:
       return
-    
+
     # Parse message
     telegram_msg = self._parse_telegram_message(update.message)
-    
+
     # Create StarGraphForm
     graph = StarGraphForm(
       block=BlockModel(
@@ -185,16 +172,10 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       ),
       out_relations=(),
     )
-    
+
     # Save to database
     with SessionLocal() as db:
-      RootManager.add_star_graph_to_session(graph, db)
-      # Schedule organize
-      scheduler.add_job(
-        func=self._organize,
-        kwargs={"block_id": graph.block.id},
-        misfire_grace_time=None,
-      )
+      await RootManager.add_star_graph_to_session(graph, db)
       db.commit()
 
   async def _organize(self, block_id: BlockID) -> None:

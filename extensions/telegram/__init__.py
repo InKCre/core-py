@@ -9,7 +9,7 @@ from app.business.source import SourceManager
 
 class TelegramExtensionConfig(sqlmodel.SQLModel):
   """Configuration for Telegram extension.
-  
+
   This extension has no extension-level configuration.
   Source-specific configuration (bot_token, collect_method)
   should be set in the individual source instance configuration.
@@ -39,11 +39,10 @@ class Extension(
     from app.business.source import SourceManager
     from fastapi import Request
     from app.schemas.source import SourceID
-    
-    @router.post("/bot/{source_id}")
+
     async def telegram_webhook(source_id: SourceID, request: Request):
       """Webhook endpoint for receiving Telegram updates.
-      
+
       :param source_id: The source instance ID
       :param request: FastAPI request containing webhook payload
       """
@@ -51,10 +50,5 @@ class Extension(
       data = await request.json()
       await source.record(data)
       return {"ok": True}
-    
-    # Also register a simple POST endpoint to create new source instances
-    router.post("/bot")(
-      lambda nickname: SourceManager.create(
-        f"extensions.{cls.__extid__}.source.Source", nickname
-      )
-    )
+
+    router.post("/bot/{source_id}")(telegram_webhook)

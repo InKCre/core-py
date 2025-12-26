@@ -13,7 +13,7 @@ class TelegramMessageResolver(
 
   def __post_init__(self):
     """Parse Telegram message content after initialization."""
-    self.content = TelegramMessage.model_validate_json(self._block.content)
+    self._resolved_content = TelegramMessage.model_validate_json(self._block.content)
 
   @classmethod
   def create_graph(cls, message: TelegramMessage) -> StarGraphForm:
@@ -35,14 +35,14 @@ class TelegramMessageResolver(
 
     Returns the message text or caption if available.
     """
-    if self.content.text:
-      return self.content.text
-    if self.content.caption:
-      return self.content.caption
+    if self._resolved_content.text:
+      return self._resolved_content.text
+    if self._resolved_content.caption:
+      return self._resolved_content.caption
 
     # Fallback to media type information
-    if self.content.has_media:
-      return f"[{self.content.media_type or 'media'}]"
+    if self._resolved_content.has_media:
+      return f"[{self._resolved_content.media_type or 'media'}]"
     return "[empty message]"
 
   def get_str_for_embedding(self) -> str:

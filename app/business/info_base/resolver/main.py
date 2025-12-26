@@ -60,7 +60,12 @@ class Resolver(abc.ABC):
     self._solved_content: typing.Any
     self.__post_init__()
 
-  def __post_init__(self): ...
+  def __post_init__(self):
+    """Subclass post-initialization hook.
+
+    It's suggest to resolve the block content to _solved_content here.
+    """
+    ...
 
   @classmethod
   # @abc.abstractmethod TODO
