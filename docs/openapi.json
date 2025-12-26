@@ -1,0 +1,1217 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "InKCre",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/heartbeat": {
+      "get": {
+        "summary": "<Lambda>",
+        "operationId": "_lambda__heartbeat_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blocks/recent": {
+      "get": {
+        "tags": [
+          "block"
+        ],
+        "summary": "Get Recent",
+        "description": "获取最新的块\n\n按创建时间倒序排序。\n\n:param num: 获取的块数量\n:param resolver: 限定解析器类型, None则不限定",
+        "operationId": "get_recent_blocks_recent_get",
+        "parameters": [
+          {
+            "name": "num",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Num"
+            }
+          },
+          {
+            "name": "resolver",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resolver"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlockModel"
+                  },
+                  "title": "Response Get Recent Blocks Recent Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blocks/{block_id}": {
+      "get": {
+        "tags": [
+          "block"
+        ],
+        "summary": "Get Block By Id",
+        "operationId": "get_block_by_id_blocks__block_id__get",
+        "parameters": [
+          {
+            "name": "block_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Block Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "block"
+        ],
+        "summary": "Edit Block",
+        "description": "编辑块（部分更新），只更新请求中提供的字段。",
+        "operationId": "edit_block_blocks__block_id__patch",
+        "parameters": [
+          {
+            "name": "block_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Block Id"
+            }
+          },
+          {
+            "name": "organize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Organize"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlockModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blocks": {
+      "post": {
+        "tags": [
+          "block"
+        ],
+        "summary": "Create Block",
+        "description": "创建块",
+        "operationId": "create_block_blocks_post",
+        "parameters": [
+          {
+            "name": "organize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Organize"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlockModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blocks/query/by_embedding": {
+      "get": {
+        "tags": [
+          "block"
+        ],
+        "summary": "Query By Embedding",
+        "operationId": "query_by_embedding_blocks_query_by_embedding_get",
+        "parameters": [
+          {
+            "name": "block_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Block Id"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query"
+            }
+          },
+          {
+            "name": "resolver",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resolver"
+            }
+          },
+          {
+            "name": "num",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Num"
+            }
+          },
+          {
+            "name": "max_distance",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "default": 0.3,
+              "title": "Max Distance"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlockModel"
+                  },
+                  "title": "Response Query By Embedding Blocks Query By Embedding Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blocks/embeddings": {
+      "put": {
+        "tags": [
+          "block"
+        ],
+        "summary": "Refresh Embeddings",
+        "description": "Rebuild all blocks' embeddings",
+        "operationId": "refresh_embeddings_blocks_embeddings_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/relations": {
+      "post": {
+        "tags": [
+          "relation"
+        ],
+        "summary": "Create Relation",
+        "operationId": "create_relation_relations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelationModel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelationModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/relations/by_block/{block_id}": {
+      "get": {
+        "tags": [
+          "relation"
+        ],
+        "summary": "Get Relations By Block",
+        "operationId": "get_relations_by_block_relations_by_block__block_id__get",
+        "parameters": [
+          {
+            "name": "block_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Block Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RelationModel"
+                  },
+                  "title": "Response Get Relations By Block Relations By Block  Block Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extensions": {
+      "get": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Get Extensions",
+        "description": "List all installed extensions",
+        "operationId": "get_extensions_extensions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionModel"
+                  },
+                  "type": "array",
+                  "title": "Response Get Extensions Extensions Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extensions/{extid}": {
+      "post": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Install Extension",
+        "description": "安装插件 (Install extension)",
+        "operationId": "install_extension_extensions__extid__post",
+        "parameters": [
+          {
+            "name": "extid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Extid"
+            }
+          },
+          {
+            "name": "disabled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Disabled"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extensions/{extid}/disabled/{disabled}": {
+      "put": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Toggle Extension",
+        "description": "启用/禁用插件 (Enable/Disable extension)",
+        "operationId": "toggle_extension_extensions__extid__disabled__disabled__put",
+        "parameters": [
+          {
+            "name": "extid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Extid"
+            }
+          },
+          {
+            "name": "disabled",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "title": "Disabled"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extensions/{extid}/config": {
+      "put": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Update Extension Config",
+        "description": "编辑插件配置 (Edit extension configuration)\n\n编辑成功将会立刻应用到插件中（如果正在运行）",
+        "operationId": "update_extension_config_extensions__extid__config_put",
+        "parameters": [
+          {
+            "name": "extid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Extid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{source_id}/collect": {
+      "post": {
+        "tags": [
+          "source"
+        ],
+        "summary": "Run Source Collect",
+        "description": "Run source collect (by creating a source collect job.)",
+        "operationId": "run_source_collect_sources__source_id__collect_post",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Source Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceCollectJobModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/graph": {
+      "put": {
+        "tags": [
+          "root"
+        ],
+        "summary": "Insert Grpah",
+        "operationId": "insert_grpah_graph_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StarGraphForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootV1InsertGraphResBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sink/rag": {
+      "get": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "Rag",
+        "operationId": "rag_sink_rag_get",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Query"
+            }
+          },
+          {
+            "name": "context",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Context"
+            }
+          },
+          {
+            "name": "context_blocks",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "default": [],
+              "title": "Context Blocks"
+            }
+          },
+          {
+            "name": "retrieve_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RetrieveMode",
+              "default": "feature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SinkV1RAGResBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ArcForm": {
+        "properties": {
+          "relation": {
+            "$ref": "#/components/schemas/RelationModel"
+          },
+          "to_block": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StarGraphForm"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_block": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StarGraphForm"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "relation"
+        ],
+        "title": "ArcForm"
+      },
+      "BlockModel": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "storage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage"
+          },
+          "resolver": {
+            "type": "string",
+            "title": "Resolver"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resolver",
+          "content"
+        ],
+        "title": "BlockModel"
+      },
+      "ExtensionModel": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "disabled": {
+            "type": "boolean",
+            "title": "Disabled",
+            "default": false
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "config_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Schema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version"
+        ],
+        "title": "ExtensionModel",
+        "description": "Globally, every extension has a unique ID.\nOnly one instance of each extension on a deployment.\nIf a record presents here, the extension is installed."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "RelationModel": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "from_": {
+            "type": "integer",
+            "title": "From",
+            "default": 0
+          },
+          "to_": {
+            "type": "integer",
+            "title": "To",
+            "default": 0
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "RelationModel"
+      },
+      "RetrieveMode": {
+        "type": "string",
+        "enum": [
+          "feature",
+          "embedding",
+          "reasoning"
+        ]
+      },
+      "RootV1InsertGraphResBody": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/BlockModel"
+            },
+            "type": "array",
+            "title": "Blocks"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/RelationModel"
+            },
+            "type": "array",
+            "title": "Relations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "blocks",
+          "relations"
+        ],
+        "title": "RootV1InsertGraphResBody"
+      },
+      "SinkV1RAGResBody": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "SinkV1RAGResBody"
+      },
+      "SourceCollectJobModel": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "source": {
+            "type": "integer",
+            "title": "Source"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SourceCollectJobStatus",
+            "default": "pending"
+          },
+          "state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "State"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source"
+        ],
+        "title": "SourceCollectJobModel",
+        "description": "Model for source collect jobs.\n\nSource collect jobs should be handled as soon as possible, no schedule given."
+      },
+      "SourceCollectJobStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "finished",
+          "failed"
+        ],
+        "title": "SourceCollectJobStatus"
+      },
+      "StarGraphForm": {
+        "properties": {
+          "block": {
+            "$ref": "#/components/schemas/BlockModel"
+          },
+          "out_relations": {
+            "items": {
+              "$ref": "#/components/schemas/ArcForm"
+            },
+            "type": "array",
+            "title": "Out Relations",
+            "default": []
+          },
+          "in_relations": {
+            "items": {
+              "$ref": "#/components/schemas/ArcForm"
+            },
+            "type": "array",
+            "title": "In Relations",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "block"
+        ],
+        "title": "StarGraphForm",
+        "description": "A form for creating a block and its relations"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

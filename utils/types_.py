@@ -4,7 +4,7 @@ import enum
 
 
 class Undefined(enum.Enum):
-    _undefined = 0
+  _undefined = 0
 
 
 _undefined = Undefined._undefined

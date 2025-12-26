@@ -1,0 +1,90 @@
+name: Check & deploy API documentation
+permissions:
+  contents: write
+  pull-requests: write
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - develop
+  pull_request:
+    branches:
+      - main
+      - staging
+      - develop
+jobs:
+  generate-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PDM
+        uses: pdm-project/setup-pdm@v3
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pdm install
+
+      - name: Generate OpenAPI schema
+        env:
+          DATABASE_URL: ${{secrets.DATABASE_URL}}
+          DATABASE_SCALE_0: ${{vars.DATABASE_SCALE_0}}
+          JWT_SECRET: "dummy-secret-for-openapi-generation"
+          SKIP_EXTENSIONS_SYNC: "1"
+          OBSRV__LOGGING_BACKEND: "none"
+        run: pdm run python scripts/generate-openapi.py
+
+      - name: Check if schema changed
+        id: check_changes
+        run: |
+          if git diff --quiet docs/openapi.json; then
+              echo "changed=false" >> $GITHUB_OUTPUT
+          else
+              echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/openapi.json
+          git commit -m "chore: update OpenAPI documentation"
+          git push
+  deploy-doc:
+    if: ${{ github.event_name == 'push' }}
+    name: Deploy API documentation on Bump.sh
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Deploy API documentation
+        uses: bump-sh/github-action@v1
+        with:
+          doc: core
+          token: ${{secrets.BUMP_SH_TOKEN}}
+          file: docs/openapi.json
+  api-diff:
+    if: ${{ github.event_name == 'pull_request' }}
+    name: Check API diff on Bump.sh
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Comment pull request with API diff
+        uses: bump-sh/github-action@v1
+        with:
+          doc: core
+          token: ${{secrets.BUMP_SH_TOKEN}}
+          file: docs/openapi.json
+          command: diff
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

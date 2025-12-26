@@ -2,18 +2,17 @@
 name = "inkcre-core"
 version = "0.1.0"
 description = "Backend of InKCre."
-authors = [
-    {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"}
-]
+authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 readme = "README.md"
-requires-python = ">=3.12,<4.0"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "pydantic (>=2.11.7,<3.0.0)",
+    "pydantic-settings (>=2.0.0,<3.0.0)",
     "fastapi (>=0.116.1,<0.117.0)",
     "sqlalchemy (>=2.0.41,<3.0.0)",
     "aiohttp (>=3.12.14,<4.0.0)",
     "tencentcloud-sdk-python-lke (>=3.0.1427,<4.0.0)",
-    "psycopg2-binary (>=2.9.10,<3.0.0)",
+    "psycopg[binary] (>=3.2.0,<4.0.0)",
     "openai (>=1.97.1,<2.0.0)",
     "numpy (>=2.3.2,<3.0.0)",
     "pgvector (>=0.4.1,<0.5.0)",
@@ -24,26 +23,28 @@ dependencies = [
     "apscheduler>=3.11.0",
     "litellm>=1.75.9",
     "html2text>=2025.4.15",
+    "logtail-python>=0.3.0",
+    "python-telegram-bot>=21.10.0",
+    "alembic>=1.16.4",
+    "alembic-utils>=0.8.8",
+    "alembic-postgresql-enum>=1.8.0",
+    "PyJWT>=2.10.1",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
     "python-dotenv>=1.1.1",
-    "alembic>=1.16.4",
-    "alembic-utils>=0.8.8",
-    "alembic-postgresql-enum>=1.8.0",
+    "pre-commit>=4.4.0",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.14.10",
 ]
-
-[tool.pdm]
-distribution = false
 
 [tool.poetry]
 package-mode = false
 
-[build-system]
-requires = []
-build-backend = "none"
+[tool.pdm]
+distribution = false
 
 [tool.pdm.scripts]
 alembic-gengrade = "alembic revision --autogenerate -m {args} && alembic upgrade head"
@@ -54,3 +55,6 @@ alembic-downgrade = "alembic downgrade {args}"
 alembic-current = "alembic current"
 alembic-history = "alembic history"
 alembic-stamp = "alembic stamp {args}"
+[build-system]
+requires = []
+build-backend = "none"

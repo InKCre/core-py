@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+.env
+.git/
+README.md
+docs/
+tests/
+migrations/versions/
+ruff.toml
+Procfile
+app.json
+LICENSE
+Dockerfile
+docker-compose.yml
+.dockerignore

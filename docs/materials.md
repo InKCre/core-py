@@ -1,0 +1,1 @@
+- CocoIndex (https://github.com/cocoindex-io/cocoindex)支持用约100行Python代码声明式构建复杂的数据流，轻松实现向量索引、知识图谱构建及各种自定义转换，彻底超越传统SQL的局限。

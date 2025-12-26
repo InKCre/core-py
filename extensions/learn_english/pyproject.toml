@@ -1,7 +1,7 @@
 [project]
-name = "learn_english"
+name = "inkcre-ext-learn_english"
 version = "0.1.0"
-description = "Default template for PDM package"
+description = "InKCre extension of Learn English"
 authors = [
     {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"},
 ]
@@ -13,3 +13,7 @@ license = {text = "MIT"}
 
 [tool.pdm]
 distribution = false
+
+[inkcre-ext]
+id = "learn_english"
+nickname = "Learn English"
