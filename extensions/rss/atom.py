@@ -242,11 +242,6 @@ class Source(SourceBase[AtomSourceConfig], config_cls=AtomSourceConfig):
       with SessionLocal() as db:
         for graph in reversed(collected) if full else collected:
           await RootManager.add_star_graph_to_session(graph, db)
-          scheduler.add_job(
-            func=self._organize,
-            kwargs={"block_id": graph.block.id},
-            misfire_grace_time=None,
-          )
         db.commit()
 
       # Update state with seen IDs (keep last 1000 to avoid unbounded growth)

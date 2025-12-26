@@ -139,9 +139,7 @@ class Source(SourceBase[RssSourceConfig], config_cls=RssSourceConfig):
           # Get content:encoded
           content_encoded_elem = item.find("content:encoded") or item.find("encoded")
           content_encoded = (
-            content_encoded_elem.get_text(strip=True)
-            if content_encoded_elem
-            else None
+            content_encoded_elem.get_text(strip=True) if content_encoded_elem else None
           )
 
           # Get pubDate
@@ -222,11 +220,6 @@ class Source(SourceBase[RssSourceConfig], config_cls=RssSourceConfig):
       with SessionLocal() as db:
         for graph in reversed(collected) if full else collected:
           await RootManager.add_star_graph_to_session(graph, db)
-          scheduler.add_job(
-            func=self._organize,
-            kwargs={"block_id": graph.block.id},
-            misfire_grace_time=None,
-          )
         db.commit()
 
       # Update state with seen IDs (keep last 1000 to avoid unbounded growth)

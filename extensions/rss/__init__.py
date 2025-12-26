@@ -45,16 +45,3 @@ class Extension(
   @classmethod
   def _register_apis(cls, router: APIRouter):
     """Register API endpoints for RSS extension."""
-    from app.business.source import SourceManager
-
-    router.post("/rss")(
-      lambda nickname: SourceManager.create(
-        f"extensions.{cls.__extid__}.rss.Source", nickname
-      )
-    )
-
-    router.post("/atom")(
-      lambda nickname: SourceManager.create(
-        f"extensions.{cls.__extid__}.atom.Source", nickname
-      )
-    )
