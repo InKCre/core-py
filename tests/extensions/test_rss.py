@@ -267,13 +267,16 @@ RSS_FEED_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def test_rss_source_is_content_truncated_with_content_encoded():
-  """Test _is_content_truncated returns False when content:encoded exists."""
+  """Test _is_content_truncated returns False when content:encoded exists and is long enough."""
   from extensions.rss.rss import Source as RssSource
 
   source = RssSource.__new__(RssSource)
 
+  # content_encoded must be > 100 chars to be considered complete
+  long_content = "<p>" + "This is the full article content. " * 5 + "</p>"
+
   result = source._is_content_truncated(
-    content_encoded="<p>Full content here</p>",
+    content_encoded=long_content,
     description="Short",
     summary=None,
     content=None,
