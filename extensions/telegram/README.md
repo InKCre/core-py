@@ -24,26 +24,21 @@ This extension provides Telegram bot message source functionality for InKCre.
 
 ## Usage
 
-### 1. Create a Telegram Bot
-
-1. Message [@BotFather](https://t.me/botfather) on Telegram
-2. Send `/newbot` and follow the instructions
-3. Copy the bot token provided by BotFather
-
-### 2. Install
-
-Install the extension into `extensions/` and restart the core-py
-
-### 3. Create a Telegram Source
-
-Create source which type is `extensions.telegram.source.Source` in `sources` table with following values:
-
-- `config`: A dict
-  - `bot_token`: Telegram Bot API token (obtain from [@BotFather](https://t.me/botfather))
-  - `passive`: Whether to register a handler to FastAPI router so that once you sent messages to the Telegram Bot, we will collect the messages immediately. (You will have to configure it following <https://core.telegram.org/bots/api#getting-updates>)
-- `auto_collect`: set to a Dict follows CollectAt if you want to enable the system to run the collection intervally, instead, set to null.
-
-### 4. Start Collecting Messages
+1. Create a Telegram Bot
+  1. Message [@BotFather](https://t.me/botfather) on Telegram
+  2. Send `/newbot` and follow the instructions
+  3. Copy the bot token provided by BotFather
+2. Install: copy source code into `extensions/` and restart the core-py, and enable
+3. Create a Telegram Source:
+  Create source which type is `extensions.telegram.source.Source` in `sources` table with following values:
+    - `config`: A dict
+      - `bot_token`: Telegram Bot API token (obtain from [@BotFather](https://t.me/botfather))
+      - `collect_method`: The method to collect messages, can be `webhook` or `default`. 
+    - `auto_collect`: schedule the interval collect; only available for collect_method `default`
+4. Setup your bot webhook URL if `collect_method` is `webhook`. 
+   The wekbook URL is `https://your.inkcre-core.tld/telegram/bot/{source_id}`.
+   And you should delete the webhook URL as you delete the source.
+   If you want to use `default` collect method, delete the webhook URL is the prerequisite.
 
 And now your messages sent to the bot will be automatically collected to the info-base.
 

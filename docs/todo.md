@@ -24,6 +24,7 @@
 - [ ] Organize 不是 source 的职责，而是整个信息库的。Source会在 organize 过程中提供帮助，但绝不是 source 来执行。
 - [x] Source 也要有 state，反而是 extension 不应该有 state
 - [x] SourceType also has config schema  !!! 不是 Source，是 SourceType
+- [ ] 严重 auto collect
 
 ## Info-Base
 
@@ -88,6 +89,7 @@
 - [x] 通过 Webhook 收集消息 / 通过 Collect Job 收集消息
 - [x] ExtensionConfig 其实是 SourceConfig
 - [x] 仅收集消息内容，不收集用户信息
+- [x] FIXME 没有 set webhook !
 
 ### Rsshub
 

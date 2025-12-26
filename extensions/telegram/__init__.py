@@ -1,10 +1,13 @@
 """Telegram extension for InKCre - provides Telegram bot message source."""
 
 import sqlmodel
+import typing
 from typing import Optional as Opt
 from fastapi import APIRouter
 from app.business.extension.main import ExtensionBase
-from app.business.source import SourceManager
+
+if typing.TYPE_CHECKING:
+  from app.schemas.source import SourceID
 
 
 class TelegramExtensionConfig(sqlmodel.SQLModel):
@@ -36,9 +39,8 @@ class Extension(
   @classmethod
   def _register_apis(cls, router: APIRouter):
     """Register API endpoints for Telegram extension."""
-    from app.business.source import SourceManager
     from fastapi import Request
-    from app.schemas.source import SourceID
+    from .source import Source as TelegramSource
 
     async def telegram_webhook(source_id: SourceID, request: Request):
       """Webhook endpoint for receiving Telegram updates.
@@ -46,7 +48,7 @@ class Extension(
       :param source_id: The source instance ID
       :param request: FastAPI request containing webhook payload
       """
-      source = SourceManager.get_source_ins(source_id)
+      source = TelegramSource(source_id)
       data = await request.json()
       await source.record(data)
       return {"ok": True}

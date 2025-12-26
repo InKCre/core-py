@@ -8,10 +8,8 @@ from telegram.ext import Application
 from app.business.source import SourceBase
 from app.engine import SessionLocal
 from app.business.info_base.root import RootManager
-from app.schemas.info_base.main import StarGraphForm
-from app.schemas.info_base.block import BlockModel, BlockID
+from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceCollectJobModel
-from app.scheduler import scheduler
 from extensions.telegram.resolver import TelegramMessageResolver
 from .schema import TelegramMessage
 
@@ -23,8 +21,6 @@ class SourceConfig(sqlmodel.SQLModel):
   """Telegram Bot API token (get from @BotFather)"""
   collect_method: Lit["default", "webhook"] = "default"
   """Method to collect messages: 'default' (getUpdates periodically) or 'webhook'"""
-  webhook_url: str = ""
-  """Optional webhook URL for receiving updates. If not provided, auto-generated from settings.https_url"""
 
 
 class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
