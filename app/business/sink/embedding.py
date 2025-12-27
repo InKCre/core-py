@@ -188,11 +188,10 @@ class EmbeddingManager:
         else:
           raise ValueError("one of block_id or embedding must be provided")
 
-      similar_blocks = db_session.exec(
+      query = (
         sqlmodel.select(BlockModel)
         .select_from(BlockModel)
         .join(BlockEmbeddingModel, BlockEmbeddingModel.id == BlockModel.id)  # type: ignore
-        .where(BlockModel.resolver == resolver if resolver else True)
         .where(BlockEmbeddingModel.embedding is not None)
         .where(BlockEmbeddingModel.id != block_id)
         .where(
@@ -200,7 +199,13 @@ class EmbeddingManager:
         )
         .order_by(BlockEmbeddingModel.embedding.cosine_distance(base_embedding))  # type: ignore
         .limit(num)
-      ).all()
+      )
+      
+      # Apply resolver filter if specified
+      if resolver is not None:
+        query = query.where(BlockModel.resolver == resolver)
+      
+      similar_blocks = db_session.exec(query).all()
 
     return tuple(similar_blocks)  # type: ignore
 
