@@ -105,7 +105,7 @@ class BlockManager:
     from app.business.sink.embedding import EmbeddingManager
     scheduler.add_job(
       func=EmbeddingManager.upsert_block_embedding,
-      kwargs={"block": block},
+      kwargs={"block_id": block.id},
       misfire_grace_time=None,
     )
 
@@ -402,7 +402,7 @@ class BlockManager:
       from app.business.sink.embedding import EmbeddingManager
       scheduler.add_job(
         func=EmbeddingManager.upsert_block_embedding,
-        kwargs={"block": block},
+        kwargs={"block_id": block.id},
         misfire_grace_time=None,
       )
 

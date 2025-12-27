@@ -23,14 +23,26 @@ logger = get_logger()
 class EmbeddingManager:
   @classmethod
   async def upsert_block_embedding(
-    cls, block: BlockModel, db_session: Opt[sqlmodel.Session] = None
+    cls, block_id: Opt[BlockID] = None, block: Opt[BlockModel] = None, db_session: Opt[sqlmodel.Session] = None
   ) -> BlockEmbeddingModel:
     """Upsert a block's embedding
 
-    :param block: Block to create/update embedding for
+    :param block_id: Block ID to create/update embedding for
+    :param block: Block model to create/update embedding for (alternative to block_id)
     :param db_session: Optional database session, if provided uses that session; won't commit.
     """
     from app.business.info_base.resolver import ResolverManager
+
+    if block is None:
+      if block_id is None:
+        raise ValueError("Either block_id or block must be provided")
+      # Fetch block from database
+      with SessionLocal() as fetch_session:
+        block = fetch_session.exec(
+          sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
+        ).one_or_none()
+        if block is None:
+          raise ValueError(f"Block with id {block_id} not found")
 
     resolver = ResolverManager.new_resolver(block)
     embedding = BlockEmbeddingModel(
@@ -48,13 +60,25 @@ class EmbeddingManager:
 
   @classmethod
   async def upsert_relation_embedding(
-    cls, relation: RelationModel, db_session: Opt[sqlmodel.Session] = None
+    cls, relation_id: Opt[RelationID] = None, relation: Opt[RelationModel] = None, db_session: Opt[sqlmodel.Session] = None
   ) -> RelationEmbeddingModel:
     """Upsert a relation's embedding
 
-    :param relation: Relation to create/update embedding for
+    :param relation_id: Relation ID to create/update embedding for
+    :param relation: Relation model to create/update embedding for (alternative to relation_id)
     :param db_session: Optional database session, if provided uses that session; won't commit.
     """
+    if relation is None:
+      if relation_id is None:
+        raise ValueError("Either relation_id or relation must be provided")
+      # Fetch relation from database
+      with SessionLocal() as fetch_session:
+        relation = fetch_session.exec(
+          sqlmodel.select(RelationModel).where(RelationModel.id == relation_id)
+        ).one_or_none()
+        if relation is None:
+          raise ValueError(f"Relation with id {relation_id} not found")
+
     # For relations, we embed the content directly
     embedding = RelationEmbeddingModel(
       id=relation.id,  # type: ignore[arg-type]
@@ -78,7 +102,7 @@ class EmbeddingManager:
           BlockModel.resolver == "learn_english.lexical"
         )  # FIXME
       ).all()
-      tasks = tuple(cls.upsert_block_embedding(block, db_session) for block in blocks)
+      tasks = tuple(cls.upsert_block_embedding(block=block, db_session=db_session) for block in blocks)
       await asyncio.gather(*tasks)
       db_session.commit()
 
@@ -111,7 +135,7 @@ class EmbeddingManager:
           f"Creating embeddings for {len(blocks_without_embeddings)} blocks"
         )
         block_tasks = tuple(
-          cls.upsert_block_embedding(block, db_session) 
+          cls.upsert_block_embedding(block=block, db_session=db_session) 
           for block in blocks_without_embeddings
         )
         await asyncio.gather(*block_tasks)
@@ -121,7 +145,7 @@ class EmbeddingManager:
           f"Creating embeddings for {len(relations_without_embeddings)} relations"
         )
         relation_tasks = tuple(
-          cls.upsert_relation_embedding(relation, db_session)
+          cls.upsert_relation_embedding(relation=relation, db_session=db_session)
           for relation in relations_without_embeddings
         )
         await asyncio.gather(*relation_tasks)
