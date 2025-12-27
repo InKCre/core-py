@@ -93,7 +93,7 @@
 - [x] 仅收集消息内容，不收集用户信息
 - [x] FIXME 没有 set webhook !
 
-### Rsshub
+### RSS
 
 ## Trivias
 
@@ -101,3 +101,5 @@
 - [ ] 替换所有 datetime.datetime.now 为 get_datetimez
 - [ ] Github CI environment
 - [ ] AGENTS.md / Agent Skills to keep coding guideline (schema, business, basic pattern like use class, extension skill)
+- [ ] 将 migration/versions 添加回 git （但是从头来过，更干净）（也是 CI/CD 自动化测试、Copilot Agent 的重要前提）
+- [ ] Build agent loop

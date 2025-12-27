@@ -52,6 +52,7 @@ InKCre aims to build an information management application that provides automat
 - Python environemnt: PDM (`pdm run` for scripts/executables)
 - Database Migrations: `pdm run alembic-gengrade "message"` (autogenerates + upgrades)
 - Run dev server to validate your changes: `uvicorn run:api_app --reload` (sets up extensions, scheduler)
+- `DATABASE_URL` is prepared for you even in cloud (Github Action) environment.
 
 ## Coding Guideline
 

@@ -1,0 +1,3 @@
+- `versions/`: Database schema migrations.
+- `env.py`: Setup env for alembic to generate versions, execute migrations.
+- `script.py.mako`: version template

@@ -19,6 +19,25 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v5
 
+            - name: Get branch name
+              id: branch_name
+              uses: tj-actions/branch-names@v8
+
+            - name: Create DB Branch
+              id: create_db_branch
+              uses: neondatabase/create-branch-action@v6
+              with:
+                  project_id: ${{ vars.NEON_PROJECT_ID }}
+                  branch_name: pr/${{ steps.branch_name.outputs.current_branch }}
+                  parent_branch: pr/${{ steps.branch_name.outputs.base_ref_branch || 'production' }}
+                  branch_type: "schema-only"
+                  api_key: ${{ secrets.NEON_API_KEY }}
+
+            - name: Write database URL to .env
+              run: |
+                  echo "DATABASE_URL=${{ steps.create_db_branch.outputs.db_url_with_pooler }}" > .env
+                  echo "✅ Database URL written to .env file"
+
             - name: Set up Python
               uses: actions/setup-python@v5
               with:
