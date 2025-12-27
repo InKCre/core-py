@@ -43,10 +43,3 @@ class RelationModel(sqlmodel.SQLModel, table=True):
   content: str = sqlmodel.Field(
     sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
   )
-
-
-# Re-export from sink for backward compatibility
-# Embedding models have been migrated to sink domain
-from app.schemas.sink.embedding import RelationEmbeddingModel  # noqa: E402
-
-__all__ = ["RelationModel", "RelationID", "RelationEmbeddingModel"]

@@ -101,14 +101,6 @@ class BlockManager:
       extra={"block_id": block.id, "resolver": block.resolver},
     )
 
-    # Schedule embedding creation via sink service
-    from app.business.sink.embedding import EmbeddingManager
-    scheduler.add_job(
-      func=EmbeddingManager.upsert_block_embedding,
-      kwargs={"block_id": block.id},
-      misfire_grace_time=None,
-    )
-
     return block
 
   @classmethod
@@ -397,13 +389,5 @@ class BlockManager:
       db_session.refresh(block)
 
       logger.info("Block edited successfully", extra={"block_id": block.id})
-
-      # Schedule embedding update via sink service
-      from app.business.sink.embedding import EmbeddingManager
-      scheduler.add_job(
-        func=EmbeddingManager.upsert_block_embedding,
-        kwargs={"block_id": block.id},
-        misfire_grace_time=None,
-      )
 
     return block

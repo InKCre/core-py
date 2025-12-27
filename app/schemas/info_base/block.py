@@ -57,10 +57,3 @@ class BlockModel(sqlmodel.SQLModel, table=True):
 
     resolver = ResolverManager.new_resolver(self)
     return await resolver.get_text()
-
-
-# Re-export from sink for backward compatibility
-# Embedding models have been migrated to sink domain
-from app.schemas.sink.embedding import BlockEmbeddingModel  # noqa: E402
-
-__all__ = ["BlockModel", "BlockID", "ResolverType", "BlockEmbeddingModel"]
