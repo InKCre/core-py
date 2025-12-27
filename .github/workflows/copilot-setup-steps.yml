@@ -30,7 +30,6 @@ jobs:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: ${{ steps.branch_name.outputs.current_branch }}
           parent_branch: ${{ steps.branch_name.outputs.base_ref_branch || 'develop' }}
-          branch_type: "schema-only"
           api_key: ${{ secrets.NEON_API_KEY }}
 
       - name: Write database URL to .env
