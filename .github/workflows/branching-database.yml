@@ -49,7 +49,7 @@ jobs:
               with:
                   project_id: ${{ vars.NEON_PROJECT_ID }}
                   branch_name: ${{ needs.setup.outputs.current_branch }}
-                  parent_branch: ${{ needs.setup.outputs.base_ref_branch  || 'develop' }}
+                  branch_type: "schema-only"
                   api_key: ${{ secrets.NEON_API_KEY }}
                   expires_at: ${{ env.EXPIRES_AT }}
             - name: Post Schema Diff Comment to PR
@@ -57,6 +57,7 @@ jobs:
               with:
                   project_id: ${{ vars.NEON_PROJECT_ID }}
                   compare_branch: ${{ needs.setup.outputs.current_branch }}
+                  base_branch: ${{ needs.setup.outputs.base_ref_branch  || 'develop' }}
                   api_key: ${{ secrets.NEON_API_KEY }}
 
     delete_db_branch:
