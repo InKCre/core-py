@@ -49,7 +49,7 @@ jobs:
               with:
                   project_id: ${{ vars.NEON_PROJECT_ID }}
                   branch_name: pr/${{ needs.setup.outputs.current_branch }}
-                  parent_branch: ${{ needs.setup.outputs.base_ref_branch != '' && format('pr/{0}', needs.setup.outputs.base_ref_branch) || 'production' }}
+                  parent_branch: pr/${{ needs.setup.outputs.base_ref_branch  || 'develop' }}
                   branch_type: "schema-only"
                   api_key: ${{ secrets.NEON_API_KEY }}
                   expires_at: ${{ env.EXPIRES_AT }}
