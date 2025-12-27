@@ -100,6 +100,10 @@ class BlockManager:
       "Block created successfully",
       extra={"block_id": block.id, "resolver": block.resolver},
     )
+    logger.debug(
+      "Embedding will be created asynchronously by interval job",
+      extra={"block_id": block.id},
+    )
 
     return block
 
@@ -389,5 +393,9 @@ class BlockManager:
       db_session.refresh(block)
 
       logger.info("Block edited successfully", extra={"block_id": block.id})
+      logger.debug(
+        "Embedding will be updated asynchronously by interval job",
+        extra={"block_id": block.id},
+      )
 
     return block
