@@ -3,7 +3,6 @@ import typing
 from typing import Optional as Opt
 import datetime
 import sqlalchemy
-import pgvector.sqlalchemy
 import sqlmodel
 
 if typing.TYPE_CHECKING:
@@ -46,22 +45,8 @@ class RelationModel(sqlmodel.SQLModel, table=True):
   )
 
 
-class RelationEmbeddingModel(sqlmodel.SQLModel, table=True):
-  __tablename__ = "relation_embeddings"  # type: ignore
+# Re-export from sink for backward compatibility
+# Embedding models have been migrated to sink domain
+from app.schemas.sink.embedding import RelationEmbeddingModel  # noqa: E402
 
-  id: int = sqlmodel.Field(
-    sa_column=sqlalchemy.Column(
-      sqlalchemy.Integer,
-      sqlalchemy.ForeignKey("relations.id", ondelete="CASCADE", onupdate="CASCADE"),
-      primary_key=True,
-    ),
-  )
-  embedding: "Vector" = sqlmodel.Field(
-    sa_column=sqlalchemy.Column(pgvector.sqlalchemy.VECTOR(1024), nullable=False)
-  )
-  updated_at: datetime.datetime = sqlmodel.Field(
-    default_factory=datetime.datetime.now,
-    sa_column=sqlalchemy.Column(
-      sqlalchemy.TIMESTAMP(timezone=True), onupdate=datetime.datetime.now
-    ),
-  )
+__all__ = ["RelationModel", "RelationID", "RelationEmbeddingModel"]

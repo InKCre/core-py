@@ -1,5 +1,5 @@
 from .block import BlockModel, BlockID, ResolverType, BlockEmbeddingModel
-from .relation import RelationModel, RelationID
+from .relation import RelationModel, RelationID, RelationEmbeddingModel
 from .storage import StorageModel, StorageID, StorageTypesModel
 from .main import StarGraphForm, ArcForm, Vector
 
@@ -10,6 +10,7 @@ __all__ = [
   "BlockEmbeddingModel",
   "RelationModel",
   "RelationID",
+  "RelationEmbeddingModel",
   "StorageModel",
   "StorageID",
   "StorageTypesModel",
