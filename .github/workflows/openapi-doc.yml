@@ -43,6 +43,12 @@ jobs:
           SKIP_EXTENSIONS_SYNC: "1"
           OBSRV__LOGGING_BACKEND: "none"
         run: pdm run python scripts/generate-openapi.py
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-schema
+          path: docs/openapi.json
+          retention-days: 1
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -51,16 +57,19 @@ jobs:
           file_pattern: docs/openapi.json
 
   deploy-doc:
-    # 注意：如果 generate-openapi 推送了新代码，由于 GitHub 机制限制，
-    # 默认不会触发新的 workflow。且此 Job 与上面是并行运行的，
-    # 它部署的可能是旧的 docs（取决于 checkout 的时机）。
-    # 如果希望严格部署新生成的文档，这里的逻辑可能需要后续优化（例如使用 artifact）。
     if: ${{ github.event_name == 'push' }}
     name: Deploy API documentation on Bump.sh
     runs-on: ubuntu-latest
+    needs: generate-openapi
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Download OpenAPI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-schema
+          path: docs
+
       - name: Deploy API documentation
         uses: bump-sh/github-action@v1
         with:
@@ -72,9 +81,17 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     name: Check API diff on Bump.sh
     runs-on: ubuntu-latest
+    needs: generate-openapi 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Download OpenAPI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-schema
+          path: docs
+
       - name: Comment pull request with API diff
         uses: bump-sh/github-action@v1
         with:
