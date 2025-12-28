@@ -353,7 +353,7 @@
           "block"
         ],
         "summary": "Refresh Embeddings",
-        "description": "Rebuild all blocks' embeddings",
+        "description": "Rebuild all blocks' embeddings - delegates to sink embedding service",
         "operationId": "refresh_embeddings_blocks_embeddings_put",
         "responses": {
           "200": {
@@ -764,6 +764,7 @@
           "sink"
         ],
         "summary": "Rag",
+        "description": "RAG (Retrieval Augmented Generation) endpoint\n\n:param query: User query\n:param context: Additional context string\n:param context_blocks: Additional context block IDs\n:param retrieve_mode: Retrieval mode - \"embedding\", \"reasoning\", or \"feature\"\n:param use_reranker: Whether to use reranker to improve retrieval results\n:param num_retrieve: Number of blocks to retrieve initially\n:param num_rerank: Number of blocks to keep after reranking",
         "operationId": "rag_sink_rag_get",
         "parameters": [
           {
@@ -810,7 +811,37 @@
             "required": false,
             "schema": {
               "$ref": "#/components/schemas/RetrieveMode",
-              "default": "feature"
+              "default": "embedding"
+            }
+          },
+          {
+            "name": "use_reranker",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Use Reranker"
+            }
+          },
+          {
+            "name": "num_retrieve",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Num Retrieve"
+            }
+          },
+          {
+            "name": "num_rerank",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "title": "Num Rerank"
             }
           }
         ],
