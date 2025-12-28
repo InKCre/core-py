@@ -43,6 +43,7 @@ from app.scheduler import scheduler
 async def lifespan(app: fastapi.FastAPI):
   from app.business.source import SourceCollectJobManager
   from app.business.info_base.storage import StorageManager
+  from app.business.sink.embedding import EmbeddingManager
 
   logger.info("Application startup")
 
@@ -57,6 +58,14 @@ async def lifespan(app: fastapi.FastAPI):
     "interval",
     seconds=30,
     id="sources.collect_jobs.check_pending",
+  )
+
+  # Add periodic job to check and create missing embeddings
+  scheduler.add_job(
+    EmbeddingManager.check_and_create_missing_embeddings,
+    "interval",
+    seconds=60,  # Check every minute
+    id="sink.embeddings.check_missing",
   )
 
   yield

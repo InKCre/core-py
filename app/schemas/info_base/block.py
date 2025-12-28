@@ -57,24 +57,3 @@ class BlockModel(sqlmodel.SQLModel, table=True):
 
     resolver = ResolverManager.new_resolver(self)
     return await resolver.get_text()
-
-
-class BlockEmbeddingModel(sqlmodel.SQLModel, table=True):
-  __tablename__ = "block_embeddings"  # type: ignore
-
-  id: int = sqlmodel.Field(
-    sa_column=sqlalchemy.Column(
-      sqlalchemy.Integer,
-      sqlalchemy.ForeignKey("blocks.id", ondelete="CASCADE", onupdate="CASCADE"),
-      primary_key=True,
-    ),
-  )
-  embedding: "Vector" = sqlmodel.Field(
-    sa_column=sqlalchemy.Column(pgvector.sqlalchemy.VECTOR(1024), nullable=False)
-  )
-  updated_at: datetime.datetime = sqlmodel.Field(
-    default_factory=datetime.datetime.now,
-    sa_column=sqlalchemy.Column(
-      sqlalchemy.TIMESTAMP(timezone=True), onupdate=datetime.datetime.now
-    ),
-  )
