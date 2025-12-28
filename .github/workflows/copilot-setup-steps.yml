@@ -29,6 +29,7 @@ jobs:
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: ${{ steps.branch_name.outputs.current_branch }}
+          parent_branch: ${{ needs.setup.outputs.base_ref_branch  || 'develop' }}
           branch_type: "schema-only"
           api_key: ${{ secrets.NEON_API_KEY }}
 
