@@ -2,6 +2,7 @@ name: Check & deploy API documentation
 permissions:
   contents: write
   pull-requests: write
+
 on:
   push:
     branches:
@@ -13,6 +14,7 @@ on:
       - main
       - staging
       - develop
+
 jobs:
   generate-openapi:
     runs-on: ubuntu-latest
@@ -42,24 +44,17 @@ jobs:
           OBSRV__LOGGING_BACKEND: "none"
         run: pdm run python scripts/generate-openapi.py
 
-      - name: Check if schema changed
-        id: check_changes
-        run: |
-          if git diff --quiet docs/openapi.json; then
-              echo "changed=false" >> $GITHUB_OUTPUT
-          else
-              echo "changed=true" >> $GITHUB_OUTPUT
-          fi
-
       - name: Commit and push changes
-        if: steps.check_changes.outputs.changed == 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add docs/openapi.json
-          git commit -m "chore: update OpenAPI documentation"
-          git push
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update OpenAPI documentation"
+          file_pattern: docs/openapi.json
+
   deploy-doc:
+    # 注意：如果 generate-openapi 推送了新代码，由于 GitHub 机制限制，
+    # 默认不会触发新的 workflow。且此 Job 与上面是并行运行的，
+    # 它部署的可能是旧的 docs（取决于 checkout 的时机）。
+    # 如果希望严格部署新生成的文档，这里的逻辑可能需要后续优化（例如使用 artifact）。
     if: ${{ github.event_name == 'push' }}
     name: Deploy API documentation on Bump.sh
     runs-on: ubuntu-latest
@@ -72,6 +67,7 @@ jobs:
           doc: core
           token: ${{secrets.BUMP_SH_TOKEN}}
           file: docs/openapi.json
+
   api-diff:
     if: ${{ github.event_name == 'pull_request' }}
     name: Check API diff on Bump.sh
