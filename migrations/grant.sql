@@ -1,4 +1,4 @@
-CREATE ROLE authenticated NOLOGIN;
+CREATE ROLE authenticated NOLOGIN ;
 GRANT authenticated TO neondb_owner;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 GRANT SELECT ON public.sources_types TO authenticated; 

@@ -1,53 +1,53 @@
 name: "Copilot Setup Steps"
 
 on:
-    workflow_dispatch:
-    push:
-        paths:
-            - .github/workflows/copilot-setup-steps.yml
-    pull_request:
-        paths:
-            - .github/workflows/copilot-setup-steps.yml
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
 
 jobs:
-    copilot-setup-steps:
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
 
-            - name: Get branch name
-              id: branch_name
-              uses: tj-actions/branch-names@v8
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
 
-            - name: Create DB Branch
-              id: create_db_branch
-              uses: neondatabase/create-branch-action@v6
-              with:
-                  project_id: ${{ vars.NEON_PROJECT_ID }}
-                  branch_name: pr/${{ steps.branch_name.outputs.current_branch }}
-                  parent_branch: ${{ steps.branch_name.outputs.base_ref_branch != '' && format('pr/{0}', steps.branch_name.outputs.base_ref_branch) || 'production' }}
-                  branch_type: "schema-only"
-                  api_key: ${{ secrets.NEON_API_KEY }}
+      - name: Create DB Branch
+        id: create_db_branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: ${{ steps.branch_name.outputs.current_branch }}
+          parent_branch: ${{ needs.setup.outputs.base_ref_branch  || 'develop' }}
+          branch_type: "schema-only"
+          api_key: ${{ secrets.NEON_API_KEY }}
 
-            - name: Write database URL to .env
-              run: |
-                  echo "DATABASE_URL=${{ steps.create_db_branch.outputs.db_url_with_pooler }}" > .env
-                  echo "✅ Database URL written to .env file"
+      - name: Write database URL to .env
+        run: |
+          echo "DATABASE_URL=${{ steps.create_db_branch.outputs.db_url_with_pooler }}" > .env
+          echo "✅ Database URL written to .env file"
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.12"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-            - name: Set up PDM
-              uses: pdm-project/setup-pdm@v4
-              with:
-                  python-version: "3.12"
-                  cache: true
+      - name: Set up PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.12"
+          cache: true
 
-            - name: Install dependencies
-              run: pdm install -G dev --frozen-lockfile
+      - name: Install dependencies
+        run: pdm install -G dev --frozen-lockfile

@@ -20,7 +20,6 @@ from libs.ai import (
   one_chat,
 )
 from app.schemas.info_base.block import (
-  BlockEmbeddingModel,
   BlockID,
   BlockModel,
   ResolverType,
@@ -101,52 +100,18 @@ class BlockManager:
       "Block created successfully",
       extra={"block_id": block.id, "resolver": block.resolver},
     )
-
-    scheduler.add_job(
-      func=cls._upsert_embedding,
-      kwargs={"block_id": block.id},
-      misfire_grace_time=None,
+    logger.debug(
+      "Embedding will be created asynchronously by interval job",
+      extra={"block_id": block.id},
     )
 
     return block
 
   @classmethod
   async def refresh_embeddings(cls):
-    """Rebuild all blocks' embeddings"""
-    with SessionLocal() as db_session:
-      blocks = db_session.exec(
-        sqlmodel.select(BlockModel).where(
-          BlockModel.resolver == "learn_english.lexical"
-        )  # FIXME
-      ).all()
-      tasks = tuple(cls._upsert_embedding(block, db_session) for block in blocks)
-      await asyncio.gather(*tasks)
-      db_session.commit()
-
-  @classmethod
-  async def _upsert_embedding(
-    cls, block: BlockModel, db_session: Opt[sqlmodel.Session] = None
-  ) -> BlockEmbeddingModel:
-    """Upsert a block's embedding
-
-    :param block: 块
-    :param db_session: 可选的数据库会话，如果提供则使用该会话；不会提交。
-    """
-    from .resolver import ResolverManager
-
-    resolver = ResolverManager.new_resolver(block)
-    embedding = BlockEmbeddingModel(
-      id=block.id,  # type: ignore[arg-type]
-      embedding=Embedding("", "text-embedding-v3").embed(resolver.get_str_for_embedding()),
-    )
-    if db_session:
-      db_session.merge(embedding)
-      return embedding
-    with SessionLocal() as db_session:
-      db_session.merge(embedding)
-      db_session.commit()
-      db_session.refresh(embedding)
-    return embedding
+    """Rebuild all blocks' embeddings - delegates to sink embedding service"""
+    from app.business.sink.embedding import EmbeddingManager
+    await EmbeddingManager.refresh_all_block_embeddings()
 
   @classmethod
   async def fetchsert(cls, block: BlockModel, db_session: sqlmodel.Session) -> BlockModel:
@@ -154,6 +119,8 @@ class BlockManager:
 
     Will NOT commit the session.
     """
+    from app.business.sink.embedding import EmbeddingManager
+    
     resolver = ResolverManager.new_resolver(block)
     existing = resolver.get_existing(db_session)
     if existing is not None:
@@ -170,8 +137,8 @@ class BlockManager:
     db_session.add(block)
     db_session.flush()
     db_session.refresh(block)
-    # and embedding
-    await cls._upsert_embedding(block, db_session)
+    # and embedding - use sink service
+    await EmbeddingManager.upsert_block_embedding(block, db_session)
 
     return block
 
@@ -205,39 +172,20 @@ class BlockManager:
     num: int = 10,
     max_distance: float = 0.3,
   ) -> tuple[BlockModel, ...]:
-    """根据余弦相似度查询块
+    """Query blocks by cosine similarity - delegates to sink embedding service
 
-    :param block_id: 用已有块的embedding查询
-    :param embedding: 用给定的embedding查询
-    :param resolver: 限定解析器类型, None则不限定
+    :param block_id: Use existing block's embedding for query
+    :param embedding: Use given embedding for query
+    :param resolver: Filter by resolver type, None means no filter
     """
-    with SessionLocal() as db_session:
-      if block_id is not None:
-        base_embedding = db_session.exec(
-          sqlmodel.select(BlockEmbeddingModel.embedding).where(
-            BlockEmbeddingModel.id == block_id
-          )
-        )
-      else:
-        if embedding is not None:
-          base_embedding = embedding
-        else:
-          raise ValueError("one of block_id or embedding must be provided")
-
-      similar_blocks = db_session.exec(
-        sqlmodel.select(BlockModel)
-        .select_from(BlockModel)
-        .join(BlockEmbeddingModel, BlockEmbeddingModel.id == BlockModel.id)  # type: ignore
-        .where(BlockModel.resolver == resolver if resolver else True)
-        .where(BlockEmbeddingModel.embedding is not None)
-        .where(BlockEmbeddingModel.id != block_id)
-        .where(
-          BlockEmbeddingModel.embedding.cosine_distance(base_embedding) < max_distance  # type: ignore
-        )
-        .limit(num)
-      ).all()
-
-    return tuple(similar_blocks)  # type: ignore
+    from app.business.sink.embedding import EmbeddingManager
+    return EmbeddingManager.query_blocks_by_embedding(
+      block_id=block_id,
+      embedding=embedding,
+      resolver=resolver,
+      num=num,
+      max_distance=max_distance,
+    )
 
   @classmethod
   async def iterate_from_block(
@@ -445,11 +393,9 @@ class BlockManager:
       db_session.refresh(block)
 
       logger.info("Block edited successfully", extra={"block_id": block.id})
-
-      scheduler.add_job(
-        func=cls._upsert_embedding,
-        kwargs={"block_id": block.id},
-        misfire_grace_time=None,
+      logger.debug(
+        "Embedding will be updated asynchronously by interval job",
+        extra={"block_id": block.id},
       )
 
     return block

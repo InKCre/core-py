@@ -145,22 +145,28 @@ class StorageManager:
 
     Uses PostgreSQL upsert to ensure built-in storages exist with correct configuration.
     """
+    from app.business.info_base.storage.http import (
+      HTTPHtmlStorage,
+      HTTPImageStorage,
+      HTTPVideoStorage,
+    )
+
     builtin_storages = [
       {
         "id": -1,
-        "type": "app.business.storage.http.HTTPImageStorage",
+        "type": ".".join((HTTPImageStorage.__module__, HTTPImageStorage.__qualname__)),
         "nickname": "http_image",
         "config": {},
       },
       {
         "id": -2,
-        "type": "app.business.storage.http.HTTPVideoStorage",
+        "type": ".".join((HTTPVideoStorage.__module__, HTTPVideoStorage.__qualname__)),
         "nickname": "http_video",
         "config": {},
       },
       {
         "id": -3,
-        "type": "app.business.storage.http.HTTPHtmlStorage",
+        "type": ".".join((HTTPHtmlStorage.__module__, HTTPHtmlStorage.__qualname__)),
         "nickname": "http_html",
         "config": {},
       },
