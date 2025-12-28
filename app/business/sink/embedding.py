@@ -23,7 +23,10 @@ logger = get_logger()
 class EmbeddingManager:
   @classmethod
   async def upsert_block_embedding(
-    cls, block_id: Opt[BlockID] = None, block: Opt[BlockModel] = None, db_session: Opt[sqlmodel.Session] = None
+    cls,
+    block_id: Opt[BlockID] = None,
+    block: Opt[BlockModel] = None,
+    db_session: Opt[sqlmodel.Session] = None,
   ) -> BlockEmbeddingModel:
     """Upsert a block's embedding
 
@@ -60,7 +63,10 @@ class EmbeddingManager:
 
   @classmethod
   async def upsert_relation_embedding(
-    cls, relation_id: Opt[RelationID] = None, relation: Opt[RelationModel] = None, db_session: Opt[sqlmodel.Session] = None
+    cls,
+    relation_id: Opt[RelationID] = None,
+    relation: Opt[RelationModel] = None,
+    db_session: Opt[sqlmodel.Session] = None,
   ) -> RelationEmbeddingModel:
     """Upsert a relation's embedding
 
@@ -102,40 +108,40 @@ class EmbeddingManager:
           BlockModel.resolver == "learn_english.lexical"
         )  # FIXME
       ).all()
-      tasks = tuple(cls.upsert_block_embedding(block=block, db_session=db_session) for block in blocks)
+      tasks = tuple(
+        cls.upsert_block_embedding(block=block, db_session=db_session) for block in blocks
+      )
       await asyncio.gather(*tasks)
       db_session.commit()
 
   @classmethod
   async def check_and_create_missing_embeddings(cls):
     """Check for blocks/relations missing embeddings and create them
-    
+
     This is called periodically by the scheduler to ensure all content has embeddings.
     """
-    logger.info("Checking for missing embeddings")
+    logger.debug("Checking for missing embeddings")
     with SessionLocal() as db_session:
       # Find blocks without embeddings
       blocks_without_embeddings = db_session.exec(
         sqlmodel.select(BlockModel)
-        .outerjoin(BlockEmbeddingModel, BlockModel.id == BlockEmbeddingModel.id)
-        .where(BlockEmbeddingModel.id.is_(None))
+        .outerjoin(BlockEmbeddingModel)
+        .where(BlockEmbeddingModel.id == None)  # type: ignore
         .limit(10)  # Process in batches to avoid long-running jobs
       ).all()
 
       # Find relations without embeddings
       relations_without_embeddings = db_session.exec(
         sqlmodel.select(RelationModel)
-        .outerjoin(RelationEmbeddingModel, RelationModel.id == RelationEmbeddingModel.id)
-        .where(RelationEmbeddingModel.id.is_(None))
+        .outerjoin(RelationEmbeddingModel)
+        .where(RelationEmbeddingModel.id == None)
         .limit(10)  # Process in batches
       ).all()
 
       if blocks_without_embeddings:
-        logger.info(
-          f"Creating embeddings for {len(blocks_without_embeddings)} blocks"
-        )
+        logger.info(f"Creating embeddings for {len(blocks_without_embeddings)} blocks")
         block_tasks = tuple(
-          cls.upsert_block_embedding(block=block, db_session=db_session) 
+          cls.upsert_block_embedding(block=block, db_session=db_session)
           for block in blocks_without_embeddings
         )
         await asyncio.gather(*block_tasks)
@@ -200,11 +206,11 @@ class EmbeddingManager:
         .order_by(BlockEmbeddingModel.embedding.cosine_distance(base_embedding))  # type: ignore
         .limit(num)
       )
-      
+
       # Apply resolver filter if specified
       if resolver is not None:
         query = query.where(BlockModel.resolver == resolver)
-      
+
       similar_blocks = db_session.exec(query).all()
 
     return tuple(similar_blocks)  # type: ignore
@@ -217,10 +223,10 @@ class EmbeddingManager:
     top_k: int = 5,
   ) -> tuple[BlockModel, ...]:
     """Rerank blocks using a more sophisticated method
-    
+
     This uses cross-encoder or similar reranking approach to improve retrieval quality.
     Currently implements a simple score-based reranking using query embedding similarity.
-    
+
     :param query: The search query
     :param blocks: Candidate blocks to rerank
     :param top_k: Number of top results to return after reranking
@@ -230,18 +236,18 @@ class EmbeddingManager:
 
     # Generate query embedding
     query_embedding = Embedding("", "text-embedding-v3").embed(query)
-    
+
     # Calculate scores for each block
     with SessionLocal() as db_session:
       block_scores: list[tuple[BlockModel, float]] = []
-      
+
       for block in blocks:
         block_embedding = db_session.exec(
           sqlmodel.select(BlockEmbeddingModel.embedding).where(
             BlockEmbeddingModel.id == block.id
           )
         ).one_or_none()
-        
+
         if block_embedding:
           # Calculate cosine distance (lower is better)
           # We'll use SQLAlchemy's cosine_distance for consistency
@@ -251,9 +257,9 @@ class EmbeddingManager:
             ).where(BlockEmbeddingModel.id == block.id)
           ).one()
           block_scores.append((block, distance))
-      
+
       # Sort by distance (ascending) and take top_k
       block_scores.sort(key=lambda x: x[1])
       reranked_blocks = tuple(block for block, _ in block_scores[:top_k])
-    
+
     return reranked_blocks
