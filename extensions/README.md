@@ -198,6 +198,10 @@ Resolvers handle blocks containing your schema's data.
        return None  # Or implement uniqueness check
    ```
 
+### Storage
+
+Storage type has to follow `extensions.{extension_id}.{type}` pattern.
+
 ### Extension Registration
 
 In your extension's `__init__.py`:

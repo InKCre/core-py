@@ -11,8 +11,12 @@ import sqlmodel
 import typing
 from typing import Optional as Opt
 from app.engine import SessionLocal
-from app.schemas.info_base.block import BlockModel
-from app.schemas.info_base.storage import StorageID, StorageModel, StorageTypesModel
+from app.schemas.info_base.storage import (
+  StorageID,
+  StorageTypeID,
+  StorageModel,
+  StorageTypesModel,
+)
 
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
@@ -22,21 +26,18 @@ ContentTV = typing.TypeVar("ContentTV")
 class _EmptyConfig(sqlmodel.SQLModel):
   """Default empty config class for storages without configuration."""
 
-  pass
-
 
 class StorageManager:
-  _STORAGE_CLASSES: dict[str, type["Storage"]] = {}
-  """Storage type registry: type string -> Storage class"""
+  _STORAGE_CLASSES: dict[StorageTypeID, type["Storage"]] = {}
+  """Storage type registry: type ID -> Storage class"""
 
   @classmethod
-  def add_storage_type(cls, storage_cls: type["Storage"]) -> None:
-    """Register a new storage type using PostgreSQL upsert."""
-    storage_type = storage_cls.__module__ + "." + storage_cls.__qualname__
-    cls._STORAGE_CLASSES[storage_type] = storage_cls
+  def register_storage(cls, storage_cls: type["Storage"]):
+    """Register a storage class."""
+    cls._STORAGE_CLASSES[storage_cls.__stgtype__] = storage_cls
 
     stmt = sqlalchemy.dialects.postgresql.insert(StorageTypesModel).values(
-      id=storage_type,
+      id=storage_cls.__stgtype__,
       description=storage_cls.__doc__ or "No description.",
       config_schema=storage_cls.__configschema__,
     )
@@ -51,12 +52,6 @@ class StorageManager:
     with SessionLocal() as db:
       db.exec(stmt)  # type: ignore
       db.commit()
-
-  @classmethod
-  def register_storage(cls, storage_cls: type["Storage"]):
-    """Register a storage class (called by __init_subclass__)."""
-    storage_type = storage_cls.__module__ + "." + storage_cls.__qualname__
-    cls._STORAGE_CLASSES[storage_type] = storage_cls
 
   @classmethod
   def get_storage(cls, storage_id: StorageID) -> "Storage":
@@ -101,7 +96,7 @@ class StorageManager:
     """Create a built-in storage instance with explicit negative ID.
 
     :param builtin_id: Negative integer ID for the built-in storage
-    :param type_: The storage type (class path)
+    :param type_: The storage type
     :param nickname: Optional descriptive nickname
     :param config: Optional configuration
     :return: The created storage model
@@ -125,29 +120,23 @@ class StorageManager:
 
     Uses PostgreSQL upsert to ensure built-in storages exist with correct configuration.
     """
-    from app.business.info_base.storage.http import (
-      HTTPHtmlStorage,
-      HTTPImageStorage,
-      HTTPVideoStorage,
-    )
-
     builtin_storages = [
       {
         "id": -1,
-        "type": ".".join((HTTPImageStorage.__module__, HTTPImageStorage.__qualname__)),
-        "nickname": "http_image",
+        "type": "http_image",
+        "nickname": "HTTP Image",
         "config": {},
       },
       {
         "id": -2,
-        "type": ".".join((HTTPVideoStorage.__module__, HTTPVideoStorage.__qualname__)),
-        "nickname": "http_video",
+        "type": "http_video",
+        "nickname": "HTTP Video",
         "config": {},
       },
       {
         "id": -3,
-        "type": ".".join((HTTPHtmlStorage.__module__, HTTPHtmlStorage.__qualname__)),
-        "nickname": "http_html",
+        "type": "http_html",
+        "nickname": "HTTP HTML",
         "config": {},
       },
     ]
@@ -175,24 +164,34 @@ class StorageManager:
 
 class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
   """Storage base.
+  Storage retrieves the raw content from block record.
 
-  Storage retrieves the actual content from block record.
+  Generic parameters:
+    - ConfigTV: Configuration type variable
+    - ContentTV: Content type variable
   """
 
   __configschema__: dict
   """Storage configuration JSON schema"""
   __configcls__: type[ConfigTV]
+  __stgtype__: StorageTypeID
+  """Storage type identifier"""
 
-  def __init_subclass__(cls, config_cls: type[ConfigTV] = _EmptyConfig, **kwargs) -> None:
+  def __init_subclass__(
+    cls, stg_type: StorageTypeID, config_cls: type[ConfigTV] = _EmptyConfig, **kwargs
+  ) -> None:
+    """
+    :param stg_type: Unique storage type string
+    :param config_cls: Configuration class for the storage
+    """
     cls.__configcls__ = config_cls
     cls.__configschema__ = config_cls.model_json_schema()
-    StorageManager.add_storage_type(cls)
+    cls.__stgtype__ = stg_type
     StorageManager.register_storage(cls)
     return super().__init_subclass__(**kwargs)
 
   def __init__(self, storage_record: StorageModel):
-    self._type = storage_record.type
-    self._config = storage_record.config
+    self._config = self.__configcls__.model_validate(storage_record.config)
 
     self.__post_init__()
 

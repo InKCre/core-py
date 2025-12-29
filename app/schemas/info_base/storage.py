@@ -5,18 +5,21 @@ import sqlmodel
 from typing import Optional as Opt
 
 
-StorageType: typing.TypeAlias = str
+StorageTypeID: typing.TypeAlias = str
 StorageID: typing.TypeAlias = int
 
 
 class StorageTypesModel(sqlmodel.SQLModel, table=True):
   __tablename__: str = "storage_types"  # type: ignore
 
-  id: str = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.Text, primary_key=True))
+  id: StorageTypeID = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, primary_key=True)
+  )
   """Type of storage.
-    
-    An absolute import path to the module where storage class at.
-    """
+
+  A custom string to identify the storage type.
+  For extension storages, must follow `extensions.{extension_id}.{type}` format.
+  """
   description: str = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.Text))
   """Description of this storage type."""
   config_schema: dict = sqlmodel.Field(
