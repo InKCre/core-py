@@ -722,13 +722,13 @@
         "tags": [
           "root"
         ],
-        "summary": "Insert Grpah",
-        "operationId": "insert_grpah_graph_put",
+        "summary": "Insert Subgrpah",
+        "operationId": "insert_subgrpah_graph_put",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StarGraphForm"
+                "$ref": "#/components/schemas/SubGraphForm"
               }
             }
           },
@@ -872,38 +872,6 @@
   },
   "components": {
     "schemas": {
-      "ArcForm": {
-        "properties": {
-          "relation": {
-            "$ref": "#/components/schemas/RelationModel"
-          },
-          "to_block": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/StarGraphForm"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "from_block": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/StarGraphForm"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "relation"
-        ],
-        "title": "ArcForm"
-      },
       "BlockModel": {
         "properties": {
           "id": {
@@ -1018,6 +986,38 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "InArcForm": {
+        "properties": {
+          "relation": {
+            "$ref": "#/components/schemas/RelationModel"
+          },
+          "from_subgraph": {
+            "$ref": "#/components/schemas/SubGraphForm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "relation",
+          "from_subgraph"
+        ],
+        "title": "InArcForm"
+      },
+      "OutArcForm": {
+        "properties": {
+          "relation": {
+            "$ref": "#/components/schemas/RelationModel"
+          },
+          "to_subgraph": {
+            "$ref": "#/components/schemas/SubGraphForm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "relation",
+          "to_subgraph"
+        ],
+        "title": "OutArcForm"
       },
       "RelationModel": {
         "properties": {
@@ -1181,25 +1181,25 @@
         ],
         "title": "SourceCollectJobStatus"
       },
-      "StarGraphForm": {
+      "SubGraphForm": {
         "properties": {
           "block": {
             "$ref": "#/components/schemas/BlockModel"
           },
-          "out_relations": {
+          "out_arcs": {
             "items": {
-              "$ref": "#/components/schemas/ArcForm"
+              "$ref": "#/components/schemas/OutArcForm"
             },
             "type": "array",
-            "title": "Out Relations",
+            "title": "Out Arcs",
             "default": []
           },
-          "in_relations": {
+          "in_arcs": {
             "items": {
-              "$ref": "#/components/schemas/ArcForm"
+              "$ref": "#/components/schemas/InArcForm"
             },
             "type": "array",
-            "title": "In Relations",
+            "title": "In Arcs",
             "default": []
           }
         },
@@ -1207,8 +1207,8 @@
         "required": [
           "block"
         ],
-        "title": "StarGraphForm",
-        "description": "A form for creating a block and its relations"
+        "title": "SubGraphForm",
+        "description": "A form for creating a sub-graph (start from a block, follows its in/out relations,\nincludes all reachable blocks)"
       },
       "ValidationError": {
         "properties": {
