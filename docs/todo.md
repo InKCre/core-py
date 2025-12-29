@@ -32,7 +32,6 @@
 
 - [x] 添加插入图接口
   - [x] 不插入重复的块和关系。（当前实现是判断解析器、内容、存储器字段一致；来源、去向、内容一致。未来考虑将内容一致性的判断交给解析器）
-- [ ] Embedding 也是 interval job 运行
 
 ### Block
 
@@ -46,8 +45,13 @@
   - 在未找到时，按照类型（和 Python 导入路径语法一致）尝试从插件中导入 （否则插件就需要在初始化时导入）
 - [ ] 规范化 Resolver，其负责解析 Block 的 StarGraph
 
+### Storage
+
+- [ ] 你 StorageType 用后端的路径...那我问你其它客户端怎么办？？？
+
 ## Sink
 
+- [x] Embedding 也是 interval job 运行
 - [x] Embbedding 等 indexing 都是 Sink 的职责
 - [x] 定期检查 Embedding 是否过期，过期则刷新
 - [ ] 确保 Embedding 使用的模型一致
@@ -103,4 +107,3 @@
 - [ ] AGENTS.md / Agent Skills to keep coding guideline (schema, business, basic pattern like use class, extension skill)
 - [ ] 将 migration/versions 添加回 git （但是从头来过，更干净）（也是 CI/CD 自动化测试、Copilot Agent 的重要前提）
 - [ ] Build agent loop
-- [ ] 按照 FastAPI Best Practice 重构项目结构

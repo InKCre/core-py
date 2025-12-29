@@ -183,7 +183,7 @@ class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
   """Storage configuration JSON schema"""
   __configcls__: type[ConfigTV]
 
-  def __init_subclass__(cls, config_cls: type[ConfigTV], **kwargs) -> None:
+  def __init_subclass__(cls, config_cls: type[ConfigTV] = _EmptyConfig, **kwargs) -> None:
     cls.__configcls__ = config_cls
     cls.__configschema__ = config_cls.model_json_schema()
     StorageManager.add_storage_type(cls)

@@ -117,9 +117,8 @@ class ImageResolver(Resolver, rso_type="image"):
 
     raise RuntimeError("Workflow did not complete successfully.")
 
-  async def __interactively_extract_BaR(
-    self, img2text_result: Img2TextResult
-  ) -> typing.AsyncGenerator[Resolver.BorRT, Resolver.BorRT]:
+  async def __interactively_extract_BaR(self, img2text_result: Img2TextResult):
+    #  -> typing.AsyncGenerator[Resolver.BorRT, Resolver.BorRT]:
     # alt:text
     alt_text_block = yield BlockModel(resolver="text", content=img2text_result["summary"])
     yield RelationModel(from_=self._block.id, to_=alt_text_block.id, content="alt:text")
