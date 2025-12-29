@@ -44,8 +44,7 @@
 - [x] Resolver relies on Storage to get the actual content (don't do it yourself, never considering what storage is)
 - [x] 改进加载模式
   - 在未找到时，按照类型（和 Python 导入路径语法一致）尝试从插件中导入 （否则插件就需要在初始化时导入）
-- [ ] Resolver 和 Storage 应该解耦；比如 ImageResolver 要的就是 content 为图片二进制的 block，storage就负责搞定这件事，resolver不应该在乎
-  - 
+- [ ] 规范化 Resolver，其负责解析 Block 的 StarGraph
 
 ## Sink
 

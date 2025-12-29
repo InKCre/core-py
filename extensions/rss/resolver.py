@@ -7,12 +7,12 @@ from app.schemas.info_base.main import SubGraphForm
 from .schema import FeedItem
 
 
-class FeedItemResolver(Resolver, rso_type="feed_item"):
+class FeedItemResolver(Resolver[FeedItem, str], rso_type="feed_item"):
   """Resolver for RSS/Atom feed item blocks."""
 
-  def __post_init__(self):
-    """Parse feed item content after initialization."""
-    self._solved_content = FeedItem.model_validate_json(self._block.content)
+  def __post_init__(self, raw_content):
+    if raw_content is not None:
+      self.set_solved_content(FeedItem.model_validate_json(raw_content))
 
   @classmethod
   def create_block(cls, content: FeedItem, storage=None) -> BlockModel:
@@ -36,22 +36,20 @@ class FeedItemResolver(Resolver, rso_type="feed_item"):
 
     Returns the content, falling back to summary or title.
     """
-    return (
-      self._solved_content.content
-      or self._solved_content.summary
-      or self._solved_content.title
-    )
+    solved_content = await self.get_solved_content()
+    return solved_content.content or solved_content.summary or solved_content.title
 
-  def get_str_for_embedding(self) -> str:
+  async def get_str_for_embedding(self) -> str:
     """Get text for embedding generation.
 
     Combines title, summary and content for better semantic search.
     """
-    parts = [f"Title: {self._solved_content.title}"]
-    if self._solved_content.summary:
-      parts.append(f"Summary: {self._solved_content.summary}")
-    if self._solved_content.content:
+    solved_content = await self.get_solved_content()
+    parts = [f"Title: {solved_content.title}"]
+    if solved_content.summary:
+      parts.append(f"Summary: {solved_content.summary}")
+    if solved_content.content:
       # Limit content length for embedding
-      content_preview = self._solved_content.content[:2000]
+      content_preview = solved_content.content[:2000]
       parts.append(f"Content: {content_preview}")
     return "\n\n".join(parts)

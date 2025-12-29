@@ -47,10 +47,12 @@ class EmbeddingManager:
         if block is None:
           raise ValueError(f"Block with id {block_id} not found")
 
-    resolver = ResolverManager.new_resolver(block)
+    resolver = ResolverManager.get(block)
     embedding = BlockEmbeddingModel(
       id=block.id,  # type: ignore[arg-type]
-      embedding=Embedding("", "text-embedding-v3").embed(resolver.get_str_for_embedding()),
+      embedding=Embedding("", "text-embedding-v3").embed(
+        await resolver.get_str_for_embedding()
+      ),
     )
     if db_session:
       db_session.merge(embedding)

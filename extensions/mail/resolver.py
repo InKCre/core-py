@@ -105,11 +105,8 @@ class NewsletterResolver(Resolver, rso_type="newsletter"):
     """
     return self.content.body
 
-  def get_str_for_embedding(self) -> str:
-    """Get text for embedding generation.
-
-    Combines subject and body for better semantic search.
-    """
+  async def get_str_for_embedding(self) -> str:
+    """Subject and body."""
     return f"Subject: {self.content.subject}\n\n{self.content.body}"
 
 

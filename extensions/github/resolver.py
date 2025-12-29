@@ -7,7 +7,7 @@ import sqlmodel
 from app.business.info_base.resolver import Resolver
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.info_base.main import ArcForm, SubGraphForm
+from app.schemas.info_base.main import InArcForm, SubGraphForm
 from utils.sql import find_by_json_contains
 from .schema import GithubRepo, GithubUser
 
@@ -15,9 +15,9 @@ from .schema import GithubRepo, GithubUser
 class GithubRepoResolver(Resolver, rso_type="github_repo"):
   """Resolver for GitHub repository blocks."""
 
-  def __post_init__(self):
-    """Parse GitHub repo content after initialization."""
-    self.content = GithubRepo.model_validate_json(self._block.content)
+  def __post_init__(self, raw_content):
+    if raw_content is not None:
+      self.set_solved_content(GithubRepo.model_validate_json(raw_content))
 
   @classmethod
   def create_graph(
@@ -38,7 +38,7 @@ class GithubRepoResolver(Resolver, rso_type="github_repo"):
     in_relations = ()
     if owner:
       in_relations = (
-        ArcForm(
+        InArcForm(
           relation=RelationModel(content="owns"),
           from_subgraph=GithubUserResolver.create_graph(owner),
         ),
@@ -73,7 +73,7 @@ class GithubRepoResolver(Resolver, rso_type="github_repo"):
       text += f": {self.content.description}"
     return text
 
-  def get_str_for_embedding(self) -> str:
+  async def get_str_for_embedding(self) -> str:
     """Get text for embedding generation.
 
     Combines name, description, topics and language for better semantic search.

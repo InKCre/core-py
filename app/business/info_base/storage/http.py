@@ -47,7 +47,7 @@ class HTTPStorage(Storage, config_cls=HTTPStorageConfig):
         response.raise_for_status()
         return response
 
-  async def get_content(self, block: BlockModel) -> str | bytes:
+  async def get_raw_content(self, block: BlockModel) -> str | bytes:
     """Fetch content from the URL in block.content.
 
     :param block: Block containing the URL in its content field
@@ -59,7 +59,7 @@ class HTTPStorage(Storage, config_cls=HTTPStorageConfig):
 class HTTPImageStorage(HTTPStorage):
   """HTTP storage for image content (returns base64-encoded data)."""
 
-  async def get_content(self, block: BlockModel) -> str:
+  async def get_raw_content(self, block: BlockModel) -> str:
     """Fetch and encode image content as base64."""
     url = block.content
     config = self.get_config()
@@ -76,7 +76,7 @@ class HTTPImageStorage(HTTPStorage):
 class HTTPVideoStorage(HTTPStorage):
   """HTTP storage for video content (returns raw bytes)."""
 
-  async def get_content(self, block: BlockModel) -> bytes:
+  async def get_raw_content(self, block: BlockModel) -> bytes:
     """Fetch video content as bytes."""
     url = block.content
     config = self.get_config()
@@ -93,7 +93,7 @@ class HTTPVideoStorage(HTTPStorage):
 class HTTPTextStorage(HTTPStorage):
   """HTTP storage for plain text content."""
 
-  async def get_content(self, block: BlockModel) -> str:
+  async def get_raw_content(self, block: BlockModel) -> str:
     """Fetch text content from URL."""
     url = block.content
     config = self.get_config()
@@ -109,7 +109,7 @@ class HTTPTextStorage(HTTPStorage):
 class HTTPJsonStorage(HTTPStorage):
   """HTTP storage for JSON content."""
 
-  async def get_content(self, block: BlockModel) -> str:
+  async def get_raw_content(self, block: BlockModel) -> str:
     """Fetch JSON content from URL."""
     url = block.content
     config = self.get_config()
@@ -125,7 +125,7 @@ class HTTPJsonStorage(HTTPStorage):
 class HTTPBinaryStorage(HTTPStorage):
   """HTTP storage for binary content (returns raw bytes)."""
 
-  async def get_content(self, block: BlockModel) -> bytes:
+  async def get_raw_content(self, block: BlockModel) -> bytes:
     """Fetch binary content as bytes."""
     url = block.content
     config = self.get_config()
@@ -142,7 +142,7 @@ class HTTPBinaryStorage(HTTPStorage):
 class HTTPHtmlStorage(HTTPStorage):
   """HTTP storage for HTML content (returns raw bytes)."""
 
-  async def get_content(self, block: BlockModel) -> bytes:
+  async def get_raw_content(self, block: BlockModel) -> bytes:
     """Fetch HTML content as bytes."""
     url = block.content
     config = self.get_config()

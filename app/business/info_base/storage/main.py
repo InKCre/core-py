@@ -59,7 +59,7 @@ class StorageManager:
     cls._STORAGE_CLASSES[storage_type] = storage_cls
 
   @classmethod
-  def _get_storage_ins(cls, storage_id: StorageID) -> "Storage":
+  def get_storage(cls, storage_id: StorageID) -> "Storage":
     """Create a storage instance."""
     with SessionLocal() as db:
       storage_record = db.exec(
@@ -73,15 +73,6 @@ class StorageManager:
       storage_class = getattr(module, class_name)
 
     return storage_class(storage_record)
-
-  @classmethod
-  def new_storage(cls, block: BlockModel) -> "Storage":
-    """Create storage instance from block."""
-    if block.storage is None:
-      return Storage(None)
-
-    storage_id = typing.cast(StorageID, block.storage)
-    return cls._get_storage_ins(storage_id)
 
   @classmethod
   def create(
@@ -199,13 +190,9 @@ class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
     StorageManager.register_storage(cls)
     return super().__init_subclass__(**kwargs)
 
-  def __init__(self, storage_record: Opt[StorageModel]):
-    if storage_record is not None:
-      self._type = storage_record.type
-      self._config = storage_record.config
-    else:
-      self._type = None  # Inline content storage
-      self._config = {}
+  def __init__(self, storage_record: StorageModel):
+    self._type = storage_record.type
+    self._config = storage_record.config
 
     self.__post_init__()
 
@@ -213,18 +200,8 @@ class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
     """Post-initialization hook for subclasses."""
     pass
 
-  async def get_content(self, block_content: str) -> ContentTV:
-    """Get the actual content of the block."""
-    if self._type is None:
-      # Inline content storage
-      return typing.cast(ContentTV, block_content)
-    return await self._get_content(block_content)
-
-  async def _get_content(self, block_content: str) -> ContentTV:
-    """Get the actual content from the concrete storage implementation.
-
-    Subclasses must override this method.
-    """
+  async def get_raw_content(self, block_content: str) -> ContentTV:
+    """Get the raw content of the block."""
     raise NotImplementedError(
-      f"{self.__class__.__name__}._get_content() must be implemented by subclasses."
+      f"{self.__class__.__name__}.get_raw_content() must be implemented by subclasses."
     )

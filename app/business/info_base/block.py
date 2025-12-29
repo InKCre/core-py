@@ -72,7 +72,7 @@ class BlockManager:
     block = cls.get(block_id)
     if block is None:
       return None
-    return ResolverManager.new_resolver(block)
+    return ResolverManager.get(block)
 
   @classmethod
   def create(
@@ -111,6 +111,7 @@ class BlockManager:
   async def refresh_embeddings(cls):
     """Rebuild all blocks' embeddings - delegates to sink embedding service"""
     from app.business.sink.embedding import EmbeddingManager
+
     await EmbeddingManager.refresh_all_block_embeddings()
 
   @classmethod
@@ -120,8 +121,8 @@ class BlockManager:
     Will NOT commit the session.
     """
     from app.business.sink.embedding import EmbeddingManager
-    
-    resolver = ResolverManager.new_resolver(block)
+
+    resolver = ResolverManager.get(block)
     existing = resolver.get_existing(db_session)
     if existing is not None:
       logger.debug(
@@ -149,7 +150,7 @@ class BlockManager:
     FIXME
     """
     with SessionLocal() as db_session:
-      resolver = ResolverManager.new_resolver(block)
+      resolver = ResolverManager.get(block)
       generator = (await resolver.breakdown())()
       try:
         i = generator.send(None)
@@ -179,6 +180,7 @@ class BlockManager:
     :param resolver: Filter by resolver type, None means no filter
     """
     from app.business.sink.embedding import EmbeddingManager
+
     return EmbeddingManager.query_blocks_by_embedding(
       block_id=block_id,
       embedding=embedding,

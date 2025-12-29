@@ -60,5 +60,5 @@ class BlockModel(sqlmodel.SQLModel, table=True):
   async def get_context_as_text(self) -> str:
     from app.business.info_base.resolver import ResolverManager
 
-    resolver = ResolverManager.new_resolver(self)
+    resolver = ResolverManager.get(self)
     return await resolver.get_text()
