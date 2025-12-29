@@ -6,10 +6,10 @@ import imaplib
 
 import sqlmodel
 from app.business.source import SourceBase
-from app.business.info_base.root import RootManager
+from app.business.info_base.main import InfoBaseManager
 from app.engine import SessionLocal
 from app.schemas.info_base.block import BlockID, BlockModel
-from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.main import SubGraphForm
 from app.schemas.source import SourceCollectJobModel
 from app.scheduler import scheduler
 from libs.obsrv.main import get_logger
@@ -225,12 +225,12 @@ class Source(SourceBase[NewsletterSourceConfig], config_cls=NewsletterSourceConf
 
         # Collect as StarGraphForm
         collected.append(
-          StarGraphForm(
+          SubGraphForm(
             block=BlockModel(
               resolver="extensions.mail.resolver.NewsletterResolver",
               content=newsletter_obj.model_dump_json(),
             ),
-            out_relations=(),
+            out_arcs=(),
           )
         )
         logger.debug(
@@ -253,7 +253,7 @@ class Source(SourceBase[NewsletterSourceConfig], config_cls=NewsletterSourceConf
     try:
       with SessionLocal() as db:
         for graph in reversed(collected) if full else collected:
-          await RootManager.add_star_graph_to_session(graph, db)
+          await InfoBaseManager.add_subgraph_to_session(graph, db)
           # Schedule organize
           scheduler.add_job(
             func=self._organize,

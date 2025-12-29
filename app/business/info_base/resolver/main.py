@@ -6,7 +6,7 @@ import sqlmodel
 
 from app.business.info_base.storage.main import StorageManager
 
-from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.main import SubGraphForm
 from app.schemas.info_base.block import ResolverType, BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageID
@@ -33,16 +33,15 @@ class ResolverManager:
     return resolver_cls(block)
 
 
-class Resolver(abc.ABC):
-  """Resolver resolves a block and its (direct) relations."""
+SolvedContentTV = typing.TypeVar("SolvedContentTV")
+RawContentTV = typing.TypeVar("RawContentTV")
+
+
+class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
+  """Resolver resolves a star graph (a block and its direct relations)"""
 
   __rsotype__: ResolverType
-  """Resolver type
-    """
-
-  BorRT: typing.TypeAlias = BlockModel | RelationModel
-  """Union type of BlockModel and RelationModel
-    """
+  """Resolver type"""
 
   def __init_subclass__(cls, rso_type: str, **kwargs) -> None:
     cls.__rsotype__ = rso_type
@@ -57,7 +56,8 @@ class Resolver(abc.ABC):
     """
     self._block = block
     self._relations = relations or tuple()
-    self._solved_content: typing.Any
+    self._raw_content: RawContentTV
+    self._solved_content: SolvedContentTV
     self.__post_init__()
 
   def __post_init__(self):
@@ -73,16 +73,7 @@ class Resolver(abc.ABC):
 
   @classmethod
   # @abc.abstractmethod TODO
-  def create_graph(cls, *args, **kwargs) -> StarGraphForm: ...
-
-  # @abc.abstractmethod TODO
-  async def breakdown(self) -> typing.AsyncGenerator[BorRT, BorRT]:
-    """Break down the block into smaller blocks and relations.
-
-    :param block_id: The block the content to resolve belongs to.
-    :return:
-    """
-    ...
+  def create_graph(cls, *args, **kwargs) -> SubGraphForm: ...
 
   async def get_text(self) -> str:
     """Get block content in text format."""

@@ -30,7 +30,7 @@ from app.routes.extension import ROUTER as extension_router
 from app.routes.source import ROUTER as source_router
 from app.business.source import SourceManager
 from app.business.extension import ExtensionManager
-from app.business.info_base.root import RootManager
+from app.business.info_base.main import InfoBaseManager
 from app.business.sink import SinkManager
 from app.middleware import LoggingMiddleware, JWTMiddleware
 
@@ -98,7 +98,7 @@ api_app.get("/heartbeat")(lambda: {"status": "ok"})
 root_router = fastapi.APIRouter(tags=["root"])
 sink_router = fastapi.APIRouter(prefix="/sink", tags=["sink"])
 
-root_router.put("/graph")(RootManager.insert_grpah)
+root_router.put("/graph")(InfoBaseManager.insert_subgrpah)
 sink_router.get("/rag")(SinkManager.rag)
 
 api_app.include_router(block_router)

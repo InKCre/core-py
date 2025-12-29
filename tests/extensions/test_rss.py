@@ -137,7 +137,7 @@ def test_feed_item_resolver_create_graph():
   graph = FeedItemResolver.create_graph(item)
 
   assert graph.block.resolver == "feed_item"
-  assert graph.out_relations == ()
+  assert graph.out_arcs == ()
 
 
 def test_feed_item_resolver_get_text():

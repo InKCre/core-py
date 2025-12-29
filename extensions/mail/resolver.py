@@ -7,7 +7,7 @@ import sqlmodel
 from app.business.info_base.resolver import Resolver
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.info_base.main import ArcForm, StarGraphForm
+from app.schemas.info_base.main import InArcForm, OutArcForm, SubGraphForm
 from utils.sql import find_by_json_contains
 from .schema import Email, EmailAddress, Newsletter
 
@@ -26,7 +26,7 @@ class EmailResolver(Resolver, rso_type="email"):
     from_: EmailAddress,
     to: list[EmailAddress],
     cc: Opt[list[EmailAddress]] = None,
-  ) -> StarGraphForm:
+  ) -> SubGraphForm:
     """Create a StarGraphForm from email data.
 
     :param email: the email
@@ -41,29 +41,29 @@ class EmailResolver(Resolver, rso_type="email"):
         B -->|cc| D[Email Address]
     ```
     """
-    return StarGraphForm(
-      in_relations=(
-        ArcForm(
+    return SubGraphForm(
+      in_arcs=(
+        InArcForm(
           relation=RelationModel(content="from"),
-          from_block=EmailAddressResolver.create_graph(from_),
+          from_subgraph=EmailAddressResolver.create_graph(from_),
         ),
       ),
       block=BlockModel(
         resolver=cls.__rsotype__,
         content=email.model_dump_json(),
       ),
-      out_relations=(
+      out_arcs=(
         *(
-          ArcForm(
+          OutArcForm(
             relation=RelationModel(content="to"),
-            to_block=EmailAddressResolver.create_graph(addr),
+            to_subgraph=EmailAddressResolver.create_graph(addr),
           )
           for addr in to
         ),
         *(
-          ArcForm(
+          OutArcForm(
             relation=RelationModel(content="cc"),
-            to_block=EmailAddressResolver.create_graph(addr),
+            to_subgraph=EmailAddressResolver.create_graph(addr),
           )
           for addr in (cc or [])
         ),
@@ -84,18 +84,18 @@ class NewsletterResolver(Resolver, rso_type="newsletter"):
     self.content = Newsletter.model_validate_json(self._block.content)
 
   @classmethod
-  def create_graph(cls, newsletter: Newsletter) -> StarGraphForm:
+  def create_graph(cls, newsletter: Newsletter) -> SubGraphForm:
     """Create a StarGraphForm from newsletter data.
 
     :param newsletter: Newsletter object to convert to block
     :return: StarGraphForm for the newsletter
     """
-    return StarGraphForm(
+    return SubGraphForm(
       block=BlockModel(
         resolver=cls.__rsotype__,
         content=newsletter.model_dump_json(),
       ),
-      out_relations=(),
+      out_arcs=(),
     )
 
   async def get_text(self) -> str:
@@ -130,8 +130,8 @@ class EmailAddressResolver(Resolver, rso_type="email_address"):
     )
 
   @classmethod
-  def create_graph(cls, email: EmailAddress | dict) -> StarGraphForm:
-    return StarGraphForm(block=cls.create_block(email))
+  def create_graph(cls, email: EmailAddress | dict) -> SubGraphForm:
+    return SubGraphForm(block=cls.create_block(email))
 
   async def get_text(self) -> str:
     """Get text representation of the email address.

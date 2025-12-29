@@ -1,13 +1,13 @@
 import typing
-from app.business.info_base.root import RootManager
+from app.business.info_base.main import InfoBaseManager
 from app.business.info_base.resolver import Resolver
 from app.business.info_base.resolver.text import TextResolver
 from app.engine import SessionLocal
 from libs.ai import one_chat_with_vlm
-from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.main import SubGraphForm
 from app.schemas.info_base.block import BlockID
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.info_base.main import ArcForm
+from app.schemas.info_base.main import InArcForm
 
 
 class TweetResolver(Resolver, rso_type="tweet"):
@@ -21,10 +21,10 @@ class TweetResolver(Resolver, rso_type="tweet"):
       # log error
       return
     with SessionLocal() as db:
-      graph = StarGraphForm(
+      graph = SubGraphForm(
         block=TextResolver.create_graph(text=res).block,
-        in_relations=(
-          ArcForm(
+        in_arcs=(
+          InArcForm(
             relation=RelationModel(
               content="alt:text",
               from_=typing.cast(BlockID, self._block.id),
@@ -32,5 +32,5 @@ class TweetResolver(Resolver, rso_type="tweet"):
           ),
         ),
       )
-      RootManager.add_star_graph_to_session(graph, db)
+      InfoBaseManager.add_subgraph_to_session(graph, db)
       db.commit()

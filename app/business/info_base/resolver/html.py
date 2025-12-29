@@ -5,12 +5,10 @@ from .main import Resolver
 class HTMLResolver(Resolver, rso_type="html"):
   @classmethod
   def create_graph(cls, url: str):
-    from app.schemas.info_base.main import StarGraphForm
+    from app.schemas.info_base.main import SubGraphForm
     from app.schemas.info_base.block import BlockModel
 
-    return StarGraphForm(
-      block=BlockModel(resolver=cls.__rsotype__, content=url, storage=-3)
-    )
+    return SubGraphForm(block=BlockModel(resolver=cls.__rsotype__, content=url, storage=-3))
 
   async def get_text(self) -> str:
     from app.business.info_base.block import BlockManager

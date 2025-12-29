@@ -5,8 +5,8 @@ import asyncio
 import sqlmodel
 from app.business.source import SourceBase
 from app.engine import SessionLocal
-from app.business.info_base.root import RootManager
-from app.schemas.info_base.main import StarGraphForm
+from app.business.info_base.main import InfoBaseManager
+from app.schemas.info_base.main import SubGraphForm
 from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceCollectJobModel
 from extensions.github.resolver import GithubRepoResolver
@@ -70,7 +70,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       )
       raise e
 
-    collected: list[StarGraphForm] = []
+    collected: list[SubGraphForm] = []
     try:
       # Get starred repositories
       try:
@@ -87,15 +87,15 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       # Get state for tracking
       state = self.get_state()
       last_starred_id = state.get("last_starred_id")
-      
+
       # Process starred repositories
       processed_count = 0
       new_stars_count = 0
       reached_last_star = False
-      
+
       for starred_repo in starred:
         processed_count += 1
-        
+
         # Stop if we've reached the last collected star (not in full mode)
         if not full and last_starred_id and starred_repo.id == last_starred_id:
           logger.info(
@@ -157,7 +157,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
           # Create graph
           collected.append(GithubRepoResolver.create_graph(repo, owner))
           new_stars_count += 1
-          
+
           # Update state to track the most recent star
           if processed_count == 1:
             state["last_starred_id"] = starred_repo.id
@@ -194,7 +194,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     try:
       with SessionLocal() as db:
         for graph in collected:
-          await RootManager.add_star_graph_to_session(graph, db)
+          await InfoBaseManager.add_subgraph_to_session(graph, db)
         db.commit()
       logger.info(
         "GitHub stars collection completed",

@@ -10,11 +10,7 @@ class TextResolver(Resolver, rso_type="text"):
 
   @classmethod
   def create_graph(cls, text: str):
-    from app.schemas.info_base.main import StarGraphForm
+    from app.schemas.info_base.main import SubGraphForm
     from app.schemas.info_base.block import BlockModel
 
-    return StarGraphForm(block=BlockModel(resolver=cls.__rsotype__, content=text))
-
-  async def breakdown(self) -> typing.AsyncGenerator[Resolver.BorRT, Resolver.BorRT]:
-    # Implementation
-    ...
+    return SubGraphForm(block=BlockModel(resolver=cls.__rsotype__, content=text))

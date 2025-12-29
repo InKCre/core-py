@@ -36,11 +36,6 @@
 
 ### Block
 
-- [ ] 确保 Embedding 使用的模型一致
-- [ ] 定期检查 Embedding 是否过期，过期则刷新
-- [ ] 推理检索不一定要基于 LLM，可以基于传统规则（如 Resolver 自己配置的，举例 learn_english.lexical）
-- [ ] 向量检索多模态对齐问题
-  - 为不同的模态的向量设置不同的列
 - [x] fetchsert 由 resolver 来决定是否相同
 
 ### Resolver
@@ -50,11 +45,18 @@
 - [x] 改进加载模式
   - 在未找到时，按照类型（和 Python 导入路径语法一致）尝试从插件中导入 （否则插件就需要在初始化时导入）
 - [ ] Resolver 和 Storage 应该解耦；比如 ImageResolver 要的就是 content 为图片二进制的 block，storage就负责搞定这件事，resolver不应该在乎
+  - 
 
 ## Sink
 
-- [ ] Embbedding 等 indexing 都是 Sink 的职责
+- [x] Embbedding 等 indexing 都是 Sink 的职责
+- [x] 定期检查 Embedding 是否过期，过期则刷新
+- [ ] 确保 Embedding 使用的模型一致
+- [ ] 向量检索多模态对齐问题
+  - 为不同的模态的向量设置不同的列
 - [ ] 真正地实现 RAG <https://blog.yakkomajuri.com/blog/local-rag>
+- [ ] 推理检索不一定要基于 LLM，可以基于传统规则（如 Resolver 自己配置的，举例 learn_english.lexical）
+- [ ] 结构有点混乱，应该有 RAGSink, 而不是 Sink.rag
 
 ## Extension
 - [x] Run `pdm install` to install dependencies the extension required when install or upgrade an extension.
@@ -98,8 +100,8 @@
 ## Trivias
 
 - [x] indent 修改为 2 spaces
-- [ ] 替换所有 datetime.datetime.now 为 get_datetimez
 - [ ] Github CI environment
 - [ ] AGENTS.md / Agent Skills to keep coding guideline (schema, business, basic pattern like use class, extension skill)
 - [ ] 将 migration/versions 添加回 git （但是从头来过，更干净）（也是 CI/CD 自动化测试、Copilot Agent 的重要前提）
 - [ ] Build agent loop
+- [ ] 按照 FastAPI Best Practice 重构项目结构

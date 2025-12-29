@@ -51,6 +51,11 @@ class BlockModel(sqlmodel.SQLModel, table=True):
   content: str = sqlmodel.Field(
     sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
   )
+  """Content of the block.
+  
+  Block content stored as text in database.
+  For runtime usage, use storage to get the raw content.
+  """
 
   async def get_context_as_text(self) -> str:
     from app.business.info_base.resolver import ResolverManager

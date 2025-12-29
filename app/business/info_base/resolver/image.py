@@ -11,7 +11,7 @@ import aiohttp
 from typing import Optional as Opt
 
 from .main import Resolver
-from app.schemas.info_base.main import StarGraphForm, ArcForm
+from app.schemas.info_base.main import SubGraphForm, ArcForm
 from app.schemas.info_base.block import ResolverType, BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.engine import SessionLocal
@@ -37,13 +37,13 @@ class Img2TextResult(typing.TypedDict):
 
 class ImageResolver(Resolver, rso_type="image"):
   @classmethod
-  def create_graph(cls, url: str, alt_text: Opt[str] = None) -> StarGraphForm:
-    return StarGraphForm(
+  def create_graph(cls, url: str, alt_text: Opt[str] = None) -> SubGraphForm:
+    return SubGraphForm(
       block=BlockModel(resolver=cls.__rsotype__, content=url, storage=-1),
-      out_relations=(
+      out_arcs=(
         ArcForm(
           relation=RelationModel(content="alt:text"),
-          to_block=cls.__create_text_brs(alt_text),
+          to_subgraph=cls.__create_text_brs(alt_text),
         ),
       )
       if alt_text
@@ -51,15 +51,10 @@ class ImageResolver(Resolver, rso_type="image"):
     )
 
   @classmethod
-  def __create_text_brs(cls, text: str) -> StarGraphForm:
+  def __create_text_brs(cls, text: str) -> SubGraphForm:
     from .text import TextResolver
 
     return TextResolver.create_graph(text)
-
-  async def breakdown(self) -> typing.AsyncGenerator[Resolver.BorRT, Resolver.BorRT]:
-    img2text_result = await self.__img2text()
-    async for i in self.__interactively_extract_BaR(img2text_result):
-      yield i
 
   def __get_custom_variables(self) -> dict:
     if self._block.storage is None:

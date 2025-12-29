@@ -7,7 +7,7 @@ import sqlmodel
 from app.business.info_base.resolver import Resolver
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.info_base.main import ArcForm, StarGraphForm
+from app.schemas.info_base.main import ArcForm, SubGraphForm
 from utils.sql import find_by_json_contains
 from .schema import GithubRepo, GithubUser
 
@@ -24,7 +24,7 @@ class GithubRepoResolver(Resolver, rso_type="github_repo"):
     cls,
     repo: GithubRepo,
     owner: Opt[GithubUser] = None,
-  ) -> StarGraphForm:
+  ) -> SubGraphForm:
     """Create a StarGraphForm from GitHub repository data.
 
     :param repo: GitHub repository
@@ -40,17 +40,17 @@ class GithubRepoResolver(Resolver, rso_type="github_repo"):
       in_relations = (
         ArcForm(
           relation=RelationModel(content="owns"),
-          from_block=GithubUserResolver.create_graph(owner),
+          from_subgraph=GithubUserResolver.create_graph(owner),
         ),
       )
-    
-    return StarGraphForm(
-      in_relations=in_relations,
+
+    return SubGraphForm(
+      in_arcs=in_relations,
       block=BlockModel(
         resolver=cls.__rsotype__,
         content=repo.model_dump_json(),
       ),
-      out_relations=(),
+      out_arcs=(),
     )
 
   def get_existing(self, db_session: Session) -> BlockModel | None:
@@ -92,9 +92,7 @@ class GithubUserResolver(Resolver, rso_type="github_user"):
   """Resolver for GitHub user blocks."""
 
   def __post_init__(self):
-    self._solved_content: GithubUser = GithubUser.model_validate_json(
-      self._block.content
-    )
+    self._solved_content: GithubUser = GithubUser.model_validate_json(self._block.content)
 
   @classmethod
   def create_block(cls, content: GithubUser | dict, storage=None) -> BlockModel:
@@ -105,8 +103,8 @@ class GithubUserResolver(Resolver, rso_type="github_user"):
     )
 
   @classmethod
-  def create_graph(cls, user: GithubUser | dict) -> StarGraphForm:
-    return StarGraphForm(block=cls.create_block(user))
+  def create_graph(cls, user: GithubUser | dict) -> SubGraphForm:
+    return SubGraphForm(block=cls.create_block(user))
 
   async def get_text(self) -> str:
     """Get text representation of the GitHub user.

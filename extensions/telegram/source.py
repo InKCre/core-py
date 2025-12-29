@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import Application
 from app.business.source import SourceBase
 from app.engine import SessionLocal
-from app.business.info_base.root import RootManager
+from app.business.info_base.main import InfoBaseManager
 from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceCollectJobModel
 from extensions.telegram.resolver import TelegramMessageResolver
@@ -138,7 +138,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     # Save collected messages to database
     with SessionLocal() as db:
       for graph in collected:
-        await RootManager.add_star_graph_to_session(graph, db)
+        await InfoBaseManager.add_subgraph_to_session(graph, db)
       db.commit()
 
   async def record(self, data: typing.Any) -> None:
@@ -167,7 +167,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
     # Save to database
     with SessionLocal() as db:
-      await RootManager.add_star_graph_to_session(graph, db)
+      await InfoBaseManager.add_subgraph_to_session(graph, db)
       db.commit()
 
   async def _organize(self, block_id: BlockID) -> None:

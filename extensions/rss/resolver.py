@@ -2,7 +2,7 @@
 
 from app.business.info_base.resolver import Resolver
 from app.schemas.info_base.block import BlockModel
-from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.main import SubGraphForm
 
 from .schema import FeedItem
 
@@ -15,19 +15,20 @@ class FeedItemResolver(Resolver, rso_type="feed_item"):
     self._solved_content = FeedItem.model_validate_json(self._block.content)
 
   @classmethod
-  def create_block(cls, item: FeedItem) -> BlockModel:
+  def create_block(cls, content: FeedItem, storage=None) -> BlockModel:
     """Create a BlockModel from a FeedItem."""
     return BlockModel(
       resolver=cls.__rsotype__,
-      content=item.model_dump_json(),
+      content=content.model_dump_json(),
+      storage=storage,
     )
 
   @classmethod
-  def create_graph(cls, item: FeedItem) -> StarGraphForm:
+  def create_graph(cls, item: FeedItem) -> SubGraphForm:
     """Create a StarGraphForm from a FeedItem."""
-    return StarGraphForm(
+    return SubGraphForm(
       block=cls.create_block(item),
-      out_relations=(),
+      out_arcs=(),
     )
 
   async def get_text(self) -> str:

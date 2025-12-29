@@ -1,9 +1,9 @@
 from .block import BlockManager
 from .relation import RelationManager
-from .root import RootManager
+from .main import InfoBaseManager
 
 __all__ = [
   "BlockManager",
   "RelationManager",
-  "RootManager",
+  "InfoBaseManager",
 ]

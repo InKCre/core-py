@@ -4,6 +4,7 @@ __all__ = [
 ]
 
 import abc
+import importlib
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
@@ -15,6 +16,7 @@ from app.schemas.info_base.storage import StorageID, StorageModel, StorageTypesM
 
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
+ContentTV = typing.TypeVar("ContentTV")
 
 
 class _EmptyConfig(sqlmodel.SQLModel):
@@ -24,9 +26,6 @@ class _EmptyConfig(sqlmodel.SQLModel):
 
 
 class StorageManager:
-  STORAGES: dict[StorageID, "Storage"] = {}
-  """Instance cache: StorageID -> Storage instance"""
-
   _STORAGE_CLASSES: dict[str, type["Storage"]] = {}
   """Storage type registry: type string -> Storage class"""
 
@@ -60,30 +59,20 @@ class StorageManager:
     cls._STORAGE_CLASSES[storage_type] = storage_cls
 
   @classmethod
-  def _get_storage_ins(
-    cls, storage_id: StorageID, storage_type: Opt[str] = None
-  ) -> "Storage":
-    """Get or create a storage instance from the cache."""
-    ins = cls.STORAGES.get(storage_id, None)
-    if ins is None:
-      if storage_type is None:
-        with SessionLocal() as db:
-          storage_type = db.exec(
-            sqlmodel.select(StorageModel.type).where(StorageModel.id == storage_id)
-          ).one()
-      storage_class = cls._STORAGE_CLASSES.get(storage_type)
-      if storage_class is None:
-        raise ValueError(f"Storage class {storage_type} not registered.")
+  def _get_storage_ins(cls, storage_id: StorageID) -> "Storage":
+    """Create a storage instance."""
+    with SessionLocal() as db:
+      storage_record = db.exec(
+        sqlmodel.select(StorageModel).where(StorageModel.id == storage_id)
+      ).one()
+    storage_class = cls._STORAGE_CLASSES.get(storage_record.type)
+    if storage_class is None:
+      # Dynamically import the storage class
+      module_path, class_name = storage_record.type.rsplit(".", 1)
+      module = importlib.import_module(module_path)
+      storage_class = getattr(module, class_name)
 
-      # Get storage record to pass to constructor
-      with SessionLocal() as db:
-        storage_record = db.exec(
-          sqlmodel.select(StorageModel).where(StorageModel.id == storage_id)
-        ).one()
-
-      ins = storage_class(storage_record)
-      cls.STORAGES[storage_id] = ins
-    return ins
+    return storage_class(storage_record)
 
   @classmethod
   def new_storage(cls, block: BlockModel) -> "Storage":
@@ -193,50 +182,49 @@ class StorageManager:
       db.commit()
 
 
-class Storage(abc.ABC, typing.Generic[ConfigTV]):
+class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
   """Storage base.
 
-  Storage stores the actual content of a block.
-
-  When block storage is None, initialize this base class.
+  Storage retrieves the actual content from block record.
   """
 
   __configschema__: dict
   """Storage configuration JSON schema"""
   __configcls__: type[ConfigTV]
 
-  def __init_subclass__(
-    cls, config_cls: type[sqlmodel.SQLModel] = _EmptyConfig, **kwargs
-  ) -> None:
-    cls.__configcls__ = config_cls  # type: ignore
+  def __init_subclass__(cls, config_cls: type[ConfigTV], **kwargs) -> None:
+    cls.__configcls__ = config_cls
     cls.__configschema__ = config_cls.model_json_schema()
     StorageManager.add_storage_type(cls)
     StorageManager.register_storage(cls)
     return super().__init_subclass__(**kwargs)
 
   def __init__(self, storage_record: Opt[StorageModel]):
-    self._storage_record = storage_record
     if storage_record is not None:
-      self._storage_id = storage_record.id
-      self._storage_type = storage_record.type
-      self._storage_nickname = storage_record.nickname
-      self._storage_config = storage_record.config
+      self._type = storage_record.type
+      self._config = storage_record.config
     else:
-      self._storage_id = None
-      self._storage_type = None
-      self._storage_nickname = None
-      self._storage_config = {}
+      self._type = None  # Inline content storage
+      self._config = {}
 
-  def get_config(self) -> ConfigTV:
-    """Get the configuration of the storage."""
-    if self._storage_record is None:
-      raise ValueError("No storage record available for inline content storage.")
-    return typing.cast(ConfigTV, self.__configcls__.model_validate(self._storage_config))
+    self.__post_init__()
 
-  async def get_content(self, block: BlockModel) -> typing.Any:
+  def __post_init__(self):
+    """Post-initialization hook for subclasses."""
+    pass
+
+  async def get_content(self, block_content: str) -> ContentTV:
     """Get the actual content of the block."""
-    if self._storage_record is None:
+    if self._type is None:
       # Inline content storage
-      return block.content
-    else:
-      raise NotImplementedError("Storage record is not None, should use concrete Storage.")
+      return typing.cast(ContentTV, block_content)
+    return await self._get_content(block_content)
+
+  async def _get_content(self, block_content: str) -> ContentTV:
+    """Get the actual content from the concrete storage implementation.
+
+    Subclasses must override this method.
+    """
+    raise NotImplementedError(
+      f"{self.__class__.__name__}._get_content() must be implemented by subclasses."
+    )

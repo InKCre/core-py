@@ -2,7 +2,7 @@
 
 from app.business.info_base.resolver import Resolver
 from app.schemas.info_base.block import BlockModel
-from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.main import SubGraphForm
 from .schema import TelegramMessage
 
 
@@ -16,18 +16,18 @@ class TelegramMessageResolver(
     self._resolved_content = TelegramMessage.model_validate_json(self._block.content)
 
   @classmethod
-  def create_graph(cls, message: TelegramMessage) -> StarGraphForm:
+  def create_graph(cls, message: TelegramMessage) -> SubGraphForm:
     """Create a StarGraphForm from Telegram message data.
 
     :param message: TelegramMessage object to convert to block
     :return: StarGraphForm for the Telegram message
     """
-    return StarGraphForm(
+    return SubGraphForm(
       block=BlockModel(
         resolver=cls.__rsotype__,
         content=message.model_dump_json(),
       ),
-      out_relations=(),
+      out_arcs=(),
     )
 
   async def get_text(self) -> str:

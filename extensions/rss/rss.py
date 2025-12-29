@@ -10,10 +10,10 @@ from typing import Optional as Opt
 from bs4 import BeautifulSoup
 
 from app.business.source import SourceBase
-from app.business.info_base.root import RootManager
+from app.business.info_base.main import InfoBaseManager
 from app.engine import SessionLocal
 from app.schemas.info_base.block import BlockID, BlockModel
-from app.schemas.info_base.main import StarGraphForm
+from app.schemas.info_base.main import SubGraphForm
 from app.schemas.source import SourceCollectJobModel
 from app.scheduler import scheduler
 from libs.obsrv.main import get_logger
@@ -74,7 +74,7 @@ class Source(SourceBase[RssSourceConfig], config_cls=RssSourceConfig):
       },
     )
 
-    collected: list[StarGraphForm] = []
+    collected: list[SubGraphForm] = []
     state = self.get_state()
     seen_ids: set[str] = set(state.get("seen_ids", []))
 
@@ -219,7 +219,7 @@ class Source(SourceBase[RssSourceConfig], config_cls=RssSourceConfig):
     try:
       with SessionLocal() as db:
         for graph in reversed(collected) if full else collected:
-          await RootManager.add_star_graph_to_session(graph, db)
+          await InfoBaseManager.add_subgraph_to_session(graph, db)
         db.commit()
 
       # Update state with seen IDs (keep last 1000 to avoid unbounded growth)
