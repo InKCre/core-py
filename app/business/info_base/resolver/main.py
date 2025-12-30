@@ -47,7 +47,10 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   """
 
   __rsotype__: ResolverType
-  """Resolver type"""
+  """Resolver type
+  
+  Extension resolver should follows `extensions.{extension_id}.{resolver_name}` pattern.
+  """
 
   def __init_subclass__(cls, rso_type: str, **kwargs) -> None:
     cls.__rsotype__ = rso_type

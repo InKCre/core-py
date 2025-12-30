@@ -164,7 +164,7 @@ class StorageManager:
 
 class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
   """Storage base.
-  Storage retrieves the raw content from block record.
+  Storage retrieves the raw ("real") content from block record.
 
   Generic parameters:
     - ConfigTV: Configuration type variable

@@ -60,6 +60,7 @@
 - [ ] 真正地实现 RAG <https://blog.yakkomajuri.com/blog/local-rag>
 - [ ] 推理检索不一定要基于 LLM，可以基于传统规则（如 Resolver 自己配置的，举例 learn_english.lexical）
 - [ ] 结构有点混乱，应该有 RAGSink, 而不是 Sink.rag
+- [ ] GraphSink 提前做社区分析
 
 ## Extension
 - [x] Run `pdm install` to install dependencies the extension required when install or upgrade an extension.

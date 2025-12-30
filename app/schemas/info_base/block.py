@@ -10,6 +10,10 @@ if typing.TYPE_CHECKING:
   from .main import Vector
 
 ResolverType: typing.TypeAlias = str
+"""Type of resolver. 
+
+Extension resolvers should follows `extensions.{extension_id}.{resolver_name}` pattern.
+"""
 BlockID: typing.TypeAlias = int
 ResolverTV = typing.TypeVar("ResolverTV", bound="ResolverType")
 """Resolver type variable"""

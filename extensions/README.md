@@ -134,7 +134,7 @@ Resolvers handle blocks containing your schema's data.
    from app.schemas.info_base.block import BlockModel
    from app.schemas.info_base.main import StarGraphForm
    
-   class YourResolver(Resolver, rso_type="your_resolver_type"):
+   class YourResolver(Resolver, rso_type="extensions.<extension_id>.resolver_type"):
        """Resolver for your content blocks."""
        
        def __post_init__(self):
