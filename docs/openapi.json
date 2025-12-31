@@ -549,14 +549,14 @@
         }
       }
     },
-    "/extensions/{extid}/disabled/{disabled}": {
-      "put": {
+    "/extensions/{extid}/enable": {
+      "post": {
         "tags": [
           "extension"
         ],
-        "summary": "Toggle Extension",
-        "description": "启用/禁用插件 (Enable/Disable extension)",
-        "operationId": "toggle_extension_extensions__extid__disabled__disabled__put",
+        "summary": "Enable Extension",
+        "description": "启用插件 (Enable extension for current client)",
+        "operationId": "enable_extension_extensions__extid__enable_post",
         "parameters": [
           {
             "name": "extid",
@@ -566,14 +566,48 @@
               "type": "string",
               "title": "Extid"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionModel"
+                }
+              }
+            }
           },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extensions/{extid}/disable": {
+      "post": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Disable Extension",
+        "description": "禁用插件 (Disable extension for current client)",
+        "operationId": "disable_extension_extensions__extid__disable_post",
+        "parameters": [
           {
-            "name": "disabled",
+            "name": "extid",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "boolean",
-              "title": "Disabled"
+              "type": "string",
+              "title": "Extid"
             }
           }
         ],
@@ -932,10 +966,13 @@
             "type": "string",
             "title": "Version"
           },
-          "disabled": {
-            "type": "boolean",
-            "title": "Disabled",
-            "default": false
+          "enabled": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Enabled"
           },
           "nickname": {
             "anyOf": [
