@@ -30,6 +30,7 @@ from app.routes.extension import ROUTER as extension_router
 from app.routes.source import ROUTER as source_router
 from app.business.source import SourceManager
 from app.business.extension import ExtensionManager
+from app.business.client import ClientManager
 from app.business.info_base.main import InfoBaseManager
 from app.business.sink import SinkManager
 from app.middleware import LoggingMiddleware, JWTMiddleware
@@ -46,6 +47,9 @@ async def lifespan(app: fastapi.FastAPI):
   from app.business.sink.embedding import EmbeddingManager
 
   logger.info("Application startup")
+
+  # Register this client first
+  ClientManager.register_self()
 
   # Setup built-in storage instances
   StorageManager.setup_builtin_storages()

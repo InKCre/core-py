@@ -69,6 +69,13 @@
 - [ ] 使用 git submodules ？ 
 - [ ] 插件提供将升级的迁移放在 `extensions/<extid>/mirgations/` 中，upgrade / downgrade 会执行；
       关键的一件事就是迁移 SourceType
+- [ ] 移除 disabled 字段，添加 enabled uuid array 字段
+- [ ] 拆分 toggle_extension 为 enable_extension 和 disable_extension
+
+## Client
+
+- [ ] 建表
+- [ ] 自身初始化
 
 ### Twitter
 

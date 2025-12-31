@@ -4,6 +4,7 @@ This module provides centralized configuration management with validation,
 defaults, and type safety for environment variables.
 """
 
+import uuid
 from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -52,6 +53,20 @@ class Settings(BaseSettings):
 
   # Observability settings
   obsrv: ObsrvSetting = Field(default_factory=ObsrvSetting)
+
+  # Client settings
+  client_id: uuid.UUID = Field(
+    default_factory=uuid.uuid4,
+    description="Unique identifier for this client instance (UUID v4)",
+  )
+  client_name: str = Field(
+    default="core-py",
+    description="Human-readable name for this client instance",
+  )
+  client_base_url: Optional[str] = Field(
+    default=None,
+    description="Base URL where this client's REST API is accessible (nullable for non-reachable clients)",
+  )
 
   @field_validator("database_url")
   @classmethod

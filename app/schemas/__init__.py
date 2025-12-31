@@ -9,6 +9,7 @@ __all__ = [
   "ExtensionModel",
   "RelationEmbeddingModel",
   "BlockEmbeddingModel",
+  "ClientModel",
 ]
 
 import sqlalchemy.orm
@@ -23,3 +24,4 @@ from .info_base.relation import RelationModel
 from .source import SourceModel, SourceCollectJobModel
 from .extension.main import ExtensionModel
 from .sink import RelationEmbeddingModel, BlockEmbeddingModel
+from .client.main import ClientModel

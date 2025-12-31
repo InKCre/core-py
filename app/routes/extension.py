@@ -16,7 +16,7 @@ ROUTER = fastapi.APIRouter(
 @ROUTER.get("")
 def get_extensions() -> tuple[ExtensionModel, ...]:
   """List all installed extensions"""
-  return ExtensionManager.get_installed(disabled=None)
+  return ExtensionManager.get_installed()
 
 
 @ROUTER.post("/{extid}")
@@ -29,11 +29,23 @@ def install_extension(
   return ExtensionManager.install(extid, version=version)
 
 
-@ROUTER.put("/{extid}/disabled/{disabled}")
-async def toggle_extension(extid: ExtensionID, disabled: bool) -> ExtensionModel:
-  """启用/禁用插件 (Enable/Disable extension)"""
+@ROUTER.post("/{extid}/enable")
+async def enable_extension(extid: ExtensionID) -> ExtensionModel:
+  """启用插件 (Enable extension for current client)"""
   try:
-    return await ExtensionManager.set_disabled(extid, disabled)
+    return await ExtensionManager.enable(extid)
+  except ValueError:
+    raise fastapi.HTTPException(
+      status_code=fastapi.status.HTTP_404_NOT_FOUND,
+      detail=f"Extension with id {extid} not found.",
+    )
+
+
+@ROUTER.post("/{extid}/disable")
+async def disable_extension(extid: ExtensionID) -> ExtensionModel:
+  """禁用插件 (Disable extension for current client)"""
+  try:
+    return await ExtensionManager.disable(extid)
   except ValueError:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_404_NOT_FOUND,

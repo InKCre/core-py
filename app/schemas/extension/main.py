@@ -1,3 +1,4 @@
+import uuid
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
@@ -24,7 +25,20 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
     
     format: `major.minor.patch`.
     """
-  disabled: bool = sqlmodel.Field(default=False)
+  enabled: list[uuid.UUID] = sqlmodel.Field(
+    default_factory=list,
+    sa_column=sqlmodel.Column(
+      sqlalchemy.dialects.postgresql.ARRAY(
+        sqlalchemy.dialects.postgresql.UUID(as_uuid=True)
+      ),
+      server_default=sqlalchemy.text("'{}'::uuid[]"),
+      nullable=False,
+    ),
+  )
+  """List of client IDs for which this extension is enabled.
+
+  Empty array means disabled for all clients.
+  """
   nickname: Opt[str] = sqlmodel.Field(default=None)
   config: dict = sqlmodel.Field(
     default_factory=dict,

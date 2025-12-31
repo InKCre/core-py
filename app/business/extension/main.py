@@ -1,7 +1,9 @@
 import abc
+import uuid
 import typing
 import fastapi
 import sqlmodel
+import sqlalchemy
 import importlib
 import os
 import tomllib
@@ -95,9 +97,11 @@ class ExtensionManager:
 
   @classmethod
   def start_enabled(cls, app: fastapi.FastAPI):
-    """Start all enabled entensions."""
+    """Start all extensions enabled for the current client."""
+    from app.business.client import ClientManager
+
     cls.FASTAPI_APP = app
-    for extension in cls.get_installed():
+    for extension in cls.get_installed(enabled_only=True):
       cls.start(extension=extension)
 
   @classmethod
@@ -305,7 +309,7 @@ class ExtensionManager:
       version=version or "0.0.0",
       nickname=nickname,
       config={},
-      disabled=True,
+      enabled=[],
     )
 
   @classmethod
@@ -329,8 +333,15 @@ class ExtensionManager:
       return extension
 
   @classmethod
-  async def set_disabled(cls, extid: ExtensionID, disabled: bool) -> ExtensionModel:
-    """Enable or disable an extension."""
+  async def enable(cls, extid: ExtensionID) -> ExtensionModel:
+    """Enable an extension for the current client.
+
+    Adds the current client ID to the extension's enabled list and starts it.
+    """
+    from app.business.client import ClientManager
+
+    client_id = ClientManager.get_current_client_id()
+
     with SessionLocal() as db:
       extension = db.exec(
         sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
@@ -339,32 +350,76 @@ class ExtensionManager:
       if not extension:
         raise ValueError(f"Extension with id {extid} not found.")
 
-      extension.disabled = disabled
-      db.add(extension)
-      db.commit()
-      db.refresh(extension)
+      # Add client to enabled list if not already present
+      current_enabled = set(extension.enabled)
+      if client_id not in current_enabled:
+        current_enabled.add(client_id)
+        extension.enabled = list(current_enabled)
+        db.add(extension)
+        db.commit()
+        db.refresh(extension)
 
-      if disabled:
-        await cls.close(extid)
-      else:
+      # Start extension if not already running
+      if extid not in cls.RUNNING_EXTENSIONS:
         cls.start(extid)
 
       return extension
 
   @classmethod
-  def get_installed(cls, disabled: Opt[bool] = False) -> tuple[ExtensionModel, ...]:
+  async def disable(cls, extid: ExtensionID) -> ExtensionModel:
+    """Disable an extension for the current client.
+
+    Removes the current client ID from the extension's enabled list and stops it.
+    """
+    from app.business.client import ClientManager
+
+    client_id = ClientManager.get_current_client_id()
+
+    with SessionLocal() as db:
+      extension = db.exec(
+        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
+      ).first()
+
+      if not extension:
+        raise ValueError(f"Extension with id {extid} not found.")
+
+      # Remove client from enabled list
+      current_enabled = set(extension.enabled)
+      if client_id in current_enabled:
+        current_enabled.discard(client_id)
+        extension.enabled = list(current_enabled)
+        db.add(extension)
+        db.commit()
+        db.refresh(extension)
+
+      # Close extension if running
+      if extid in cls.RUNNING_EXTENSIONS:
+        await cls.close(extid)
+
+      return extension
+
+  @classmethod
+  def get_installed(
+    cls,
+    enabled_only: bool = False,
+  ) -> tuple[ExtensionModel, ...]:
     """Get installed extensions.
 
-    :param disabled: If True, include disabled extensions; otherwise, only enabled ones.
+    :param enabled_only: If True, only return extensions enabled for the current client.
     """
+    from app.business.client import ClientManager
+
     with SessionLocal() as db:
-      return tuple(
-        db.exec(
-          sqlmodel.select(ExtensionModel).where(
-            disabled is None or ExtensionModel.disabled == disabled
-          )
-        ).all()
-      )
+      query = sqlmodel.select(ExtensionModel)
+
+      if enabled_only:
+        client_id = ClientManager.get_current_client_id()
+        # Filter: client_id must be in the enabled array
+        query = query.where(
+          ExtensionModel.enabled.any(client_id, operator=sqlalchemy.sql.operators.eq)
+        )
+
+      return tuple(db.exec(query).all())
 
   @classmethod
   def get(cls, extid: ExtensionID) -> Opt[ExtensionModel]:
@@ -460,7 +515,7 @@ class ExtensionManager:
                 id=ext_id,
                 version=version,
                 nickname=nickname,
-                disabled=True,
+                enabled=[],
               )
               db.add(new_ext)
               new_count += 1
