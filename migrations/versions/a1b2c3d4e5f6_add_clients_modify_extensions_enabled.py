@@ -62,7 +62,7 @@ def upgrade() -> None:
   op.drop_column("extensions", "disabled")
 
   # 5. Grant permissions on clients table
-  op.execute("GRANT SELECT ON public.clients TO authenticated;")
+  op.execute("GRANT ALL ON public.clients TO authenticated;")
 
 
 def downgrade() -> None:

@@ -8,3 +8,4 @@ GRANT USAGE ON SEQUENCE sources_collect_jobs_id_seq TO authenticated;
 GRANT SELECT ON public.extensions TO authenticated;
 GRANT SELECT ON public.logs TO authenticated;
 GRANT SELECT ON public.blocks, public.relations, public.storages, public.storage_types TO authenticated;
+GRANT ALL ON public.clients TO authenticated;
