@@ -69,8 +69,8 @@
 - [ ] 使用 git submodules ？ 
 - [ ] 插件提供将升级的迁移放在 `extensions/<extid>/mirgations/` 中，upgrade / downgrade 会执行；
       关键的一件事就是迁移 SourceType
-- [ ] 移除 disabled 字段，添加 enabled uuid array 字段
-- [ ] 拆分 toggle_extension 为 enable_extension 和 disable_extension
+- [x] 移除 disabled 字段，添加 enabled uuid array 字段
+- [x] 拆分 toggle_extension 为 enable_extension 和 disable_extension
 
 ## Client
 
@@ -89,6 +89,8 @@
 - [ ] Twikit get_tweet_id and _get_more_replies has a bug: last item of entries does not has `itemContent` in `content`, should directly read `value` from `content`
   Follow up this [PR](https://github.com/d60/twikit/pull/377) for solving this issue.
 - [ ] Twikit type annotation for tweet.urls are wrong, it should be `list[dict]`, not `list[str]`
+- [ ] Breakdown bookmark source into TwikitBookmarkSource and OfficialAPIBookmarkSource
+- [ ] Add ExportBookmarkSource
 
 ### Email
 

@@ -49,7 +49,7 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   __rsotype__: ResolverType
   """Resolver type
   
-  Extension resolver should follows `extensions.{extension_id}.{resolver_name}` pattern.
+  Extension resolvers should be namespaced, e.g., `extensions.twitter.tweet`.
   """
 
   def __init_subclass__(cls, rso_type: str, **kwargs) -> None:

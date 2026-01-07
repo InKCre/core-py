@@ -218,7 +218,7 @@ def upgrade() -> None:
   op.execute("GRANT SELECT ON public.sources_types TO authenticated;")
   op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON public.sources TO authenticated;")
   op.execute("GRANT SELECT, INSERT ON public.sources_collect_jobs TO authenticated;")
-  op.execute("GRANT SELECT ON public.extensions TO authenticated;")
+  op.execute("GRANT ALL ON public.extensions TO authenticated;")
   op.execute("GRANT SELECT ON public.logs TO authenticated;")
   op.execute(
     "GRANT SELECT ON public.blocks, public.relations, public.storages, public.storage_types TO authenticated;"
