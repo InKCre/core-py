@@ -31,7 +31,12 @@ def upgrade() -> None:
     "extensions",
     sa.Column("id", sa.TEXT, nullable=False),
     sa.Column("version", sa.Text(), nullable=False),
-    sa.Column("disabled", sa.Boolean(), nullable=False),
+    sa.Column(
+      "enabled",
+      postgresql.ARRAY(postgresql.UUID(as_uuid=True)),
+      server_default=sa.text("'{}'::uuid[]"),
+      nullable=False,
+    ),
     sa.Column("nickname", sa.TEXT, nullable=True),
     sa.Column(
       "config",

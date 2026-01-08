@@ -34,6 +34,13 @@ def upgrade() -> None:
     ),
     sa.Column("rest_api_url", sa.Text(), nullable=True, server_default=None),
     sa.Column(
+      "config",
+      postgresql.JSONB(astext_type=sa.Text()),
+      server_default=sa.text("'{}'::jsonb"),
+      nullable=True,
+    ),
+    sa.Column("config_schema", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column(
       "created_at",
       sa.TIMESTAMP(timezone=True),
       server_default=sa.text("CURRENT_TIMESTAMP"),
@@ -42,46 +49,11 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint("id"),
   )
 
-  # 2. Add enabled column to extensions (UUID array)
-  op.add_column(
-    "extensions",
-    sa.Column(
-      "enabled",
-      postgresql.ARRAY(postgresql.UUID(as_uuid=True)),
-      server_default=sa.text("'{}'::uuid[]"),
-      nullable=False,
-    ),
-  )
-
-  # 3. Migrate data: disabled=false -> keep empty (will need manual re-enable)
-  # Extensions that were disabled=true are now enabled=[] (same semantic)
-  # Extensions that were disabled=false will also become enabled=[]
-  # (breaking change - requires manual re-enable after migration)
-
-  # 4. Drop disabled column
-  op.drop_column("extensions", "disabled")
-
-  # 5. Grant permissions on clients table
+  # 2. Grant permissions on clients table
   op.execute("GRANT ALL ON public.clients TO authenticated;")
 
 
 def downgrade() -> None:
   """Downgrade schema."""
-  # 1. Add back disabled column
-  op.add_column(
-    "extensions",
-    sa.Column("disabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-  )
-
-  # 2. Migrate data: empty enabled array -> disabled=true
-  op.execute("""
-        UPDATE extensions
-        SET disabled = (CASE WHEN array_length(enabled, 1) IS NULL OR array_length(enabled, 1) = 0
-                        THEN true ELSE false END)
-    """)
-
-  # 3. Drop enabled column
-  op.drop_column("extensions", "enabled")
-
-  # 4. Drop clients table
+  # 1. Drop clients table
   op.drop_table("clients")
