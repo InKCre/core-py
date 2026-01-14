@@ -7,11 +7,12 @@ from typing import Optional as Opt
 
 import sqlmodel
 from app.business.info_base.block import BlockManager
+from app.business.info_base.main import InfoBaseManager
 from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import ImageResolver, VideoResolver, HTMLResolver
 from app.business.source import SourceBase
 from app.engine import SessionLocal
-from app.schemas.info_base.main import SubGraphForm
+from app.schemas.info_base.main import OutArcForm, SubGraphForm
 from app.schemas.info_base.block import BlockID, BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.main import ArcForm
@@ -79,7 +80,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
             content=Tweet(**tweet.model_dump()).model_dump_json(),
           ),
           out_arcs=tuple(
-            ArcForm(
+            OutArcForm(
               relation=RelationModel(content="attachment:photo"),
               to_subgraph=ImageResolver.create_graph(
                 url=photo.url, alt_text=photo.alt_text
@@ -88,14 +89,14 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
             for photo in tweet.photos
           )
           + tuple(
-            ArcForm(
+            OutArcForm(
               relation=RelationModel(content="attachment:video"),
               to_subgraph=VideoResolver.create_graph(url=video.variants[0].url),
             )
             for video in tweet.videos
           )
           + tuple(
-            ArcForm(
+            OutArcForm(
               relation=RelationModel(content="entities:url"),
               to_subgraph=HTMLResolver.create_graph(url=url),
             )
@@ -111,13 +112,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
     with SessionLocal() as db:
       for graph in reversed(collected) if full else collected:
-        RootManager.add_star_graph_to_session(graph, db)
-        # Schedule organize
-        scheduler.add_job(
-          func=self._organize,
-          kwargs={"block_id": graph.block.id},
-          misfire_grace_time=None,
-        )
+        await InfoBaseManager.add_subgraph_to_session(graph, db)
       db.commit()
 
     # Update job state for next page if full and has next_page

@@ -41,9 +41,8 @@ RawContentTV = typing.TypeVar("RawContentTV")
 class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   """Resolver resolves a star graph (a block and its direct relations)
 
-  Generic parameters:
-  - SolvedContentTV: The type of the solved content
-  - RawContentTV: The type of the raw content
+  :tparam SolvedContentTV: The type of the solved content
+  :tparam RawContentTV: The type of the raw content
   """
 
   __rsotype__: ResolverType
@@ -109,20 +108,36 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     return self.__raw_content
 
   async def get_solved_content(self) -> SolvedContentTV:
-    """Get the solved content of the block."""
+    """Get solved content (cached)."""
     if self.__solved_content is None:
-      raise NotImplementedError(
-        f"{self.__class__.__name__}.get_solved_content() must be implemented by subclasses."
-      )
+      self.__solved_content = await self._get_solved_content()
     return self.__solved_content
+
+  @abc.abstractmethod
+  async def _get_solved_content(self) -> SolvedContentTV:
+    """Get the solved content (non-cache).
+
+    Description:
+      When you say "will be resolved from <content> <in/out> relations",
+      it means you acquire the resolver of the relation's other side block,
+      and use its solved content.
+    """
 
   def set_solved_content(self, content: SolvedContentTV) -> None:
     self.__solved_content = content
 
-  async def get_relations(self) -> tuple[RelationModel, ...]:
-    """Get relations of the block."""
+  async def get_relations(
+    self, include_in: bool = True, include_out: bool = True
+  ) -> tuple[RelationModel, ...]:
+    """Get relations of the block.
+
+    :param include_in: bool, whether to get incoming relations. Default True.
+    :param include_out: bool, whether to get outgoing relations. Default True.
+    """
     if self.__relations is None:
-      self.__relations = RelationManager.get(block_id=self.block_id)
+      self.__relations = RelationManager.get(
+        block_id=self.block_id, include_in=include_in, include_out=include_out
+      )
     return self.__relations
 
   @classmethod

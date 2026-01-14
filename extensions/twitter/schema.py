@@ -37,6 +37,16 @@ class Tweet(sqlmodel.SQLModel):
   text: str
   """推文文本
     
-    - 移除回复提及
-    - 用 `[photo]`、`[video]`、`[link]` 占位媒体、网页链接
-    """
+  - 移除回复提及
+  - 用 `[photo]`、`[video]`、`[link]` 占位媒体、网页链接
+  """
+  attachments: Opt[list[bytes]] = None
+  """Media attachments associated with the tweet.
+
+  Contains raw binary data of the attachments.
+  
+  States:
+    - None: The attachments have not been loaded.
+    - Empty list: Has been resolved but contains no attachments.
+    - Populated list: The actual attachment data.
+  """
