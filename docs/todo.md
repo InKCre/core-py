@@ -17,7 +17,7 @@
 
 ## Source
 
-- [x] Run collect intervally. 
+- [x] Run collect intervally.
   Each source can has their own interval.
 - [x] Collected data will be organized later by running a background task for each data item using `organize` of its resolver.
 - [ ] Collect is an active way to gather data. Source should be able to configure webhooks or other ways to passively gathering data. Source can do this in `start` method which will be called once the application starts.
@@ -36,18 +36,28 @@
 ### Block
 
 - [x] fetchsert 由 resolver 来决定是否相同
+- [x] `updated-at` 应该由 trigger 自动监听 `block.content` 的修改来更新
 
 ### Resolver
 
-- [ ] Standard of auto organization ? 
+- [ ] Standard of auto organization ?
 - [x] Resolver relies on Storage to get the actual content (don't do it yourself, never considering what storage is)
 - [x] 改进加载模式
   - 在未找到时，按照类型（和 Python 导入路径语法一致）尝试从插件中导入 （否则插件就需要在初始化时导入）
-- [ ] 规范化 Resolver，其负责解析 Block 的 StarGraph
+- [ ] 规范化 Resolver，其负责解析 Block 的 Star Graph
+  - SolvedContent 可以包含从 Relation 解析出来的数据，因为 Relation 是 Block 的 Dynamic Attribute；
+  举例 TweetResolver resolvedContent 中的 attachements 就是通过 `attachment:*` 关系解析到的；
+  注意要依赖 another-block 的 resolver 去获取 solvedContent （还可以选择进一步做运行时类型校验）；
+  - [ ] 这个过程里面很重要的一点是 solvedContent 的复用，比如同一个 block 的 image resolver 就不要重复实例化了，保持单例；当然这样可能带来缓存问题，不过通过 `updated-at` 应该没问题
+- [ ] #DOC 同类型的 resolver 在不同的 core 上的实现可以不一致...就连 solvedContent 都可以不一致，因为 solvedContent 的消费者也局限在特定实现的 core 内
+- [ ] 严格分离 rawContent Schema 和 solvedContent Schema ?
 
 ### Storage
 
-- [ ] 你 StorageType 用后端的路径...那我问你其它客户端怎么办？？？
+- [x] 你 StorageType 用后端的路径...那我问你其它客户端怎么办？？？
+- [ ] 添加 `get_url(protocol, allowed_hosts) -> string` method
+  - 比如你需要的不是 ImageResolver 提供的二进制图片数据，而是图片的 HTTP URL 来给外部信息系统处理时
+  而且这的确是 Storage 的职责——管理块内容的存储。
 
 ## Sink
 
@@ -63,10 +73,11 @@
 - [ ] GraphSink 提前做社区分析
 
 ## Extension
+
 - [x] Run `pdm install` to install dependencies the extension required when install or upgrade an extension.
 - [ ] Create `data/extensions/<ext_id>/` folder for extension to locally store its data.
 - [x] Add lifespan management: start and close.
-- [ ] 使用 git submodules ？ 
+- [ ] 使用 git submodules ？
 - [ ] 插件提供将升级的迁移放在 `extensions/<extid>/mirgations/` 中，upgrade / downgrade 会执行；
       关键的一件事就是迁移 SourceType
 - [x] 移除 disabled 字段，添加 enabled uuid array 字段
@@ -91,6 +102,7 @@
 - [ ] Twikit type annotation for tweet.urls are wrong, it should be `list[dict]`, not `list[str]`
 - [ ] Breakdown bookmark source into TwikitBookmarkSource and OfficialAPIBookmarkSource
 - [ ] Add ExportBookmarkSource
+- [ ] 更新 Tweet Schema，包含 attachement urls（可选）；且更新 Resolver 在没有 attachement urls 时从 relation 中解析
 
 ### Email
 
