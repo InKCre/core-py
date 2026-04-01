@@ -1,138 +1,100 @@
-## Project Overview
+# AGENTS
 
-This is the Python implementation of InKCre. 
-InKCre aims to build an information management application that provides automatic information collection, organization and powerful use of information. 
+## Purpose
 
-## Tech Stack
+Durable docs are a selective memory system. Keep them small. Put stable product truth in PRD, stable cross-unit technical truth in Product TDD, runtime truth in deployment docs, and volatile work in `tasks/`.
 
-- API Framework: FastAPI
-- Background Task: Apscheduler
-- Database management: SQLModel as ORM, Alembic as migration tool
-- Database: PostgreSQL
-- Configuration management: pydantic-settings + env file
+Reason in English. Communicate with humans in Chinese.
 
-## Architecture Topology
+If a requested change would reduce readability or maintainability, stop and discuss the trade-off before proceeding.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        FastAPI Application                       │
-│                           (run.py)                               │
-└────────────┬──────────────────────────────────────┬──────────────┘
-             │                                      │
-     ┌───────▼────────┐                    ┌───────▼────────┐
-     │  Middleware    │                    │    Routes      │
-     │  - Logging     │                    │  - REST API    │
-     │  - JWT Auth    │                    │  - /blocks     │
-     │  - CORS        │                    │  - /sources    │
-     └────────────────┘                    │  - /sink/rag   │
-                                           └───────┬────────┘
-                                                   │
-                                           ┌───────▼────────┐
-                                           │   Business     │
-                                           └───────┬────────┘
-                         ┌─────────────────────────┼─────────────────────────┐
-                         │                         │                         │
-                 ┌───────▼────────┐       ┌───────▼────────┐       ┌───────▼────────┐
-                 │    Source      │  ──►  │   Info-Base    │  ──►  │     Sink       │
-                 │  (数据输入)     │       │  (核心图存储)   │       │  (数据输出)     │
-                 │  - SourceBase  │       │  - Block       │       │  - RAG         │
-                 │  - CollectJob  │       │  - Relation    │       │  - Embedding   │
-                 └────────────────┘       │  - Storage     │       └────────────────┘
-                         ▲                │  - Resolver    │                │
-                         │                └────────────────┘                │
-                 ┌───────┴────────┐               │                         │
-                 │   Extension    │◄──────────────┴─────────────────────────┘
-                 │  (扩展系统)     │
-                 │  - rss         │
-                 │  - mail        │
-                 │  - github      │
-                 └────────────────┘
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-    ┌────▼────┐   ┌──────▼──────┐  ┌────▼────┐
-    │  Engine │   │  Scheduler  │  │  Libs   │
-    │  (DB)   │   │  (Jobs)     │  │  - AI   │
-    └─────────┘   └─────────────┘  │  - obsrv│
-                                    └─────────┘
-```
+## Read Order
 
-## Business Domains
+1. Read this file first.
+2. Read the relevant local `AGENTS.md` before touching a subtree.
+3. Read durable docs only when they are relevant to the task:
+   - `docs/10-prd/`
+   - `docs/15-alignment/`
+   - `docs/20-product-tdd/`
+   - `docs/40-deployment/`
+4. Read `tasks/` for volatile plans, exploration, and backlog items.
 
-- **source**: Data collectors, the input of info-base
-- **info-base**: Core information management
-  - block: Content units
-  - relation: Links between blocks
-  - storage: Store block content somewhere else than database
-  - resolver: resolves block content
-- **sink**: Interface to use information base, the output of info-base
-- **extension**: extends info-base, source and sink abilities
-- **client**: manages distributed client instances
+## Dynamic Execution Protocol
 
-## Project Structure (Only Crucial)
+### Mode A: Exploration
 
-- `pyproject.toml`
-- `requirements.txt`: the prod requirements generated from `pyproject.toml` using PDM.
-- `run.py`: include routes and launch the app
-- `app/`
-  - `business/`: service layer, by domains
-  - `schemas/`: tables and data models
-  - `routes/`: register/wrap/expose business methods to FastAPI
-  - `engine.py`: db session
-  - `settings.py`: centeralized application settings based on pydantic-settings
-  - `scheduler.py`: apscheduler
-- `extensions/`: built-in extensions (also where installed extensions stored)
-- `utils/`
-- `libs/`
-  - `obsrv`: observability
-  - `ai`: embedding, LLM completion
-- `tests/`: unit tests
-- `migrations/`: db migrations
-- `scripts/`
-- `docs/`
+Use this mode when the request is vague, exploratory, or still forming.
 
-> Read each folder's AGENTS.md for their details and coding guideline.
+- Do not update durable docs or production code.
+- Work only in `tasks/`.
+- Use Q&A, option analysis, and first-principles reasoning to reduce ambiguity.
 
-## Architecture Navigation
+### Mode B: Solidification
 
-快速查找各模块文档：
+Use this mode when the request is clear enough to record, but the durable truth is still missing.
 
-### Core Modules
-- [app/](app/AGENTS.md) - 应用核心（settings, engine, scheduler, middleware）
-- [app/business/](app/business/AGENTS.md) - 业务逻辑层总览
-- [app/routes/](app/routes/AGENTS.md) - REST API 路由
-- [app/schemas/](app/schemas/AGENTS.md) - 数据模型和表定义
+- Decide whether the new truth belongs in PRD, Product TDD, Unit TDD, or deployment docs.
+- Perform the pre-execution restatement.
+- Await human confirmation before updating durable docs.
+- Update durable docs before implementation changes.
 
-### Business Domains
-- [app/business/info_base/](app/business/info_base/AGENTS.md) - 核心信息管理（Block + Relation）
-- [app/business/source/](app/business/source/AGENTS.md) - 数据源和采集
-- [app/business/sink/](app/business/sink/AGENTS.md) - RAG 和信息输出
-- [app/business/extension/](app/business/extension/AGENTS.md) - 扩展系统
-- [app/business/client/](app/business/client/AGENTS.md) - 客户端管理
+### Mode C: Execution
 
-### Infrastructure
-- [libs/](libs/AGENTS.md) - 共享库（AI, 日志）
-- [utils/](utils/AGENTS.md) - 工具函数
-- [migrations/](migrations/AGENTS.md) - 数据库迁移
-- [extensions/](extensions/AGENTS.md) - 内置扩展包
+Use this mode when the task is specific, local, and already aligned.
 
-## Development Workflow
+- Read the relevant local docs.
+- Perform the pre-execution restatement.
+- Await human confirmation before logic-altering work when references or invariants matter.
+- Prefer tests, types, runtime checks, and CI guardrails over prose.
+- After completion, ask whether the related task doc should be archived or deleted.
 
-- Package management: PDM (`pdm install`, `pdm add`)
-- Python environemnt: PDM (`pdm run` for scripts/executables)
-- Database Migrations: `pdm run alembic-gengrade "message"` (autogenerates + upgrades)
-- Run dev server to validate your changes: `uvicorn run:api_app --reload` (sets up extensions, scheduler)
-- `DATABASE_URL` is prepared for you even in cloud (Github Action) environment.
+## Pre-Execution Restatement
 
-## Coding Guideline
+Before any reference-sensitive or logic-altering change, restate:
 
-- Do not repeat yourself.
-  - If the same code is used at over two places, extract it.
-- Export the frequently used items in each packages's `__init__.py`
+- target path or anchor
+- current state or context
+- requested operation
+- scope, including explicit exclusions
+- invariants that must not break
+- likely affected files
+- uncertainty or assumptions
 
-## Deployment
+## Durable Truth Map
 
-This project supports following deployments:
+- `docs/10-prd/`: product what and why, user-visible semantics, workflow intent
+- `docs/15-alignment/`: small glossaries or maps that reduce repeated naming drift
+- `docs/20-product-tdd/`: cross-unit technical contracts and architectural truths
+- `docs/30-unit-tdd/`: hard local design memory only when code and tests are not enough
+- `docs/40-deployment/`: runtime topology, deployment, CI, operational constraints
+- `tasks/`: plans, exploration, backlog, temporary reasoning, migration notes
 
-- Heroku App
-- Docker Compose / Docker
+Do not store volatile plans in durable docs. Do not build a second software system out of prose.
+
+## Repository Map
+
+- `run.py`: FastAPI entry point and runtime bootstrap
+- `app/`: application core, routes, schemas, and business logic
+- `extensions/`: built-in extensions
+- `libs/`: shared AI and observability libraries
+- `migrations/`: Alembic migrations
+- `tests/`: automated checks
+
+Read these local guides when working in their areas:
+
+- [app/AGENTS.md](app/AGENTS.md)
+- [app/business/AGENTS.md](app/business/AGENTS.md)
+- [app/routes/AGENTS.md](app/routes/AGENTS.md)
+- [app/schemas/AGENTS.md](app/schemas/AGENTS.md)
+- [extensions/AGENTS.md](extensions/AGENTS.md)
+- [libs/AGENTS.md](libs/AGENTS.md)
+- [migrations/AGENTS.md](migrations/AGENTS.md)
+- [utils/AGENTS.md](utils/AGENTS.md)
+
+## Local Engineering Rules
+
+- Package management: use PDM.
+- Run Python commands through `pdm run` when they depend on project packages.
+- If the same logic appears in more than two places, extract it.
+- Export frequently used package items from `__init__.py`.
+- Keep implementation truth in code, tests, types, assertions, lint, and CI whenever possible.

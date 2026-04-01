@@ -1,86 +1,89 @@
-## extension/ - Extension System (扩展系统)
+# extension/ Local Guide
 
-扩展系统，允许插件化扩展 InKCre 的功能（Source、Resolver、API 等）。
+本文件只描述 `app/business/extension/` 的局部事实与编辑边界。全局执行协议看仓库根 [AGENTS.md](../../../AGENTS.md)。
 
-### 核心概念
+## 何时阅读
 
-- **Extension**: 扩展包，位于 `extensions/` 目录
-- **ExtensionBase**: 扩展基类，定义生命周期钩子
-- **Extension Lifecycle**: start → running → close
-- **Extension 能力**: 注册 Source、Resolver、API 路由等
+在以下情况进入本目录前先读这里：
 
-### Extension 结构
+- 修改 `ExtensionManager` 或 `ExtensionBase`
+- 修改 extension 安装、同步、启停、配置持久化逻辑
+- 修改 extension metadata 读取规则
 
-每个扩展是一个独立的包：
-```
-extensions/
-├── {ext_id}/
-│   ├── __init__.py          # 定义 Extension 类
-│   ├── pyproject.toml       # 扩展依赖（可选）
-│   ├── schema.py            # 数据模型
-│   ├── resolver.py          # Resolver（可选）
-│   └── (source.py, sink.py) # Source/Sink（可选）
-```
+如果改动会影响跨模块契约，再读 [docs/20-product-tdd/extension-runtime.md](../../../docs/20-product-tdd/extension-runtime.md)。
 
-### Extension 定义
+## 局部执行规则
+
+- 模糊的插件市场、分发方式、安装来源、运行模型重构，先放进 `tasks/`，不要直接改 durable docs 或代码。
+- 变更 discovery, sync, enable/disable, start/close 语义前，先核对 `app/business/extension/main.py`、`app/schemas/extension/main.py`、`run.py`，并同步更新 Product TDD。
+- 本地 AGENTS 只保留仍能被代码证明的事实。不要把历史设计意图当现状写进来。
+
+## 关键文件
+
+- `app/business/extension/main.py`: extension runtime, install, sync, lifecycle
+- `app/schemas/extension/main.py`: persisted extension state
+- `app/routes/extension.py`: external API surface
+- `extensions/`: local extension packages
+- `extensions/AGENTS.md`: extension package layout and authoring guidance
+
+## 当前稳定事实
+
+### Extension identity and enablement
+
+- 一个 extension ID 在一个 deployment 中只对应一个安装记录。
+- 是否运行是按 client 控制的，状态存放在 `ExtensionModel.enabled` UUID 数组中。
+- installed 不等于 enabled，也不等于 running。
+
+### Lifecycle
+
+- `ExtensionBase.on_start()` 会加载配置、回写 `config_schema`、注册 API router、初始化 source 和 resolver。
+- `ExtensionBase.on_close()` 会把运行时配置保存回数据库。
+- `ExtensionManager.start_enabled()` 只启动当前 client 已启用的扩展。
+
+### Metadata sources
+
+当前实现通过以下来源读取 extension metadata：
+
+- `extensions/<extid>/pyproject.toml`
+- `extensions/<extid>/*.dist-info/metadata.json`
+
+这里读取的核心字段是 `nickname` 和 `version`。
+
+### Install and sync behavior
+
+- `install(extid, version)` 当前实现按 extension ID 从 PyPI 下载 wheel，再解包到本地 `extensions/<extid>/`。
+- `download()` 会把 wheel 中的源码目录和 `.dist-info` 结构整理成仓库期望的扩展目录布局。
+- `sync()` 是双向同步：
+  - 本地有、数据库无：插入记录
+  - 本地有、数据库有：更新 `nickname` 和 `version`
+  - 数据库有、本地无：尝试按数据库记录重新下载
+
+不要把“可从任意 URL 安装”写回文档，除非代码先支持。
+
+## 编辑指引
+
+- 改 metadata 结构或安装布局时，同时更新这里和 [extensions/AGENTS.md](../../../extensions/AGENTS.md)。
+- 改 lifecycle 或 enablement 语义时，同时更新 [extension-runtime.md](../../../docs/20-product-tdd/extension-runtime.md)。
+- 若新增行为只是局部实现细节，优先写测试或代码注释，不要扩大本文件。
+
+## 创建新 Extension 时要满足的最小形状
 
 ```python
-from app.business.extension import ExtensionBase, EmptyConfig
+from app.business.extension import ExtensionBase
+
 
 class Extension(ExtensionBase, ext_id="my_ext", config_cls=MyConfig):
-    @classmethod
-    def _register_apis(cls, router: fastapi.APIRouter):
-        # 注册 API 路由
-        router.get("/hello")(lambda: {"msg": "hello"})
-    
-    @classmethod
-    def _init_sources(cls):
-        # 导入 Source 类（自动注册）
-        from .source import MySource
-    
-    @classmethod
-    def _init_resolvers(cls):
-        # 导入 Resolver 类（自动注册）
-        from .resolver import MyResolver
+  @classmethod
+  def _register_apis(cls, router):
+    ...
+
+  @classmethod
+  def _init_sources(cls):
+    from .source import MySource
+
+  @classmethod
+  def _init_resolvers(cls):
+    from .resolver import MyResolver
 ```
 
-### Extension 生命周期
-
-1. **安装**: `ExtensionManager.install()` - 从 URL/本地安装到 `extensions/`
-2. **同步**: `ExtensionManager.sync()` - 扫描 `extensions/` 写入数据库
-3. **启动**: `ExtensionManager.start()` - 加载并调用 `on_start()`
-4. **运行**: Extension API、Source、Resolver 可用
-5. **关闭**: `ExtensionManager.close()` - 调用 `on_close()`，保存配置
-
-### 管理器方法
-
-| 方法 | 用途 |
-|------|------|
-| `sync()` | 扫描 extensions/ 目录，同步到数据库 |
-| `start_enabled()` | 启动所有已启用的扩展 |
-| `start(extid)` | 启动指定扩展 |
-| `close(extid)` | 关闭指定扩展 |
-| `install()` | 从 URL/本地安装扩展 |
-| `get_installed()` | 获取已安装扩展列表 |
-
-### 数据模型
-
-见 [app/schemas/extension/](../../schemas/extension/) 目录：
-- `ExtensionModel` - Extension 表模型
-- 包含 `id`, `config`, `config_schema`, `enabled` 等字段
-
-### 编码指引
-
-**创建新 Extension**:
-1. 在 `extensions/` 创建目录，命名为扩展 ID
-2. 定义 `Extension` 类，继承 `ExtensionBase`
-3. 实现 `_register_apis()` 注册 API（如需要）
-4. 实现 `_init_sources()` 和 `_init_resolvers()` 初始化插件
-5. 启动应用时自动发现和加载
-
-**配置管理**:
-- 配置通过 `config_cls` 参数定义 schema
-- 运行时通过 `cls.config` 访问
-- 关闭时自动保存到数据库
-
-参考现有扩展：[extensions/](../../../extensions/)（rss, mail, github, telegram 等）
+扩展包本身的目录结构和作者视角约束，以 [extensions/AGENTS.md](../../../extensions/AGENTS.md) 为准。

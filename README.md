@@ -1,21 +1,24 @@
-# InKCre-Core
+# InKCre Core
 
-### Configuration
+Python backend implementation of InKCre, built with FastAPI, SQLModel, APScheduler, and PostgreSQL.
+
+## Local Start
 
 ```bash
-DATABASE_URL=postgres://password:username@address:port/dbname
-
-# Optional: Enable Better Stack logging
-LOGTAIL_SOURCE_TOKEN=your_token_here
-LOGTAIL_HOST=https://in.logtail.com
+cp .env.example .env
+pdm install -G dev
+pdm run uvicorn run:api_app --reload
 ```
 
-## Deployment
+## Documentation Map
 
-### Heroku Deployment
+- Agent operating guide: [AGENTS.md](AGENTS.md)
+- Product truth: [docs/10-prd/core-product.md](docs/10-prd/core-product.md)
+- Alignment glossary: [docs/15-alignment/glossary.md](docs/15-alignment/glossary.md)
+- Cross-unit technical truth: [docs/20-product-tdd/](docs/20-product-tdd/)
+- Deployment and runtime truth: [docs/40-deployment/README.md](docs/40-deployment/README.md)
+- Volatile plans and backlog: [tasks/](tasks/)
 
-This project is ready to deploy to Heroku. See the [Heroku Deployment Guide](docs/heroku_deployment.md) for detailed instructions.
+## Generated Artifacts
 
-Quick deploy:
-
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+- OpenAPI schema: `docs/openapi.json`
