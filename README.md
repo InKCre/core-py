@@ -12,11 +12,15 @@ pdm run uvicorn run:api_app --reload
 
 ## Documentation Map
 
+If `docs/_shared/` is missing, run `git submodule update --init --recursive` before following shared-doc links.
+
 - Agent operating guide: [AGENTS.md](AGENTS.md)
-- Product truth: [docs/10-prd/core-product.md](docs/10-prd/core-product.md)
-- Alignment glossary: [docs/15-alignment/glossary.md](docs/15-alignment/glossary.md)
-- Cross-unit technical truth: [docs/20-product-tdd/](docs/20-product-tdd/)
+- Shared framework baseline: [docs/_shared/00-meta/_svc_v9_2.md](docs/_shared/00-meta/_svc_v9_2.md)
+- Shared product truth: [docs/_shared/10-prd/core-product.md](docs/_shared/10-prd/core-product.md)
+- Shared product glossary: [docs/_shared/15-alignment/product-glossary.md](docs/_shared/15-alignment/product-glossary.md)
+- Shared cross-unit technical truth: [docs/_shared/20-product-tdd/](docs/_shared/20-product-tdd/)
 - Deployment and runtime truth: [docs/40-deployment/README.md](docs/40-deployment/README.md)
+- Transitional local docs: `docs/15-alignment/`, `docs/20-product-tdd/` (only when local guides point to them)
 - Volatile plans and backlog: [tasks/](tasks/)
 
 ## Generated Artifacts

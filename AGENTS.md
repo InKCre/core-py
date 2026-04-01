@@ -12,12 +12,17 @@ If a requested change would reduce readability or maintainability, stop and disc
 
 1. Read this file first.
 2. Read the relevant local `AGENTS.md` before touching a subtree.
-3. Read durable docs only when they are relevant to the task:
-   - `docs/10-prd/`
+3. Read shared durable docs when they are relevant to the task:
+   - `docs/_shared/00-meta/_svc_v9_2.md` if present
+   - `docs/_shared/10-prd/`
+   - `docs/_shared/15-alignment/`
+   - `docs/_shared/20-product-tdd/`
+4. Read local runtime and deployment docs when they are relevant to the task:
+   - `docs/40-deployment/`
+5. Read local transitional docs only when a local `AGENTS.md` or task explicitly points to them:
    - `docs/15-alignment/`
    - `docs/20-product-tdd/`
-   - `docs/40-deployment/`
-4. Read `tasks/` for volatile plans, exploration, and backlog items.
+6. Read `tasks/` for volatile plans, exploration, and backlog items.
 
 ## Dynamic Execution Protocol
 
@@ -62,11 +67,13 @@ Before any reference-sensitive or logic-altering change, restate:
 
 ## Durable Truth Map
 
-- `docs/10-prd/`: product what and why, user-visible semantics, workflow intent
-- `docs/15-alignment/`: small glossaries or maps that reduce repeated naming drift
-- `docs/20-product-tdd/`: cross-unit technical contracts and architectural truths
-- `docs/30-unit-tdd/`: hard local design memory only when code and tests are not enough
+- `docs/_shared/00-meta/`: shared collaboration/framework baseline for multi-repo units
+- `docs/_shared/10-prd/`: shared product what and why, user-visible semantics, workflow intent
+- `docs/_shared/15-alignment/`: shared glossaries or maps that reduce repeated naming drift
+- `docs/_shared/20-product-tdd/`: shared cross-unit technical contracts and architectural truths
+- local `AGENTS.md` near code: hard local design memory only when code and tests are not enough
 - `docs/40-deployment/`: runtime topology, deployment, CI, operational constraints
+- `docs/15-alignment/` and `docs/20-product-tdd/`: local transitional docs pending split; read only when explicitly referenced
 - `tasks/`: plans, exploration, backlog, temporary reasoning, migration notes
 
 Do not store volatile plans in durable docs. Do not build a second software system out of prose.
