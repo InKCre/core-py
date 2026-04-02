@@ -45,11 +45,15 @@ Admitted structure:
 
 Local `docs/00-meta/` was explicitly **not** admitted for `core-py` at this stage.
 
-### Implementation Audit Boundary
+### Implementation Follow-Up Split
 
-An implementation audit against business-pipeline docs found real code drifts, but they are explicitly left in `tasks/` and out of scope for this cleanup slice:
+Implementation audit work is no longer tracked inside this cleanup slice.
 
-- see `50-implementation-audit-scope-boundary.md`
+If implementation verification or code changes are needed later, use:
+
+- `tasks/core-py-business-pipeline-implementation-audit/`
+
+Some mismatches noticed during the audit may be code bugs, but some may also come from outdated docs or local guides, so that follow-up must re-verify both sides before changing code.
 
 ## What Was Explicitly Rejected
 
@@ -66,9 +70,8 @@ These remain tactical or unstable and should stay out of `docs/30-unit-tdd/` unl
 2. `tasks/core-py-post-split-cleanup/00-meta.md`
 3. `tasks/core-py-post-split-cleanup/30-phase-3-4-execution-output.md`
 4. `tasks/core-py-post-split-cleanup/40-phase-5-meta-gap-decision.md`
-5. `tasks/core-py-post-split-cleanup/50-implementation-audit-scope-boundary.md`
-6. `docs/30-unit-tdd/business-pipeline-and-authority.md`
-7. relevant local guides under `app/business/**/AGENTS.md`
+5. `docs/30-unit-tdd/business-pipeline-and-authority.md`
+6. relevant local guides under `app/business/**/AGENTS.md`
 
 ## Resume Conditions
 
@@ -84,6 +87,7 @@ Only reopen this task if one of these happens:
 These are not required to consider this task complete, but are the most plausible next work:
 
 - audit whether `app/business/AGENTS.md` should become thinner now that routing is stronger below it
+- use `tasks/core-py-business-pipeline-implementation-audit/` if implementation-vs-doc drift needs follow-up
 - revisit source scheduling only when the TODO in `app/business/source/main.py` is actually being resolved
 - revisit `docs/30-unit-tdd/` only if another slow-moving structural truth clearly survives locality
 
