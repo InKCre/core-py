@@ -13,13 +13,16 @@ If a requested change would reduce readability or maintainability, stop and disc
 1. Read this file first.
 2. Read the relevant local `AGENTS.md` before touching a subtree.
 3. Read shared durable docs when they are relevant to the task:
-   - `docs/_shared/00-meta/_svc_v9_2.md` if present
+   - `docs/_shared/00-meta/_svc_v9_3.md` if present
+   - `docs/_shared/00-meta/mode-*.md` if the root dispatcher points you there
    - `docs/_shared/10-prd/`
    - `docs/_shared/15-alignment/`
    - `docs/_shared/20-product-tdd/`
-4. Read local runtime and deployment docs when they are relevant to the task:
+4. Read local unit architecture docs when they are relevant to the task:
+   - `docs/30-unit-tdd/` if present
+5. Read local runtime and deployment docs when they are relevant to the task:
    - `docs/40-deployment/`
-5. Read `tasks/` for volatile plans, exploration, and backlog items.
+6. Read `tasks/` for volatile plans, exploration, and backlog items.
 
 ## Dynamic Execution Protocol
 
@@ -68,7 +71,8 @@ Before any reference-sensitive or logic-altering change, restate:
 - `docs/_shared/10-prd/`: shared product what and why, user-visible semantics, workflow intent
 - `docs/_shared/15-alignment/`: shared glossaries or maps that reduce repeated naming drift
 - `docs/_shared/20-product-tdd/`: shared cross-unit technical contracts and architectural truths
-- local `AGENTS.md` near code: hard local design memory only when code and tests are not enough
+- `docs/30-unit-tdd/`: slow-moving logical architecture inside this unit, if present
+- local `AGENTS.md` near code: tactical hazards, local authority, and tripwires when code and tests are not enough
 - `docs/40-deployment/`: runtime topology, deployment, CI, operational constraints
 - `tasks/`: plans, exploration, backlog, temporary reasoning, migration notes
 
