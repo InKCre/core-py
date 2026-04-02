@@ -27,6 +27,8 @@ Status: completed in Phase 5B.
 
 ## `docs/20-product-tdd/info-base-ingestion.md`
 
+Status: completed in Phase 5C.
+
 | current cluster | target owner | target path | action | notes |
 | --- | --- | --- | --- | --- |
 | blocks/relations are persisted authority | shared candidate | `InKCre/docs/20-product-tdd/system-state-and-authority.md` | rewrite if pressure is proven | good shared candidate if other units consume the same graph semantics |
@@ -38,10 +40,9 @@ Status: completed in Phase 5B.
 ## Recommended Execution Order
 
 1. rewrite `app/business/info_base/AGENTS.md` into a v9.2 local guide
-2. extract local ingestion mechanics from `docs/20-product-tdd/info-base-ingestion.md` into `app/business/info_base/AGENTS.md`
-3. only then populate shared `InKCre/docs/20-product-tdd/*` with the small set of statements that pass the shared-admission gate
+2. keep shared `InKCre/docs/20-product-tdd/*` small and free of `core-py` implementation leakage
 
 ## Recommendation
 
-Do not execute the remaining final split casually.  
-`info-base-ingestion.md` should remain gated until its shared slices can be expressed without `core-py` implementation leakage.
+Phase 5 split work is complete for `core-py`.  
+Further changes should modify the shared docs directly or local `AGENTS.md` directly, not recreate mixed docs.

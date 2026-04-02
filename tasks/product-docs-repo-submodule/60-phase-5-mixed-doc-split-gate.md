@@ -6,7 +6,7 @@ Split the remaining mixed docs without centralizing `core-py`-local truth into `
 
 ## Remaining Mixed Inputs
 
-- `docs/20-product-tdd/info-base-ingestion.md`
+- none
 
 ## First-Principles Gate
 
@@ -33,15 +33,14 @@ If any gate fails, keep the statement local and improve the local container firs
 
 ### `docs/20-product-tdd/info-base-ingestion.md`
 
-- shared admission: partial and not yet fully proven
-- reason: some ownership statements may be durable across units, but current file still depends heavily on `core-py` managers and resolver/storage internals
-- blocking risk: local target container (`app/business/info_base/AGENTS.md`) is not yet in a strong v9.2 shape
+- status: completed in Phase 5C
+- result: shared graph/state/ownership statements moved into `InKCre/docs/20-product-tdd/system-state-and-authority.md` and `InKCre/docs/20-product-tdd/cross-unit-contracts.md`; local mechanics stayed in `app/business/info_base/AGENTS.md`; the mixed local doc was removed
 
 ## Required Precondition Before Execution
 
 Normalize local containers before extracting shared truth:
 
-1. keep `app/business/info_base/AGENTS.md` in a v9.2 local-guide shape before extracting more ingestion mechanics
+1. keep `app/business/info_base/AGENTS.md` in a v9.2 local-guide shape
 2. keep `app/business/extension/AGENTS.md` as the primary local sink for extension runtime details
 3. update inbound links so no root guide points at mixed docs as if they were shared truth
 
@@ -53,6 +52,6 @@ Normalize local containers before extracting shared truth:
 
 ## Exit Criteria
 
-- every remaining mixed statement has one owner
+- every formerly mixed statement has one owner
 - no shared doc in `InKCre/docs` depends on `core-py`-only implementation detail
 - local readers can still find local hazards without opening the shared repo first

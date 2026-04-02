@@ -19,9 +19,7 @@ If a requested change would reduce readability or maintainability, stop and disc
    - `docs/_shared/20-product-tdd/`
 4. Read local runtime and deployment docs when they are relevant to the task:
    - `docs/40-deployment/`
-5. Read local transitional docs only when a local `AGENTS.md` or task explicitly points to them:
-   - `docs/20-product-tdd/`
-6. Read `tasks/` for volatile plans, exploration, and backlog items.
+5. Read `tasks/` for volatile plans, exploration, and backlog items.
 
 ## Dynamic Execution Protocol
 
@@ -72,7 +70,6 @@ Before any reference-sensitive or logic-altering change, restate:
 - `docs/_shared/20-product-tdd/`: shared cross-unit technical contracts and architectural truths
 - local `AGENTS.md` near code: hard local design memory only when code and tests are not enough
 - `docs/40-deployment/`: runtime topology, deployment, CI, operational constraints
-- `docs/20-product-tdd/`: local transitional docs pending split; read only when explicitly referenced
 - `tasks/`: plans, exploration, backlog, temporary reasoning, migration notes
 
 Do not store volatile plans in durable docs. Do not build a second software system out of prose.

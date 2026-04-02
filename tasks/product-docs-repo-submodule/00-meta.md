@@ -14,6 +14,7 @@ Progress checkpoint:
 - Phase 5 split gate recorded for remaining mixed docs
 - Phase 5A executed: shared skill relocated, local `info_base` guide upgraded, local mixed glossary removed
 - Phase 5B executed: `extension-runtime` split into shared state contract plus local runtime guide
+- Phase 5C executed: `info-base-ingestion` split into shared graph/ownership contract plus local ingestion guide
 
 ## Intent
 
@@ -50,8 +51,9 @@ The previous read-only mirror fan-out design was judged brittle and operationall
 - `61-phase-5-split-matrix.md`
 - `62-phase-5a-execution-output.md`
 - `63-phase-5b-execution-output.md`
+- `64-phase-5c-execution-output.md`
 - `90-review-checklist.md`
 
 ## Immediate Next Step
 
-Proceed with the final gated split only after confirming which shared slices of `info-base-ingestion` truly survive the shared-admission gate.
+Phase 5 split work is complete. Next work should either archive this task or open a new task for post-split cleanup.

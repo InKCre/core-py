@@ -11,7 +11,7 @@
 - 修改 resolver 与 storage 的职责分界
 - 修改 ingestion 过程中 embedding 更新的责任边界
 
-如果改动会影响跨模块契约，先读 [docs/_shared/20-product-tdd/](../../../docs/_shared/20-product-tdd/)；如果还涉及本仓库尚未拆分完的 ingestion 细节，再读 [docs/20-product-tdd/info-base-ingestion.md](../../../docs/20-product-tdd/info-base-ingestion.md)。
+如果改动会影响跨模块契约，先读 [docs/_shared/20-product-tdd/](../../../docs/_shared/20-product-tdd/)；本仓库的 ingestion mechanics 以本文件为准。
 
 ## 局部执行规则
 
@@ -55,6 +55,7 @@
 ### Persistence Ownership
 
 - `InfoBaseManager` 负责递归把 `SubGraphForm` 展开进 session。
+- sources / extensions 可以提出 graph form，但持久化写入由 info-base 协调。
 - block 先经 `BlockManager.fetchsert()` 落地，relation 再经 `RelationManager.fetchsert()` 定形。
 - relation identity 目前按 `from_ + to_ + content` 判定。
 
@@ -68,6 +69,7 @@
 
 - resolver 负责解释 block。
 - storage 负责在 `block.storage` 存在时取回原始内容。
+- block 可以直接携带 inline content，也可以只持有 storage pointer。
 - 不要在 resolver 里硬编码 storage 实现细节，除非该 resolver 的代码锚点已经明确要求这样做。
 
 ### Embedding Ownership
@@ -79,4 +81,4 @@
 
 - 若改动只影响某个 resolver 的局部行为，优先写到对应子目录 guide 或代码注释，不要把整个 `info_base/` guide 拉宽。
 - 若新增 shared contract，先把本地 manager / resolver 细节从 shared 表述里剥离，再去 `InKCre/docs` 写抽象后的版本。
-- 若 `docs/20-product-tdd/info-base-ingestion.md` 被继续拆分，本文件应成为本地 mechanics 的主要承接点。
+- 本文件已经是本地 ingestion mechanics 的主要承接点；不要再把相同内容回写成新的 mixed Product TDD。

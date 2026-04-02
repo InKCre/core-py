@@ -87,3 +87,4 @@ Dependency:
 - Phase 5 planning recorded in `60-phase-5-mixed-doc-split-gate.md` and `61-phase-5-split-matrix.md`.
 - Phase 5A execution recorded in `62-phase-5a-execution-output.md`.
 - Phase 5B execution recorded in `63-phase-5b-execution-output.md`.
+- Phase 5C execution recorded in `64-phase-5c-execution-output.md`.
