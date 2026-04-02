@@ -1,56 +1,82 @@
-## info_base/ - Information Base (核心信息管理)
+# info_base/ Local Guide
 
-核心信息存储和管理模块，采用图结构（Block + Relation）组织信息。
+本文件只描述 `app/business/info_base/` 的局部事实、术语和编辑边界。全局执行协议看仓库根 [AGENTS.md](../../../AGENTS.md)。
 
-### 核心概念
+## 何时阅读
 
-- **Block**: 信息单元（文本、图片、视频等），有 ID、类型、内容
-- **Relation**: Block 间的有向关系，形成信息图
-- **SubGraph**: Block + 其入边/出边，用于批量插入
-- **Storage**: Block 内容存储后端（DB/HTTP 等）
-- **Resolver**: Block 内容解析器（根据类型解析成文本）
+在以下情况进入本目录前先读这里：
 
-### 模块结构
+- 修改 `InfoBaseManager`、`BlockManager`、`RelationManager`
+- 修改 block / relation 持久化与去重语义
+- 修改 resolver 与 storage 的职责分界
+- 修改 ingestion 过程中 embedding 更新的责任边界
 
-```
-info_base/
-├── main.py              # InfoBaseManager - 子图插入协调
-├── block.py             # BlockManager - Block CRUD 和解析
-├── relation.py          # RelationManager - Relation CRUD
-├── storage/
-│   ├── main.py          # StorageManager - 存储后端管理
-│   └── http.py          # HTTP 存储实现
-└── resolver/
-    ├── main.py          # ResolverManager - 解析器注册
-    ├── text.py          # 文本解析器
-    ├── html.py          # HTML 解析器
-    ├── image.py         # 图片解析器
-    └── video.py         # 视频解析器
-```
+如果改动会影响跨模块契约，先读 [docs/_shared/20-product-tdd/](../../../docs/_shared/20-product-tdd/)；如果还涉及本仓库尚未拆分完的 ingestion 细节，再读 [docs/20-product-tdd/info-base-ingestion.md](../../../docs/20-product-tdd/info-base-ingestion.md)。
 
-### 核心流程
+## 局部执行规则
 
-**插入子图** (`InfoBaseManager.insert_subgraph`):
-1. fetchsert Block（存在则获取，不存在则创建）
-2. 递归处理 in_arcs 和 out_arcs
-3. 创建 Relation
-4. 返回插入的 Block 和 Relation
+- 先区分 product/shared truth 与本地实现细节。`fetchsert`、resolver 调用顺序、storage 取数路径都先视为本地事实。
+- 本地 AGENTS 只保留仍能被代码证明的事实。不要把将来想要的 ingestion 架构写成现状。
+- 若改动会改变 block / relation 去重、subgraph 插入顺序、resolver-storage 分工，先核对 `main.py`、`block.py`、`relation.py`、`resolver/main.py`、`storage/main.py`。
 
-**Block 内容解析** (`BlockManager.get_content_as_text`):
-1. 根据 storage_type 从对应 Storage 获取内容
-2. 根据 block_type 找到对应 Resolver
-3. 解析成纯文本返回
+## 关键文件
 
-### 数据模型
+- `app/business/info_base/main.py`: `InfoBaseManager`，负责递归插入子图和 arc
+- `app/business/info_base/block.py`: `BlockManager`，负责 block create / fetchsert / resolver 协调
+- `app/business/info_base/relation.py`: `RelationManager`，负责 relation create / fetchsert
+- `app/business/info_base/resolver/main.py`: resolver registry 与 raw/solved content 入口
+- `app/business/info_base/storage/main.py`: storage registry 与 built-in storage setup
+- `app/business/sink/embedding.py`: block embedding upsert/query，属于 sink 责任
+- `app/schemas/info_base/`: block / relation / subgraph 表单与模型
 
-见 [app/schemas/info_base/](../../schemas/info_base/) 目录：
-- `BlockModel` - Block 表模型
-- `RelationModel` - Relation 表模型
-- `SubGraphForm` - 子图插入表单
+## 术语与命名
 
-### 编码指引
+### Domain vs Python Names
 
-- 新增 Block 类型：无需代码改动（存储在 DB enum 中）
-- 新增 Resolver：继承 `ResolverBase`，注册到 `ResolverManager`
-- 新增 Storage：继承 `StorageBase`，在 `StorageManager.setup_builtin_storages()` 注册
-- Block 唯一性：通过 `identity` 字段保证（由 Source 或 Extension 决定）
+- `info-base`: 产品/领域概念
+- `info_base`: Python package 与模块路径
+
+不要把这两个层级混用。
+
+### Content Terms
+
+- `block content`: `BlockModel.content` 上持久化的字符串字段
+- `raw content`: resolver 真正取到的原始内容；若 `block.storage is None`，通常直接来自 `block.content`
+- `solved content`: resolver 解释后的内容表示，用于下游使用场景
+
+### Graph Terms
+
+- `block`: 一条持久化信息单元记录
+- `relation`: 连接两个 block 的有向边
+- `subgraph`: 一个 block 加上它的入边/出边表单结构，用于递归插入
+
+## 当前稳定事实
+
+### Persistence Ownership
+
+- `InfoBaseManager` 负责递归把 `SubGraphForm` 展开进 session。
+- block 先经 `BlockManager.fetchsert()` 落地，relation 再经 `RelationManager.fetchsert()` 定形。
+- relation identity 目前按 `from_ + to_ + content` 判定。
+
+### Block Dedup And Resolver Coupling
+
+- block 是否已存在，交给该 block 的 resolver 通过 `resolver.get_existing(...)` 判定。
+- 当前默认行为不是 route 层去重，也不是 `InfoBaseManager` 自己决定去重规则。
+- 若要改变 block identity，优先检查 resolver contract，而不是在调用方加特殊分支。
+
+### Resolver vs Storage Boundary
+
+- resolver 负责解释 block。
+- storage 负责在 `block.storage` 存在时取回原始内容。
+- 不要在 resolver 里硬编码 storage 实现细节，除非该 resolver 的代码锚点已经明确要求这样做。
+
+### Embedding Ownership
+
+- block 创建后触发 embedding upsert，但 embedding 仍属于 sink 责任，不属于 info-base 自身责任。
+- `BlockManager.fetchsert()` 触发 embedding 更新，不等于 info-base 成为 embedding 的权威 owner。
+
+## 编辑指引
+
+- 若改动只影响某个 resolver 的局部行为，优先写到对应子目录 guide 或代码注释，不要把整个 `info_base/` guide 拉宽。
+- 若新增 shared contract，先把本地 manager / resolver 细节从 shared 表述里剥离，再去 `InKCre/docs` 写抽象后的版本。
+- 若 `docs/20-product-tdd/info-base-ingestion.md` 被继续拆分，本文件应成为本地 mechanics 的主要承接点。

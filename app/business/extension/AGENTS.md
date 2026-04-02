@@ -33,6 +33,8 @@
 - 一个 extension ID 在一个 deployment 中只对应一个安装记录。
 - 是否运行是按 client 控制的，状态存放在 `ExtensionModel.enabled` UUID 数组中。
 - installed 不等于 enabled，也不等于 running。
+- `extension runtime class` 指从 `extensions.<ext_id>` 加载出的 Python `Extension` 子类。
+- `extension config` 指持久化在 extension record 上的配置 payload，不等于运行中的 Python 对象状态。
 
 ### Lifecycle
 

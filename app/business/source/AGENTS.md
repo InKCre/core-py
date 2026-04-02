@@ -9,6 +9,14 @@
 - **SourceCollectJob**: 采集任务，包含配置、状态、调度信息
 - **Collect → Organize**: 采集后自动组织成 Block + Relation 结构
 
+### 术语边界
+
+- `source type`: 注册到 `sources_types` 的 source 类标识，通常长得像 import path
+- `source instance`: `sources` 表中的一条配置记录
+- `collect job`: `sources_collect_jobs` 中的一次执行记录
+
+不要把这三个词混成一个层级。
+
 ### 模块结构
 
 ```

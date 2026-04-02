@@ -10,6 +10,8 @@ pdm install -G dev
 pdm run uvicorn run:api_app --reload
 ```
 
+Developer setup and shared-skill notes: [CONTRIBUTING.md](CONTRIBUTING.md)
+
 ## Documentation Map
 
 If `docs/_shared/` is missing, run `git submodule update --init --recursive` before following shared-doc links.
@@ -20,7 +22,7 @@ If `docs/_shared/` is missing, run `git submodule update --init --recursive` bef
 - Shared product glossary: [docs/_shared/15-alignment/product-glossary.md](docs/_shared/15-alignment/product-glossary.md)
 - Shared cross-unit technical truth: [docs/_shared/20-product-tdd/](docs/_shared/20-product-tdd/)
 - Deployment and runtime truth: [docs/40-deployment/README.md](docs/40-deployment/README.md)
-- Transitional local docs: `docs/15-alignment/`, `docs/20-product-tdd/` (only when local guides point to them)
+- Transitional local docs: `docs/20-product-tdd/` (only when local guides point to them)
 - Volatile plans and backlog: [tasks/](tasks/)
 
 ## Generated Artifacts

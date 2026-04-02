@@ -10,7 +10,9 @@ Progress checkpoint:
 - Phase 1~3: executed locally with concrete artifacts in `InKCre/docs`
 - Remote `InKCre/docs` created and source boundary pushed
 - SOP + Skill baseline completed for Phase 3
-- Phase 4 pilot implemented locally in `core-py`; validation passed, review pending
+- Phase 4 pilot implemented in `core-py` and pushed to `develop`
+- Phase 5 split gate recorded for remaining mixed docs
+- Phase 5A executed: shared skill relocated, local `info_base` guide upgraded, local mixed glossary removed
 
 ## Intent
 
@@ -43,8 +45,11 @@ The previous read-only mirror fan-out design was judged brittle and operationall
 - `40-phase-3-submodule-reliability-pack.md`
 - `50-phase-4-core-py-pilot.md`
 - `51-phase-4-execution-output.md`
+- `60-phase-5-mixed-doc-split-gate.md`
+- `61-phase-5-split-matrix.md`
+- `62-phase-5a-execution-output.md`
 - `90-review-checklist.md`
 
 ## Immediate Next Step
 
-Run independent review on the Phase 4 rollout, then commit and push if no blocker is found.
+Proceed with the next gated split only after confirming which shared slices of `extension-runtime` and `info-base-ingestion` truly survive the shared-admission gate.

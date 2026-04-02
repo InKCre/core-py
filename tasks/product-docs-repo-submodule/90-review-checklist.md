@@ -23,3 +23,10 @@
 - Is the first rollout batch small and reversible?
 - Are rollback steps explicit and fast?
 - Are unresolved mixed files excluded from pilot?
+
+## Phase 5 Split Hygiene
+
+- Does each moved statement pass the shared-admission gate?
+- Are local containers upgraded before extracting local implementation details?
+- Are we avoiding shared docs that depend on `core-py`-only class or method names?
+- Are empty mixed docs deleted only after inbound links are updated?

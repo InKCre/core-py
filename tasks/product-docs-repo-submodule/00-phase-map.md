@@ -60,6 +60,18 @@ Dependency:
 
 - Phase 3 complete
 
+### Phase 5: Split Remaining Mixed Docs
+
+Output:
+
+- explicit shared-admission gate for mixed docs
+- per-section split matrix for remaining mixed files
+- execution order that upgrades local containers before shared extraction
+
+Dependency:
+
+- Phase 4 complete
+
 ## Cross-Phase Invariants
 
 - do not move docs by folder name alone
@@ -72,3 +84,5 @@ Dependency:
 - Phase 0 completed.
 - Phase 1~3 local artifacts recorded in `31-phase-1-3-execution-output.md`.
 - Phase 4 rollout recorded in `51-phase-4-execution-output.md` and awaiting final review/commit.
+- Phase 5 planning recorded in `60-phase-5-mixed-doc-split-gate.md` and `61-phase-5-split-matrix.md`.
+- Phase 5A execution recorded in `62-phase-5a-execution-output.md`.
