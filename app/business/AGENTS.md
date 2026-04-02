@@ -2,6 +2,8 @@
 
 业务逻辑层，按业务领域划分模块。每个模块通常包含 Manager 类，提供该领域的核心功能。
 
+如果改动跨 `extension/source/info_base/sink` 多个子树，先读 [docs/30-unit-tdd/business-pipeline-and-authority.md](../../docs/30-unit-tdd/business-pipeline-and-authority.md)；局部 tripwire 再回到各自目录的 `AGENTS.md`。
+
 ### 领域架构
 
 ```

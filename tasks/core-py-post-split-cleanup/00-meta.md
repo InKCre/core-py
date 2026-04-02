@@ -2,7 +2,7 @@
 
 ## Status
 
-Exploration (Mode A).
+Execution in progress after v9.3 reframing.
 
 ## Intent
 
@@ -53,4 +53,4 @@ Use v9.3 to re-evaluate three things in order:
 Current exploration result:
 
 - tactical gaps are confirmed in `source/`, `sink/`, `resolver/`, and `storage/`
-- one real structural candidate has emerged: the `extension -> source/resolver -> info_base -> sink` authority pipeline
+- one real structural candidate has been admitted: the `extension -> source/resolver -> info_base -> sink` authority pipeline

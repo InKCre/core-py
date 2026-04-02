@@ -21,7 +21,7 @@ If `docs/_shared/` is missing, run `git submodule update --init --recursive` bef
 - Shared product truth: [docs/_shared/10-prd/core-product.md](docs/_shared/10-prd/core-product.md)
 - Shared product glossary: [docs/_shared/15-alignment/product-glossary.md](docs/_shared/15-alignment/product-glossary.md)
 - Shared cross-unit technical truth: [docs/_shared/20-product-tdd/](docs/_shared/20-product-tdd/)
-- Local unit architecture, if present: [docs/30-unit-tdd/](docs/30-unit-tdd/)
+- Local unit architecture: [docs/30-unit-tdd/business-pipeline-and-authority.md](docs/30-unit-tdd/business-pipeline-and-authority.md)
 - Deployment and runtime truth: [docs/40-deployment/README.md](docs/40-deployment/README.md)
 - Volatile plans and backlog: [tasks/](tasks/)
 

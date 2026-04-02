@@ -52,7 +52,7 @@ That makes this a real v9.3 structural candidate, not a local tripwire.
 - better than duplicating across local guides: yes
 - already shared product-tdd or deployment truth: no
 
-Status: `admit-candidate`
+Status: `admitted`
 
 ## Rejected Candidate B: Source Scheduling Mechanics
 
@@ -93,10 +93,6 @@ Status: `keep-local`
 
 ## Current Conclusion
 
-Phase 2 does **not** justify creating `docs/30-unit-tdd/` immediately.
+This candidate has now been confirmed by the user and admitted into:
 
-But it does justify keeping one sharply bounded candidate alive:
-
-- `business pipeline and authority split`
-
-If this candidate still survives after local-guide cleanup, it is the first thing that should be admitted into `docs/30-unit-tdd/`.
+- `docs/30-unit-tdd/business-pipeline-and-authority.md`

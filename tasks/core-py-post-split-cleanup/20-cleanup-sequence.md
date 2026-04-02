@@ -22,6 +22,10 @@ Current leading candidate:
 
 - the `extension -> source/resolver -> info_base -> sink` authority pipeline
 
+This candidate is now admitted at:
+
+- `docs/30-unit-tdd/business-pipeline-and-authority.md`
+
 ## What Probably Stays In Local Guides
 
 - source lifecycle details
@@ -38,3 +42,7 @@ These now have, or should have, natural local homes.
 - unit-specific execution workflows not covered by the shared baseline
 - repeated agent failure that comes from missing local SOPs rather than missing architecture or local hazards
 - a diagnostic protocol that is genuinely local to `core-py`
+
+Current judgment:
+
+- no local `docs/00-meta/` is needed right now
