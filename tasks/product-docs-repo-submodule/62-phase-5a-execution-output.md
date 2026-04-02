@@ -26,7 +26,7 @@ This file records the first safe split step of Phase 5:
 ## Shared Skill Relocation
 
 - canonical shared-doc skill now lives in:
-  - `InKCre/docs/.agents/skills/edit-shared-docs/`
+  - `InKCre/docs/00-meta/skills/edit-shared-docs/`
 - unit repo discoverability wrapper now lives in:
   - `.agents/skills/edit-shared-docs/SKILL.md`
 - development setup guidance now lives in:

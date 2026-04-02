@@ -40,6 +40,7 @@ Those are still the natural homes for tactical constraints.
 This task should therefore ask:
 
 - is the shared baseline enough for `core-py` right now?
+- does the shared `00-meta/` already own any shared agent skills / SOPs that should stay shared?
 - does `core-py` need local wrappers or unit-specific SOPs?
 
 It should **not** blindly create a large local `docs/00-meta/` tree.

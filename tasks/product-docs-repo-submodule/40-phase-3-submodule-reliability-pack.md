@@ -89,7 +89,7 @@ Recovery baseline:
 ## Execution Snapshot
 
 - Skill implemented at:
-  - `InKCre/docs/.agents/skills/edit-shared-docs`
+  - `InKCre/docs/00-meta/skills/edit-shared-docs`
   - repo-root wrapper in unit repos: `.agents/skills/edit-shared-docs/SKILL.md`
 - Deterministic check script:
   - `scripts/check-submodule.sh`

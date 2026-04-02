@@ -9,6 +9,7 @@
 - the shared baseline under `docs/_shared/00-meta/` now already provides:
   - `_svc_v9_3.md`
   - mode-a / mode-b / mode-c / mode-d protocols
+  - the correct shared home for reusable shared agent skills / SOPs
 - root `AGENTS.md` in `core-py` already acts as a usable dispatcher/routing layer
 - the concrete pain discovered in post-split cleanup was:
   - weak local tactical guides
@@ -18,6 +19,7 @@ It was **not**:
 
 - missing repo-specific execution workflows
 - missing repo-specific diagnosis SOPs
+- missing a shared home for shared skills, because that belongs in `InKCre/docs/00-meta/`
 - repeated agent failure caused by absence of local meta-engine files
 
 ## Revisit Conditions

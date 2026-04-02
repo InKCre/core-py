@@ -20,6 +20,7 @@ Last confirmed repo commit at task completion:
 
 - `core-py` now consumes shared SVC v9.3 from `docs/_shared/00-meta/_svc_v9_3.md`
 - shared mode protocols are available under `docs/_shared/00-meta/mode-*.md`
+- shared agent skills / SOPs belong in shared `00-meta/`, not in local `core-py/docs/00-meta/`
 
 ### Local Context Cleanup
 
@@ -44,6 +45,12 @@ Admitted structure:
 
 Local `docs/00-meta/` was explicitly **not** admitted for `core-py` at this stage.
 
+### Implementation Audit Boundary
+
+An implementation audit against business-pipeline docs found real code drifts, but they are explicitly left in `tasks/` and out of scope for this cleanup slice:
+
+- see `50-implementation-audit-scope-boundary.md`
+
 ## What Was Explicitly Rejected
 
 These remain tactical or unstable and should stay out of `docs/30-unit-tdd/` unless the codebase changes materially:
@@ -59,8 +66,9 @@ These remain tactical or unstable and should stay out of `docs/30-unit-tdd/` unl
 2. `tasks/core-py-post-split-cleanup/00-meta.md`
 3. `tasks/core-py-post-split-cleanup/30-phase-3-4-execution-output.md`
 4. `tasks/core-py-post-split-cleanup/40-phase-5-meta-gap-decision.md`
-5. `docs/30-unit-tdd/business-pipeline-and-authority.md`
-6. relevant local guides under `app/business/**/AGENTS.md`
+5. `tasks/core-py-post-split-cleanup/50-implementation-audit-scope-boundary.md`
+6. `docs/30-unit-tdd/business-pipeline-and-authority.md`
+7. relevant local guides under `app/business/**/AGENTS.md`
 
 ## Resume Conditions
 

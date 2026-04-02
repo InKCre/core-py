@@ -15,6 +15,7 @@ Under v9.3, what belongs in:
 - local `AGENTS.md` as tactical hazard memory
 - `docs/30-unit-tdd/` as slow-moving logical unit architecture
 - local `docs/00-meta/` as unit-specific workflow/SOP overrides, if any
+- shared `docs/_shared/00-meta/` as the home for shared mode protocols and shared agent skills/SOPs
 
 And what should remain absent because the shared baseline under `docs/_shared/00-meta/` is already enough?
 

@@ -13,13 +13,13 @@ git submodule update --init --recursive
 
 The canonical shared-doc editing skill lives in:
 
-- `docs/_shared/.agents/skills/edit-shared-docs/`
+- `docs/_shared/00-meta/skills/edit-shared-docs/`
 
 Because Codex auto-loads repo-root `.agents/skills`, this repo also carries a thin discovery wrapper at:
 
 - `.agents/skills/edit-shared-docs/SKILL.md`
 
-Use that wrapper only to discover the canonical skill. Do not fork the workflow into the wrapper.
+Use the repo-root wrapper only to discover the canonical skill. Do not fork the workflow into the wrapper.
 
 ## Shared-Doc Update Order
 
