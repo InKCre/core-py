@@ -10,7 +10,7 @@
 - 修改 extension 安装、同步、启停、配置持久化逻辑
 - 修改 extension metadata 读取规则
 
-如果改动会影响跨模块契约，先读 [docs/_shared/20-product-tdd/](../../../docs/_shared/20-product-tdd/)；如果还涉及本仓库尚未拆分完的 runtime 细节，再读 [docs/20-product-tdd/extension-runtime.md](../../../docs/20-product-tdd/extension-runtime.md)。
+如果改动会影响跨模块契约，先读 [docs/_shared/20-product-tdd/](../../../docs/_shared/20-product-tdd/)；本仓库的 runtime mechanics 以本文件为准。
 
 ## 局部执行规则
 
@@ -41,6 +41,7 @@
 - `ExtensionBase.on_start()` 会加载配置、回写 `config_schema`、注册 API router、初始化 source 和 resolver。
 - `ExtensionBase.on_close()` 会把运行时配置保存回数据库。
 - `ExtensionManager.start_enabled()` 只启动当前 client 已启用的扩展。
+- start / close 不只是布尔状态切换；它们会修改当前 runtime 的 router、source、resolver 与配置状态。
 
 ### Metadata sources
 
@@ -62,10 +63,17 @@
 
 不要把“可从任意 URL 安装”写回文档，除非代码先支持。
 
+### State transition boundary
+
+- `installed`、`enabled`、`running` 是三个不同层级的状态。
+- `enable()` 处理当前 client 的允许运行状态，必要时才引发 runtime start。
+- `disable()` 处理当前 client 的允许运行状态移除，并在需要时关闭 runtime。
+- 若只想描述共享状态语义，写到 shared Product TDD；若涉及 `install()`、`enable()`、`disable()`、`start_enabled()` 的具体行为，留在这里。
+
 ## 编辑指引
 
 - 改 metadata 结构或安装布局时，同时更新这里和 [extensions/AGENTS.md](../../../extensions/AGENTS.md)。
-- 改 lifecycle 或 enablement 语义时，先判断 shared contract 是否变化；若是，先改 `InKCre/docs` 再 bump `docs/_shared`，并同步更新本地 [extension-runtime.md](../../../docs/20-product-tdd/extension-runtime.md) 中仍属本仓库的细节。
+- 改 lifecycle 或 enablement 语义时，先判断 shared contract 是否变化；若是，先改 `InKCre/docs` 再 bump `docs/_shared`，本地 runtime 细节则直接更新这里。
 - 若新增行为只是局部实现细节，优先写测试或代码注释，不要扩大本文件。
 
 ## 创建新 Extension 时要满足的最小形状

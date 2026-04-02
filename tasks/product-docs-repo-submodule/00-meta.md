@@ -13,6 +13,7 @@ Progress checkpoint:
 - Phase 4 pilot implemented in `core-py` and pushed to `develop`
 - Phase 5 split gate recorded for remaining mixed docs
 - Phase 5A executed: shared skill relocated, local `info_base` guide upgraded, local mixed glossary removed
+- Phase 5B executed: `extension-runtime` split into shared state contract plus local runtime guide
 
 ## Intent
 
@@ -48,8 +49,9 @@ The previous read-only mirror fan-out design was judged brittle and operationall
 - `60-phase-5-mixed-doc-split-gate.md`
 - `61-phase-5-split-matrix.md`
 - `62-phase-5a-execution-output.md`
+- `63-phase-5b-execution-output.md`
 - `90-review-checklist.md`
 
 ## Immediate Next Step
 
-Proceed with the next gated split only after confirming which shared slices of `extension-runtime` and `info-base-ingestion` truly survive the shared-admission gate.
+Proceed with the final gated split only after confirming which shared slices of `info-base-ingestion` truly survive the shared-admission gate.

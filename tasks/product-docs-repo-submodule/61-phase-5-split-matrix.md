@@ -15,6 +15,8 @@ Status: completed in Phase 5A.
 
 ## `docs/20-product-tdd/extension-runtime.md`
 
+Status: completed in Phase 5B.
+
 | current cluster | target owner | target path | action | notes |
 | --- | --- | --- | --- | --- |
 | one extension ID per deployment / installation state authority | shared candidate | `InKCre/docs/20-product-tdd/system-state-and-authority.md` | rewrite if pressure is proven | express without `ExtensionModel` method-level detail |
@@ -36,11 +38,10 @@ Status: completed in Phase 5A.
 ## Recommended Execution Order
 
 1. rewrite `app/business/info_base/AGENTS.md` into a v9.2 local guide
-2. extract local runtime details from `docs/20-product-tdd/extension-runtime.md` into `app/business/extension/AGENTS.md`
-3. extract local ingestion mechanics from `docs/20-product-tdd/info-base-ingestion.md` into `app/business/info_base/AGENTS.md`
-4. only then populate shared `InKCre/docs/20-product-tdd/*` with the small set of statements that pass the shared-admission gate
+2. extract local ingestion mechanics from `docs/20-product-tdd/info-base-ingestion.md` into `app/business/info_base/AGENTS.md`
+3. only then populate shared `InKCre/docs/20-product-tdd/*` with the small set of statements that pass the shared-admission gate
 
 ## Recommendation
 
-Do not execute the remaining two splits in one commit.  
-`extension-runtime.md` and `info-base-ingestion.md` should remain gated until their shared slices can be expressed without `core-py` implementation leakage.
+Do not execute the remaining final split casually.  
+`info-base-ingestion.md` should remain gated until its shared slices can be expressed without `core-py` implementation leakage.

@@ -6,7 +6,6 @@ Split the remaining mixed docs without centralizing `core-py`-local truth into `
 
 ## Remaining Mixed Inputs
 
-- `docs/20-product-tdd/extension-runtime.md`
 - `docs/20-product-tdd/info-base-ingestion.md`
 
 ## First-Principles Gate
@@ -29,9 +28,8 @@ If any gate fails, keep the statement local and improve the local container firs
 
 ### `docs/20-product-tdd/extension-runtime.md`
 
-- shared admission: partial and not yet fully proven
-- reason: some semantics may be cross-unit (`installed` vs `enabled`, client-scoped enablement), but many current bullets are still `core-py` runtime details
-- blocking risk: moving method-level lifecycle details into shared docs would lower maintainability
+- status: completed in Phase 5B
+- result: shared state semantics moved into `InKCre/docs/20-product-tdd/system-state-and-authority.md` and `InKCre/docs/20-product-tdd/cross-unit-contracts.md`; local runtime mechanics were absorbed into `app/business/extension/AGENTS.md`; the mixed local doc was removed
 
 ### `docs/20-product-tdd/info-base-ingestion.md`
 
