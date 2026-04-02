@@ -2,7 +2,7 @@
 
 ## Status
 
-Execution in progress after v9.3 reframing.
+Core cleanup slice completed after v9.3 reframing. Follow-up work is optional and should be reopened only when new structural pressure appears.
 
 ## Intent
 
@@ -34,6 +34,7 @@ The default post-split path should be:
 
 ## Entry Files
 
+- `STATUS.md`
 - `00-phase-map.md`
 - `05-v9-3-impact.md`
 - `10-unit-tdd-admission-gate.md`
@@ -42,15 +43,12 @@ The default post-split path should be:
 - `20-cleanup-sequence.md`
 - `90-review-checklist.md`
 
-## Immediate Next Step
+## Current Result
 
-Use v9.3 to re-evaluate three things in order:
+This task has produced three durable decisions:
 
-1. which `core-py` subtrees still lack strong tactical local guides
-2. whether `core-py` now has slow-moving structural truths worth a minimal `docs/30-unit-tdd/`
-3. whether `core-py` needs any local `docs/00-meta/` beyond the shared baseline under `docs/_shared/00-meta/`
+1. tactical local context was strengthened in `source/`, `sink/`, `resolver/`, and `storage/`
+2. one slow-moving unit-local structure was admitted into `docs/30-unit-tdd/`
+3. local `docs/00-meta/` remains unadmitted because the shared baseline is sufficient
 
-Current exploration result:
-
-- tactical gaps are confirmed in `source/`, `sink/`, `resolver/`, and `storage/`
-- one real structural candidate has been admitted: the `extension -> source/resolver -> info_base -> sink` authority pipeline
+For session handoff and reopen conditions, read `STATUS.md`.
