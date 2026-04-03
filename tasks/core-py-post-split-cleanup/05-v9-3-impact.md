@@ -58,8 +58,9 @@ The original mismatch that existed at task creation time has now been resolved f
 
 - shared source repo baseline is now `InKCre/docs/00-meta/_svc_v9_3.md`
 - this unit now consumes that baseline through `docs/_shared/00-meta/_svc_v9_3.md`
+- shared agent skills / SOPs are now consumed through `docs/_shared/00-meta/skills/`
 
 The remaining risk is narrower:
 
-- `core-py` has not yet fully migrated its own local dispatcher shape to a full v9.3-style `00-meta` engine
+- future cleanup may still try to invent a local `docs/00-meta/` tree by habit, even though no repo-local meta engine has been admitted
 - cleanup work must still avoid inventing local `docs/00-meta/` structure before real unit-specific workflow pain is demonstrated
