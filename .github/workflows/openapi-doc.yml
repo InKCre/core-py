@@ -4,16 +4,17 @@ permissions:
   pull-requests: write
 
 on:
-  push:
-    branches:
-      - main
-      - staging
-      - develop
-  pull_request:
-    branches:
-      - main
-      - staging
-      - develop
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+  #     - staging
+  #     - develop
+  # pull_request:
+  #   branches:
+  #     - main
+  #     - staging
+  #     - develop
 
 jobs:
   generate-openapi:
