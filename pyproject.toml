@@ -47,10 +47,32 @@ package-mode = false
 distribution = false
 
 [tool.pdm.scripts]
+dev = "python run.py"
+doctor = "python scripts/doctor.py"
+lint = "ruff check --no-cache ."
+format = "ruff format ."
+test = "python -m pytest -q"
+"check:lock" = "python scripts/check_lock.py"
+"check:requirements" = "python scripts/check_requirements.py"
+"lint:migrations" = "ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_requirements.py scripts/check_migration_history.py tests/migrations"
+"test:migrations" = "python -m pytest -q tests/migrations"
+"check:migrations" = { composite = ["lint:migrations", "test:migrations", "alembic heads"] }
+"check:migration-history" = "python scripts/check_migration_history.py {args}"
+"lint:settings" = "ruff check --no-cache tests/test_settings.py"
+"test:settings" = "python -m pytest -q tests/test_settings.py"
+"check:foundation" = { composite = ["doctor", "check:lock", "check:requirements", "check:migrations", "lint:settings", "test:settings"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"
+"db:record" = "python scripts/check_migration_history.py --record-new"
 "db:migrate" = "alembic upgrade head"
 "db:downgrade" = "alembic downgrade {args}"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "integration: requires external services or a disposable database",
+]
 
 [build-system]
 requires = []

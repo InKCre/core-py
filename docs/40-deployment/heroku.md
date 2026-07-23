@@ -11,10 +11,14 @@
 
 `Procfile` currently defines:
 
-- `release`: `alembic revision --autogenerate -m "mig" && alembic upgrade head`
+- `release`: `alembic upgrade head`
 - `web`: `uvicorn run:api_app --host=0.0.0.0 --port=${PORT:-8000}`
 
-That means every Heroku release currently attempts to autogenerate and apply a migration before boot.
+The release process applies reviewed, checked-in revisions exactly once before boot. It
+never creates a revision at deploy time.
+
+The Python runtime is selected by `.python-version`, which is shared by local tooling and
+foundation CI.
 
 ## One-Click Deploy
 
@@ -45,4 +49,9 @@ The checked-in one-click config uses `essential-0`, but multi-credential Postgre
 
 ## Caution
 
-The current release command is convenient but aggressive because it autogenerates migrations during deploy. Change this only deliberately, because it alters deployment semantics.
+`alembic upgrade head` is a single-writer release operation. A failed migration fails the
+release; application rollback does not automatically reverse the database. Revisions must
+therefore be reviewed and verified on a disposable database before deployment.
+
+The checked-in Docker image is not yet the Heroku release artifact and remains outside the
+foundation-containment contract.

@@ -1,0 +1,52 @@
+name: Foundation checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PDM_CHECK_UPDATE: "false"
+
+jobs:
+  foundation:
+    name: DX and migration containment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python and PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version-file: .python-version
+          version: 2.27.0
+          cache: true
+
+      - name: Install locked dependencies
+        run: pdm install -G dev --frozen-lockfile
+
+      - name: Run foundation contract
+        run: pdm run check:foundation
+
+      - name: Enforce append-only migration history
+        if: github.event_name == 'pull_request'
+        run: pdm run check:migration-history "origin/${{ github.base_ref }}"
+
+      - name: Enforce append-only migration history on push
+        if: github.event_name == 'push'
+        run: pdm run check:migration-history "${{ github.event.before }}"
+
+      - name: Run pre-commit contract
+        run: pdm run pre-commit run --all-files

@@ -4,7 +4,8 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from app.settings import settings
+from migrations.metadata import get_target_metadata
+from migrations.settings import get_migration_database_url
 
 
 # this is the Alembic Config object, which provides
@@ -16,14 +17,7 @@ config = context.config
 if config.config_file_name is not None:
   fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-from app.schemas import Base
-from libs.obsrv.log_record import LogModel
-
-target_metadata = Base.metadata
+target_metadata = get_target_metadata()
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -43,7 +37,7 @@ def run_migrations_offline() -> None:
   script output.
 
   """
-  url = settings.database_url
+  url = get_migration_database_url()
   context.configure(
     url=url,
     target_metadata=target_metadata,
@@ -64,7 +58,7 @@ def run_migrations_online() -> None:
   """
   connectable = engine_from_config(
     {
-      "sqlalchemy.url": settings.database_url,
+      "sqlalchemy.url": get_migration_database_url(),
     },
     prefix="sqlalchemy.",
     poolclass=pool.NullPool,
