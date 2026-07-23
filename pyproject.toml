@@ -45,6 +45,7 @@ dev = [
     "pytest-mock>=3.15.1",
     "ruff>=0.14.10",
     "httpx2>=2.0.0,<3.0.0",
+    "pyrefly==1.1.1",
 ]
 
 [tool.poetry]
@@ -59,6 +60,7 @@ doctor = "python scripts/doctor.py"
 lint = "ruff check --no-cache ."
 format = "ruff format ."
 "format:check" = "ruff format --check ."
+typecheck = "pyrefly check --min-severity=warn --output-format=min-text --progress-bar=no"
 test = "python -m pytest -q"
 "check:lock" = "python scripts/check_lock.py"
 "check:requirements" = "python scripts/check_requirements.py"
@@ -69,7 +71,7 @@ test = "python -m pytest -q"
 "lint:settings" = "ruff check --no-cache tests/test_settings.py"
 "test:settings" = "python -m pytest -q tests/test_settings.py"
 "check:foundation" = { composite = ["doctor", "check:lock", "check:requirements", "check:migrations", "lint:settings", "test:settings"] }
-"check" = { composite = ["check:foundation", "format:check", "lint", "test"] }
+"check" = { composite = ["check:foundation", "format:check", "lint", "typecheck", "test"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"
 "db:record" = "python scripts/check_migration_history.py --record-new"
@@ -81,9 +83,26 @@ test = "python -m pytest -q"
 "container:migrate" = "python scripts/container.py migrate"
 "container:ready" = "python scripts/container.py ready"
 
+[tool.pyrefly]
+project-includes = [
+    "app",
+    "extensions",
+    "libs",
+    "migrations",
+    "scripts",
+    "tests",
+    "utils",
+    "run.py",
+]
+search-path = [".", "scripts"]
+python-version = "3.12"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+filterwarnings = [
+    "ignore:co_lnotab is deprecated, use co_lines instead\\.:DeprecationWarning:js2py_\\.utils\\.injector",
+]
 markers = [
     "integration: requires external services or a disposable database",
 ]

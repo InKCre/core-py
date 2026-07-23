@@ -105,7 +105,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     if msg.is_multipart():
       for part in msg.walk():
         content_type = part.get_content_type()
-        content_disposition = str(part.get("Content-Disposition", ""))
+        content_disposition = part.get("Content-Disposition", "")
 
         # Skip attachments
         if "attachment" in content_disposition:
@@ -148,7 +148,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       return False
 
     for part in msg.walk():
-      content_disposition = str(part.get("Content-Disposition", ""))
+      content_disposition = part.get("Content-Disposition", "")
       if "attachment" in content_disposition:
         return True
     return False

@@ -489,6 +489,7 @@ def test_rss_parsing_extracts_items():
   assert channel is not None
 
   title_elem = channel.find("title", recursive=False)
+  assert title_elem is not None
   assert title_elem.get_text(strip=True) == "Test RSS Feed"
 
   items = soup.find_all("item")
@@ -496,8 +497,12 @@ def test_rss_parsing_extracts_items():
 
   # Check first item
   first_item = items[0]
-  assert first_item.find("guid").get_text(strip=True) == "item-1"
-  assert first_item.find("title").get_text(strip=True) == "First Article"
+  guid = first_item.find("guid")
+  title = first_item.find("title")
+  assert guid is not None
+  assert title is not None
+  assert guid.get_text(strip=True) == "item-1"
+  assert title.get_text(strip=True) == "First Article"
 
   # Check content:encoded in second item
   second_item = items[1]
@@ -522,6 +527,7 @@ def test_atom_parsing_extracts_entries():
   assert feed is not None
 
   title_elem = feed.find("title", recursive=False)
+  assert title_elem is not None
   assert title_elem.get_text(strip=True) == "Test Atom Feed"
 
   entries = soup.find_all("entry")
@@ -529,11 +535,18 @@ def test_atom_parsing_extracts_entries():
 
   # Check first entry
   first_entry = entries[0]
-  assert first_entry.find("id").get_text(strip=True) == "entry-1"
-  assert first_entry.find("title").get_text(strip=True) == "First Entry"
+  entry_id = first_entry.find("id")
+  title = first_entry.find("title")
+  assert entry_id is not None
+  assert title is not None
+  assert entry_id.get_text(strip=True) == "entry-1"
+  assert title.get_text(strip=True) == "First Entry"
 
   author = first_entry.find("author")
-  assert author.find("name").get_text(strip=True) == "John Doe"
+  assert author is not None
+  author_name = author.find("name")
+  assert author_name is not None
+  assert author_name.get_text(strip=True) == "John Doe"
 
   # Check content in second entry
   second_entry = entries[1]

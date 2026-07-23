@@ -16,7 +16,7 @@ REQUIRED_FILES = (
   "alembic.ini",
   "Procfile",
 )
-REQUIRED_TOOLS = ("alembic", "pytest", "ruff")
+REQUIRED_TOOLS = ("alembic", "pyrefly", "pytest", "ruff")
 
 
 def _pdm_version() -> str | None:

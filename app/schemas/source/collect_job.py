@@ -2,8 +2,6 @@ __all__ = [
   "SourceCollectJobStatus",
   "SourceCollectJobID",
   "SourceCollectJobModel",
-  "SourceCollectJobLogID",
-  "SourceCollectJobLogModel",
 ]
 
 import datetime

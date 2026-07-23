@@ -161,13 +161,13 @@ def get_embeddings(
 
 
 def one_chat(
-  prompt: str | None = None,
+  prompt: str = "",
   model: str = "deepseek/deepseek-v3-0324",
   history_messages: list[
     ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam
   ]
   | None = None,
-):
+) -> str:
   chat_completion_res = OPENAI_CLIENT.chat.completions.create(
     model=model,
     messages=[
@@ -179,11 +179,11 @@ def one_chat(
     ],
     stream=False,
   )
-  return chat_completion_res.choices[0].message.content
+  return chat_completion_res.choices[0].message.content or ""
 
 
 def multi_chat(
-  init_prompt: str | None = None, model: str = "deepseek/deepseek-v3-0324"
+  init_prompt: str = "", model: str = "deepseek/deepseek-v3-0324"
 ) -> typing.Callable[[str], str]:
   messages = []
 

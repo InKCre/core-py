@@ -25,6 +25,7 @@ from app.schemas.info_base.block import (
 )
 from app.schemas.info_base.relation import RelationID, RelationModel
 from app.schemas.info_base.main import Vector
+from app.schemas.info_base.storage import StorageID
 
 if typing.TYPE_CHECKING:
   from app.business.info_base.resolver import Resolver
@@ -137,7 +138,7 @@ class BlockManager:
     db_session.flush()
     db_session.refresh(block)
     # and embedding - use sink service
-    await EmbeddingManager.upsert_block_embedding(block, db_session)
+    await EmbeddingManager.upsert_block_embedding(block=block, db_session=db_session)
 
     return block
 
@@ -149,15 +150,15 @@ class BlockManager:
     """
     with SessionLocal() as db_session:
       resolver = ResolverManager.get(block)
-      generator = (await resolver.breakdown())()
+      generator = resolver.breakdown()
       try:
-        i = generator.send(None)
+        item = await anext(generator)
         while True:
-          db_session.add(i)
+          db_session.add(item)
           db_session.flush()
-          db_session.refresh(i)
-          i = generator.send(i)
-      except StopIteration:
+          db_session.refresh(item)
+          item = await generator.asend(item)
+      except StopAsyncIteration:
         pass
 
       db_session.commit()
@@ -209,16 +210,19 @@ class BlockManager:
         sqlmodel.select(RelationModel).where(RelationModel.from_ == inner_block_id)
       ).all()
 
-      r_relations.update(relation.id for relation in relations)
+      r_relations.update(relation.id for relation in relations if relation.id is not None)
 
       for relation in relations:
         block = db_session.exec(
           sqlmodel.select(BlockModel).where(BlockModel.id == relation.to_)
         ).one()
-        r_blocks.add(block.id)
+        persisted_block_id = block.id
+        if persisted_block_id is None:
+          raise RuntimeError("Persisted block is missing its database ID")
+        r_blocks.add(persisted_block_id)
 
         if depth <= max_depth:
-          iterate_one(block.id)
+          iterate_one(persisted_block_id)
 
       depth += 1
 
@@ -372,7 +376,7 @@ class BlockManager:
     block_id: BlockID,
     content: Opt[str] = None,
     resolver: Opt[ResolverType] = None,
-    storage: Opt[str] | Undefined = _undefined,
+    storage: Opt[StorageID] | Undefined = _undefined,
   ) -> BlockModel:
     """编辑块"""
     logger.info("Editing block", extra={"block_id": block_id})

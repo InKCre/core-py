@@ -36,6 +36,7 @@ class ResolverManager:
 
 SolvedContentTV = typing.TypeVar("SolvedContentTV")
 RawContentTV = typing.TypeVar("RawContentTV")
+BreakdownItem: typing.TypeAlias = BlockModel | RelationModel
 
 
 class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
@@ -149,6 +150,13 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   @classmethod
   # @abc.abstractmethod TODO
   def create_graph(cls, *args, **kwargs) -> SubGraphForm: ...
+
+  async def breakdown(
+    self,
+  ) -> typing.AsyncGenerator[BreakdownItem, BreakdownItem]:
+    """Yield no derived graph items unless a resolver defines decomposition."""
+    for item in ():
+      yield typing.cast(BreakdownItem, item)
 
   @abc.abstractmethod
   async def get_text(self) -> str:
