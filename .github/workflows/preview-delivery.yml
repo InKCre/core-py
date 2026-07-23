@@ -48,7 +48,7 @@ jobs:
             "Provision and migrate"
           )
 
-          for attempt in $(seq 1 120); do
+          for _ in $(seq 1 120); do
             checks_json="$(
               gh api \
                 -H "Accept: application/vnd.github+json" \
@@ -188,7 +188,7 @@ jobs:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
           WEB_URL: ${{ steps.heroku.outputs.web_url }}
         run: |
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl --fail --silent "${WEB_URL}livez" >/dev/null &&
               curl --fail --silent "${WEB_URL}readyz" >/dev/null; then
               {
