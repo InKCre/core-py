@@ -1,13 +1,9 @@
 import datetime
 import typing
 import sqlalchemy
-import pgvector.sqlalchemy
 import sqlmodel
 from typing import Optional as Opt
 from .storage import StorageID
-
-if typing.TYPE_CHECKING:
-  from .main import Vector
 
 ResolverType: typing.TypeAlias = str
 """Type of resolver. 

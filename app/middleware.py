@@ -1,6 +1,5 @@
 """Middleware for logging and request tracking."""
 
-import logging
 import time
 import uuid
 import jwt
@@ -107,9 +106,9 @@ class JWTMiddleware(BaseHTTPMiddleware):
     Returns:
         Response from the handler
     """
-    # Skip JWT validation for heartbeat endpoint
+    # Health and API-description endpoints are platform-readable.
     if (
-      request.url.path == "/heartbeat"
+      request.url.path in {"/heartbeat", "/livez", "/readyz"}
       or request.url.path == "/docs"
       or request.url.path.startswith("/openapi.json")
     ):

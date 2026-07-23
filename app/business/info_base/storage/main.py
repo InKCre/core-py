@@ -33,24 +33,27 @@ class StorageManager:
 
   @classmethod
   def register_storage(cls, storage_cls: type["Storage"]):
-    """Register a storage class."""
+    """Register a storage class in memory without external side effects."""
     cls._STORAGE_CLASSES[storage_cls.__stgtype__] = storage_cls
 
-    stmt = sqlalchemy.dialects.postgresql.insert(StorageTypesModel).values(
-      id=storage_cls.__stgtype__,
-      description=storage_cls.__doc__ or "No description.",
-      config_schema=storage_cls.__configschema__,
-    )
-    stmt = stmt.on_conflict_do_update(
-      index_elements=[StorageTypesModel.id],
-      set_=dict(
-        description=stmt.excluded.description,
-        config_schema=stmt.excluded.config_schema,
-      ),
-    )
-
+  @classmethod
+  def sync_storage_types(cls) -> None:
+    """Persist registered storage types during explicit runtime bootstrap."""
     with SessionLocal() as db:
-      db.exec(stmt)  # type: ignore
+      for storage_cls in cls._STORAGE_CLASSES.values():
+        stmt = sqlalchemy.dialects.postgresql.insert(StorageTypesModel).values(
+          id=storage_cls.__stgtype__,
+          description=storage_cls.__doc__ or "No description.",
+          config_schema=storage_cls.__configschema__,
+        )
+        stmt = stmt.on_conflict_do_update(
+          index_elements=[StorageTypesModel.id],
+          set_=dict(
+            description=stmt.excluded.description,
+            config_schema=stmt.excluded.config_schema,
+          ),
+        )
+        db.exec(stmt)  # type: ignore
       db.commit()
 
   @classmethod
@@ -120,6 +123,8 @@ class StorageManager:
 
     Uses PostgreSQL upsert to ensure built-in storages exist with correct configuration.
     """
+    cls.sync_storage_types()
+
     builtin_storages = [
       {
         "id": -1,

@@ -1,6 +1,5 @@
 import asyncio
-import typing
-from typing import Annotated as Anno, Literal as Lit, Optional as Opt
+from typing import Literal as Lit, Optional as Opt
 
 import fastapi
 import sqlmodel
@@ -18,7 +17,7 @@ class SinkManager:
   type RetrieveMode = Lit["feature", "embedding", "reasoning"]
 
   @classmethod
-  async def rag(
+  async def rag(  # noqa: PLR0913
     cls,
     query: str,
     context: Opt[str] = None,

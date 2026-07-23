@@ -3,8 +3,7 @@
 __all__ = ["ROUTER"]
 
 import fastapi
-import typing
-from typing import Annotated as Anno, Literal as Lit, Optional as Opt
+from typing import Optional as Opt
 from app.business.info_base.block import BlockManager, BlockModel
 from libs.ai import Embedding
 from app.schemas.info_base.block import BlockID, ResolverType

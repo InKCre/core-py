@@ -1,7 +1,7 @@
 """Telegram Source for collecting messages sent to the bot."""
 
 import typing
-from typing import Optional as Opt, Literal as Lit
+from typing import Literal as Lit
 import sqlmodel
 from telegram import Update
 from telegram.ext import Application

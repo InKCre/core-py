@@ -1,5 +1,4 @@
 import abc
-import uuid
 import typing
 import fastapi
 import sqlmodel
@@ -7,10 +6,6 @@ import sqlalchemy
 import importlib
 import os
 import tomllib
-import shutil
-import zipfile
-import tempfile
-import requests
 import json
 from typing import Optional as Opt
 from app.engine import SessionLocal
@@ -98,8 +93,6 @@ class ExtensionManager:
   @classmethod
   def start_enabled(cls, app: fastapi.FastAPI):
     """Start all extensions enabled for the current client."""
-    from app.business.client import ClientManager
-
     cls.FASTAPI_APP = app
     for extension in cls.get_installed(enabled_only=True):
       cls.start(extension=extension)
@@ -202,130 +195,40 @@ class ExtensionManager:
     return None, None
 
   @classmethod
-  def download(cls, extid: str, version: Opt[str] = None) -> ExtensionModel:
-    """Download given extension to `extensions/`
-
-    :param version: If None, download the latest version.
-    """
-    # Query PyPI API
-    package_name = f"inkcre-ext-{extid}"
-    pypi_url = f"https://pypi.org/pypi/{package_name}/json"
-    response = requests.get(pypi_url)
-    response.raise_for_status()
-    pypi_data = response.json()
-
-    # Determine version to download
-    if version is None:
-      version = pypi_data["info"]["version"]
-
-    # Get release files for the specified version
-    release_files = pypi_data["releases"].get(version, [])
-    if not release_files:
-      raise ValueError(f"Version {version} not found for {package_name}")
-
-    # Find wheel file
-    wheel_file = None
-    for file_info in release_files:
-      if file_info["packagetype"] == "bdist_wheel":
-        wheel_file = file_info
-        break
-
-    if not wheel_file:
-      raise ValueError(f"No wheel file found for {package_name} version {version}")
-
-    # Download wheel file
-    wheel_url = wheel_file["url"]
-    wheel_response = requests.get(wheel_url)
-    wheel_response.raise_for_status()
-
-    # Create extensions directory if it doesn't exist
-    extensions_dir = "extensions"
-    os.makedirs(extensions_dir, exist_ok=True)
-
-    # Extract wheel to temp directory first
-    with tempfile.TemporaryDirectory() as temp_dir:
-      wheel_path = os.path.join(temp_dir, wheel_file["filename"])
-      with open(wheel_path, "wb") as f:
-        f.write(wheel_response.content)
-
-      # Extract wheel
-      with zipfile.ZipFile(wheel_path, "r") as zip_ref:
-        zip_ref.extractall(temp_dir)
-
-      # Find the package directory (inkcre-ext-<extid> or <extid>)
-      extracted_items = os.listdir(temp_dir)
-      package_dir = None
-      for item in extracted_items:
-        item_path = os.path.join(temp_dir, item)
-        if os.path.isdir(item_path) and (
-          item == package_name or item.startswith("inkcre_ext_")
-        ):
-          package_dir = item_path
-          break
-
-      if not package_dir:
-        raise ValueError(f"Could not find package directory in wheel")
-
-      # Prepare target directory
-      target_dir = os.path.join(extensions_dir, extid)
-      if os.path.exists(target_dir):
-        shutil.rmtree(target_dir)
-      os.makedirs(target_dir, exist_ok=True)
-
-      # Move extension source files from inkcre_ext_<extid> to target_dir
-      ext_src_dir = os.path.join(package_dir, extid.replace("-", "_"))
-      if os.path.exists(ext_src_dir):
-        for item in os.listdir(ext_src_dir):
-          src_path = os.path.join(ext_src_dir, item)
-          dst_path = os.path.join(target_dir, item)
-          if os.path.isdir(src_path):
-            shutil.copytree(src_path, dst_path)
-          else:
-            shutil.copy2(src_path, dst_path)
-
-      # Move dist-info directory
-      dist_info_dir = None
-      for item in os.listdir(package_dir):
-        if item.endswith(".dist-info"):
-          dist_info_dir = os.path.join(package_dir, item)
-          break
-
-      if dist_info_dir:
-        target_dist_info = os.path.join(target_dir, os.path.basename(dist_info_dir))
-        if os.path.exists(target_dist_info):
-          shutil.rmtree(target_dist_info)
-        shutil.copytree(dist_info_dir, target_dist_info)
-
-      # Move pyproject.toml if it exists in package_dir
-      pyproject_src = os.path.join(package_dir, "pyproject.toml")
-      if os.path.exists(pyproject_src):
-        shutil.copy2(pyproject_src, os.path.join(target_dir, "pyproject.toml"))
-
-    # Return extension model with downloaded info
-    nickname, _ = cls._read_metadata(target_dir)
-
-    return ExtensionModel(
-      id=extid,
-      version=version or "0.0.0",
-      nickname=nickname,
-      config={},
-      enabled=[],
-    )
-
-  @classmethod
   def install(cls, extid: ExtensionID, version: Opt[str] = None) -> ExtensionModel:
-    """Install extension. Install if not yet."""
+    """Register a checked-in extension without downloading runtime code."""
+    extension_path = os.path.join("extensions", extid)
+    if not os.path.isdir(extension_path):
+      raise ValueError(f"Extension {extid} is not part of this artifact")
+
+    nickname, local_version = cls._read_metadata(extension_path)
+    if nickname is None and local_version is None:
+      raise ValueError(f"Extension {extid} has no valid local metadata")
+    local_version = local_version or "0.1.0"
+    if version is not None and version != local_version:
+      raise ValueError(
+        f"Extension {extid} version {version} is not part of this artifact"
+      )
+
     with SessionLocal() as db:
-      # Check if extension already installed
       existing = db.exec(
         sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
       ).first()
-
       if existing:
+        existing.version = local_version
+        existing.nickname = nickname
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
         return existing
 
-      # Install
-      extension = cls.download(extid, version=version)
+      extension = ExtensionModel(
+        id=extid,
+        version=local_version,
+        nickname=nickname,
+        config={},
+        enabled=[],
+      )
       db.add(extension)
       db.commit()
       db.refresh(extension)
@@ -501,7 +404,10 @@ class ExtensionManager:
             ).first()
             if existing:
               LOGGER.info(
-                f"Updating existing extension {ext_id}: version={version}, nickname={nickname}"
+                "Updating existing extension %s: version=%s, nickname=%s",
+                ext_id,
+                version,
+                nickname,
               )
               existing.version = version
               existing.nickname = nickname
@@ -522,37 +428,22 @@ class ExtensionManager:
 
       db.commit()
       LOGGER.info(
-        f"Local sync completed: {local_count} local extensions found, {updated_count} updated, {new_count} added"
+        "Local sync completed: %d local extensions found, %d updated, %d added",
+        local_count,
+        updated_count,
+        new_count,
       )
 
-      # Check for extensions in database but not locally installed
+      # Runtime artifacts are immutable. Database-only records are never downloaded.
       all_db_extensions = db.exec(sqlmodel.select(ExtensionModel)).all()
-      db_only_count = 0
-      download_success_count = 0
-      download_error_count = 0
-
-      LOGGER.info(f"Checking database extensions for missing local installations")
-
-      for db_ext in all_db_extensions:
-        if db_ext.id not in local_extensions:
-          db_only_count += 1
-          LOGGER.info(
-            f"Extension {db_ext.id} exists in database but not locally, attempting download"
-          )
-          # Download missing extension
-          try:
-            cls.download(db_ext.id, version=db_ext.version)
-            download_success_count += 1
-            LOGGER.info(
-              f"Successfully downloaded extension {db_ext.id} version {db_ext.version}"
-            )
-          except Exception as e:
-            download_error_count += 1
-            # Log error but continue syncing other extensions
-            LOGGER.error(f"Failed to download extension {db_ext.id}: {e}", exc_info=True)
-
-      LOGGER.info(
-        f"Database sync completed: {db_only_count} database-only extensions found, "
-        f"{download_success_count} successfully downloaded, {download_error_count} download failures"
+      db_only = sorted(
+        str(extension.id)
+        for extension in all_db_extensions
+        if extension.id not in local_extensions
       )
+      if db_only:
+        LOGGER.warning(
+          "Ignoring database-only extensions absent from this artifact: %s",
+          ", ".join(db_only),
+        )
       LOGGER.info("Extension synchronization completed successfully")

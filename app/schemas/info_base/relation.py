@@ -1,12 +1,8 @@
-import dataclasses
 import typing
 from typing import Optional as Opt
 import datetime
 import sqlalchemy
 import sqlmodel
-
-if typing.TYPE_CHECKING:
-  from .main import Vector
 
 RelationID: typing.TypeAlias = int
 

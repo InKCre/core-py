@@ -25,8 +25,14 @@ def install_extension(
   disabled: bool = fastapi.Query(default=False),
   version: str | None = fastapi.Query(default=None),
 ) -> ExtensionModel:
-  """安装插件 (Install extension)"""
-  return ExtensionManager.install(extid, version=version)
+  """Register an extension that is already included in this artifact."""
+  try:
+    return ExtensionManager.install(extid, version=version)
+  except ValueError as error:
+    raise fastapi.HTTPException(
+      status_code=fastapi.status.HTTP_409_CONFLICT,
+      detail=str(error),
+    ) from error
 
 
 @ROUTER.post("/{extid}/enable")

@@ -1,49 +1,51 @@
-# Multi-stage build for InKCre Core-Py
-FROM python:3.12-slim as builder
+# syntax=docker/dockerfile:1
 
-# Install PDM
-RUN pip install --no-cache-dir pdm
+ARG PYTHON_VERSION=3.12
 
-# Set workdir
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+ARG PDM_VERSION=2.27.0
+ENV PDM_CHECK_UPDATE=false \
+    PDM_IGNORE_SAVED_PYTHON=1 \
+    PDM_VENV_IN_PROJECT=1
 WORKDIR /app
 
-# Copy all for dependency installation
-COPY . .
+RUN pip install --no-cache-dir "pdm==${PDM_VERSION}"
 
-# Install core dependencies
-RUN pdm install --prod --no-editable
+COPY pyproject.toml pdm.lock README.md ./
+RUN pdm install --prod --no-editable --frozen-lockfile
 
-# Install extensions dependencies
-RUN for dir in extensions/*/; do \
-        if [ -f "$dir/pyproject.toml" ]; then \
-            cd "$dir" && pdm install --prod --no-editable && cd /app; \
-        fi; \
-    done
 
-# Final stage
-FROM python:3.12-slim
+FROM python:${PYTHON_VERSION}-slim AS runtime
 
-# Set workdir
+ENV INKCRE_ENV_FILE="" \
+    PATH="/app/.venv/bin:${PATH}" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 WORKDIR /app
 
-# Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+RUN groupadd --gid 10001 inkcre \
+    && useradd --uid 10001 --gid inkcre --create-home inkcre
 
-# Add venv to PATH
-ENV PATH="/app/.venv/bin:$PATH"
+COPY --from=builder --chown=inkcre:inkcre /app/.venv /app/.venv
+COPY --chown=inkcre:inkcre app/ app/
+COPY --chown=inkcre:inkcre data/ai/prompts/ data/ai/prompts/
+COPY --chown=inkcre:inkcre extensions/ extensions/
+COPY --chown=inkcre:inkcre libs/ libs/
+COPY --chown=inkcre:inkcre migrations/ migrations/
+COPY --chown=inkcre:inkcre scripts/ scripts/
+COPY --chown=inkcre:inkcre utils/ utils/
+COPY --chown=inkcre:inkcre \
+    alembic.ini \
+    pdm.lock \
+    pyproject.toml \
+    run.py \
+    ./
 
-# Copy application code (excluding extensions)
-COPY app/ app/
-COPY run.py .
-COPY pyproject.toml .
-COPY pdm.lock .
-COPY alembic.ini .
-COPY migrations/ migrations/
-COPY utils/ utils/
-COPY requirements.txt .
+RUN install -d -o inkcre -g inkcre /app/data/extensions/twitter
 
-# Expose port
+USER inkcre
+
 EXPOSE 8000
-
-# Run the app
-CMD ["uvicorn", "run:api_app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["python", "scripts/container.py"]
+CMD ["web"]

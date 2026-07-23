@@ -1,45 +1,53 @@
 # Docker
 
-## Checked-In Files
+## Artifact Contract
 
-- `Dockerfile`
-- `docker-compose.yml`
-- `.env.example`
+The multi-stage `Dockerfile` builds one provider-neutral OCI artifact:
 
-## Current Container Model
+- Python and PDM versions are pinned by `.python-version` and the Docker build argument
+- production dependencies come only from the frozen root `pdm.lock`
+- the final image contains core code, shared libraries, checked-in extensions, prompts,
+  Alembic configuration, and every migration revision
+- extension-local virtual environments and locks are not image inputs
+- the final process runs as the non-root `inkcre` user
 
-The repository ships a multi-stage Dockerfile:
+The entry point is `python scripts/container.py`. Supported commands are:
 
-- builder stage installs core and extension dependencies with PDM
-- final stage copies the virtualenv and application code
+- `web`: start Uvicorn on `0.0.0.0:$PORT`
+- `migrate`: run `alembic upgrade head`
+- `ready`: check database connectivity and exact Alembic head without writing
 
-The final image copies core code, migrations, and shared utilities. It does not bake the `extensions/` directory into the final image.
+The artifact never generates migrations or downloads extension code.
 
-## Docker Compose Model
+## Local Compose
 
-`docker-compose.yml` currently defines:
+`docker-compose.yml` defines:
 
-- `postgres`: PostgreSQL 17 with health checks
-- `app`: the backend service built from the local Dockerfile
+- `postgres`: PostgreSQL 17 with pgvector and a health check
+- `migrate`: a one-shot instance of the exact application image
+- `app`: the same image in `web` mode, started only after migration succeeds
 
-Notable runtime behavior:
-
-- `.env` is loaded for both services
-- `DATABASE_URL` is overridden inside the app container to point at the compose `postgres` service
-- local `./extensions` is mounted into `/app/extensions`
-
-## Migrations
-
-Docker Compose does not run Alembic automatically.
-
-Run migrations explicitly:
+Start the stack:
 
 ```bash
-docker-compose exec app alembic upgrade head
+docker compose up --build
 ```
 
-## Operational Notes
+Override local ports with `POSTGRES_PORT` and `APP_PORT`. Compose defaults are development
+only; production credentials must come from the deployment platform.
 
-- If extension dependencies change, rebuild the image
-- If ports conflict, adjust `docker-compose.yml`
-- If extensions fail to load, check that the mounted `extensions/` directory is valid
+## Health Semantics
+
+- `/livez` is process-only
+- `/readyz` requires a migrated database and completed runtime bootstrap
+- the Compose health check deliberately uses liveness; routing platforms should use
+  readiness before sending traffic
+
+## CI Evidence
+
+The artifact job in `.github/workflows/ci.yml` builds the frozen image, inspects required
+paths, migrates a fresh pgvector database, runs `alembic check`, starts the web command on a
+dynamic port, and probes both liveness and readiness.
+
+When no local Docker-compatible runtime is installed, this CI job is the authoritative
+container execution proof.

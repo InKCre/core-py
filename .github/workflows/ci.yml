@@ -1,4 +1,4 @@
-name: Foundation checks
+name: Repository and artifact checks
 
 on:
   pull_request:
@@ -11,15 +11,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: foundation-${{ github.workflow }}-${{ github.ref }}
+  group: repository-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   PDM_CHECK_UPDATE: "false"
 
 jobs:
-  foundation:
-    name: DX and migration containment
+  repository:
+    name: Hermetic repository contract
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,8 +37,8 @@ jobs:
       - name: Install locked dependencies
         run: pdm install -G dev --frozen-lockfile
 
-      - name: Run foundation contract
-        run: pdm run check:foundation
+      - name: Run repository contract
+        run: pdm run check
 
       - name: Enforce append-only migration history
         if: github.event_name == 'pull_request'
@@ -50,3 +50,78 @@ jobs:
 
       - name: Run pre-commit contract
         run: pdm run pre-commit run --all-files
+
+  artifact:
+    name: Portable artifact and fresh database
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: inkcre
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d inkcre"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/inkcre
+      JWT_SECRET: ci-only-placeholder
+      INKCRE_ENV_FILE: ""
+      OBSRV__LOGGING_BACKEND: none
+      IMAGE_TAG: inkcre-core:${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build frozen artifact
+        run: docker build --tag "$IMAGE_TAG" .
+
+      - name: Inspect artifact contents
+        run: >-
+          docker run --rm --entrypoint python "$IMAGE_TAG" -c
+          "from pathlib import Path;
+          required = (
+            'app', 'libs', 'utils', 'extensions', 'migrations/versions',
+            'alembic.ini', 'scripts/container.py', 'data/ai/prompts'
+          );
+          missing = [path for path in required if not Path(path).exists()];
+          assert not missing, missing"
+
+      - name: Migrate disposable database
+        run: >-
+          docker run --rm --network host
+          --env DATABASE_URL
+          "$IMAGE_TAG" migrate
+
+      - name: Verify migration head and metadata
+        run: |
+          docker run --rm --network host --env DATABASE_URL "$IMAGE_TAG" ready
+          docker run --rm --network host --env DATABASE_URL \
+            --entrypoint alembic "$IMAGE_TAG" check
+
+      - name: Start and probe web artifact
+        run: |
+          container_id="$(
+            docker run --detach --network host \
+              --env DATABASE_URL \
+              --env JWT_SECRET \
+              --env INKCRE_ENV_FILE \
+              --env PORT=18080 \
+              "$IMAGE_TAG" web
+          )"
+          trap 'docker logs "$container_id"; docker rm --force "$container_id"' EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/livez >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl --fail --silent http://127.0.0.1:18080/livez
+          curl --fail --silent http://127.0.0.1:18080/readyz

@@ -1,6 +1,5 @@
 """Sql utilities."""
 
-import sqlmodel
 import typing
 import sqlalchemy
 from sqlalchemy.dialects.postgresql import JSONB

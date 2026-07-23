@@ -5,7 +5,7 @@ import sys
 
 __all__ = ["get_logger"]
 
-LOGGER: logging.Logger
+LOGGER = logging.getLogger("inkcre")
 
 
 def setup_obsrv() -> logging.Logger:

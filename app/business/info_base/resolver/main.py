@@ -113,7 +113,6 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
       self.__solved_content = await self._get_solved_content()
     return self.__solved_content
 
-  @abc.abstractmethod
   async def _get_solved_content(self) -> SolvedContentTV:
     """Get the solved content (non-cache).
 
@@ -122,6 +121,9 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
       it means you acquire the resolver of the relation's other side block,
       and use its solved content.
     """
+    raise NotImplementedError(
+      f"{self.__class__.__name__} cannot resolve deferred raw content"
+    )
 
   def set_solved_content(self, content: SolvedContentTV) -> None:
     self.__solved_content = content

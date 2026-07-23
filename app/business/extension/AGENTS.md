@@ -54,14 +54,14 @@
 
 ### Install and sync behavior
 
-- `install(extid, version)` 当前实现按 extension ID 从 PyPI 下载 wheel，再解包到本地 `extensions/<extid>/`。
-- `download()` 会把 wheel 中的源码目录和 `.dist-info` 结构整理成仓库期望的扩展目录布局。
-- `sync()` 是双向同步：
+- release artifact 使用固定的 checked-in extension profile，代码和依赖都在构建时锁定。
+- `install(extid, version)` 只注册制品内已经存在的 `extensions/<extid>/`，不会下载代码。
+- `sync()` 是从不可变制品到数据库的单向同步：
   - 本地有、数据库无：插入记录
   - 本地有、数据库有：更新 `nickname` 和 `version`
-  - 数据库有、本地无：尝试按数据库记录重新下载
+  - 数据库有、本地无：记录警告并忽略，不下载、不执行
 
-不要把“可从任意 URL 安装”写回文档，除非代码先支持。
+第三方 extension 分发需要独立的受信构建流程，不能在运行中的 web 进程安装。
 
 ### State transition boundary
 

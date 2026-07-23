@@ -1,6 +1,5 @@
 """Tests for mail extension."""
 
-import sys
 import os
 
 # Set a dummy database connection string to avoid engine creation error
@@ -11,11 +10,9 @@ from libs.obsrv.main import setup_obsrv
 
 setup_obsrv()
 
-from extensions.mail.schema import Email, EmailAddress, EmailAddressBlock
+from extensions.mail.schema import Email, EmailAddress
 from datetime import datetime
 from email.message import EmailMessage
-from unittest.mock import Mock, patch
-import pytest
 import asyncio
 
 
@@ -25,8 +22,6 @@ def test_email_schema():
     uid=12345,
     message_id="<test@example.com>",
     subject="Test Email",
-    from_=EmailAddress(email="sender@example.com", name="Sender"),
-    to=[EmailAddress(email="recipient@example.com", name="Recipient")],
     date=datetime(2024, 1, 1, 12, 0, 0),
     body_text="This is a test email.",
     has_attachments=False,
@@ -34,8 +29,7 @@ def test_email_schema():
 
   assert email.uid == 12345
   assert email.subject == "Test Email"
-  assert email.from_.email == "sender@example.com"
-  assert len(email.to) == 1
+  assert email.date == datetime(2024, 1, 1, 12, 0, 0)
 
 
 def test_email_address_schema():
@@ -57,8 +51,6 @@ def test_email_serialization():
     uid=12345,
     message_id="<test@example.com>",
     subject="Test Email",
-    from_=EmailAddress(email="sender@example.com", name="Sender"),
-    to=[EmailAddress(email="recipient@example.com", name="Recipient")],
     date=datetime(2024, 1, 1, 12, 0, 0),
     body_text="This is a test email.",
     has_attachments=False,
@@ -125,11 +117,10 @@ def test_body_types_both():
 def test_email_address_normalization():
   """Test that email addresses are normalized to lowercase."""
   email_addr = EmailAddress(email="Test@Example.COM", name="Test User")
-  email_block = EmailAddressBlock(email=email_addr.email, name=email_addr.name)
 
   # Email should be normalized to lowercase
-  assert email_block.email == "test@example.com"
-  assert email_block.name == "Test User"
+  assert email_addr.email == "test@example.com"
+  assert email_addr.name == "Test User"
 
 
 def test_email_address_resolver_get_text_with_name():
@@ -137,10 +128,10 @@ def test_email_address_resolver_get_text_with_name():
   from extensions.mail.resolver import EmailAddressResolver
   from app.schemas.info_base.block import BlockModel
 
-  email_block_data = EmailAddressBlock(email="test@example.com", name="Test User")
+  email_block_data = EmailAddress(email="test@example.com", name="Test User")
 
   block = BlockModel(
-    resolver="extensions.mail.resolver.EmailAddressResolver",
+    resolver="email_address",
     content=email_block_data.model_dump_json(),
   )
 
@@ -156,10 +147,10 @@ def test_email_address_resolver_get_text_without_name():
   from extensions.mail.resolver import EmailAddressResolver
   from app.schemas.info_base.block import BlockModel
 
-  email_block_data = EmailAddressBlock(email="test@example.com", name=None)
+  email_block_data = EmailAddress(email="test@example.com", name=None)
 
   block = BlockModel(
-    resolver="extensions.mail.resolver.EmailAddressResolver",
+    resolver="email_address",
     content=email_block_data.model_dump_json(),
   )
 
@@ -175,15 +166,15 @@ def test_email_address_resolver_embedding_string():
   from extensions.mail.resolver import EmailAddressResolver
   from app.schemas.info_base.block import BlockModel
 
-  email_block_data = EmailAddressBlock(email="test@example.com", name="Test User")
+  email_block_data = EmailAddress(email="test@example.com", name="Test User")
 
   block = BlockModel(
-    resolver="extensions.mail.resolver.EmailAddressResolver",
+    resolver="email_address",
     content=email_block_data.model_dump_json(),
   )
 
   resolver = EmailAddressResolver(block)
 
   # Should return name and email for embedding
-  embedding_str = resolver.get_str_for_embedding()
+  embedding_str = asyncio.run(resolver.get_str_for_embedding())
   assert embedding_str == "Test User test@example.com"

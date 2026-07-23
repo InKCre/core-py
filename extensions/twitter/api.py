@@ -145,7 +145,7 @@ class OfficialAPI(TwitterAPI):
       raise ValueError("User ID is not set. Please authorize first.")
     return self.__user_id
 
-  async def _request(
+  async def _request(  # noqa: PLR0913
     self,
     method: str,
     endpoint: str,
@@ -192,7 +192,8 @@ class OfficialAPI(TwitterAPI):
     #     if last_15m_start_at + datetime.timedelta(minutes=15) < datetime.datetime.now():
     #         del cls.request_records[endpoint]
     #     else:
-    #         if last_request_count >= Extension.config.api_rate_limit", {}).get(endpoint, 1):
+    #         limit = Extension.config.api_rate_limit", {}).get(endpoint, 1)
+    #         if last_request_count >= limit:
     #             # wait until the rate limit resets
     #             await asyncio.sleep((
     #                 last_15m_start_at + datetime.timedelta(minutes=15)
@@ -227,7 +228,7 @@ class OfficialAPI(TwitterAPI):
               method, endpoint, path_params, query, body, retried + 1
             )
           else:
-            raise TooManyRequests  # TODO
+            raise RuntimeError("Twitter API rate limit exceeded after retries")
 
         resp.raise_for_status()
         return await resp.json()
@@ -378,8 +379,11 @@ class OfficialAPI(TwitterAPI):
     self, *conversation_ids: str, from_: str | None = None, max_results: int = 20
   ) -> TwitterAPIResult:
     # TODO add query lenth limit auto adapt
+    conversations = " OR ".join(
+      f"conversation_id:{conversation_id}" for conversation_id in conversation_ids
+    )
     res = await self.get_tweets(
-      query=f"from:{from_} ({' OR '.join(map(lambda x: f'conversation_id:{x}', conversation_ids))})",
+      query=f"from:{from_} ({conversations})",
       max_results=max_results,
     )
     return res
@@ -426,7 +430,7 @@ class OfficialAPI(TwitterAPI):
     if state != self.state:
       raise ValueError("Invalid state parameter")
 
-    TOKEN_URL = "https://api.x.com/2/oauth2/token"
+    token_url = "https://api.x.com/2/oauth2/token"  # noqa: S105
     CLIENT_ID = self.__client_id
     CLIENT_SECRET = self.__client_secret
 
@@ -446,7 +450,7 @@ class OfficialAPI(TwitterAPI):
     }
 
     async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
-      async with session.post(TOKEN_URL, data=data, headers=headers) as resp:
+      async with session.post(token_url, data=data, headers=headers) as resp:
         resp.raise_for_status()
         resp_body = await resp.json()
         access_token = resp_body.get("access_token")
@@ -471,7 +475,7 @@ class OfficialAPI(TwitterAPI):
 
     Docs https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code#refresh-tokens
     """
-    TOKEN_URL = "https://api.x.com/2/oauth2/token"
+    token_url = "https://api.x.com/2/oauth2/token"  # noqa: S105
     CLIENT_ID = self.__client_id
 
     data = {
@@ -485,7 +489,7 @@ class OfficialAPI(TwitterAPI):
     }
 
     async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
-      async with session.post(TOKEN_URL, data=data, headers=headers) as resp:
+      async with session.post(token_url, data=data, headers=headers) as resp:
         resp.raise_for_status()
         token_response = await resp.json()
     return token_response
@@ -494,7 +498,7 @@ class OfficialAPI(TwitterAPI):
 class TwikitAPI(TwitterAPI):
   """Twikit API client."""
 
-  def __init__(
+  def __init__(  # noqa: PLR0913
     self,
     email: str,
     username: str,

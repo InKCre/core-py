@@ -11,10 +11,9 @@ from bs4 import BeautifulSoup
 from app.business.source import SourceBase
 from app.business.info_base.main import InfoBaseManager
 from app.engine import SessionLocal
-from app.schemas.info_base.block import BlockID, BlockModel
+from app.schemas.info_base.block import BlockID
 from app.schemas.info_base.main import SubGraphForm
 from app.schemas.source import SourceCollectJobModel
-from app.scheduler import scheduler
 from libs.obsrv.main import get_logger
 
 from .schema import FeedItem

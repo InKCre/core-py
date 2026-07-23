@@ -85,11 +85,15 @@ def test_settings_default_values():
   [
     (
       "postgres://user:password@localhost/testdb",
-      "postgresql://user:password@localhost/testdb",
+      "postgresql+psycopg://user:password@localhost/testdb",
     ),
     (
       "postgresql://user:password@localhost/testdb",
-      "postgresql://user:password@localhost/testdb",
+      "postgresql+psycopg://user:password@localhost/testdb",
+    ),
+    (
+      "postgresql+psycopg2://user:password@localhost/testdb",
+      "postgresql+psycopg://user:password@localhost/testdb",
     ),
     (
       TEST_DATABASE_URL,
@@ -180,6 +184,7 @@ def test_settings_nested_observability_fields():
 
 def test_process_global_settings_instance():
   environment = {
+    "INKCRE_ENV_FILE": "",
     "DATABASE_URL": TEST_DATABASE_URL,
     "JWT_SECRET": TEST_JWT_SECRET,
     "OBSRV__LOGGING_BACKEND": "none",
@@ -191,8 +196,13 @@ def test_process_global_settings_instance():
   assert reloaded.settings.jwt_secret == TEST_JWT_SECRET
 
 
+def test_pytest_disables_dotenv_loading():
+  assert settings_module.Settings.model_config["env_file"] is None
+
+
 def test_engine_uses_process_global_settings():
   environment = {
+    "INKCRE_ENV_FILE": "",
     "DATABASE_URL": TEST_DATABASE_URL,
     "JWT_SECRET": TEST_JWT_SECRET,
     "DATABASE_SCALE_0": "true",

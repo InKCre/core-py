@@ -4,6 +4,7 @@ This module provides centralized configuration management with validation,
 defaults, and type safety for environment variables.
 """
 
+import os
 import uuid
 from typing import Optional
 from pydantic import Field, field_validator
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
   """
 
   model_config = SettingsConfigDict(
-    env_file=".env",
+    env_file=os.getenv("INKCRE_ENV_FILE", ".env") or None,
     env_file_encoding="utf-8",
     case_sensitive=False,
     extra="ignore",  # Ignore extra environment variables
@@ -38,7 +39,10 @@ class Settings(BaseSettings):
   )
   database_scale_0: bool = Field(
     default=False,
-    description="Set true if database scales to 0 when idle (disables LISTEN/NOTIFY, enables pool_pre_ping)",
+    description=(
+      "Set true when the database scales to zero; enables pool_pre_ping and "
+      "disables LISTEN/NOTIFY assumptions"
+    ),
   )
 
   # JWT authentication
@@ -65,25 +69,22 @@ class Settings(BaseSettings):
   )
   client_base_url: Optional[str] = Field(
     default=None,
-    description="Base URL where this client's REST API is accessible (nullable for non-reachable clients)",
+    description=(
+      "Base URL where this client's REST API is accessible; null for "
+      "non-reachable clients"
+    ),
   )
 
   @field_validator("database_url")
   @classmethod
-  def convert_postgres_scheme(cls, v: str) -> str:
-    """Convert postgres:// to postgresql:// for SQLAlchemy 2.0+ compatibility.
-
-    Heroku provides DATABASE_URL with 'postgres://' scheme, but SQLAlchemy 2.0+
-    requires 'postgresql://' scheme. This validator handles the conversion.
-
-    Args:
-        v: The database URL value
-
-    Returns:
-        Database URL with postgresql:// scheme
-    """
+  def use_psycopg_driver(cls, v: str) -> str:
+    """Normalize generic and legacy PostgreSQL URLs to the installed driver."""
     if v.startswith("postgres://"):
-      return v.replace("postgres://", "postgresql://", 1)
+      return v.replace("postgres://", "postgresql+psycopg://", 1)
+    if v.startswith("postgresql+psycopg2://"):
+      return v.replace("postgresql+psycopg2://", "postgresql+psycopg://", 1)
+    if v.startswith("postgresql://"):
+      return v.replace("postgresql://", "postgresql+psycopg://", 1)
     return v
 
 

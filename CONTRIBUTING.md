@@ -6,28 +6,24 @@
 git submodule update --init --recursive
 pdm install -G dev --frozen-lockfile
 pdm run doctor
-pdm run check:foundation
+pdm run check
 ```
 
 `.python-version` is the shared Python runtime anchor. CI installs PDM 2.27.0, and
 `doctor` reports a mismatch when the local toolchain does not match that contract.
 
-`check:foundation` is the current green containment gate. It verifies lock and
-requirements consistency plus the migration configuration, graph, metadata, and release
-contract. Full-repository diagnostics remain available separately:
+`check` is the same hermetic repository gate used by CI. It verifies the lock and
+requirements export, migration configuration and append-only baseline, repository lint,
+and the complete unit-test suite. Use narrower commands while iterating:
 
 ```bash
 pdm run lint
 pdm run test
+pdm run check:foundation
 ```
 
-Those full diagnostics still expose known legacy lint and extension-test debt; they are not
-represented as green by the foundation workflow.
-
-The legacy full test collection can import extensions that read `.env`, attempt database
-access, and include validation inputs in tracebacks. Until the test-isolation packet lands,
-do not run `pdm run test` with a credential-bearing `.env` in shared CI or agent logs. The
-foundation command is hermetic and is the safe default.
+The test harness sets `INKCRE_ENV_FILE=""` before application imports. Tests do not read a
+developer `.env` or use its database and API credentials.
 
 ## Database Migrations
 
@@ -53,6 +49,21 @@ pdm run db:migrate
 Deployment release processes may run `db:migrate`; they must never run `db:generate`.
 Pull-request CI also rejects modifications, deletions, and renames of revisions that already
 exist on the base branch; migration history is append-only.
+
+## Container Contract
+
+The OCI artifact has three provider-neutral commands:
+
+```bash
+python scripts/container.py web
+python scripts/container.py migrate
+python scripts/container.py ready
+```
+
+`web` honors `$PORT`; `migrate` only applies checked-in revisions; `ready` performs a
+read-only connectivity and Alembic-head check. Checked-in extensions and their root-locked
+dependencies are immutable image content. The running service never downloads extension
+code.
 
 ## Shared Docs And Skill Discovery
 

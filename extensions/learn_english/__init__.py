@@ -15,4 +15,4 @@ class Extension(
 ):
   @classmethod
   def _init_resolvers(cls):
-    from .resolver import LexicalResolver
+    from .resolver import LexicalResolver  # noqa: F401

@@ -38,8 +38,10 @@
 
 ### Registration Boundary
 
-- `SourceBase.__init_subclass__()` 会把子类注册到 `SourceManager`，同时回写 `config_schema` 到 `sources_types`。
-- 所以 source 注册依赖 import-time side effect；如果模块从未被 import，对应 source type 就不会出现。
+- `SourceBase.__init_subclass__()` 只把子类登记到 `SourceManager` 的内存 registry。
+- `SourceManager.sync_source_types()` 在显式 runtime bootstrap 中把已登记类型回写到
+  `sources_types`；import 本身不得连接数据库。
+- source 注册仍依赖 import；如果模块从未被 import，对应 source type 就不会出现。
 - extension 提供 source 时，真正的注册触发点是 extension startup 期间的 import。
 
 ### State Ownership

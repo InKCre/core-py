@@ -8,17 +8,21 @@ Startup and background execution span application bootstrap, scheduler setup, ex
 
 ### 1. Application bootstrap has an explicit order
 
-Current startup flow in `run.py`:
+Current bootstrap flow in `run.py`:
 
-1. register the current client
-2. set up built-in storages
-3. start the scheduler
-4. register periodic jobs
-5. sync extensions unless `SKIP_EXTENSIONS_SYNC=1`
-6. start enabled extensions
-7. set up source collection schedules
+1. expose process-only liveness and report readiness as false
+2. wait asynchronously until the database is reachable at the artifact's Alembic head
+3. register the current client
+4. persist registered storage types and set up built-in storage instances
+5. sync the fixed extension profile unless `SKIP_EXTENSIONS_SYNC=1`
+6. start enabled extensions, which registers source and resolver classes in memory
+7. persist registered source types and set up source collection schedules
+8. start the scheduler and register periodic jobs
+9. report readiness as true
 
-Preserve this ordering unless there is a deliberate design change.
+Database waiting is retryable and does not block `/livez`. A failure after the database
+preflight moves runtime state to `failed`; it is observable through `/readyz` and is not
+silently retried because extension startup can have partial effects.
 
 ### 2. There are two background collection mechanisms today
 
@@ -44,9 +48,28 @@ These are runtime guarantees, not route-layer behavior.
 - CI sets `SKIP_EXTENSIONS_SYNC=1` when generating `docs/openapi.json`
 - This prevents extension startup side effects from being required for schema generation
 
+Application module import constructs routes and in-memory registries only. Database
+registration and extension synchronization begin inside lifespan startup, never during
+module import.
+
+### 6. Health probes have separate semantics
+
+- `/livez` and compatibility alias `/heartbeat` only prove that the web process can answer
+- `/readyz` is read-only and requires both the exact Alembic head and completed runtime
+  bootstrap
+- health routes do not require JWT credentials and never include connection errors or
+  database URLs in their payloads
+
+### 7. Scheduler ownership is intentionally single-replica
+
+The web process still owns APScheduler. Until scheduler work moves to a dedicated process,
+deployments must keep web formation at one replica to avoid duplicate periodic work.
+
 ## Authoritative Code Anchors
 
 - `run.py`
+- `app/health.py`
+- `app/runtime.py`
 - `app/scheduler.py`
 - `app/business/source/main.py`
 - `app/business/source/collect_job.py`
