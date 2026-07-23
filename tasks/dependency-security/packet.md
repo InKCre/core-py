@@ -131,5 +131,17 @@ gate for recurrence prevention.
 - static assertions for every Dependabot security floor
 - controlled OpenAPI generation with a synthetic configuration
 
-The remaining external proof is the pull-request dependency review and OCI/fresh-database
-jobs, followed by a post-merge Dependabot query against the default branch.
+### Pull-request verification
+
+PR #25 verified commit `03852ac991ace2680a06525a24c423ceaaf7287b`:
+
+- `Dependency security review`: passed; the requirements diff introduced no known
+  High/Critical vulnerability.
+- `Hermetic repository contract`: passed on `setup-pdm@v4.5`.
+- `Portable artifact and fresh database`: passed.
+- `Provision and migrate`: passed against the PR's Neon branch.
+- Workflow logs contain no Node 20 deprecation warning. The only setup-step warning was a
+  harmless cache-save race with another job using the same cache key.
+
+The remaining proof is promotion to the default branch followed by a fresh Dependabot query
+and the normal production delivery checks for that exact `main` commit.
