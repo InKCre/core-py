@@ -73,6 +73,14 @@ then releases both Heroku process images. A failed post-release probe rolls the 
 back to its previous deployed release when one exists, but still fails the workflow.
 Application rollback never runs an Alembic downgrade.
 
+For a new app, explicit config is installed before its first image release. For an existing
+app, delivery first proves that its current pooled and direct hosts still belong to the
+expected Neon branch, releases the new image against that same database, and only then
+updates config. This prevents a Heroku config release from running a new schema through an
+older migration image. Every image and config release is polled to a terminal successful
+state. Only registry login and image transfer receive bounded retries; migration and probe
+failures remain operator-visible failures.
+
 The default Heroku URL is the initial verification endpoint. Custom-domain and DNS traffic
 cutover are separate decisions; the legacy staging app remains unchanged during bootstrap.
 
@@ -96,7 +104,7 @@ Heroku authorization or JWT secret.
 Heroku configuration is explicit. `DATABASE_SCALE_0=true` enables resilient Neon
 connections, `OBSRV__LOGGING_BACKEND=none` keeps console logs without a remote/database
 handler, and the fixed checked-in extension profile boots normally. `CLIENT_ID` is
-deterministic per PR so restarts do not create a new runtime identity.
+deterministic per app so restarts do not create a new runtime identity.
 
 ## Migration And Rollback Constraint
 

@@ -19,10 +19,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Get branch name
-        id: branch_name
-        uses: tj-actions/branch-names@v8
-
       - name: Set branch expiration
         run: >-
           echo "EXPIRES_AT=$(date -u --date '+7 days'
@@ -33,7 +29,7 @@ jobs:
         uses: neondatabase/create-branch-action@v6
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: ${{ steps.branch_name.outputs.current_branch }}
+          branch_name: copilot/run-${{ github.run_id }}
           parent_branch: preview-base
           expires_at: ${{ env.EXPIRES_AT }}
           api_key: ${{ secrets.NEON_API_KEY }}

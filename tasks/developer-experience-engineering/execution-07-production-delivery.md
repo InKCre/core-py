@@ -154,10 +154,83 @@ sequenceDiagram
 ## Cutover And Follow-Up Boundary
 
 This execution establishes a verified production endpoint but does not move custom-domain
-or DNS traffic. After PR close removes its preview resources, `preview-base` should be
-recreated from the canonical production branch and sanitized under its existing exact-name
-guard; until then it remains a data-free, migrated baseline with the same schema head.
+or DNS traffic. After PR close removed its preview resources, `preview-base` was recreated
+from the canonical production branch and sanitized under its existing exact-name guard. It
+remains a data-free baseline at the same schema head.
 
 Later cleanup may archive the legacy staging app/branch only after an explicit retention
 window and independent confirmation that no consumer uses them. The checkpoint and
 encrypted archive have a separate retention decision and are not cleanup candidates here.
+
+## Execution Evidence
+
+Status: complete on 2026-07-23.
+
+### Git And GitHub
+
+- PR #17 merged the execution line into `develop` as merge commit `f2c4b42`.
+- PR #18 preserved the seven `main`-only experiment/revert commits, merged `main` into
+  `develop`, and promoted the reviewed result to `main` as `2061525`.
+- `main` now requires a pull request, resolved conversations, current-branch checks, and
+  these exact successful contexts:
+  - `Hermetic repository contract`
+  - `Portable artifact and fresh database`
+  - `Provision and migrate`
+- Administrators are included; force-push and branch deletion are disabled. Merge commits
+  remain allowed so existing history is not rewritten.
+- The `production` environment admits only `main`. Secret values remain masked; the
+  environment holds the dedicated Heroku authorization, JWT secret, and LLM inputs while
+  exact app/Neon identities are variables.
+
+### Database
+
+- Canonical production is Neon branch `br-morning-term-a142w65g`, named `production`, with
+  no TTL and parent checkpoint `br-polished-forest-a1m6qwrd`.
+- Its pre-migration manifest matched the preserved source; convergence reached
+  `c4e8a7b6d5f0` without changing the table set or row counts.
+- The pre/post application-rollback manifest was byte-identical with SHA256
+  `e515149dd0b3a6ed7b1074b236966aaa08ae767f4bfe06a36a0bc00b50a34c85`.
+- Staging and the durable checkpoint remain byte-identical with manifest SHA256
+  `992ba79f3e8b4b9759e4bb61ad32e4d4a035f19d73c8ca53d07940d1c442b5b3`,
+  legacy head `a1b2c3d4e5f6`, and 476 total application rows.
+- `preview-base` was recreated after PR cleanup as `br-delicate-salad-a12ci4th`, parented
+  to production, sanitized to zero rows at `c4e8a7b6d5f0`, and proved to have no schema
+  diff beyond the CLI's two diff headers.
+
+### Delivery And Rollback
+
+- Main CI run `30004984543` proved the exact production commit.
+- Production workflow run `30005106661` created
+  `inkcre-core-production` and deployed the exact `2061525` artifact as successful Heroku
+  release v4.
+- The app is a US container app in pipeline stage `production`, with no addons and one
+  Eco web dyno. Its default URL is
+  `https://inkcre-core-production-b26009ded782.herokuapp.com/`.
+- Runtime and migration config hosts were independently compared with the exact production
+  Neon branch: pooled for web and direct for Alembic.
+- Recovery dispatch run `30005493473` deployed the same main SHA as v5. Heroku application
+  rollback to v4 created successful v6, ran only the forward/idempotent release command,
+  returned `/livez` and `/readyz` to 200, and left the production manifest byte-identical.
+- Preview bootstrap run `30004412042` deployed PR #17 as successful v10 after repository,
+  artifact, and preview-database checks. The preview app, PR database branches, and
+  Copilot TTL branch were deleted after production verification.
+- Registry connection resets receive bounded retries. The observed transient login reset
+  was recovered on the next verified run; migrations and health failures are never retried
+  into a false success.
+
+### Verification Result
+
+- Local `pdm run check`: 97 tests passed.
+- Full pre-commit contract, YAML parsing, and Bash syntax validation passed.
+- All ten acceptance criteria are satisfied.
+- `inkcre-core-staging` remains unchanged at failed release v52 from 2025-12-22; no custom
+  domain, DNS, addon, staging mutation, checkpoint deletion, archive deletion, or database
+  downgrade occurred.
+
+## Remaining Follow-Up
+
+- Rotate both dedicated Heroku authorizations no later than 2027-07-23.
+- Decide custom-domain/DNS cutover separately.
+- Retain legacy staging until an explicit retention window and consumer audit permit
+  archival. Retain the checkpoint and encrypted archive under their independent recovery
+  policy.
