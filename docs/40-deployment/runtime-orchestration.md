@@ -43,10 +43,12 @@ These are runtime guarantees, not route-layer behavior.
 - the APScheduler instance is shut down in application lifespan shutdown
 - running extensions are closed asynchronously so they can persist config and release resources
 
-### 5. OpenAPI generation intentionally skips extension sync
+### 5. OpenAPI generation is import-only
 
-- CI sets `SKIP_EXTENSIONS_SYNC=1` when generating `docs/openapi.json`
-- This prevents extension startup side effects from being required for schema generation
+- `pdm run python scripts/generate-openapi.py` generates `docs/openapi.json` locally
+- application lifespan does not run during schema generation, so extension synchronization
+  and database-backed bootstrap are not required
+- hosted API documentation is not currently published by this repository
 
 Application module import constructs routes and in-memory registries only. Database
 registration and extension synchronization begin inside lifespan startup, never during
@@ -74,7 +76,7 @@ deployments must keep web formation at one replica to avoid duplicate periodic w
 - `app/business/source/main.py`
 - `app/business/source/collect_job.py`
 - `app/business/sink/embedding.py`
-- `.github/workflows/openapi-doc.yml`
+- `scripts/generate-openapi.py`
 
 ## What Does Not Belong Here
 

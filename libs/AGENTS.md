@@ -43,7 +43,7 @@ libs/
 - 结构化日志记录
 
 **核心函数**:
-- `setup_obsrv()`: 初始化日志系统（在 [run.py](../../run.py) 调用）
+- `setup_obsrv()`: 初始化日志系统（在 [run.py](../run.py) 调用）
 - `get_logger()`: 获取 logger 实例
 
 **配置** (在 [app/settings.py](../app/settings.py)):

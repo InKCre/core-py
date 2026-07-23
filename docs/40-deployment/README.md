@@ -21,8 +21,9 @@ This layer stores operational truth: how the service starts, how environments ar
 - `app.json`
 - `.github/workflows/branching-database.yml`
 - `.github/workflows/ci.yml`
-- `.github/workflows/openapi-doc.yml`
 - `.github/actions/preview-verify/action.yml`
 - `.github/actions/preview-delivery/action.yml`
 - `.github/workflows/preview-deploy.yml`
+- `.github/workflows/production-deploy.yml`
+- `scripts/generate-openapi.py`
 - `docs/openapi.json`

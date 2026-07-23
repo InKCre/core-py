@@ -39,12 +39,13 @@ images in a step that receives no deployment inputs. Only afterward does
 `.github/actions/preview-delivery/action.yml` resolve the masked Neon URL, configure the
 app, push both process images, run the release, and probe `/livez` plus `/readyz`.
 
-`.github/workflows/preview-deploy.yml` invokes that action from a trusted post-CI
-`workflow_run`. The verify and delivery implementations are checked out from
-`github.workflow_sha`;
-untrusted PR source is checked out separately and is only used as the Docker build context.
-A PR-close event destroys only the deterministic app. The matching Neon workflow
-independently deletes only its deterministic database branch.
+`.github/workflows/preview-deploy.yml` uses the base branch's trusted
+`pull_request_target` workflow for same-repository pull requests. It first waits for the
+exact PR head's repository, artifact, and preview-database checks, then checks out the
+untrusted PR source separately and uses it only as the secret-free Docker build context.
+Deployment inputs are exposed only to the later delivery action. A PR-close event destroys
+only the deterministic app. The matching Neon workflow independently deletes only its
+deterministic database branch.
 
 The manual `workflow_dispatch` input on `.github/workflows/ci.yml` is a recovery and initial
 bootstrap path. It executes the same repository and artifact checks before calling the same

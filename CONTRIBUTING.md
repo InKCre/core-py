@@ -13,10 +13,11 @@ pdm run check
 `doctor` reports a mismatch when the local toolchain does not match that contract.
 
 `check` is the same hermetic repository gate used by CI. It verifies the lock and
-requirements export, migration configuration and append-only baseline, repository lint,
-and the complete unit-test suite. Use narrower commands while iterating:
+requirements export, migration configuration and append-only baseline, Ruff formatting,
+repository lint, and the complete unit-test suite. Use narrower commands while iterating:
 
 ```bash
+pdm run format:check
 pdm run lint
 pdm run test
 pdm run check:foundation
