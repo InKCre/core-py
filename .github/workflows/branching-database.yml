@@ -17,7 +17,7 @@ concurrency:
 
 env:
   NEON_BRANCH_NAME: preview/pr-${{ github.event.number }}
-  NEON_PARENT_BRANCH: ${{ github.base_ref == 'main' && 'master' || github.base_ref }}
+  NEON_PARENT_BRANCH: preview-base
   NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
   PDM_CHECK_UPDATE: "false"
 
@@ -37,13 +37,12 @@ jobs:
           echo "EXPIRES_AT=$(date -u --date '+7 days'
           +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
 
-      - name: Create or reuse schema-only branch
+      - name: Create or reuse data-free branch
         id: neon
         uses: neondatabase/create-branch-action@v6
         with:
           project_id: ${{ env.NEON_PROJECT_ID }}
           branch_name: ${{ env.NEON_BRANCH_NAME }}
-          branch_type: schema-only
           parent_branch: ${{ env.NEON_PARENT_BRANCH }}
           role: neondb_owner
           expires_at: ${{ env.EXPIRES_AT }}

@@ -26,9 +26,11 @@ Neon branch automation is defined in:
 - `.github/workflows/branching-database.yml`
 - `.github/workflows/copilot-setup-steps.yml`
 
-Trusted pull requests use one schema-only branch named `preview/pr-<number>`:
+Trusted pull requests use one data-free branch named `preview/pr-<number>`:
 
-1. map Git base `main` to the current Neon `master` branch; map other base names directly
+1. create or update the durable `preview-base` from the current runtime branch, then run
+   the guarded sanitizer once to remove every allowlisted application row while preserving
+   `alembic_version`
 2. create or reuse the deterministic branch with a seven-day TTL
 3. install the frozen migration runtime and apply `alembic upgrade head`
 4. verify that the branch is at the artifact's exact head
@@ -38,12 +40,20 @@ Trusted pull requests use one schema-only branch named `preview/pr-<number>`:
 The workflow pins Neon CLI 2.36.0. Connection URLs are consumed only through masked action
 outputs and are never written to logs or artifacts.
 
-Schema-only preview branches do not contain production records. Application bootstrap may
-create its own required runtime records after deployment, but production data is neither
-copied nor treated as seed data.
+`preview-base` is a normal Neon branch because schema-only branching is incompatible with
+the legacy `authenticated` web role on the current runtime branch. Its one-time bootstrap
+copies the source branch internally, immediately truncates every known application table,
+and verifies the database remains at the repository head.
+Production is not mutated, and production rows never enter a PR-owned branch.
 
-The `main` → `master` mapping is transitional. The production cutover packet must establish
-and document the canonical production Neon branch before `main` CD is enabled.
+The current Neon free-v3 plan has a protected-branch quota of zero, so provider protection
+cannot be enabled on `preview-base`. The sanitizer requires the exact branch name, and the
+PR cleanup workflow only targets the `preview/pr-<number>` namespace. Upgrade the Neon plan
+or revisit branch protection before broadening administrative access.
+
+Application bootstrap may create its required runtime records after preview deployment, but
+production data is never treated as seed data. The production cutover packet must establish
+which canonical runtime branch refreshes `preview-base` before `main` CD is enabled.
 
 ## Operational Implication
 

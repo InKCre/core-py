@@ -2,11 +2,11 @@
 
 ## MVT Core
 
-- Objective & Hypothesis: give every trusted pull request one deterministic, disposable
-  Neon schema-only branch, apply only checked-in migrations, publish a reviewable schema
-  diff, and delete the exact same branch on close. The hypothesis is that a PR-number
-  identity and an explicit Git-base-to-Neon-parent mapping remove branch-name drift and make
-  the database lifecycle a safe input for the later Heroku preview app.
+- Objective & Hypothesis: establish one durable, data-free `preview-base`, then give every
+  trusted pull request one deterministic disposable branch from that baseline, apply only
+  checked-in migrations, publish a reviewable schema diff, and delete the exact same branch
+  on close. The hypothesis is that a PR-number identity plus an empty lineage-bearing base
+  removes branch-name drift and production-data exposure.
 - Guardrails Touched: preview databases contain schema but no production data; the Neon API
   key and connection URL stay masked; migration generation remains forbidden; branch
   cleanup is exact and has TTL fallback; provider CLI versions are pinned.
@@ -19,9 +19,9 @@
 - Reality: the previous workflow created `codex/dx-migration-containment` but failed in the
   schema-diff action; its delete path targeted a different `pr/...` name and would leak the
   created branch.
-- Constraint: Git `main` maps to the existing Neon `master` branch; other base branches map
-  by name. This mapping is transitional until the production cutover packet establishes a
-  canonical production branch.
+- Constraint: Neon schema-only branching rejects the legacy `authenticated` role on the
+  current `staging` runtime branch. A normal branch must be sanitized once before it can
+  become the preview baseline.
 - Artifact: deterministic preview-database lifecycle workflow and operational evidence.
 - Active modes: Diagnose for the failed workflow, then Execute.
 
@@ -29,12 +29,13 @@
 
 - Target: `.github/workflows/branching-database.yml`, preview-only Neon branches, and local
   deployment documentation.
-- Current state: PR 17 has a schema-only branch named after the Git head branch with a
-  fourteen-day TTL. It contains no application data. The workflow uses a stale output name,
-  comments through a brittle schema-diff action, and deletes a different branch name.
+- Current state: the old PR branch was deleted after its failed migration fully rolled back.
+  There is no live PR-owned branch. The workflow uses a stale output name, comments through
+  a brittle schema-diff action, and deletes a different branch name.
 - Requested operation:
   - use `preview/pr-<number>` for create, reuse, diff, and delete;
-  - map Git base `main` to Neon `master`, otherwise use the Git base name;
+  - create `preview-base` from `staging`, sanitize all allowlisted business
+    tables while preserving the verified Alembic head, then branch PRs from it;
   - run frozen PDM migration tooling against the action's pooled connection string;
   - write the schema diff to the job summary with pinned Neon CLI 2.36.0;
   - restrict secret-bearing preview creation to branches in this repository;
@@ -56,12 +57,13 @@
 ## Acceptance Criteria
 
 1. PR 17 owns exactly one Neon branch named `preview/pr-17`.
-2. The branch is schema-only, has a seven-day TTL, and is derived from Neon `develop`.
-3. The action reuses an existing branch on synchronize rather than failing.
-4. Frozen repository migration tooling upgrades the preview branch to the repository head.
-5. A sanitized schema diff is visible in the GitHub job summary.
-6. Closing the PR targets `preview/pr-17`, the same identity used at creation.
-7. No production or staging branch timestamps/schema are changed by verification.
+2. `preview-base` is at repository head and every application table has zero rows.
+3. The PR branch has a seven-day TTL and is derived from `preview-base`.
+4. The action reuses an existing branch on synchronize rather than failing.
+5. Frozen repository migration tooling upgrades the preview branch to the repository head.
+6. A sanitized schema diff is visible in the GitHub job summary.
+7. Closing the PR targets `preview/pr-17`, the same identity used at creation.
+8. No production or staging schema or rows are changed by verification.
 
 ## Follow-Up Boundary
 
@@ -82,5 +84,16 @@ surface.
 - Free-v3 rejects per-endpoint suspend overrides with `modifying the suspend interval is not
   permitted on this account`; the workflow therefore inherits the project endpoint default
   and relies on exact close cleanup plus the seven-day branch TTL.
+- Neon `develop` has an empty `alembic_version` table and is not a valid lineage anchor.
+  Read-only readiness verifies `staging` at repository head `a1b2c3d4e5f6`.
+- A schema-only branch copies tables but omits the `alembic_version` row, causing
+  `upgrade head` to replay the initial revision and fail on existing tables. Direct
+  schema-only creation from `staging` is also rejected because of the legacy
+  `authenticated` role. The selected hard cut is a sanitized normal branch;
+  there is no runtime stamp path.
+- Neon free-v3 has a protected-branch quota of zero. `preview-base`
+  (`br-misty-base-a1bgexrg`) was therefore created unprotected, sanitized successfully at
+  `a1b2c3d4e5f6`, and verified schema-identical to `staging`. The sanitizer's exact-name
+  guard and the cleanup workflow's `preview/pr-*` namespace are the current safety boundary.
 - `pdm run check` and workflow YAML parsing are green locally. PR synchronization must now
   prove `preview/pr-17` creation, migration, readiness, and schema summary.

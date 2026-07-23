@@ -15,7 +15,7 @@ repos:
         pass_filenames: false
       - id: lint-migrations
         name: Lint migration contract
-        entry: ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_requirements.py scripts/check_migration_history.py tests/migrations
+        entry: ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_requirements.py scripts/check_migration_history.py scripts/sanitize_preview_base.py tests/migrations
         language: system
         files: ^(Procfile|alembic\.ini|migrations/|scripts/|tests/migrations/)
         pass_filenames: false

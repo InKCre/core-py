@@ -23,6 +23,12 @@ pdm run db:revision "migration message"
 # 显式应用已提交的迁移
 pdm run db:migrate
 
+# 仅在一次性 preview-base bootstrap 中清空复制的数据
+ALLOW_PREVIEW_BASE_SANITIZE=1 \
+PREVIEW_BASE_BRANCH_NAME=preview-base \
+DATABASE_URL=... \
+pdm run db:sanitize-preview-base
+
 # 回滚迁移
 pdm run db:downgrade -1      # 回滚一个版本
 pdm run db:downgrade <revision>  # 回滚到指定版本
@@ -69,6 +75,10 @@ logging 或应用 startup。
 - 迁移脚本应纳入 Git 版本控制
 - 多人协作：确保迁移顺序正确（避免分支冲突）
 - 生产部署：在部署流程中自动执行 `alembic upgrade head`
+- `db:sanitize-preview-base` 只允许在明确命名的 preview baseline 上运行；它要求
+  public table allowlist 与 metadata 完全一致、数据库位于 repository head，然后
+  truncate 所有业务表但保留 `alembic_version`。production、普通 preview 和 release
+  禁止调用
 - 已发布 revision 必须 append-only；不得修改、删除或在 release 中临时生成
 - `revision-integrity.json` 是 hard-cut 后的可信基线；CI 会验证 worktree，并在 base
   已含清单时禁止更改既有条目
