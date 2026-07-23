@@ -130,9 +130,25 @@ jobs:
             exit 1
           fi
 
+          parent_matches="$(
+            jq -c --arg name "$NEON_PARENT_BRANCH" \
+              '[.[] | select(.name == $name)]' <<<"$list_json"
+          )"
+          if [[ "$(jq 'length' <<<"$parent_matches")" != 1 ]]; then
+            echo "Expected one Neon parent named $NEON_PARENT_BRANCH" >&2
+            exit 1
+          fi
+
           branch_id="$(jq -r '.[0].id' <<<"$matches")"
-          if [[ ! "$branch_id" =~ ^br-[a-z0-9-]+$ ]]; then
-            echo "Refusing unexpected Neon branch ID" >&2
+          actual_parent_id="$(jq -r '.[0].parent_id' <<<"$matches")"
+          expected_parent_id="$(jq -r '.[0].id' <<<"$parent_matches")"
+          if [[ ! "$branch_id" =~ ^br-[a-z0-9-]+$ ]] ||
+            [[ ! "$expected_parent_id" =~ ^br-[a-z0-9-]+$ ]]; then
+            echo "Refusing unexpected Neon branch identity" >&2
+            exit 1
+          fi
+          if [[ "$actual_parent_id" != "$expected_parent_id" ]]; then
+            echo "Refusing Neon branch with unexpected parent" >&2
             exit 1
           fi
 

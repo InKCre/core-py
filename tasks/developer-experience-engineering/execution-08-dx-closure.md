@@ -129,10 +129,11 @@ deployment and close cleanup.
 
 - Replaced the unreliable PR `workflow_run` association with same-repository
   `pull_request_target` orchestration. The trusted base workflow now verifies the open PR,
-  exact head SHA, and three GitHub Actions check authorities before checking out source.
+  exact head SHA, and three GitHub Actions check authorities before checking out source,
+  then reverifies the same authority immediately before credentialed delivery.
 - Replaced `neondatabase/delete-branch-action@v3` with exact `neonctl 2.36.0` cleanup.
-  Namespace, branch-count, branch-ID, absent-state, and concurrent-delete guards prevent the
-  cleanup job from broadening its authority.
+  Namespace, branch-count, branch-ID, expected-parent, absent-state, and concurrent-delete
+  guards prevent the cleanup job from broadening its authority.
 - Deleted the expired Bump.sh/OpenAPI workflow. Manual `docs/openapi.json` generation remains
   available; no replacement hosting provider was introduced.
 - Added `format:check`, made it part of the repository contract and pre-commit, formatted the

@@ -59,6 +59,13 @@ jobs:
             --tag "inkcre-preview-release:$HEAD_SHA" \
             "${{ github.workspace }}/source"
 
+      - name: Reverify preview authority before delivery
+        uses: ./.delivery/.github/actions/preview-verify
+        with:
+          github_token: ${{ github.token }}
+          head_sha: ${{ github.event.pull_request.head.sha }}
+          pr_number: ${{ github.event.pull_request.number }}
+
       - name: Deliver preview
         uses: ./.delivery/.github/actions/preview-delivery
         with:
