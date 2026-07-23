@@ -159,6 +159,8 @@ deployment and close cleanup.
 - Implementation PR
   [#27](https://github.com/InKCre/core-py/pull/27) passed repository, artifact,
   dependency, and Neon checks and merged into `develop` as `d7d5175`.
-- automatic Heroku preview deployment from the trusted workflow after this workflow version
-  exists on the PR base branch; the follow-up proof PR owns this evidence;
+- Promotion PR
+  [#29](https://github.com/InKCre/core-py/pull/29) passed the protected production-branch
+  checks and activated the trusted workflow on `main` as `dcd6239`.
+- Automatic Heroku preview delivery now uses this proof PR's synchronized exact head.
 - deterministic Heroku and Neon cleanup on probe-PR close.
