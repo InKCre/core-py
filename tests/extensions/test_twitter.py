@@ -13,7 +13,5 @@ def test_get_oauth_authorize_url(monkeypatch):
   assert parsed.scheme == "https"
   assert parsed.netloc == "x.com"
   assert query["client_id"] == ["test-client"]
-  assert query["redirect_uri"] == [
-    "https://preview.example/twitter/auth/callback"
-  ]
+  assert query["redirect_uri"] == ["https://preview.example/twitter/auth/callback"]
   assert query["code_challenge_method"] == ["plain"]

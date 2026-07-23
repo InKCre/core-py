@@ -4,6 +4,7 @@ extend-exclude = ["migrations/versions"]
 
 [format]
 indent-style = "space"
+line-ending = "lf"
 
 [lint]
 select = [

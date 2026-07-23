@@ -27,8 +27,7 @@ def test_storage_registration_is_memory_only(monkeypatch):
   try:
     storage_module.StorageManager.register_storage(TestStorage)
     assert (
-      storage_module.StorageManager._STORAGE_CLASSES[TestStorage.__stgtype__]
-      is TestStorage
+      storage_module.StorageManager._STORAGE_CLASSES[TestStorage.__stgtype__] is TestStorage
     )
   finally:
     storage_module.StorageManager._STORAGE_CLASSES.pop(

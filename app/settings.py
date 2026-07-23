@@ -70,8 +70,7 @@ class Settings(BaseSettings):
   client_base_url: Optional[str] = Field(
     default=None,
     description=(
-      "Base URL where this client's REST API is accessible; null for "
-      "non-reachable clients"
+      "Base URL where this client's REST API is accessible; null for non-reachable clients"
     ),
   )
 
