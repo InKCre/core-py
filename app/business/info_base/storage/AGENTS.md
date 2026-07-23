@@ -27,8 +27,11 @@
 
 ### Registry Side Effect
 
-- `Storage.__init_subclass__()` 会把 storage class 注册到 `StorageManager._STORAGE_CLASSES`，并同步 `storage_types` 记录。
-- 所以 storage 可用性也依赖 import-time side effect。
+- `Storage.__init_subclass__()` 只把 storage class 注册到
+  `StorageManager._STORAGE_CLASSES`。
+- `StorageManager.sync_storage_types()` 在显式 runtime bootstrap 中同步
+  `storage_types` 记录；import 本身不得连接数据库。
+- storage 可用性仍依赖 import-time 内存登记，但不依赖 import-time 外部写入。
 
 ### Built-In Storage IDs
 

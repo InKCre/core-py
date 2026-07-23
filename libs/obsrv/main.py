@@ -5,7 +5,7 @@ import sys
 
 __all__ = ["get_logger"]
 
-LOGGER: logging.Logger
+LOGGER = logging.getLogger("inkcre")
 
 
 def setup_obsrv() -> logging.Logger:
@@ -50,7 +50,7 @@ def setup_obsrv() -> logging.Logger:
     pg_handler = PostgreSQLHandler(dsn=settings.database_url)
     LOGGER.addHandler(pg_handler)
     LOGGER.info("PostgreSQL logging enabled")
-  else:
+  elif backend not in (None, "", "none"):
     LOGGER.warning(f"Unknown logging backend: {backend}")
 
   return LOGGER

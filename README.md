@@ -6,9 +6,14 @@ Python backend implementation of InKCre, built with FastAPI, SQLModel, APSchedul
 
 ```bash
 cp .env.example .env
-pdm install -G dev
-pdm run uvicorn run:api_app --reload
+pdm install -G dev --frozen-lockfile
+pdm run doctor
+pdm run check
+pdm run dev
 ```
+
+`pdm run check` is the hermetic repository contract used by CI: frozen dependency
+checks, migration containment, lint, and the complete unit-test suite.
 
 Developer setup and shared-skill notes: [CONTRIBUTING.md](CONTRIBUTING.md)
 

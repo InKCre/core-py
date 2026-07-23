@@ -1,10 +1,11 @@
 from .main import Resolver
-import typing
 
 
 class TextResolver(Resolver, rso_type="text"):
   """Text Resolver.
-  `text` is a string only includes characters, numbers and punctuation (no format, layout data)
+
+  `text` only includes characters, numbers, and punctuation. It contains no
+  formatting or layout data.
 
   """
 

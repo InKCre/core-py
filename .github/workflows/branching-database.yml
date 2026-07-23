@@ -1,75 +1,99 @@
-name: Branching database
+name: Preview database
 
 on:
-    pull_request:
-        types:
-            - opened
-            - reopened
-            - synchronize
-            - closed
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+permissions:
+  contents: read
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
+  group: preview-database-pr-${{ github.event.number }}
+  cancel-in-progress: false
+
+env:
+  NEON_BRANCH_NAME: preview/pr-${{ github.event.number }}
+  NEON_PARENT_BRANCH: preview-base
+  NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+  PDM_CHECK_UPDATE: "false"
 
 jobs:
-    setup:
-        name: Setup
-        outputs:
-            current_branch: ${{ steps.branch_name.outputs.current_branch }}
-            base_ref_branch: ${{ steps.branch_name.outputs.base_ref_branch }}
-        runs-on: ubuntu-latest
-        steps:
-            - name: Get branch name
-              id: branch_name
-              uses: tj-actions/branch-names@v8
+  provision:
+    name: Provision and migrate
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
 
-    create_db_branch:
-        name: Create Database Branch
-        permissions:
-            contents: read
-            pull-requests: write
-        outputs:
-            # TODO further use (set to environment, run migrations or etc.)
-            db_url: ${{ steps.create_neon_branch.outputs.db_url }}
-            db_url_with_pooler: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
-        needs: setup
-        if: |
-            github.event_name == 'pull_request' && (
-            github.event.action == 'synchronize'
-            || github.event.action == 'opened'
-            || github.event.action == 'reopened')
-        runs-on: ubuntu-latest
-        steps:
-            - name: Get branch expiration date as an env variable (2 weeks from now)
-              id: get_expiration_date
-              run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
-            - name: Create Neon Branch
-              id: create_neon_branch
-              uses: neondatabase/create-branch-action@v6
-              with:
-                  project_id: ${{ vars.NEON_PROJECT_ID }}
-                  branch_name: ${{ needs.setup.outputs.current_branch }}
-                  branch_type: "schema-only"
-                  parent_branch: ${{ needs.setup.outputs.base_ref_branch  || 'develop' }}
-                  api_key: ${{ secrets.NEON_API_KEY }}
-                  expires_at: ${{ env.EXPIRES_AT }}
-            - name: Post Schema Diff Comment to PR
-              uses: neondatabase/schema-diff-action@v1
-              with:
-                  project_id: ${{ vars.NEON_PROJECT_ID }}
-                  compare_branch: ${{ needs.setup.outputs.current_branch }}
-                  base_branch: ${{ needs.setup.outputs.base_ref_branch  || 'develop' }}
-                  api_key: ${{ secrets.NEON_API_KEY }}
+      - name: Set preview expiration
+        run: >-
+          echo "EXPIRES_AT=$(date -u --date '+7 days'
+          +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
 
-    delete_db_branch:
-        name: Delete Database Branch
-        needs: setup
-        if: github.event_name == 'pull_request' && github.event.action == 'closed'
-        runs-on: ubuntu-latest
-        steps:
-            - name: Delete Neon Branch
-              uses: neondatabase/delete-branch-action@v3
-              with:
-                  project_id: ${{ vars.NEON_PROJECT_ID }}
-                  branch: pr/${{ needs.setup.outputs.current_branch }}
-                  api_key: ${{ secrets.NEON_API_KEY }}
+      - name: Create or reuse data-free branch
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ env.NEON_PROJECT_ID }}
+          branch_name: ${{ env.NEON_BRANCH_NAME }}
+          parent_branch: ${{ env.NEON_PARENT_BRANCH }}
+          role: neondb_owner
+          expires_at: ${{ env.EXPIRES_AT }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Set up Python and PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version-file: .python-version
+          version: 2.27.0
+          cache: true
+
+      - name: Install frozen migration runtime
+        run: pdm install --prod --frozen-lockfile
+
+      - name: Apply checked-in migrations
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+        run: pdm run db:migrate
+
+      - name: Verify exact migration head
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+        run: pdm run container:ready
+
+      - name: Publish schema diff to job summary
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          diff_file="$RUNNER_TEMP/neon-schema.diff"
+          npx --yes neonctl@2.36.0 branches schema-diff \
+            "$NEON_PARENT_BRANCH" \
+            "$NEON_BRANCH_NAME" \
+            --project-id "$NEON_PROJECT_ID" \
+            --no-color > "$diff_file"
+          {
+            echo "### Neon schema diff"
+            echo
+            echo '```diff'
+            cat "$diff_file"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup:
+    name: Delete preview branch
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete deterministic Neon branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ env.NEON_PROJECT_ID }}
+          branch: ${{ env.NEON_BRANCH_NAME }}
+          api_key: ${{ secrets.NEON_API_KEY }}

@@ -1,6 +1,5 @@
 __all__ = ["BlockManager"]
 
-import asyncio
 import json
 import typing
 import sqlmodel
@@ -26,7 +25,6 @@ from app.schemas.info_base.block import (
 )
 from app.schemas.info_base.relation import RelationID, RelationModel
 from app.schemas.info_base.main import Vector
-from app.scheduler import scheduler
 
 if typing.TYPE_CHECKING:
   from app.business.info_base.resolver import Resolver
@@ -318,7 +316,10 @@ class BlockManager:
             relation2block[typing.cast(RelationID, relation.id)] = relation.from_
 
         graph_tool_res_i = MessageContent(
-          "## 节点{block_id} \n节点内容: {block_content}\n### 出边\n{outgoing_relations}\n### 入边\n{incoming_relations}\n"
+          "## 节点{block_id}\n"
+          "节点内容: {block_content}\n"
+          "### 出边\n{outgoing_relations}\n"
+          "### 入边\n{incoming_relations}\n"
         )
         outgoing_relations_csv = CSVMessageContent(
           header=("ID", "标签"),

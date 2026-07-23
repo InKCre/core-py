@@ -3,7 +3,7 @@
 import os
 import asyncio
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -220,7 +220,7 @@ def test_feed_item_resolver_get_str_for_embedding():
   )
 
   resolver = FeedItemResolver(block)
-  embedding_str = resolver.get_str_for_embedding()
+  embedding_str = asyncio.run(resolver.get_str_for_embedding())
 
   assert "Title: Embedding Test" in embedding_str
   assert "Summary: Summary for embedding." in embedding_str
@@ -252,7 +252,9 @@ RSS_FEED_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
       <title>Second Article with content:encoded</title>
       <link>https://example.com/article-2</link>
       <description>Short desc</description>
-      <content:encoded><![CDATA[<p>This is the full content with HTML.</p>]]></content:encoded>
+      <content:encoded><![CDATA[
+        <p>This is the full content with HTML.</p>
+      ]]></content:encoded>
       <pubDate>Tue, 16 Jan 2024 14:30:00 +0000</pubDate>
     </item>
     <item>
@@ -267,7 +269,7 @@ RSS_FEED_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def test_rss_source_is_content_truncated_with_content_encoded():
-  """Test _is_content_truncated returns False when content:encoded exists and is long enough."""
+  """Content is complete when content:encoded is long enough."""
   from extensions.rss.rss import Source as RssSource
 
   source = RssSource.__new__(RssSource)

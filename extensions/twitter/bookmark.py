@@ -1,9 +1,6 @@
 """Twitter Bookmark Source"""
 
-import asyncio
 import typing
-import json
-from typing import Optional as Opt
 
 import sqlmodel
 from app.business.info_base.block import BlockManager
@@ -15,12 +12,10 @@ from app.engine import SessionLocal
 from app.schemas.info_base.main import OutArcForm, SubGraphForm
 from app.schemas.info_base.block import BlockID, BlockModel
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.info_base.main import ArcForm
 from app.schemas.source import SourceCollectJobModel
-from app.scheduler import scheduler
-from extensions.twitter import Extension
 from .api import TwitterAPI
-from .schema import Tweet, TweetID
+from .resolver import TweetResolver
+from .schema import Tweet
 
 
 class SourceConfig(sqlmodel.SQLModel):
@@ -76,7 +71,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       collected.append(
         SubGraphForm(
           block=BlockModel(
-            resolver=Tweet.__resolver__.__rsotype__,
+            resolver=TweetResolver.__rsotype__,
             content=Tweet(**tweet.model_dump()).model_dump_json(),
           ),
           out_arcs=tuple(
@@ -128,7 +123,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     if not block:
       # TODO log error
       return
-    if block.resolver != Tweet.__resolver__.__rsotype__:
+    if block.resolver != TweetResolver.__rsotype__:
       return
     bookmarked_tweet = Tweet.model_validate_json(block.content)
     api_client = TwitterAPI.new()

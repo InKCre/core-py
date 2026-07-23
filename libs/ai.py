@@ -1,14 +1,13 @@
 __all__ = ["get_embeddings", "one_chat", "multi_chat"]
 
 import typing
-from typing import Annotated as Anno, Literal as Lit, Optional as Opt
+from typing import Literal as Lit, Optional as Opt
 from openai import OpenAI
 from openai.types.chat import (
   ChatCompletionMessageParam,
   ChatCompletionSystemMessageParam,
   ChatCompletionUserMessageParam,
   ChatCompletionAssistantMessageParam,
-  ChatCompletionToolMessageParam,
 )
 from app.settings import settings
 
@@ -50,7 +49,7 @@ class MessageContent:
 class Prompt(MessageContent):
   def __init__(self, prompt_name: str) -> None:
     with open(
-      r"data/ai/prompts/{prompt_name}.txt".format(prompt_name=prompt_name),
+      rf"data/ai/prompts/{prompt_name}.txt",
       "r",
       encoding="utf-8",
     ) as f:

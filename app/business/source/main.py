@@ -19,7 +19,8 @@ ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
 class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
   """InkCre Source Base class.
 
-  The config is not cached in memory, if it is someday, instantiate every time you use, instead of caching the instance.
+  Configuration is loaded from the database. Instantiate a source when it is
+  used instead of caching configuration separately.
   """
 
   __configschema__: dict
@@ -52,7 +53,6 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     Organization to collected blocks are concurrently.
     """
 
-  @abc.abstractmethod
   async def record(self, data: typing.Any) -> None:
     """Record data passively (e.g., from webhook).
 
@@ -62,6 +62,7 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     - Should not suppress exceptions, raise it.
     - Used for passive collection methods like webhooks.
     """
+    raise NotImplementedError(f"{self.__class__.__name__} does not support passive record")
 
   def get_config(self) -> ConfigTV:
     """Get the configuration of the source."""
@@ -97,29 +98,29 @@ class SourceManager:
 
   @classmethod
   def add_source_type(cls, source_cls: type[SourceBase]) -> None:
-    """Register a new source type."""
+    """Register a source type in memory without external side effects."""
     source_type = source_cls.__module__ + "." + source_cls.__qualname__
     cls._SOURCE_CLASSES[source_type] = source_cls
 
-    stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
-      id=source_type,
-      description=source_cls.__doc__ or "No description.",
-      config_schema=source_cls.__configschema__,
-    )
-    stmt = stmt.on_conflict_do_update(
-      index_elements=[SourceTypesModel.id],
-      set_=dict(
-        description=stmt.excluded.description,
-        config_schema=stmt.excluded.config_schema,
-      ),
-    )
-
+  @classmethod
+  def sync_source_types(cls) -> None:
+    """Persist registered source types during explicit runtime bootstrap."""
     with SessionLocal() as db:
-      db.exec(stmt)  # type: ignore
+      for source_type, source_cls in cls._SOURCE_CLASSES.items():
+        stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
+          id=source_type,
+          description=source_cls.__doc__ or "No description.",
+          config_schema=source_cls.__configschema__,
+        )
+        stmt = stmt.on_conflict_do_update(
+          index_elements=[SourceTypesModel.id],
+          set_=dict(
+            description=stmt.excluded.description,
+            config_schema=stmt.excluded.config_schema,
+          ),
+        )
+        db.exec(stmt)  # type: ignore
       db.commit()
-      # return db.exec(
-      #     sqlmodel.select(SourceTypesModel).where(SourceTypesModel.id == source_type)
-      # ).one()
 
   @classmethod
   def set_up_collect_jobs(cls):

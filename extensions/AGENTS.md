@@ -65,7 +65,7 @@ class Extension(ExtensionBase, ext_id="my_extension", config_cls=MyConfig):
 ### 扩展安装
 
 - **内置扩展**: 已在此目录，直接启用即可
-- **第三方扩展**: 使用 `ExtensionManager.install(url)` 安装
+- **第三方扩展**: 先通过受信构建流程加入制品；运行时不下载或安装代码
 
 ### 扩展配置
 
@@ -78,6 +78,6 @@ class Extension(ExtensionBase, ext_id="my_extension", config_cls=MyConfig):
 - Extension ID 使用 snake_case
 - 避免与核心 API 路由冲突（Extension API 前缀：`/{ext_id}/`）
 - Source/Resolver 注册在 `_init_sources()` / `_init_resolvers()` 中
-- 独立依赖在 `pyproject.toml` 中声明（仅扩展需要时）
+- extension 的依赖同时进入根 `pyproject.toml` 固定 profile 和根 lock
 
 参考现有扩展代码了解最佳实践。

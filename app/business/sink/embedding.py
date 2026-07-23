@@ -1,7 +1,8 @@
 """Embedding Manager for RAG Sink
 
 This module manages embeddings for blocks and relations.
-Embeddings are created/updated here as they are part of the RAG sink (output/usage of info-base).
+Embeddings are created or updated here because they are part of the RAG sink,
+which consumes the info-base.
 """
 
 __all__ = ["EmbeddingManager"]
@@ -32,7 +33,7 @@ class EmbeddingManager:
 
     :param block_id: Block ID to create/update embedding for
     :param block: Block model to create/update embedding for (alternative to block_id)
-    :param db_session: Optional database session, if provided uses that session; won't commit.
+    :param db_session: Optional database session. When provided, the caller owns commits.
     """
     from app.business.info_base.resolver import ResolverManager
 
@@ -73,8 +74,8 @@ class EmbeddingManager:
     """Upsert a relation's embedding
 
     :param relation_id: Relation ID to create/update embedding for
-    :param relation: Relation model to create/update embedding for (alternative to relation_id)
-    :param db_session: Optional database session, if provided uses that session; won't commit.
+    :param relation: Relation model to update instead of loading by relation_id.
+    :param db_session: Optional database session. When provided, the caller owns commits.
     """
     if relation is None:
       if relation_id is None:

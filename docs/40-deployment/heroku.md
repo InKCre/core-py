@@ -1,48 +1,108 @@
 # Heroku
 
-## Checked-In Files
+## Artifact And Process Model
 
-- `Procfile`
-- `app.json`
-- `requirements.txt`
-- `README.md`
+Heroku consumes the same provider-neutral OCI source proved in CI. The `Dockerfile` exposes
+two provider-adapted targets:
 
-## Runtime Model
+- `heroku-web`: starts the application server
+- `heroku-release`: applies `alembic upgrade head` and has no web command
 
-`Procfile` currently defines:
+The workflow pushes both targets to Heroku Container Registry and releases `web` and
+`release` together. Heroku therefore supplies compute, configuration, and routing; it is not
+the build-system contract and owns no database.
 
-- `release`: `alembic revision --autogenerate -m "mig" && alembic upgrade head`
-- `web`: `uvicorn run:api_app --host=0.0.0.0 --port=${PORT:-8000}`
+Heroku wraps release commands in an internal shell program to stream release logs. These
+two targets therefore clear the provider-neutral image entry point and put the complete
+allowlisted Python invocation in `CMD`. `scripts/container.py` remains strict and never
+parses or evaluates Heroku's shell wrapper. They include `curl` solely so release output is
+streamed back to the deployment job rather than requiring a later app-log lookup.
 
-That means every Heroku release currently attempts to autogenerate and apply a migration before boot.
+`Procfile`, `requirements.txt`, and `app.json` remain legacy buildpack entry points for the
+existing staging app. They do not govern container previews and must not be used as the
+production CD contract without a separate cutover.
 
-## One-Click Deploy
+## Pull Request Previews
 
-`app.json` provides a Heroku deploy button configuration.
+Trusted same-repository pull requests use:
 
-Current checked-in behavior:
+- app name `inkcre-core-pr-<number>`
+- pipeline `inkcre-core`, stage `review`
+- container stack in the US region
+- one Eco `web` dyno
+- matching Neon branch `preview/pr-<number>`
+- no Heroku PostgreSQL or other addon
 
-- Python buildpack
-- one `web` dyno
-- `heroku-postgresql:essential-0` addon
+`.github/actions/preview-verify/action.yml` verifies that the exact PR head passed the
+repository, portable-artifact, and preview-database checks. The caller then builds both
+images in a step that receives no deployment inputs. Only afterward does
+`.github/actions/preview-delivery/action.yml` resolve the masked Neon URL, configure the
+app, push both process images, run the release, and probe `/livez` plus `/readyz`.
 
-## Manual Deploy
+`.github/workflows/preview-deploy.yml` invokes that action from a trusted post-CI
+`workflow_run`. The verify and delivery implementations are checked out from
+`github.workflow_sha`;
+untrusted PR source is checked out separately and is only used as the Docker build context.
+A PR-close event destroys only the deterministic app. The matching Neon workflow
+independently deletes only its deterministic database branch.
 
-```bash
-heroku create your-app-name
-git push heroku main
-```
+The manual `workflow_dispatch` input on `.github/workflows/ci.yml` is a recovery and initial
+bootstrap path. It executes the same repository and artifact checks before calling the same
+delivery action.
 
-If needed, run migrations manually:
+## Production Delivery
 
-```bash
-heroku run alembic upgrade head
-```
+Production uses:
 
-## Important Constraint
+- Git source: the exact current `main` SHA
+- app: `inkcre-core-production`
+- pipeline: `inkcre-core`, stage `production`
+- stack/region: container, US
+- database: canonical Neon branch `production`
+- formation: one Eco `web` process and one on-demand `release` process
+- addons: none
 
-The checked-in one-click config uses `essential-0`, but multi-credential PostgreSQL workflows such as PostgREST-style role separation need a higher plan. Treat that as a deployment trade-off, not as an undocumented assumption.
+`.github/workflows/production-deploy.yml` runs only after the repository/artifact workflow
+succeeds for a `main` push, or through a main-only recovery dispatch. The verifier resolves
+the current main ref and requires the hermetic repository and fresh-database artifact checks
+for the same SHA. Images are built before any deployment input is referenced.
 
-## Caution
+The delivery action guards the exact production branch ID and checkpoint parent, resolves a
+pooled `DATABASE_URL` for web traffic and a direct `MIGRATION_DATABASE_URL` for Alembic,
+then releases both Heroku process images. A failed post-release probe rolls the application
+back to its previous deployed release when one exists, but still fails the workflow.
+Application rollback never runs an Alembic downgrade.
 
-The current release command is convenient but aggressive because it autogenerates migrations during deploy. Change this only deliberately, because it alters deployment semantics.
+The default Heroku URL is the initial verification endpoint. Custom-domain and DNS traffic
+cutover are separate decisions; the legacy staging app remains unchanged during bootstrap.
+
+## Secret Boundary
+
+The GitHub `preview` environment owns `HEROKU_API_KEY`, `LLM_SP_AK`, and
+`LLM_SP_BASE_URL`. `NEON_API_KEY` remains a repository secret and `NEON_PROJECT_ID` a
+repository variable. Deployment values are never Docker build arguments or persisted in an
+artifact.
+
+The Heroku secret is a dedicated global authorization named
+`GitHub InKCre/core-py preview CD`, created with a 365-day lifetime on 2026-07-23. Rotate it
+no later than 2027-07-23 and revoke the superseded authorization after a green preview
+deployment.
+
+The GitHub `production` environment independently owns its Heroku authorization, JWT
+signing secret, and LLM inputs. It also records exact non-secret app and Neon branch
+identities and admits deployments from `main` only. Production must not reuse the preview
+Heroku authorization or JWT secret.
+
+Heroku configuration is explicit. `DATABASE_SCALE_0=true` enables resilient Neon
+connections, `OBSRV__LOGGING_BACKEND=none` keeps console logs without a remote/database
+handler, and the fixed checked-in extension profile boots normally. `CLIENT_ID` is
+deterministic per PR so restarts do not create a new runtime identity.
+
+## Migration And Rollback Constraint
+
+The release target is a single-writer `alembic upgrade head` operation. A failed migration
+fails the release; rolling the web image back does not reverse the database. Every revision
+must therefore pass the fresh pgvector artifact check and the matching Neon preview before
+delivery.
+
+Preview automation is not authority to mutate the existing staging app or production data.

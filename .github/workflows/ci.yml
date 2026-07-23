@@ -1,0 +1,181 @@
+name: Repository and artifact checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+    inputs:
+      preview_pr:
+        description: Trusted pull request number to deploy after checks pass
+        required: false
+        type: number
+
+permissions:
+  checks: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: repository-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PDM_CHECK_UPDATE: "false"
+
+jobs:
+  repository:
+    name: Hermetic repository contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python and PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version-file: .python-version
+          version: 2.27.0
+          cache: true
+
+      - name: Install locked dependencies
+        run: pdm install -G dev --frozen-lockfile
+
+      - name: Run repository contract
+        run: pdm run check
+
+      - name: Enforce append-only migration history
+        if: github.event_name == 'pull_request'
+        run: pdm run check:migration-history "origin/${{ github.base_ref }}"
+
+      - name: Enforce append-only migration history on push
+        if: github.event_name == 'push'
+        run: pdm run check:migration-history "${{ github.event.before }}"
+
+      - name: Run pre-commit contract
+        run: pdm run pre-commit run --all-files
+
+  artifact:
+    name: Portable artifact and fresh database
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: inkcre
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d inkcre"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/inkcre
+      JWT_SECRET: ci-only-placeholder
+      INKCRE_ENV_FILE: ""
+      OBSRV__LOGGING_BACKEND: none
+      IMAGE_TAG: inkcre-core:${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build frozen artifact
+        run: docker build --tag "$IMAGE_TAG" .
+
+      - name: Inspect artifact contents
+        run: >-
+          docker run --rm --entrypoint python "$IMAGE_TAG" -c
+          "from pathlib import Path;
+          required = (
+            'app', 'libs', 'utils', 'extensions', 'migrations/versions',
+            'alembic.ini', 'scripts/container.py', 'data/ai/prompts'
+          );
+          missing = [path for path in required if not Path(path).exists()];
+          assert not missing, missing"
+
+      - name: Migrate disposable database
+        run: >-
+          docker run --rm --network host
+          --env DATABASE_URL
+          "$IMAGE_TAG" migrate
+
+      - name: Verify migration head and metadata
+        run: |
+          docker run --rm --network host --env DATABASE_URL "$IMAGE_TAG" ready
+          docker run --rm --network host --env DATABASE_URL \
+            --entrypoint alembic "$IMAGE_TAG" check
+
+      - name: Start and probe web artifact
+        run: |
+          container_id="$(
+            docker run --detach --network host \
+              --env DATABASE_URL \
+              --env JWT_SECRET \
+              --env INKCRE_ENV_FILE \
+              --env PORT=18080 \
+              "$IMAGE_TAG" web
+          )"
+          trap 'docker logs "$container_id"; docker rm --force "$container_id"' EXIT
+
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/livez >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl --fail --silent http://127.0.0.1:18080/livez
+          curl --fail --silent http://127.0.0.1:18080/readyz
+
+  preview:
+    name: Deploy trusted preview
+    if: github.event_name == 'workflow_dispatch' && inputs.preview_pr != 0
+    needs:
+      - repository
+      - artifact
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - name: Checkout trusted bootstrap source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact pull request head
+        uses: ./.github/actions/preview-verify
+        with:
+          github_token: ${{ github.token }}
+          head_sha: ${{ github.sha }}
+          pr_number: ${{ inputs.preview_pr }}
+
+      - name: Build web and release images without deployment secrets
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          docker build \
+            --target heroku-web \
+            --tag "inkcre-preview-web:$HEAD_SHA" \
+            .
+          docker build \
+            --target heroku-release \
+            --tag "inkcre-preview-release:$HEAD_SHA" \
+            .
+
+      - name: Deliver preview
+        uses: ./.github/actions/preview-delivery
+        with:
+          head_sha: ${{ github.sha }}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          llm_sp_ak: ${{ secrets.LLM_SP_AK }}
+          llm_sp_base_url: ${{ secrets.LLM_SP_BASE_URL }}
+          neon_api_key: ${{ secrets.NEON_API_KEY }}
+          neon_project_id: ${{ vars.NEON_PROJECT_ID }}
+          pr_number: ${{ inputs.preview_pr }}

@@ -12,12 +12,13 @@ from utils.sql import find_by_json_contains
 from .schema import Email, EmailAddress, Newsletter
 
 
-class EmailResolver(Resolver, rso_type="email"):
+class EmailResolver(Resolver[Email, str], rso_type="email"):
   """Resolver for email blocks."""
 
-  def __post_init__(self):
+  def __post_init__(self, raw_content=None):
     """Parse email content after initialization."""
-    self.content = Email.model_validate_json(self._block.content)
+    if raw_content is not None:
+      self.set_solved_content(Email.model_validate_json(raw_content))
 
   @classmethod
   def create_graph(
@@ -74,14 +75,24 @@ class EmailResolver(Resolver, rso_type="email"):
     """Email does not check uniqueness."""
     return None
 
+  async def get_text(self) -> str:
+    email = await self.get_solved_content()
+    return email.body_text or email.body_html or email.subject
+
+  async def get_str_for_embedding(self) -> str:
+    email = await self.get_solved_content()
+    body = email.body_text or email.body_html or ""
+    return f"Subject: {email.subject}\n\n{body}"
+
 
 # TODO
-class NewsletterResolver(Resolver, rso_type="newsletter"):
+class NewsletterResolver(Resolver[Newsletter, str], rso_type="newsletter"):
   """Resolver for newsletter blocks."""
 
-  def __post_init__(self):
+  def __post_init__(self, raw_content=None):
     """Parse newsletter content after initialization."""
-    self.content = Newsletter.model_validate_json(self._block.content)
+    if raw_content is not None:
+      self.set_solved_content(Newsletter.model_validate_json(raw_content))
 
   @classmethod
   def create_graph(cls, newsletter: Newsletter) -> SubGraphForm:
@@ -103,20 +114,20 @@ class NewsletterResolver(Resolver, rso_type="newsletter"):
 
     Returns the newsletter body.
     """
-    return self.content.body
+    return (await self.get_solved_content()).body
 
   async def get_str_for_embedding(self) -> str:
     """Subject and body."""
-    return f"Subject: {self.content.subject}\n\n{self.content.body}"
+    newsletter = await self.get_solved_content()
+    return f"Subject: {newsletter.subject}\n\n{newsletter.body}"
 
 
-class EmailAddressResolver(Resolver, rso_type="email_address"):
+class EmailAddressResolver(Resolver[EmailAddress, str], rso_type="email_address"):
   """Resolver for email address blocks."""
 
-  def __post_init__(self):
-    self._solved_content: EmailAddress = EmailAddress.model_validate_json(
-      self._block.content
-    )
+  def __post_init__(self, raw_content=None):
+    if raw_content is not None:
+      self.set_solved_content(EmailAddress.model_validate_json(raw_content))
 
   @classmethod
   def create_block(cls, content: EmailAddress | dict, storage=None) -> BlockModel:
@@ -135,15 +146,23 @@ class EmailAddressResolver(Resolver, rso_type="email_address"):
 
     Returns the display name and email, or just email if no name.
     """
-    if self._solved_content.name:
-      return f"{self._solved_content.name} <{self._solved_content.email}>"
-    return self._solved_content.email
+    address = await self.get_solved_content()
+    if address.name:
+      return f"{address.name} <{address.email}>"
+    return address.email
+
+  async def get_str_for_embedding(self) -> str:
+    address = await self.get_solved_content()
+    return f"{address.name} {address.email}" if address.name else address.email
 
   def get_existing(self, db_session: Session) -> BlockModel | None:
     existing_block = db_session.exec(
       sqlmodel.select(BlockModel).where(
         BlockModel.resolver == self._block.resolver,
-        find_by_json_contains(BlockModel.content, {"email": self._solved_content.email}),
+        find_by_json_contains(
+          BlockModel.content,
+          {"email": EmailAddress.model_validate_json(self._block.content).email},
+        ),
       )
     ).one_or_none()
     return existing_block

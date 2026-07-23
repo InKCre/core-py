@@ -26,11 +26,11 @@ class Extension(
 ):
   @classmethod
   def _init_resolvers(cls):
-    from .resolver import TweetResolver
+    from .resolver import TweetResolver  # noqa: F401
 
   @classmethod
   def _init_sources(cls):
-    from .bookmark import Source as BookmarkSource
+    from .bookmark import Source as BookmarkSource  # noqa: F401
 
   @classmethod
   async def on_close(cls):

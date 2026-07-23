@@ -2,7 +2,6 @@
 
 import sqlmodel
 import typing
-from typing import Optional as Opt
 from fastapi import APIRouter
 from app.business.extension.main import ExtensionBase
 

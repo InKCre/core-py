@@ -1,7 +1,6 @@
 import sqlmodel
 import typing
 from typing import Optional as Opt
-from .resolver import TweetResolver
 
 
 TweetID: typing.TypeAlias = int
@@ -30,8 +29,6 @@ class TweetPhoto(sqlmodel.SQLModel):
 
 
 class Tweet(sqlmodel.SQLModel):
-  __resolver__ = TweetResolver
-
   id: TweetID
   user_id: str
   text: str

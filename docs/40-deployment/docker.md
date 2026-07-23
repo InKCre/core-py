@@ -1,45 +1,64 @@
 # Docker
 
-## Checked-In Files
+## Artifact Contract
 
-- `Dockerfile`
-- `docker-compose.yml`
-- `.env.example`
+The multi-stage `Dockerfile` builds one provider-neutral OCI source with three delivery
+targets:
 
-## Current Container Model
+- `artifact`: the default provider-neutral image with the strict container entry point
+- `heroku-web`: a Heroku-adapted image whose full command starts the web process
+- `heroku-release`: a Heroku-adapted image whose full command only runs migrations
 
-The repository ships a multi-stage Dockerfile:
+- Python and PDM versions are pinned by `.python-version` and the Docker build argument
+- production dependencies come only from the frozen root `pdm.lock`
+- the final image contains core code, shared libraries, checked-in extensions, prompts,
+  Alembic configuration, and every migration revision
+- extension-local virtual environments and locks are not image inputs
+- the final process runs as the non-root `inkcre` user
 
-- builder stage installs core and extension dependencies with PDM
-- final stage copies the virtualenv and application code
+The default artifact entry point is `python scripts/container.py`. Supported commands are:
 
-The final image copies core code, migrations, and shared utilities. It does not bake the `extensions/` directory into the final image.
+- `web`: start Uvicorn on `0.0.0.0:$PORT`
+- `migrate`: run `alembic upgrade head`
+- `ready`: check database connectivity and exact Alembic head without writing
 
-## Docker Compose Model
+The artifact never generates migrations or downloads extension code.
 
-`docker-compose.yml` currently defines:
+The two Heroku targets contain identical application files and dependencies, plus `curl`
+for Heroku's release-log streamer. They clear the inherited entry point because Heroku wraps
+a process command for that streamer, then express the complete allowlisted Python command
+in `CMD`. Provider behavior stays in image metadata instead of weakening the application
+command parser.
 
-- `postgres`: PostgreSQL 17 with health checks
-- `app`: the backend service built from the local Dockerfile
+## Local Compose
 
-Notable runtime behavior:
+`docker-compose.yml` defines:
 
-- `.env` is loaded for both services
-- `DATABASE_URL` is overridden inside the app container to point at the compose `postgres` service
-- local `./extensions` is mounted into `/app/extensions`
+- `postgres`: PostgreSQL 17 with pgvector and a health check
+- `migrate`: a one-shot instance of the exact application image
+- `app`: the same image in `web` mode, started only after migration succeeds
 
-## Migrations
-
-Docker Compose does not run Alembic automatically.
-
-Run migrations explicitly:
+Start the stack:
 
 ```bash
-docker-compose exec app alembic upgrade head
+docker compose up --build
 ```
 
-## Operational Notes
+Override local ports with `POSTGRES_PORT` and `APP_PORT`. Compose defaults are development
+only; production credentials must come from the deployment platform.
 
-- If extension dependencies change, rebuild the image
-- If ports conflict, adjust `docker-compose.yml`
-- If extensions fail to load, check that the mounted `extensions/` directory is valid
+## Health Semantics
+
+- `/livez` is process-only
+- `/readyz` requires a migrated database and completed runtime bootstrap
+- the Compose health check deliberately uses liveness; routing platforms should use
+  readiness before sending traffic
+
+## CI Evidence
+
+The artifact job in `.github/workflows/ci.yml` builds the frozen image, inspects required
+paths, migrates a fresh pgvector database, runs `alembic check`, starts the web command on a
+dynamic port, and probes both liveness and readiness.
+
+When no local Docker-compatible runtime is installed, this CI job is the authoritative
+container execution proof.

@@ -8,7 +8,7 @@ __all__ = [
 
 import typing
 import sqlmodel
-from typing import Annotated as Anno, Literal as Lit, Optional as Opt
+from typing import Optional as Opt
 import dataclasses
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel

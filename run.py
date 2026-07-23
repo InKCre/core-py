@@ -1,10 +1,13 @@
 """Run API Service."""
 
-import sys
-import os
+import asyncio
 import contextlib
+import os
+import sys
+
 import fastapi
 import uvicorn
+from fastapi.responses import JSONResponse
 
 # Setup logging
 from libs.obsrv.main import setup_obsrv
@@ -34,19 +37,19 @@ from app.business.client import ClientManager
 from app.business.info_base.main import InfoBaseManager
 from app.business.sink import SinkManager
 from app.middleware import LoggingMiddleware, JWTMiddleware
+from app.health import check_database_readiness
+from app.runtime import RUNTIME_STATUS, RuntimePhase
 
 
 # Import scheduler
 from app.scheduler import scheduler
 
 
-@contextlib.asynccontextmanager
-async def lifespan(app: fastapi.FastAPI):
+def bootstrap_runtime(app: fastapi.FastAPI) -> None:
+  """Initialize database-backed runtime services after migrations are ready."""
   from app.business.source import SourceCollectJobManager
   from app.business.info_base.storage import StorageManager
   from app.business.sink.embedding import EmbeddingManager
-
-  logger.info("Application startup")
 
   # Register this client first
   ClientManager.register_self()
@@ -54,7 +57,14 @@ async def lifespan(app: fastapi.FastAPI):
   # Setup built-in storage instances
   StorageManager.setup_builtin_storages()
 
-  scheduler.start()
+  if not SKIP_EXTENSIONS_SYNC:
+    ExtensionManager.sync()
+    ExtensionManager.start_enabled(app)
+    SourceManager.sync_source_types()
+    SourceManager.set_up_collect_jobs()
+
+  if not scheduler.running:
+    scheduler.start()
 
   # Add periodic job to check pending source collect jobs
   scheduler.add_job(
@@ -62,6 +72,7 @@ async def lifespan(app: fastapi.FastAPI):
     "interval",
     seconds=30,
     id="sources.collect_jobs.check_pending",
+    replace_existing=True,
   )
 
   # Add periodic job to check and create missing embeddings
@@ -70,11 +81,47 @@ async def lifespan(app: fastapi.FastAPI):
     "interval",
     seconds=60,  # Check every minute
     id="sink.embeddings.check_missing",
+    replace_existing=True,
   )
 
+
+async def bootstrap_when_database_is_ready(app: fastapi.FastAPI) -> None:
+  """Wait for a migrated database, then initialize the runtime once."""
+  retry_seconds = float(os.getenv("RUNTIME_BOOTSTRAP_RETRY_SECONDS", "5"))
+
+  while True:
+    database = await asyncio.to_thread(check_database_readiness)
+    if database.ready:
+      break
+    RUNTIME_STATUS.set(RuntimePhase.WAITING_FOR_DATABASE, database.reason)
+    await asyncio.sleep(retry_seconds)
+
+  try:
+    bootstrap_runtime(app)
+  except Exception:
+    RUNTIME_STATUS.set(RuntimePhase.FAILED, "runtime_bootstrap_failed")
+    logger.exception("Runtime bootstrap failed")
+    return
+
+  RUNTIME_STATUS.set(RuntimePhase.READY, "ready")
+  logger.info("Runtime bootstrap completed")
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: fastapi.FastAPI):
+  logger.info("Application startup")
+  RUNTIME_STATUS.set(RuntimePhase.STARTING, "runtime_bootstrap_pending")
+  bootstrap_task = asyncio.create_task(bootstrap_when_database_is_ready(app))
+
   yield
+
   logger.info("Application shutdown")
-  scheduler.shutdown(wait=True)
+  RUNTIME_STATUS.set(RuntimePhase.STOPPING, "application_shutdown")
+  bootstrap_task.cancel()
+  with contextlib.suppress(asyncio.CancelledError):
+    await bootstrap_task
+  if scheduler.running:
+    scheduler.shutdown(wait=True)
   await ExtensionManager.close_running()
 
 
@@ -97,7 +144,30 @@ api_app.add_middleware(
 
 
 # Set up routes
-api_app.get("/heartbeat")(lambda: {"status": "ok"})
+@api_app.get("/livez")
+def liveness() -> dict[str, str]:
+  """Report process liveness without checking dependencies."""
+  return {"status": "ok"}
+
+
+api_app.get("/heartbeat", include_in_schema=False)(liveness)
+
+
+@api_app.get("/readyz")
+async def readiness() -> JSONResponse:
+  """Report database and runtime compatibility without mutating either."""
+  database = await asyncio.to_thread(check_database_readiness)
+  runtime = RUNTIME_STATUS.as_dict()
+  ready = database.ready and RUNTIME_STATUS.ready
+  return JSONResponse(
+    status_code=200 if ready else 503,
+    content={
+      "status": "ready" if ready else "not_ready",
+      "database": database.as_dict(),
+      "runtime": runtime,
+    },
+  )
+
 
 root_router = fastapi.APIRouter(tags=["root"])
 sink_router = fastapi.APIRouter(prefix="/sink", tags=["sink"])
@@ -111,14 +181,6 @@ api_app.include_router(extension_router)
 api_app.include_router(source_router)
 api_app.include_router(root_router)
 api_app.include_router(sink_router)
-
-# must be prior
-# Skip extension sync if SKIP_EXTENSIONS_SYNC is set (useful for OpenAPI generation)
-if not SKIP_EXTENSIONS_SYNC:
-  ExtensionManager.sync()
-  ExtensionManager.start_enabled(api_app)
-  SourceManager.set_up_collect_jobs()
-
 
 if __name__ == "__main__":
   uvicorn.run(api_app, host=settings.host, port=settings.port)

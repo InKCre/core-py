@@ -29,7 +29,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install PDM
-        uses: pdm-project/setup-pdm@v3
+        uses: pdm-project/setup-pdm@v4
         with:
           python-version: "3.12"
 
@@ -64,7 +64,7 @@ jobs:
     needs: generate-openapi
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
       - name: Download OpenAPI artifact
         uses: actions/download-artifact@v4
         with:
@@ -85,7 +85,7 @@ jobs:
     needs: generate-openapi 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Download OpenAPI artifact
         uses: actions/download-artifact@v4

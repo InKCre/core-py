@@ -3,17 +3,38 @@
 ## Local Requirements
 
 - Python 3.12
-- PDM
+- PDM 2.27.0
 - PostgreSQL
 - a populated `.env` file
+
+The checked-in Python selector is `.python-version`. The foundation CI uses the same
+Python selector and PDM version.
 
 ## Local Startup
 
 ```bash
 cp .env.example .env
-pdm install -G dev
-pdm run uvicorn run:api_app --reload
+pdm install -G dev --frozen-lockfile
+pdm run doctor
+pdm run check:foundation
+pdm run dev
 ```
+
+`doctor` and `check:foundation` do not start the application or connect to a database.
+The foundation gate checks tool versions, lock/export consistency, and the migration
+contract.
+
+Full diagnostics are intentionally separate:
+
+```bash
+pdm run lint
+pdm run test
+```
+
+They currently expose known legacy lint and extension-test debt and are not part of the
+foundation gate. Full test collection can also read `.env`, attempt database access, and
+render validation inputs in tracebacks. Until that suite is isolated, do not run it with a
+credential-bearing `.env` in shared CI or agent logs.
 
 ## Required Environment Variables
 
@@ -52,3 +73,16 @@ The repository currently uses Neon branch automation for pull requests.
 - installs project dependencies with PDM
 
 This file is the checked-in truth behind the old "development requires a prepared database branch" note.
+
+## Migration Commands
+
+- `pdm run db:generate "message"` creates a candidate revision for review.
+- `pdm run db:record` appends reviewed new revisions to the integrity manifest.
+- `pdm run db:migrate` applies checked-in revisions.
+- `pdm run check:migrations` checks the local graph, metadata registration, and release
+  contract without connecting to a database.
+- CI validates `migrations/revision-integrity.json` on pull requests and managed-branch
+  pushes. A base branch without the manifest is a one-time hard-cut bootstrap; after that,
+  protected entries and revision contents may not be modified, deleted, or renamed.
+
+Generation and application are deliberately separate operations.

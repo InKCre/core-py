@@ -1,2 +1,2 @@
-release: alembic revision --autogenerate -m "mig" && alembic upgrade head
-web: uvicorn run:api_app --host=0.0.0.0 --port=${PORT:-8000}
+release: alembic upgrade head
+web: python scripts/container.py web

@@ -1,5 +1,6 @@
 line-length = 92
 indent-width = 2
+extend-exclude = ["migrations/versions"]
 
 [format]
 indent-style = "space"
