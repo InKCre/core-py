@@ -50,11 +50,18 @@ EXPOSE 8000
 ENTRYPOINT ["python", "scripts/container.py"]
 
 
-FROM runtime AS release
+FROM runtime AS heroku-release
 
-CMD ["migrate"]
+ENTRYPOINT []
+CMD ["python", "scripts/container.py", "migrate"]
 
 
-FROM runtime AS web
+FROM runtime AS heroku-web
+
+ENTRYPOINT []
+CMD ["python", "scripts/container.py", "web"]
+
+
+FROM runtime AS artifact
 
 CMD ["web"]

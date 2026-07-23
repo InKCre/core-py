@@ -3,19 +3,19 @@
 ## Artifact And Process Model
 
 Heroku consumes the same provider-neutral OCI source proved in CI. The `Dockerfile` exposes
-two final targets:
+two provider-adapted targets:
 
-- `web`: starts the application server
-- `release`: applies `alembic upgrade head` and has no web command
+- `heroku-web`: starts the application server
+- `heroku-release`: applies `alembic upgrade head` and has no web command
 
 The workflow pushes both targets to Heroku Container Registry and releases `web` and
 `release` together. Heroku therefore supplies compute, configuration, and routing; it is not
 the build-system contract and owns no database.
 
-Heroku appends process commands to the image entry point as
-`/bin/sh -c <process-command>`. `scripts/container.py` recognizes that exact adapter shape
-only when `<process-command>` is one of its built-in commands; it never evaluates an
-arbitrary shell expression.
+Heroku wraps release commands in an internal shell program to stream release logs. These
+two targets therefore clear the provider-neutral image entry point and put the complete
+allowlisted Python invocation in `CMD`. `scripts/container.py` remains strict and never
+parses or evaluates Heroku's shell wrapper.
 
 `Procfile`, `requirements.txt`, and `app.json` remain legacy buildpack entry points for the
 existing staging app. They do not govern container previews and must not be used as the

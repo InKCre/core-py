@@ -5,11 +5,8 @@ def test_resolves_provider_neutral_command() -> None:
   assert _resolve_command(["migrate"]) == "migrate"
 
 
-def test_resolves_exact_heroku_shell_wrapper() -> None:
-  assert _resolve_command(["/bin/sh", "-c", "migrate"]) == "migrate"
-
-
-def test_rejects_shell_expression_in_heroku_wrapper() -> None:
+def test_rejects_provider_shell_wrappers_and_expressions() -> None:
+  assert _resolve_command(["/bin/sh", "-c", "migrate"]) is None
   assert _resolve_command(["/bin/sh", "-c", "migrate && web"]) is None
 
 

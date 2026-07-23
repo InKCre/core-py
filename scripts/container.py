@@ -51,17 +51,6 @@ COMMANDS = {
 def _resolve_command(args: list[str]) -> str | None:
   if len(args) == 1 and args[0] in COMMANDS:
     return args[0]
-
-  # Heroku appends its process command to the image entry point through this
-  # exact shell wrapper. Only unwrap a single allowlisted command; never
-  # evaluate the shell string.
-  if (
-    len(args) == 3
-    and args[:2] == ["/bin/sh", "-c"]
-    and args[2] in COMMANDS
-  ):
-    return args[2]
-
   return None
 
 

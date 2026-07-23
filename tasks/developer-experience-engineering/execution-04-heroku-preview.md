@@ -22,8 +22,9 @@
   a separate secret-free Docker build step between them.
 - Reality: the only current app is `inkcre-core-staging` on the Python buildpack; pipeline
   `inkcre-core` has no production or review app. GitHub has no Heroku deploy credential.
-- Reality: Heroku wraps a container process command as `/bin/sh -c <command>` after the
-  image entry point; the provider-neutral local form passes `<command>` directly.
+- Reality: Heroku wraps the release process command in an internal shell program for log
+  streaming. Appending that program to the provider-neutral entry point is incompatible
+  with its strict one-command parser.
 - Artifact: Heroku-compatible image targets, trusted preview deploy/cleanup workflow,
   preview environment secret boundary, one live PR-17 preview, and a persistent workflow
   syntax contract for agent-authored automation.
@@ -42,8 +43,8 @@
   - Neon preview lifecycle is green and contains no production rows;
   - production cutover has not begun.
 - Requested operation:
-  - add separate `web` and `release` final image targets from the same runtime stage;
-  - accept Heroku's exact shell-wrapper argv shape without evaluating a shell expression;
+  - add separate `heroku-web` and `heroku-release` targets from the same runtime stage;
+  - adapt Heroku through target metadata while keeping the application parser strict;
   - accept automatic `workflow_run` only after repository/artifact CI succeeds;
   - retain manual dispatch for controlled bootstrap and recovery;
   - build before deployment secrets enter scope, then push both process images;
