@@ -1,0 +1,294 @@
+name: Heroku preview delivery
+description: Release and probe prebuilt process images for one deterministic preview
+
+inputs:
+  head_sha:
+    description: Exact pull request head commit to deploy
+    required: true
+  heroku_api_key:
+    description: Heroku authorization for preview app lifecycle
+    required: true
+  llm_sp_ak:
+    description: Preview LLM provider credential
+    required: true
+  llm_sp_base_url:
+    description: Preview LLM provider base URL
+    required: true
+  neon_api_key:
+    description: Neon authorization for resolving the preview connection
+    required: true
+  neon_project_id:
+    description: Neon project containing preview branches
+    required: true
+  pr_number:
+    description: Pull request number
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install pinned deployment CLIs
+      shell: bash
+      run: npm install --global heroku@11.8.1
+
+    - name: Resolve matching Neon preview URLs
+      id: neon
+      shell: bash
+      env:
+        NEON_API_KEY: ${{ inputs.neon_api_key }}
+        NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+      run: |
+        runtime_database_url="$(
+          npx --yes neonctl@2.36.0 connection-string \
+            "preview/pr-$PR_NUMBER" \
+            --project-id "$NEON_PROJECT_ID" \
+            --role-name neondb_owner \
+            --pooled \
+            --no-color
+        )"
+        migration_database_url="$(
+          npx --yes neonctl@2.36.0 connection-string \
+            "preview/pr-$PR_NUMBER" \
+            --project-id "$NEON_PROJECT_ID" \
+            --role-name neondb_owner \
+            --no-pooled \
+            --no-color
+        )"
+        echo "::add-mask::$runtime_database_url"
+        echo "::add-mask::$migration_database_url"
+        echo "runtime_database_url=$runtime_database_url" >> "$GITHUB_OUTPUT"
+        echo "migration_database_url=$migration_database_url" >> "$GITHUB_OUTPUT"
+
+    - name: Create or verify deterministic Heroku app
+      id: heroku
+      shell: bash
+      env:
+        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+      run: |
+        app_name="inkcre-core-pr-$PR_NUMBER"
+        if ! app_json="$(heroku apps:info --app "$app_name" --json 2>/dev/null)"; then
+          heroku apps:create "$app_name" --region us --stack container
+          app_json="$(heroku apps:info --app "$app_name" --json)"
+        fi
+
+        test "$(jq -r '.app.stack.name' <<<"$app_json")" = "container"
+        test "$(jq -r '.app.region.name' <<<"$app_json")" = "us"
+
+        pipeline_json="$(heroku pipelines:info inkcre-core --json)"
+        stage="$(
+          jq -r --arg app "$app_name" \
+            '.apps[] | select(.name == $app) | .pipelineCoupling.stage // empty' \
+            <<<"$pipeline_json"
+        )"
+        if [ -z "$stage" ]; then
+          heroku pipelines:add inkcre-core --app "$app_name" --stage review
+        else
+          test "$stage" = "review"
+        fi
+
+        web_url="$(jq -r '.app.web_url' <<<"$app_json")"
+        deployed_release="$(
+          heroku releases --app "$app_name" --json |
+            jq -r \
+              '[.[] |
+                select(.status == "succeeded" and
+                  (.description | startswith("Deployed web")))] |
+                first | .version // empty'
+        )"
+        has_deployed_release=false
+        if [ -n "$deployed_release" ]; then
+          has_deployed_release=true
+          current_database_url="$(
+            heroku config:get DATABASE_URL --app "$app_name" || true
+          )"
+          current_migration_database_url="$(
+            heroku config:get MIGRATION_DATABASE_URL --app "$app_name" || true
+          )"
+          url_host() {
+            python -c \
+              'import sys; from urllib.parse import urlparse; print(urlparse(sys.argv[1]).hostname or "")' \
+              "$1"
+          }
+          test -n "$current_database_url"
+          test "$(url_host "$current_database_url")" = \
+            "$(url_host "$DATABASE_URL")"
+          if [ -n "$current_migration_database_url" ]; then
+            test "$(url_host "$current_migration_database_url")" = \
+              "$(url_host "$MIGRATION_DATABASE_URL")"
+          fi
+        fi
+
+        echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
+        echo "has_deployed_release=$has_deployed_release" >> "$GITHUB_OUTPUT"
+        echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
+
+    - name: Push and release web and migration processes
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
+        HAS_DEPLOYED_RELEASE: ${{ steps.heroku.outputs.has_deployed_release }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        LLM_SP_AK: ${{ inputs.llm_sp_ak }}
+        LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        WEB_URL: ${{ steps.heroku.outputs.web_url }}
+      run: |
+        wait_for_release() {
+          local version="$1"
+          local status
+          for _ in $(seq 1 120); do
+            status="$(
+              heroku releases --app "$APP_NAME" --json |
+                jq -r --argjson version "$version" \
+                  '.[] | select(.version == $version) | .status'
+            )"
+            case "$status" in
+              succeeded)
+                return 0
+                ;;
+              failed)
+                heroku releases:output "v$version" --app "$APP_NAME"
+                return 1
+                ;;
+            esac
+            sleep 5
+          done
+          echo "Timed out waiting for Heroku release v$version" >&2
+          return 1
+        }
+
+        retry_command() {
+          local max_attempts="$1"
+          shift
+          local attempt
+          for attempt in $(seq 1 "$max_attempts"); do
+            if "$@"; then
+              return 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          return 1
+        }
+
+        login_registry() {
+          local max_attempts=5
+          local attempt
+          for attempt in $(seq 1 "$max_attempts"); do
+            if printf '%s' "$HEROKU_API_KEY" |
+              docker login --username=_ --password-stdin \
+                registry.heroku.com; then
+              return 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          return 1
+        }
+
+        configure_app() {
+          local before_release
+          local client_id
+          local jwt_secret
+          local release_version
+
+          before_release="$(
+            heroku releases --app "$APP_NAME" --json |
+              jq -r '.[0].version // empty'
+          )"
+          jwt_secret="$(
+            heroku config:get JWT_SECRET --app "$APP_NAME" || true
+          )"
+          if [ -z "$jwt_secret" ]; then
+            jwt_secret="$(openssl rand -hex 32)"
+          fi
+          client_id="$(
+            python -c \
+              "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, 'inkcre-core-pr-$PR_NUMBER'))"
+          )"
+          heroku config:set --app "$APP_NAME" \
+            "CLIENT_BASE_URL=$WEB_URL" \
+            "CLIENT_ID=$client_id" \
+            "CLIENT_NAME=core-py-pr-$PR_NUMBER" \
+            "DATABASE_SCALE_0=true" \
+            "DATABASE_URL=$DATABASE_URL" \
+            "INKCRE_ENV_FILE=" \
+            "JWT_SECRET=$jwt_secret" \
+            "LLM_SP_AK=$LLM_SP_AK" \
+            "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
+            "MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL" \
+            "OBSRV__LOGGING_BACKEND=none" \
+            "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+          release_version="$(
+            heroku releases --app "$APP_NAME" --json |
+              jq -r '.[0].version // empty'
+          )"
+          if [ "$release_version" != "$before_release" ]; then
+            wait_for_release "$release_version"
+          fi
+        }
+
+        if [ "$HAS_DEPLOYED_RELEASE" = false ]; then
+          configure_app
+        fi
+
+        login_registry
+        docker tag \
+          "inkcre-preview-web:$HEAD_SHA" \
+          "registry.heroku.com/$APP_NAME/web"
+        docker tag \
+          "inkcre-preview-release:$HEAD_SHA" \
+          "registry.heroku.com/$APP_NAME/release"
+        retry_command 5 docker push "registry.heroku.com/$APP_NAME/web"
+        retry_command 5 docker push "registry.heroku.com/$APP_NAME/release"
+        before_image_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        heroku container:release web release --app "$APP_NAME"
+        image_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        test "$image_release" != "$before_image_release"
+        wait_for_release "$image_release"
+
+        if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
+          configure_app
+        fi
+
+        heroku ps:scale web=1:eco --app "$APP_NAME"
+
+    - name: Probe deployed preview
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        WEB_URL: ${{ steps.heroku.outputs.web_url }}
+      run: |
+        for _ in $(seq 1 60); do
+          if curl --fail --silent "${WEB_URL}livez" >/dev/null &&
+            curl --fail --silent "${WEB_URL}readyz" >/dev/null; then
+            {
+              echo "### Heroku preview"
+              echo
+              echo "- App: \`$APP_NAME\`"
+              echo "- URL: $WEB_URL"
+              echo "- Liveness: ready"
+              echo "- Readiness: ready"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          sleep 5
+        done
+
+        heroku logs --num 200 --app "$APP_NAME"
+        exit 1

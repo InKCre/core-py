@@ -1,26 +1,26 @@
 """LearnEnglish's Resolvers"""
 
-import json
-from app.business.resolver.main import Resolver
+from app.business.info_base.resolver.main import Resolver
 from .schema import LexicalItem
 
 
-class LexicalResolver(Resolver, rso_type="learn_english.lexical"):
-    """Resolver for english lexical like words, phrases, idioms, etc.
+class LexicalResolver(Resolver[LexicalItem, str], rso_type="learn_english.lexical"):
+  """Resolver for english lexical like words, phrases, idioms, etc.
 
+  Raw content is :class:`str` (JSON string).
+  Solved content is :math:`schema.LexicalItem`.
 
-    Block content is a :math:`schema.LexicalItem`.
+  Relation of the block:
+  - synonyms
+  - antonyms
+  - etymology
+  - deliberate practice
+  - in:<lang>
+  """
 
-    Relation of the block:
-    - synonyms
-    - antonyms
-    - etymology
-    - deliberate practice
-    - in:<lang>
-    """
+  def __post_init__(self, raw_content=None):
+    if raw_content is not None:
+      self.set_solved_content(LexicalItem.model_validate_json(raw_content))
 
-    def __post_init__(self):
-        self._content = LexicalItem(**json.loads(self._block.content))
-
-    def get_str_for_embedding(self) -> str:
-        return self._content.text
+  async def get_str_for_embedding(self) -> str:
+    return (await self.get_solved_content()).text

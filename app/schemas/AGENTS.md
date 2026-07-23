@@ -1,0 +1,1 @@
+- Import your schema in `app/schemas/__init__.py` to make Alembic discovers your schema while generating migrations.

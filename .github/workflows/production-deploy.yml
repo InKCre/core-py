@@ -1,0 +1,78 @@
+name: Production application
+
+on:
+  workflow_run:
+    workflows:
+      - Repository and artifact checks
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  checks: read
+  contents: read
+
+concurrency:
+  group: production-application
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy exact main artifact
+    if: >-
+      (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Resolve exact main SHA
+        id: source
+        env:
+          EVENT_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          DISPATCH_HEAD_SHA: ${{ github.sha }}
+        run: |
+          head_sha="${EVENT_HEAD_SHA:-$DISPATCH_HEAD_SHA}"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact main source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.source.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Verify exact main commit and checks
+        uses: ./.github/actions/production-verify
+        with:
+          github_token: ${{ github.token }}
+          head_sha: ${{ steps.source.outputs.head_sha }}
+
+      - name: Build web and release images without deployment secrets
+        env:
+          HEAD_SHA: ${{ steps.source.outputs.head_sha }}
+        run: |
+          docker build \
+            --target heroku-web \
+            --tag "inkcre-production-web:$HEAD_SHA" \
+            .
+          docker build \
+            --target heroku-release \
+            --tag "inkcre-production-release:$HEAD_SHA" \
+            .
+
+      - name: Deliver production
+        uses: ./.github/actions/production-delivery
+        with:
+          head_sha: ${{ steps.source.outputs.head_sha }}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ${{ vars.HEROKU_APP_NAME }}
+          jwt_secret: ${{ secrets.JWT_SECRET }}
+          llm_sp_ak: ${{ secrets.LLM_SP_AK }}
+          llm_sp_base_url: ${{ secrets.LLM_SP_BASE_URL }}
+          neon_api_key: ${{ secrets.NEON_API_KEY }}
+          neon_branch_id: ${{ vars.NEON_BRANCH_ID }}
+          neon_parent_branch_id: ${{ vars.NEON_PARENT_BRANCH_ID }}
+          neon_project_id: ${{ vars.NEON_PROJECT_ID }}

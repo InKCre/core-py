@@ -1,5 +1,5 @@
 import sqlmodel
-from app.business.extension import ExtensionBase
+from app.business.extension.main import ExtensionBase
 
 
 class LearnEnglishConfig(sqlmodel.SQLModel): ...
@@ -9,11 +9,10 @@ class LearnEnglishState(sqlmodel.SQLModel): ...
 
 
 class Extension(
-    ExtensionBase[LearnEnglishConfig, LearnEnglishState],
-    ext_id="learn_english",
-    config_cls=LearnEnglishConfig,
-    state_cls=LearnEnglishState,
+  ExtensionBase[LearnEnglishConfig],
+  ext_id="learn_english",
+  config_cls=LearnEnglishConfig,
 ):
-    @classmethod
-    def _init_resolvers(cls):
-        from .resolver import LexicalResolver
+  @classmethod
+  def _init_resolvers(cls):
+    from .resolver import LexicalResolver  # noqa: F401

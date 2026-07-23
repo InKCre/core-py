@@ -2,18 +2,17 @@
 name = "inkcre-core"
 version = "0.1.0"
 description = "Backend of InKCre."
-authors = [
-    {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"}
-]
+authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 readme = "README.md"
-requires-python = ">=3.12,<4.0"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "pydantic (>=2.11.7,<3.0.0)",
+    "pydantic-settings (>=2.0.0,<3.0.0)",
     "fastapi (>=0.116.1,<0.117.0)",
     "sqlalchemy (>=2.0.41,<3.0.0)",
     "aiohttp (>=3.12.14,<4.0.0)",
     "tencentcloud-sdk-python-lke (>=3.0.1427,<4.0.0)",
-    "psycopg2-binary (>=2.9.10,<3.0.0)",
+    "psycopg[binary] (>=3.2.0,<4.0.0)",
     "openai (>=1.97.1,<2.0.0)",
     "numpy (>=2.3.2,<3.0.0)",
     "pgvector (>=0.4.1,<0.5.0)",
@@ -24,33 +23,70 @@ dependencies = [
     "apscheduler>=3.11.0",
     "litellm>=1.75.9",
     "html2text>=2025.4.15",
+    "logtail-python>=0.3.0",
+    "python-telegram-bot>=21.10.0",
+    "alembic>=1.16.4",
+    "alembic-utils>=0.8.8",
+    "alembic-postgresql-enum>=1.8.0",
+    "PyJWT>=2.10.1",
+    # Fixed built-in extension profile
+    "beautifulsoup4>=4.12.0,<5.0.0",
+    "chardet>=5.0.0,<6.0.0",
+    "lxml>=5.0.0,<7.0.0",
+    "readability-lxml>=0.8.0,<1.0.0",
+    "PyGithub>=2.8.1,<3.0.0",
+    "twikit>=2.3.3,<3.0.0",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.1",
+    "pytest>=9.0.2",
     "python-dotenv>=1.1.1",
-    "alembic>=1.16.4",
-    "alembic-utils>=0.8.8",
-    "alembic-postgresql-enum>=1.8.0",
+    "pre-commit>=4.4.0",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.14.10",
 ]
-
-[tool.pdm]
-distribution = false
 
 [tool.poetry]
 package-mode = false
 
+[tool.pdm]
+distribution = false
+
+[tool.pdm.scripts]
+dev = "python run.py"
+doctor = "python scripts/doctor.py"
+lint = "ruff check --no-cache ."
+format = "ruff format ."
+test = "python -m pytest -q"
+"check:lock" = "python scripts/check_lock.py"
+"check:requirements" = "python scripts/check_requirements.py"
+"lint:migrations" = "ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_requirements.py scripts/check_migration_history.py scripts/database_manifest.py scripts/sanitize_preview_base.py tests/migrations"
+"test:migrations" = "python -m pytest -q tests/migrations"
+"check:migrations" = { composite = ["lint:migrations", "test:migrations", "alembic heads"] }
+"check:migration-history" = "python scripts/check_migration_history.py {args}"
+"lint:settings" = "ruff check --no-cache tests/test_settings.py"
+"test:settings" = "python -m pytest -q tests/test_settings.py"
+"check:foundation" = { composite = ["doctor", "check:lock", "check:requirements", "check:migrations", "lint:settings", "test:settings"] }
+"check" = { composite = ["check:foundation", "lint", "test"] }
+"db:revision" = "alembic revision -m {args}"
+"db:generate" = "alembic revision --autogenerate -m {args}"
+"db:record" = "python scripts/check_migration_history.py --record-new"
+"db:migrate" = "alembic upgrade head"
+"db:manifest" = "python scripts/database_manifest.py"
+"db:sanitize-preview-base" = "python scripts/sanitize_preview_base.py"
+"db:downgrade" = "alembic downgrade {args}"
+"container:web" = "python scripts/container.py web"
+"container:migrate" = "python scripts/container.py migrate"
+"container:ready" = "python scripts/container.py ready"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "integration: requires external services or a disposable database",
+]
+
 [build-system]
 requires = []
 build-backend = "none"
-
-[tool.pdm.scripts]
-alembic-gengrade = "alembic revision --autogenerate -m {args} && alembic upgrade head"
-alembic-revision = "alembic revision -m {args}"
-alembic-autogen = "alembic revision --autogenerate -m {args}"
-alembic-upgrade = "alembic upgrade {args}"
-alembic-downgrade = "alembic downgrade {args}"
-alembic-current = "alembic current"
-alembic-history = "alembic history"
-alembic-stamp = "alembic stamp {args}"

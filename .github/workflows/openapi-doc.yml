@@ -1,0 +1,104 @@
+name: Check & deploy API documentation
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+  #     - staging
+  #     - develop
+  # pull_request:
+  #   branches:
+  #     - main
+  #     - staging
+  #     - develop
+
+jobs:
+  generate-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pdm install
+
+      - name: Generate OpenAPI schema
+        env:
+          DATABASE_URL: ${{secrets.DATABASE_URL}}
+          DATABASE_SCALE_0: ${{vars.DATABASE_SCALE_0}}
+          JWT_SECRET: "dummy-secret-for-openapi-generation"
+          SKIP_EXTENSIONS_SYNC: "1"
+          OBSRV__LOGGING_BACKEND: "none"
+        run: pdm run python scripts/generate-openapi.py
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-schema
+          path: docs/openapi.json
+          retention-days: 1
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update OpenAPI documentation"
+          file_pattern: docs/openapi.json
+
+  deploy-doc:
+    if: ${{ github.event_name == 'push' }}
+    name: Deploy API documentation on Bump.sh
+    runs-on: ubuntu-latest
+    needs: generate-openapi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Download OpenAPI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-schema
+          path: docs
+
+      - name: Deploy API documentation
+        uses: bump-sh/github-action@v1
+        with:
+          doc: core
+          token: ${{secrets.BUMP_SH_TOKEN}}
+          file: docs/openapi.json
+
+  api-diff:
+    if: ${{ github.event_name == 'pull_request' }}
+    name: Check API diff on Bump.sh
+    runs-on: ubuntu-latest
+    needs: generate-openapi 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download OpenAPI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-schema
+          path: docs
+
+      - name: Comment pull request with API diff
+        uses: bump-sh/github-action@v1
+        with:
+          doc: core
+          token: ${{secrets.BUMP_SH_TOKEN}}
+          file: docs/openapi.json
+          command: diff
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
