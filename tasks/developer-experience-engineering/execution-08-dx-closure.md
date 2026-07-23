@@ -31,9 +31,8 @@
     tests and completed execution work.
 - Artifact:
   - this execution packet and its final evidence.
-- Active mode: Execute. GitHub run evidence proved that the downstream workflow receives an
-  empty PR association and the deploy job therefore skips; trusted PR-target orchestration
-  removes that unreliable authority path.
+- Active mode: Solidify. Execute and live provider verification are complete; this packet
+  now records the closed resource lifecycle and leaves no implementation action open.
 
 ## User-Confirmed Constraints
 
@@ -119,11 +118,9 @@
 
 ## Next Step
 
-Use proof PR
-[#28](https://github.com/InKCre/core-py/pull/28) to verify that one further synchronized
-head converges automatically, then merge it and require both Heroku and Neon close cleanup
-to succeed. Promote the resulting evidence through `main` only after the resource lifecycle
-is closed.
+Promote this evidence-only closure through `main`. Any later Cloudflare Pages API
+documentation hosting, type checking, coverage policy, or platform enhancement starts in a
+new packet.
 
 ## Execution Evidence
 
@@ -182,8 +179,25 @@ is closed.
   appeared in progress. The authority converged after roughly eight minutes and remained
   inside the existing ten-minute fail-closed poll window; no verification standard was
   weakened.
+- A second automatic Preview run
+  [30017957979](https://github.com/InKCre/core-py/actions/runs/30017957979) converged the
+  evidence-only synchronized head `7dd4bf069836cbb5d3507a7afb9fae2440b0ed45`,
+  released Heroku preview v5, and passed liveness/readiness.
+- Proof PR #28 merged into `develop` as
+  `df36329a904220739b373d2de994764a7c04588d`.
+- Close-event runs
+  [30018349971](https://github.com/InKCre/core-py/actions/runs/30018349971) and
+  [30018350049](https://github.com/InKCre/core-py/actions/runs/30018350049) deleted the
+  deterministic Heroku app and Neon branch.
+- Provider-side verification found `inkcre-core-pr-28` absent and zero Neon branches named
+  `preview/pr-28`. Canonical `production` and `preview-base` branches remained ready,
+  non-expiring, and in their expected parent relationship.
 
-### Remaining external proof
+## Closure
 
-- one additional automatic synchronized-head deployment after this evidence commit;
-- deterministic Heroku and Neon cleanup when proof PR #28 closes.
+- Status: complete.
+- Objective result: repository checks, automatic exact-head Preview create/update/delete,
+  exact-main Production delivery, formatting, dependency policy, and agent navigation now
+  form one executable development contract.
+- Deferred by design: Cloudflare Pages API documentation hosting and PDM workspace. Neither
+  is needed to keep the current baseline safe or operable.
