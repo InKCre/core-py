@@ -119,9 +119,11 @@
 
 ## Next Step
 
-Publish the locally verified change through `develop`. After the trusted workflow reaches
-the integration branch, use a fresh same-repository PR to prove automatic preview
-deployment and close cleanup.
+Use proof PR
+[#28](https://github.com/InKCre/core-py/pull/28) to verify that one further synchronized
+head converges automatically, then merge it and require both Heroku and Neon close cleanup
+to succeed. Promote the resulting evidence through `main` only after the resource lifecycle
+is closed.
 
 ## Execution Evidence
 
@@ -154,7 +156,7 @@ deployment and close cleanup.
 - Known Node 20 action refs and obsolete OpenAPI workflow references: absent from active
   GitHub/deployment surfaces.
 
-### Remaining external proof
+### External proof
 
 - Implementation PR
   [#27](https://github.com/InKCre/core-py/pull/27) passed repository, artifact,
@@ -162,5 +164,26 @@ deployment and close cleanup.
 - Promotion PR
   [#29](https://github.com/InKCre/core-py/pull/29) passed the protected production-branch
   checks and activated the trusted workflow on `main` as `dcd6239`.
-- Automatic Heroku preview delivery now uses this proof PR's synchronized exact head.
-- deterministic Heroku and Neon cleanup on probe-PR close.
+- Production run
+  [30017016764](https://github.com/InKCre/core-py/actions/runs/30017016764) verified
+  exact `main` SHA `dcd6239bded9de827fd6d1f9ddcb52937fcf49ff`, released Heroku
+  production v10, and passed liveness/readiness with migration head `c4e8a7b6d5f0`.
+  A duplicate delivery event was serialized and skipped without publishing another
+  release.
+- Automatic Preview run
+  [30016950437](https://github.com/InKCre/core-py/actions/runs/30016950437) was triggered
+  by the proof PR's `synchronize` event, verified exact head
+  `79233f1cf17c74942b048866b480080e9f3db264` before checkout and again before secrets,
+  released deterministic app `inkcre-core-pr-28`, and passed liveness/readiness with
+  migration head `c4e8a7b6d5f0`.
+- Neon branch `preview/pr-28` was ready, expiring, uniquely parented by the stable
+  `preview-base` branch, and isolated from production when the application probe passed.
+- GitHub briefly reported a completed successful workflow while one job check still
+  appeared in progress. The authority converged after roughly eight minutes and remained
+  inside the existing ten-minute fail-closed poll window; no verification standard was
+  weakened.
+
+### Remaining external proof
+
+- one additional automatic synchronized-head deployment after this evidence commit;
+- deterministic Heroku and Neon cleanup when proof PR #28 closes.
