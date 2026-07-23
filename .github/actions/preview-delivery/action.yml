@@ -163,6 +163,37 @@ runs:
           return 1
         }
 
+        retry_command() {
+          local max_attempts="$1"
+          shift
+          local attempt
+          for attempt in $(seq 1 "$max_attempts"); do
+            if "$@"; then
+              return 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          return 1
+        }
+
+        login_registry() {
+          local max_attempts=5
+          local attempt
+          for attempt in $(seq 1 "$max_attempts"); do
+            if printf '%s' "$HEROKU_API_KEY" |
+              docker login --username=_ --password-stdin \
+                registry.heroku.com; then
+              return 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+          return 1
+        }
+
         configure_app() {
           local before_release
           local client_id
@@ -209,16 +240,15 @@ runs:
           configure_app
         fi
 
-        printf '%s' "$HEROKU_API_KEY" |
-          docker login --username=_ --password-stdin registry.heroku.com
+        login_registry
         docker tag \
           "inkcre-preview-web:$HEAD_SHA" \
           "registry.heroku.com/$APP_NAME/web"
         docker tag \
           "inkcre-preview-release:$HEAD_SHA" \
           "registry.heroku.com/$APP_NAME/release"
-        docker push "registry.heroku.com/$APP_NAME/web"
-        docker push "registry.heroku.com/$APP_NAME/release"
+        retry_command 5 docker push "registry.heroku.com/$APP_NAME/web"
+        retry_command 5 docker push "registry.heroku.com/$APP_NAME/release"
         before_image_release="$(
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
