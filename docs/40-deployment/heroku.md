@@ -15,7 +15,8 @@ the build-system contract and owns no database.
 Heroku wraps release commands in an internal shell program to stream release logs. These
 two targets therefore clear the provider-neutral image entry point and put the complete
 allowlisted Python invocation in `CMD`. `scripts/container.py` remains strict and never
-parses or evaluates Heroku's shell wrapper.
+parses or evaluates Heroku's shell wrapper. They include `curl` solely so release output is
+streamed back to the deployment job rather than requiring a later app-log lookup.
 
 `Procfile`, `requirements.txt`, and `app.json` remain legacy buildpack entry points for the
 existing staging app. They do not govern container previews and must not be used as the
@@ -56,10 +57,15 @@ The GitHub `preview` environment owns `HEROKU_API_KEY`, `LLM_SP_AK`, and
 repository variable. Deployment values are never Docker build arguments or persisted in an
 artifact.
 
+The Heroku secret is a dedicated global authorization named
+`GitHub InKCre/core-py preview CD`, created with a 365-day lifetime on 2026-07-23. Rotate it
+no later than 2027-07-23 and revoke the superseded authorization after a green preview
+deployment.
+
 Heroku configuration is explicit. `DATABASE_SCALE_0=true` enables resilient Neon
-connections, observability uses the non-database backend, and the fixed checked-in extension
-profile boots normally. `CLIENT_ID` is deterministic per PR so restarts do not create a new
-runtime identity.
+connections, `OBSRV__LOGGING_BACKEND=none` keeps console logs without a remote/database
+handler, and the fixed checked-in extension profile boots normally. `CLIENT_ID` is
+deterministic per PR so restarts do not create a new runtime identity.
 
 ## Migration And Rollback Constraint
 

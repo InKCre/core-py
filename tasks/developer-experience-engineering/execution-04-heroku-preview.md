@@ -91,3 +91,24 @@
 Production delivery will reuse the process-image contract but requires a separate production
 environment, backup artifact, restore rehearsal, canonical Neon branch decision, `main`
 reconciliation, and explicit cutover/rollback evidence.
+
+## Execution Evidence
+
+- GitHub environment `preview` was created with masked Heroku and LLM secrets. The dedicated
+  Heroku authorization was created with `--expires-in 31536000`; no credential value was
+  written to the repository or printed.
+- Manual bootstrap run
+  [29997924117](https://github.com/InKCre/core-py/actions/runs/29997924117) passed the
+  hermetic repository, fresh artifact, exact-PR verification, secret-free image build,
+  release, and health-probe stages.
+- Heroku release v6 succeeded after `alembic upgrade head`; `/readyz` reported expected and
+  current migration head `a1b2c3d4e5f6` and runtime phase `ready`.
+- `inkcre-core-pr-17` is a US container app in pipeline `inkcre-core` stage `review`, with
+  exactly one Eco web dyno and no addons.
+- Live preview URL:
+  `https://inkcre-core-pr-17-81cc6b2daeac.herokuapp.com/`.
+- The existing staging app's latest release remained v52 from 2025-12-22 throughout this
+  execution; no staging configuration or production data was written.
+- Two failed releases exposed Heroku's release-log wrapper before any web process existed.
+  They never became current. The final target metadata keeps that provider concern outside
+  the strict application command parser.

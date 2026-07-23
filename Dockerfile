@@ -50,15 +50,26 @@ EXPOSE 8000
 ENTRYPOINT ["python", "scripts/container.py"]
 
 
-FROM runtime AS heroku-release
+FROM runtime AS heroku-runtime
+
+USER root
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+USER inkcre
 
 ENTRYPOINT []
+
+
+FROM heroku-runtime AS heroku-release
+
 CMD ["python", "scripts/container.py", "migrate"]
 
 
-FROM runtime AS heroku-web
+FROM heroku-runtime AS heroku-web
 
-ENTRYPOINT []
 CMD ["python", "scripts/container.py", "web"]
 
 

@@ -24,10 +24,11 @@ The default artifact entry point is `python scripts/container.py`. Supported com
 
 The artifact never generates migrations or downloads extension code.
 
-The two Heroku targets contain identical files and dependencies. They clear the inherited
-entry point because Heroku wraps a process command for release-log streaming, then express
-the complete allowlisted Python command in `CMD`. Provider behavior stays in image metadata
-instead of weakening the application command parser.
+The two Heroku targets contain identical application files and dependencies, plus `curl`
+for Heroku's release-log streamer. They clear the inherited entry point because Heroku wraps
+a process command for that streamer, then express the complete allowlisted Python command
+in `CMD`. Provider behavior stays in image metadata instead of weakening the application
+command parser.
 
 ## Local Compose
 
