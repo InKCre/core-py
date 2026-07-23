@@ -156,7 +156,9 @@ deployment and close cleanup.
 
 ### Remaining external proof
 
-- repository, artifact, dependency, and Neon checks on the implementation PR;
+- Implementation PR
+  [#27](https://github.com/InKCre/core-py/pull/27) passed repository, artifact,
+  dependency, and Neon checks and merged into `develop` as `d7d5175`.
 - automatic Heroku preview deployment from the trusted workflow after this workflow version
-  exists on the PR base branch;
+  exists on the PR base branch; the follow-up proof PR owns this evidence;
 - deterministic Heroku and Neon cleanup on probe-PR close.
