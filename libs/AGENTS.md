@@ -79,6 +79,6 @@ logger = get_logger()
 logger.info("message", extra={"key": "value"})
 ```
 
-- AI 模块依赖：openai SDK, litellm
+- AI 模块依赖：OpenAI SDK
 - 日志模块依赖：logtail-python (可选)
 - 所有 LLM 调用应处理 API 错误和超时
