@@ -44,3 +44,38 @@ def test_text_columns_match_the_published_migration_types():
       metadata.tables[table_name].columns[column_name].type,
       sqlalchemy.Text,
     )
+
+
+def test_production_required_columns_are_not_nullable():
+  metadata = get_target_metadata()
+  required_columns = {
+    ("clients", "config"),
+    ("clients", "config_schema"),
+    ("logs", "timestamp"),
+    ("sources", "config"),
+    ("sources", "state"),
+    ("sources_collect_jobs", "status"),
+    ("sources_types", "config_schema"),
+    ("storage_types", "description"),
+    ("storage_types", "config_schema"),
+    ("storages", "type"),
+    ("storages", "config"),
+  }
+
+  for table_name, column_name in required_columns:
+    assert metadata.tables[table_name].columns[column_name].nullable is False
+
+
+def test_log_ids_are_bigint():
+  metadata = get_target_metadata()
+
+  assert isinstance(metadata.tables["logs"].columns["id"].type, sqlalchemy.BigInteger)
+
+
+def test_block_storage_foreign_key_preserves_blocks():
+  metadata = get_target_metadata()
+  storage = metadata.tables["blocks"].columns["storage"]
+  foreign_key = next(iter(storage.foreign_keys))
+
+  assert foreign_key.onupdate == "CASCADE"
+  assert foreign_key.ondelete == "SET NULL"

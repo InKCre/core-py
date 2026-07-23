@@ -20,12 +20,15 @@ class StorageTypesModel(sqlmodel.SQLModel, table=True):
   A custom string to identify the storage type.
   For extension storages, must follow `extensions.{extension_id}.{type}` format.
   """
-  description: str = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.Text))
+  description: str = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+  )
   """Description of this storage type."""
   config_schema: dict = sqlmodel.Field(
     sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,
       server_default=sqlalchemy.text("'{}'::jsonb"),
+      nullable=False,
     ),
     default=dict,
   )
@@ -42,6 +45,7 @@ class StorageModel(sqlmodel.SQLModel, table=True):
     sa_column=sqlalchemy.Column(
       sqlalchemy.Text,
       sqlalchemy.ForeignKey("storage_types.id", onupdate="CASCADE", ondelete="CASCADE"),
+      nullable=False,
     )
   )
   """Type of storage.
@@ -57,6 +61,7 @@ class StorageModel(sqlmodel.SQLModel, table=True):
     sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,
       server_default=sqlalchemy.text("'{}'::jsonb"),
+      nullable=False,
     ),
     default=dict,
   )

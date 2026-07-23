@@ -58,6 +58,7 @@ class SourceTypesModel(sqlmodel.SQLModel, table=True):
     sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,
       server_default=sqlalchemy.text("'{}'::jsonb"),
+      nullable=False,
     ),
     default=dict,
   )
@@ -89,6 +90,7 @@ class SourceModel(sqlmodel.SQLModel, table=True):
     sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,
       server_default=sqlalchemy.text("'{}'::jsonb"),
+      nullable=False,
     ),
     default=dict,
   )
@@ -104,6 +106,7 @@ class SourceModel(sqlmodel.SQLModel, table=True):
     sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,
       server_default=sqlalchemy.text("'{}'::jsonb"),
+      nullable=False,
     ),
     default_factory=dict,
   )

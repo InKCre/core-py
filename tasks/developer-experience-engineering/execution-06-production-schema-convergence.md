@@ -116,3 +116,34 @@ select/promote the canonical production Neon branch, create the Heroku productio
 configure GitHub production protections and secrets, prove release/health/rollback, and
 only then consider traffic cutover. It must reuse the durable checkpoint and encrypted
 archive from Execution 05.
+
+## Execution Evidence
+
+- Revision and metadata:
+  - new head `c4e8a7b6d5f0` extends `a1b2c3d4e5f6`;
+  - both protected revision digests remain unchanged;
+  - the new revision digest is recorded in `revision-integrity.json`;
+  - focused metadata tests assert all 11 required columns, `BIGINT` log IDs, and the
+    block-storage foreign-key actions.
+- Disposable production-copy branch:
+  - `rehearsal/schema-convergence-20260723` / `br-round-meadow-a1fa4mia`;
+  - parent checkpoint is exactly `br-polished-forest-a1m6qwrd`;
+  - endpoint is exactly `ep-rapid-fire-a18bnryp`;
+  - TTL expires `2026-07-30T10:59:00Z`.
+- Upgrade proof:
+  - pre-manifest is byte-identical to the checkpoint/source manifest at old head;
+  - upgrade completed transactionally from `a1b2c3d4e5f6` to `c4e8a7b6d5f0`;
+  - all 12 table counts and 476 total rows are unchanged;
+  - `alembic check` reports no new operations and readiness passes;
+  - catalog verification reports all required columns `NOT NULL`, all three widened
+    columns `TEXT`, `logs.id` and `logs_id_seq` `BIGINT`, and
+    `blocks_storage_fkey` as `ON UPDATE CASCADE ON DELETE SET NULL`;
+  - all 35 `authenticated` table ACL entries remain.
+- Reversibility proof:
+  - downgrade returned to the canonical old head with INTEGER log column and sequence;
+  - pre/downgraded table counts are identical;
+  - re-upgrade returned to a byte-identical post-manifest;
+  - final `alembic check` and readiness pass at `c4e8a7b6d5f0`.
+- Repository proof:
+  - `pdm run check` passes with 94 tests and the single new migration head;
+  - fresh PostgreSQL/OCI verification remains the final external gate after push.

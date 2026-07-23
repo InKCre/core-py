@@ -67,6 +67,7 @@ class SourceCollectJobModel(sqlmodel.SQLModel, table=True):
         SourceCollectJobStatus, values_callable=lambda x: [e.value for e in x]
       ),
       server_default=SourceCollectJobStatus.PENDING,
+      nullable=False,
     ),
   )
   state: dict = sqlmodel.Field(

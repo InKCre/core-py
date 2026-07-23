@@ -81,6 +81,21 @@ DATABASE_URL=... pdm run db:manifest
 Portable archives, checksums, manifests, and credentials are operational artifacts outside
 Git and CI. Production rows are recovery data, never seed data.
 
+## Legacy Schema Convergence
+
+An Alembic head is lineage evidence, not proof that a database matches current metadata.
+When a published history has been rewritten or a long-lived database predates it:
+
+1. preserve the live dataset and collect `alembic check` evidence on a disposable copy;
+2. correct metadata to the intended contract instead of blindly accepting generated drift;
+3. append one convergence revision that works from both the fresh and legacy shapes;
+4. refuse lossy narrowing and unexpected NULL-value repair;
+5. compare value-free manifests before and after the migration;
+6. require `alembic check`, readiness, and the fresh-database artifact job to pass.
+
+Do not stamp a legacy database past a convergence revision. Stamping changes lineage only;
+it neither applies nor verifies the schema transition.
+
 ## Operational Implication
 
 Neon branch lifecycle and scale-to-zero behavior are deployment truths. They should stay documented here rather than mixed into product docs or task notes.

@@ -33,18 +33,20 @@ class LogModel(sqlmodel.SQLModel, table=True):
 
   __tablename__ = "logs"  # type: ignore
 
-  id: Opt[int] = sqlmodel.Field(default=None, primary_key=True)
+  id: Opt[int] = sqlmodel.Field(
+    default=None,
+    sa_column=sa.Column(sa.BigInteger, primary_key=True, autoincrement=True),
+  )
   timestamp: datetime.datetime = sqlmodel.Field(
     default_factory=datetime.datetime.now,
     sa_column=sa.Column(
       sa.TIMESTAMP(timezone=True),
       server_default=sa.text("CURRENT_TIMESTAMP"),
+      nullable=False,
     ),
   )
   severity_number: int = sqlmodel.Field(sa_type=sa.SmallInteger)
-  severity_text: str = sqlmodel.Field(
-    sa_column=sa.Column(sa.Text, nullable=False)
-  )
+  severity_text: str = sqlmodel.Field(sa_column=sa.Column(sa.Text, nullable=False))
   body: str = sqlmodel.Field(sa_column=sa.Column(sa.Text, nullable=False))
   trace_id: Opt[str] = sqlmodel.Field(
     default=None,
