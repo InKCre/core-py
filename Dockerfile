@@ -48,4 +48,13 @@ USER inkcre
 
 EXPOSE 8000
 ENTRYPOINT ["python", "scripts/container.py"]
+
+
+FROM runtime AS release
+
+CMD ["migrate"]
+
+
+FROM runtime AS web
+
 CMD ["web"]

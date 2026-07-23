@@ -1,57 +1,65 @@
 # Heroku
 
-## Checked-In Files
+## Artifact And Process Model
 
-- `Procfile`
-- `app.json`
-- `requirements.txt`
-- `README.md`
+Heroku consumes the same provider-neutral OCI source proved in CI. The `Dockerfile` exposes
+two final targets:
 
-## Runtime Model
+- `web`: starts the application server
+- `release`: applies `alembic upgrade head` and has no web command
 
-`Procfile` currently defines:
+The workflow pushes both targets to Heroku Container Registry and releases `web` and
+`release` together. Heroku therefore supplies compute, configuration, and routing; it is not
+the build-system contract and owns no database.
 
-- `release`: `alembic upgrade head`
-- `web`: `uvicorn run:api_app --host=0.0.0.0 --port=${PORT:-8000}`
+`Procfile`, `requirements.txt`, and `app.json` remain legacy buildpack entry points for the
+existing staging app. They do not govern container previews and must not be used as the
+production CD contract without a separate cutover.
 
-The release process applies reviewed, checked-in revisions exactly once before boot. It
-never creates a revision at deploy time.
+## Pull Request Previews
 
-The Python runtime is selected by `.python-version`, which is shared by local tooling and
-foundation CI.
+Trusted same-repository pull requests use:
 
-## One-Click Deploy
+- app name `inkcre-core-pr-<number>`
+- pipeline `inkcre-core`, stage `review`
+- container stack in the US region
+- one Eco `web` dyno
+- matching Neon branch `preview/pr-<number>`
+- no Heroku PostgreSQL or other addon
 
-`app.json` provides a Heroku deploy button configuration.
+`.github/workflows/preview-delivery.yml` verifies that the exact PR head passed the
+repository, portable-artifact, and preview-database checks. It builds before Heroku, Neon,
+or LLM secrets enter any step environment. Only then does it resolve the masked Neon URL,
+configure the app, push both process images, run the release, and probe `/livez` plus
+`/readyz`.
 
-Current checked-in behavior:
+`.github/workflows/preview-deploy.yml` invokes that reusable workflow from a trusted
+post-CI `workflow_run`. A PR-close event destroys only the deterministic app. The matching
+Neon workflow independently deletes only its deterministic database branch.
 
-- Python buildpack
-- one `web` dyno
-- `heroku-postgresql:essential-0` addon
+The manual `workflow_dispatch` input on `.github/workflows/ci.yml` is a recovery and initial
+bootstrap path. It executes the same repository and artifact checks before calling the same
+delivery workflow.
 
-## Manual Deploy
+## Secret Boundary
 
-```bash
-heroku create your-app-name
-git push heroku main
-```
+The GitHub `preview` environment owns `HEROKU_API_KEY`, `LLM_SP_AK`, and
+`LLM_SP_BASE_URL`. `NEON_API_KEY` remains a repository secret and `NEON_PROJECT_ID` a
+repository variable. Deployment values are never Docker build arguments or persisted in an
+artifact.
 
-If needed, run migrations manually:
+Heroku configuration is explicit. `DATABASE_SCALE_0=true` enables resilient Neon
+connections, observability uses the non-database backend, and the fixed checked-in extension
+profile boots normally. `CLIENT_ID` is deterministic per PR so restarts do not create a new
+runtime identity.
 
-```bash
-heroku run alembic upgrade head
-```
+## Migration And Rollback Constraint
 
-## Important Constraint
+The release target is a single-writer `alembic upgrade head` operation. A failed migration
+fails the release; rolling the web image back does not reverse the database. Every revision
+must therefore pass the fresh pgvector artifact check and the matching Neon preview before
+delivery.
 
-The checked-in one-click config uses `essential-0`, but multi-credential PostgreSQL workflows such as PostgREST-style role separation need a higher plan. Treat that as a deployment trade-off, not as an undocumented assumption.
-
-## Caution
-
-`alembic upgrade head` is a single-writer release operation. A failed migration fails the
-release; application rollback does not automatically reverse the database. Revisions must
-therefore be reviewed and verified on a disposable database before deployment.
-
-The checked-in Docker image is not yet the Heroku release artifact and remains outside the
-foundation-containment contract.
+Production needs its own GitHub environment, data backup and restore rehearsal, canonical
+Neon branch decision, and rollback evidence. Preview automation is not authority to mutate
+the existing staging app or production data.

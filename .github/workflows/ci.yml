@@ -6,9 +6,17 @@ on:
     branches:
       - develop
       - main
+  workflow_dispatch:
+    inputs:
+      preview_pr:
+        description: Trusted pull request number to deploy after checks pass
+        required: false
+        type: number
 
 permissions:
+  checks: read
   contents: read
+  pull-requests: read
 
 concurrency:
   group: repository-${{ github.workflow }}-${{ github.ref }}
@@ -125,3 +133,15 @@ jobs:
 
           curl --fail --silent http://127.0.0.1:18080/livez
           curl --fail --silent http://127.0.0.1:18080/readyz
+
+  preview:
+    name: Deploy trusted preview
+    if: github.event_name == 'workflow_dispatch' && inputs.preview_pr != 0
+    needs:
+      - repository
+      - artifact
+    uses: ./.github/workflows/preview-delivery.yml
+    with:
+      head_sha: ${{ github.sha }}
+      pr_number: ${{ inputs.preview_pr }}
+    secrets: inherit

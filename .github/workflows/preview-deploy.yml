@@ -1,0 +1,65 @@
+name: Preview application
+
+on:
+  workflow_run:
+    workflows:
+      - Repository and artifact checks
+    types:
+      - completed
+  pull_request_target:
+    types:
+      - closed
+
+permissions:
+  checks: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: >-
+    preview-application-pr-${{
+      github.event.workflow_run.pull_requests[0].number ||
+      github.event.pull_request.number
+    }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests[0].head.repo.full_name == github.repository
+    uses: ./.github/workflows/preview-delivery.yml
+    with:
+      head_sha: ${{ github.event.workflow_run.head_sha }}
+      pr_number: ${{ github.event.workflow_run.pull_requests[0].number }}
+    secrets: inherit
+
+  cleanup:
+    name: Delete Heroku preview
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - name: Install pinned Heroku CLI
+        run: npm install --global heroku@11.8.1
+
+      - name: Delete exact deterministic app
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          case "$PR_NUMBER" in
+            ''|*[!0-9]*)
+              echo "Invalid pull request number" >&2
+              exit 1
+              ;;
+          esac
+          app_name="inkcre-core-pr-$PR_NUMBER"
+          if heroku apps:info --app "$app_name" >/dev/null 2>&1; then
+            heroku apps:destroy --app "$app_name" --confirm "$app_name"
+          fi

@@ -2,7 +2,11 @@
 
 ## Artifact Contract
 
-The multi-stage `Dockerfile` builds one provider-neutral OCI artifact:
+The multi-stage `Dockerfile` builds one provider-neutral OCI source with two final process
+targets:
+
+- `web`: defaults to `python scripts/container.py web`
+- `release`: can only run `python scripts/container.py migrate`
 
 - Python and PDM versions are pinned by `.python-version` and the Docker build argument
 - production dependencies come only from the frozen root `pdm.lock`
@@ -11,7 +15,7 @@ The multi-stage `Dockerfile` builds one provider-neutral OCI artifact:
 - extension-local virtual environments and locks are not image inputs
 - the final process runs as the non-root `inkcre` user
 
-The entry point is `python scripts/container.py`. Supported commands are:
+Both targets share the entry point `python scripts/container.py`. Supported commands are:
 
 - `web`: start Uvicorn on `0.0.0.0:$PORT`
 - `migrate`: run `alembic upgrade head`
