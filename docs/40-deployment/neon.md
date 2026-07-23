@@ -51,6 +51,13 @@ cannot be enabled on `preview-base`. The sanitizer requires the exact branch nam
 PR cleanup workflow only targets the `preview/pr-<number>` namespace. Upgrade the Neon plan
 or revisit branch protection before broadening administrative access.
 
+The same plan currently permits ten branches. Copilot setup therefore keys real agent and
+manual-test branches as `copilot/run-<github-run-id>` with a seven-day TTL, while ordinary
+push and pull-request validation installs dependencies without allocating a database
+branch. This avoids both collisions with permanent branch names and quota pressure from
+workflow self-validation. Completed agent branches may be deleted early once no session
+uses them.
+
 Application bootstrap may create its required runtime records after preview deployment, but
 production data is never treated as seed data. Canonical `production` is the required parent
 whenever `preview-base` is replaced. Sanitization must finish and prove zero application rows
