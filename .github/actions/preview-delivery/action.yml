@@ -30,7 +30,7 @@ runs:
       shell: bash
       run: npm install --global heroku@11.8.1
 
-    - name: Resolve matching Neon preview URL
+    - name: Resolve matching Neon preview URLs
       id: neon
       shell: bash
       env:
@@ -38,7 +38,7 @@ runs:
         NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
         PR_NUMBER: ${{ inputs.pr_number }}
       run: |
-        database_url="$(
+        runtime_database_url="$(
           npx --yes neonctl@2.36.0 connection-string \
             "preview/pr-$PR_NUMBER" \
             --project-id "$NEON_PROJECT_ID" \
@@ -46,17 +46,28 @@ runs:
             --pooled \
             --no-color
         )"
-        echo "::add-mask::$database_url"
-        echo "database_url=$database_url" >> "$GITHUB_OUTPUT"
+        migration_database_url="$(
+          npx --yes neonctl@2.36.0 connection-string \
+            "preview/pr-$PR_NUMBER" \
+            --project-id "$NEON_PROJECT_ID" \
+            --role-name neondb_owner \
+            --no-pooled \
+            --no-color
+        )"
+        echo "::add-mask::$runtime_database_url"
+        echo "::add-mask::$migration_database_url"
+        echo "runtime_database_url=$runtime_database_url" >> "$GITHUB_OUTPUT"
+        echo "migration_database_url=$migration_database_url" >> "$GITHUB_OUTPUT"
 
     - name: Create or verify deterministic Heroku app
       id: heroku
       shell: bash
       env:
-        DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         LLM_SP_AK: ${{ inputs.llm_sp_ak }}
         LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
         PR_NUMBER: ${{ inputs.pr_number }}
       run: |
         app_name="inkcre-core-pr-$PR_NUMBER"
@@ -100,6 +111,7 @@ runs:
           "JWT_SECRET=$jwt_secret" \
           "LLM_SP_AK=$LLM_SP_AK" \
           "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
+          "MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL" \
           "OBSRV__LOGGING_BACKEND=none" \
           "SKIP_EXTENSIONS_SYNC=0" >/dev/null
 

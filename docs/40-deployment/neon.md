@@ -96,6 +96,21 @@ When a published history has been rewritten or a long-lived database predates it
 Do not stamp a legacy database past a convergence revision. Stamping changes lineage only;
 it neither applies nor verifies the schema transition.
 
+## Production Branch
+
+The canonical production branch is named `production`. It is a no-TTL child of the durable
+pre-cutover checkpoint, not a rename or in-place migration of `staging`. Its initial
+manifest preserved every application-table row count and changed only the Alembic head to
+the convergence revision.
+
+Runtime processes use the pooled `DATABASE_URL`. Migration/release processes prefer the
+direct `MIGRATION_DATABASE_URL` and fall back to `DATABASE_URL` for local and legacy
+environments. Both URLs must resolve to the same exact guarded branch.
+
+The current Neon plan cannot protect this branch. GitHub environment isolation, exact
+branch-ID/parent guards, serialized release execution, the durable checkpoint, and the
+encrypted archive are required compensating controls.
+
 ## Operational Implication
 
 Neon branch lifecycle and scale-to-zero behavior are deployment truths. They should stay documented here rather than mixed into product docs or task notes.

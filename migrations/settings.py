@@ -15,11 +15,14 @@ class MigrationSettings(BaseSettings):
   )
 
   database_url: str
+  migration_database_url: str | None = None
 
-  @field_validator("database_url")
+  @field_validator("database_url", "migration_database_url")
   @classmethod
-  def use_psycopg_driver(cls, value: str) -> str:
+  def use_psycopg_driver(cls, value: str | None) -> str | None:
     """Normalize generic PostgreSQL URLs to the installed psycopg driver."""
+    if value is None:
+      return None
     if value.startswith("postgres://"):
       return value.replace("postgres://", "postgresql+psycopg://", 1)
     if value.startswith("postgresql+psycopg2://"):
@@ -31,4 +34,5 @@ class MigrationSettings(BaseSettings):
 
 def get_migration_database_url() -> str:
   """Load the database URL without constructing application settings."""
-  return MigrationSettings().database_url
+  settings = MigrationSettings()
+  return settings.migration_database_url or settings.database_url

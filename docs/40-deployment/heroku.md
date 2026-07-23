@@ -50,6 +50,32 @@ The manual `workflow_dispatch` input on `.github/workflows/ci.yml` is a recovery
 bootstrap path. It executes the same repository and artifact checks before calling the same
 delivery action.
 
+## Production Delivery
+
+Production uses:
+
+- Git source: the exact current `main` SHA
+- app: `inkcre-core-production`
+- pipeline: `inkcre-core`, stage `production`
+- stack/region: container, US
+- database: canonical Neon branch `production`
+- formation: one Eco `web` process and one on-demand `release` process
+- addons: none
+
+`.github/workflows/production-deploy.yml` runs only after the repository/artifact workflow
+succeeds for a `main` push, or through a main-only recovery dispatch. The verifier resolves
+the current main ref and requires the hermetic repository and fresh-database artifact checks
+for the same SHA. Images are built before any deployment input is referenced.
+
+The delivery action guards the exact production branch ID and checkpoint parent, resolves a
+pooled `DATABASE_URL` for web traffic and a direct `MIGRATION_DATABASE_URL` for Alembic,
+then releases both Heroku process images. A failed post-release probe rolls the application
+back to its previous deployed release when one exists, but still fails the workflow.
+Application rollback never runs an Alembic downgrade.
+
+The default Heroku URL is the initial verification endpoint. Custom-domain and DNS traffic
+cutover are separate decisions; the legacy staging app remains unchanged during bootstrap.
+
 ## Secret Boundary
 
 The GitHub `preview` environment owns `HEROKU_API_KEY`, `LLM_SP_AK`, and
@@ -61,6 +87,11 @@ The Heroku secret is a dedicated global authorization named
 `GitHub InKCre/core-py preview CD`, created with a 365-day lifetime on 2026-07-23. Rotate it
 no later than 2027-07-23 and revoke the superseded authorization after a green preview
 deployment.
+
+The GitHub `production` environment independently owns its Heroku authorization, JWT
+signing secret, and LLM inputs. It also records exact non-secret app and Neon branch
+identities and admits deployments from `main` only. Production must not reuse the preview
+Heroku authorization or JWT secret.
 
 Heroku configuration is explicit. `DATABASE_SCALE_0=true` enables resilient Neon
 connections, `OBSRV__LOGGING_BACKEND=none` keeps console logs without a remote/database
@@ -74,6 +105,4 @@ fails the release; rolling the web image back does not reverse the database. Eve
 must therefore pass the fresh pgvector artifact check and the matching Neon preview before
 delivery.
 
-Production needs its own GitHub environment, data backup and restore rehearsal, canonical
-Neon branch decision, and rollback evidence. Preview automation is not authority to mutate
-the existing staging app or production data.
+Preview automation is not authority to mutate the existing staging app or production data.

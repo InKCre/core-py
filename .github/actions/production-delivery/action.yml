@@ -1,0 +1,211 @@
+name: Heroku production delivery
+description: Release and probe prebuilt process images for the canonical production branch
+
+inputs:
+  head_sha:
+    description: Exact main commit to deploy
+    required: true
+  heroku_api_key:
+    description: Dedicated Heroku production delivery authorization
+    required: true
+  heroku_app_name:
+    description: Exact production app name
+    required: true
+  jwt_secret:
+    description: Production JWT signing secret
+    required: true
+  llm_sp_ak:
+    description: Production LLM provider credential
+    required: true
+  llm_sp_base_url:
+    description: Production LLM provider base URL
+    required: true
+  neon_api_key:
+    description: Neon authorization for resolving production connections
+    required: true
+  neon_branch_id:
+    description: Exact canonical production branch ID
+    required: true
+  neon_parent_branch_id:
+    description: Exact durable checkpoint branch ID
+    required: true
+  neon_project_id:
+    description: Neon project containing the production branch
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install pinned deployment CLIs
+      shell: bash
+      run: npm install --global heroku@11.8.1
+
+    - name: Verify branch and resolve production URLs
+      id: neon
+      shell: bash
+      env:
+        NEON_API_KEY: ${{ inputs.neon_api_key }}
+        NEON_BRANCH_ID: ${{ inputs.neon_branch_id }}
+        NEON_PARENT_BRANCH_ID: ${{ inputs.neon_parent_branch_id }}
+        NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
+      run: |
+        branch_json="$(
+          npx --yes neonctl@2.36.0 branches get "$NEON_BRANCH_ID" \
+            --project-id "$NEON_PROJECT_ID" \
+            --output json \
+            --no-color
+        )"
+        test "$(jq -r '.id' <<<"$branch_json")" = "$NEON_BRANCH_ID"
+        test "$(jq -r '.name' <<<"$branch_json")" = "production"
+        test "$(jq -r '.parent_id' <<<"$branch_json")" = "$NEON_PARENT_BRANCH_ID"
+        test "$(jq -r '.expires_at // ""' <<<"$branch_json")" = ""
+        test "$(jq -r '.current_state' <<<"$branch_json")" = "ready"
+
+        runtime_database_url="$(
+          npx --yes neonctl@2.36.0 connection-string "$NEON_BRANCH_ID" \
+            --project-id "$NEON_PROJECT_ID" \
+            --role-name neondb_owner \
+            --database-name neondb \
+            --pooled \
+            --no-color
+        )"
+        migration_database_url="$(
+          npx --yes neonctl@2.36.0 connection-string "$NEON_BRANCH_ID" \
+            --project-id "$NEON_PROJECT_ID" \
+            --role-name neondb_owner \
+            --database-name neondb \
+            --no-pooled \
+            --no-color
+        )"
+        echo "::add-mask::$runtime_database_url"
+        echo "::add-mask::$migration_database_url"
+        echo "runtime_database_url=$runtime_database_url" >> "$GITHUB_OUTPUT"
+        echo "migration_database_url=$migration_database_url" >> "$GITHUB_OUTPUT"
+
+    - name: Create or verify production app
+      id: heroku
+      shell: bash
+      env:
+        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        HEROKU_APP_NAME: ${{ inputs.heroku_app_name }}
+        JWT_SECRET: ${{ inputs.jwt_secret }}
+        LLM_SP_AK: ${{ inputs.llm_sp_ak }}
+        LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+      run: |
+        test "$HEROKU_APP_NAME" = "inkcre-core-production"
+        if ! app_json="$(
+          heroku apps:info --app "$HEROKU_APP_NAME" --json 2>/dev/null
+        )"; then
+          heroku apps:create "$HEROKU_APP_NAME" --region us --stack container
+          app_json="$(heroku apps:info --app "$HEROKU_APP_NAME" --json)"
+        fi
+
+        test "$(jq -r '.app.name' <<<"$app_json")" = "$HEROKU_APP_NAME"
+        test "$(jq -r '.app.stack.name' <<<"$app_json")" = "container"
+        test "$(jq -r '.app.region.name' <<<"$app_json")" = "us"
+        test "$(heroku addons --app "$HEROKU_APP_NAME" --json | jq 'length')" = 0
+
+        pipeline_json="$(heroku pipelines:info inkcre-core --json)"
+        stage="$(
+          jq -r --arg app "$HEROKU_APP_NAME" \
+            '.apps[] | select(.name == $app) |
+              .pipelineCoupling.stage // empty' \
+            <<<"$pipeline_json"
+        )"
+        if [ -z "$stage" ]; then
+          heroku pipelines:add inkcre-core \
+            --app "$HEROKU_APP_NAME" \
+            --stage production
+        else
+          test "$stage" = "production"
+        fi
+
+        web_url="$(jq -r '.app.web_url' <<<"$app_json")"
+        client_id="$(
+          python -c \
+            "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, '$HEROKU_APP_NAME'))"
+        )"
+        heroku config:set --app "$HEROKU_APP_NAME" \
+          "CLIENT_BASE_URL=$web_url" \
+          "CLIENT_ID=$client_id" \
+          "CLIENT_NAME=core-py-production" \
+          "DATABASE_SCALE_0=true" \
+          "DATABASE_URL=$DATABASE_URL" \
+          "INKCRE_ENV_FILE=" \
+          "JWT_SECRET=$JWT_SECRET" \
+          "LLM_SP_AK=$LLM_SP_AK" \
+          "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
+          "MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL" \
+          "OBSRV__LOGGING_BACKEND=none" \
+          "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+
+        echo "app_name=$HEROKU_APP_NAME" >> "$GITHUB_OUTPUT"
+        echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
+
+    - name: Push and release web and migration processes
+      id: release
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+      run: |
+        previous_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r \
+              '[.[] |
+                select(.status == "succeeded" and
+                  (.description | startswith("Deployed web")))] |
+                first | .version // empty'
+        )"
+        printf '%s' "$HEROKU_API_KEY" |
+          docker login --username=_ --password-stdin registry.heroku.com
+        docker tag \
+          "inkcre-production-web:$HEAD_SHA" \
+          "registry.heroku.com/$APP_NAME/web"
+        docker tag \
+          "inkcre-production-release:$HEAD_SHA" \
+          "registry.heroku.com/$APP_NAME/release"
+        docker push "registry.heroku.com/$APP_NAME/web"
+        docker push "registry.heroku.com/$APP_NAME/release"
+        heroku container:release web release --app "$APP_NAME"
+        heroku ps:scale web=1:eco --app "$APP_NAME"
+
+        echo "previous_release=$previous_release" >> "$GITHUB_OUTPUT"
+
+    - name: Probe production or roll back application
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        PREVIOUS_RELEASE: ${{ steps.release.outputs.previous_release }}
+        WEB_URL: ${{ steps.heroku.outputs.web_url }}
+      run: |
+        for _ in $(seq 1 60); do
+          if curl --fail --silent "${WEB_URL}livez" >/dev/null &&
+            curl --fail --silent "${WEB_URL}readyz" >/dev/null; then
+            {
+              echo "### Heroku production"
+              echo
+              echo "- App: \`$APP_NAME\`"
+              echo "- URL: $WEB_URL"
+              echo "- Commit: \`$HEAD_SHA\`"
+              echo "- Liveness: ready"
+              echo "- Readiness: ready"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          sleep 5
+        done
+
+        heroku logs --num 200 --app "$APP_NAME"
+        if [ -n "$PREVIOUS_RELEASE" ]; then
+          heroku releases:rollback "v$PREVIOUS_RELEASE" --app "$APP_NAME"
+          echo "Rolled application back to v$PREVIOUS_RELEASE" >&2
+        else
+          echo "No previous deployed application release exists" >&2
+        fi
+        exit 1
