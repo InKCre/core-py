@@ -48,13 +48,31 @@ COMMANDS = {
 }
 
 
+def _resolve_command(args: list[str]) -> str | None:
+  if len(args) == 1 and args[0] in COMMANDS:
+    return args[0]
+
+  # Heroku appends its process command to the image entry point through this
+  # exact shell wrapper. Only unwrap a single allowlisted command; never
+  # evaluate the shell string.
+  if (
+    len(args) == 3
+    and args[:2] == ["/bin/sh", "-c"]
+    and args[2] in COMMANDS
+  ):
+    return args[2]
+
+  return None
+
+
 def main(argv: list[str] | None = None) -> int:
   args = argv if argv is not None else sys.argv[1:]
-  if len(args) != 1 or args[0] not in COMMANDS:
+  command = _resolve_command(args)
+  if command is None:
     available = ", ".join(sorted(COMMANDS))
     print(f"usage: container.py <{available}>", file=sys.stderr)
     return 2
-  return COMMANDS[args[0]]()
+  return COMMANDS[command]()
 
 
 if __name__ == "__main__":

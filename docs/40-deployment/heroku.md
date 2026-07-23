@@ -12,6 +12,11 @@ The workflow pushes both targets to Heroku Container Registry and releases `web`
 `release` together. Heroku therefore supplies compute, configuration, and routing; it is not
 the build-system contract and owns no database.
 
+Heroku appends process commands to the image entry point as
+`/bin/sh -c <process-command>`. `scripts/container.py` recognizes that exact adapter shape
+only when `<process-command>` is one of its built-in commands; it never evaluates an
+arbitrary shell expression.
+
 `Procfile`, `requirements.txt`, and `app.json` remain legacy buildpack entry points for the
 existing staging app. They do not govern container previews and must not be used as the
 production CD contract without a separate cutover.
