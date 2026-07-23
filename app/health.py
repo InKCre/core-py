@@ -49,9 +49,7 @@ def check_database_readiness(database_url: str | None = None) -> DatabaseReadine
       connection.execute(text("SELECT 1"))
       current_heads = tuple(
         sorted(
-          connection.execute(
-            text("SELECT version_num FROM alembic_version")
-          ).scalars()
+          connection.execute(text("SELECT version_num FROM alembic_version")).scalars()
         )
       )
   except Exception:

@@ -206,9 +206,7 @@ class ExtensionManager:
       raise ValueError(f"Extension {extid} has no valid local metadata")
     local_version = local_version or "0.1.0"
     if version is not None and version != local_version:
-      raise ValueError(
-        f"Extension {extid} version {version} is not part of this artifact"
-      )
+      raise ValueError(f"Extension {extid} version {version} is not part of this artifact")
 
     with SessionLocal() as db:
       existing = db.exec(

@@ -1,13 +1,11 @@
 name: Preview application
 
 on:
-  workflow_run:
-    workflows:
-      - Repository and artifact checks
-    types:
-      - completed
   pull_request_target:
     types:
+      - opened
+      - reopened
+      - synchronize
       - closed
 
 permissions:
@@ -16,20 +14,14 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: >-
-    preview-application-pr-${{
-      github.event.workflow_run.pull_requests[0].number ||
-      github.event.pull_request.number
-    }}
-  cancel-in-progress: false
+  group: preview-application-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
     if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.pull_requests[0].head.repo.full_name == github.repository
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     environment: preview
     steps:
@@ -40,23 +32,23 @@ jobs:
           path: .delivery
           persist-credentials: false
 
-      - name: Checkout isolated pull request source
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          path: source
-          persist-credentials: false
-
       - name: Verify exact pull request head
         uses: ./.delivery/.github/actions/preview-verify
         with:
           github_token: ${{ github.token }}
-          head_sha: ${{ github.event.workflow_run.head_sha }}
-          pr_number: ${{ github.event.workflow_run.pull_requests[0].number }}
+          head_sha: ${{ github.event.pull_request.head.sha }}
+          pr_number: ${{ github.event.pull_request.number }}
+
+      - name: Checkout isolated pull request source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: source
+          persist-credentials: false
 
       - name: Build web and release images without deployment secrets
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           docker build \
             --target heroku-web \
@@ -67,21 +59,27 @@ jobs:
             --tag "inkcre-preview-release:$HEAD_SHA" \
             "${{ github.workspace }}/source"
 
+      - name: Reverify preview authority before delivery
+        uses: ./.delivery/.github/actions/preview-verify
+        with:
+          github_token: ${{ github.token }}
+          head_sha: ${{ github.event.pull_request.head.sha }}
+          pr_number: ${{ github.event.pull_request.number }}
+
       - name: Deliver preview
         uses: ./.delivery/.github/actions/preview-delivery
         with:
-          head_sha: ${{ github.event.workflow_run.head_sha }}
+          head_sha: ${{ github.event.pull_request.head.sha }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           llm_sp_ak: ${{ secrets.LLM_SP_AK }}
           llm_sp_base_url: ${{ secrets.LLM_SP_BASE_URL }}
           neon_api_key: ${{ secrets.NEON_API_KEY }}
           neon_project_id: ${{ vars.NEON_PROJECT_ID }}
-          pr_number: ${{ github.event.workflow_run.pull_requests[0].number }}
+          pr_number: ${{ github.event.pull_request.number }}
 
   cleanup:
     name: Delete Heroku preview
     if: >-
-      github.event_name == 'pull_request_target' &&
       github.event.action == 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest

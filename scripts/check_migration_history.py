@@ -46,9 +46,7 @@ def _worktree_manifest() -> dict[str, str]:
 
 
 def _revision_files() -> dict[str, Path]:
-  return {
-    path.name: path for path in VERSIONS_DIRECTORY.glob("*.py") if path.is_file()
-  }
+  return {path.name: path for path in VERSIONS_DIRECTORY.glob("*.py") if path.is_file()}
 
 
 def _protected_revision_violations(
@@ -145,8 +143,7 @@ def main() -> int:
 
   if len(sys.argv) > 2:
     print(
-      "usage: python scripts/check_migration_history.py "
-      "[--record-new | base-ref]",
+      "usage: python scripts/check_migration_history.py [--record-new | base-ref]",
       file=sys.stderr,
     )
     return 2
@@ -172,9 +169,7 @@ def main() -> int:
     return 1
 
   if base_ref is not None and base is None:
-    print(
-      f"Migration integrity baseline bootstrapped; {base_ref} has no manifest"
-    )
+    print(f"Migration integrity baseline bootstrapped; {base_ref} has no manifest")
   elif base_ref is not None:
     print(f"Migration history is append-only relative to {base_ref}")
   else:

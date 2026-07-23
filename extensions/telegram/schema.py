@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 class TelegramMessage(BaseModel):
   """Telegram message data model.
-  
+
   Stores only the message content without user/chat information.
   """
 

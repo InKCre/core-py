@@ -69,23 +69,17 @@ def sanitize_preview_base(database_url: str) -> tuple[str, ...]:
 
       current_heads = tuple(
         sorted(
-          connection.execute(
-            text("SELECT version_num FROM alembic_version")
-          ).scalars()
+          connection.execute(text("SELECT version_num FROM alembic_version")).scalars()
         )
       )
       if current_heads != expected_heads:
         raise ValueError("preview base is not at the repository Alembic head")
 
       quoted_tables = ", ".join(f'"{table}"' for table in sorted(expected_tables))
-      connection.execute(
-        text(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE")
-      )
+      connection.execute(text(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE"))
 
       for table in sorted(expected_tables):
-        remaining = connection.execute(
-          text(f'SELECT count(*) FROM "{table}"')
-        ).scalar_one()
+        remaining = connection.execute(text(f'SELECT count(*) FROM "{table}"')).scalar_one()
         if remaining:
           raise RuntimeError(f"table {table} was not sanitized")
   finally:

@@ -13,7 +13,7 @@ pdm run dev
 ```
 
 `pdm run check` is the hermetic repository contract used by CI: frozen dependency
-checks, migration containment, lint, and the complete unit-test suite.
+checks, migration containment, formatting, lint, and the complete unit-test suite.
 
 Developer setup and shared-skill notes: [CONTRIBUTING.md](CONTRIBUTING.md)
 
@@ -35,3 +35,5 @@ If `docs/_shared/` is missing, run `git submodule update --init --recursive` bef
 ## Generated Artifacts
 
 - OpenAPI schema: `docs/openapi.json`
+- Regenerate locally with `pdm run python scripts/generate-openapi.py`.
+- The repository does not publish hosted API documentation automatically.

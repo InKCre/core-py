@@ -38,8 +38,7 @@ def main() -> int:
     return 0
 
   print(
-    "ERROR: requirements.txt is stale; run "
-    "`pdm export --prod --output requirements.txt`",
+    "ERROR: requirements.txt is stale; run `pdm export --prod --output requirements.txt`",
     file=sys.stderr,
   )
   sys.stderr.writelines(
