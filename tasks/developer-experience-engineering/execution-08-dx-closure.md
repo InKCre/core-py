@@ -31,9 +31,8 @@
     tests and completed execution work.
 - Artifact:
   - this execution packet and its final evidence.
-- Active mode: Execute. GitHub run evidence proved that the downstream workflow receives an
-  empty PR association and the deploy job therefore skips; trusted PR-target orchestration
-  removes that unreliable authority path.
+- Active mode: Solidify. Execute and live provider verification are complete; this packet
+  now records the closed resource lifecycle and leaves no implementation action open.
 
 ## User-Confirmed Constraints
 
@@ -119,9 +118,9 @@
 
 ## Next Step
 
-Publish the locally verified change through `develop`. After the trusted workflow reaches
-the integration branch, use a fresh same-repository PR to prove automatic preview
-deployment and close cleanup.
+Promote this evidence-only closure through `main`. Any later Cloudflare Pages API
+documentation hosting, type checking, coverage policy, or platform enhancement starts in a
+new packet.
 
 ## Execution Evidence
 
@@ -154,9 +153,51 @@ deployment and close cleanup.
 - Known Node 20 action refs and obsolete OpenAPI workflow references: absent from active
   GitHub/deployment surfaces.
 
-### Remaining external proof
+### External proof
 
-- repository, artifact, dependency, and Neon checks on the implementation PR;
-- automatic Heroku preview deployment from the trusted workflow after this workflow version
-  exists on the PR base branch;
-- deterministic Heroku and Neon cleanup on probe-PR close.
+- Implementation PR
+  [#27](https://github.com/InKCre/core-py/pull/27) passed repository, artifact,
+  dependency, and Neon checks and merged into `develop` as `d7d5175`.
+- Promotion PR
+  [#29](https://github.com/InKCre/core-py/pull/29) passed the protected production-branch
+  checks and activated the trusted workflow on `main` as `dcd6239`.
+- Production run
+  [30017016764](https://github.com/InKCre/core-py/actions/runs/30017016764) verified
+  exact `main` SHA `dcd6239bded9de827fd6d1f9ddcb52937fcf49ff`, released Heroku
+  production v10, and passed liveness/readiness with migration head `c4e8a7b6d5f0`.
+  A duplicate delivery event was serialized and skipped without publishing another
+  release.
+- Automatic Preview run
+  [30016950437](https://github.com/InKCre/core-py/actions/runs/30016950437) was triggered
+  by the proof PR's `synchronize` event, verified exact head
+  `79233f1cf17c74942b048866b480080e9f3db264` before checkout and again before secrets,
+  released deterministic app `inkcre-core-pr-28`, and passed liveness/readiness with
+  migration head `c4e8a7b6d5f0`.
+- Neon branch `preview/pr-28` was ready, expiring, uniquely parented by the stable
+  `preview-base` branch, and isolated from production when the application probe passed.
+- GitHub briefly reported a completed successful workflow while one job check still
+  appeared in progress. The authority converged after roughly eight minutes and remained
+  inside the existing ten-minute fail-closed poll window; no verification standard was
+  weakened.
+- A second automatic Preview run
+  [30017957979](https://github.com/InKCre/core-py/actions/runs/30017957979) converged the
+  evidence-only synchronized head `7dd4bf069836cbb5d3507a7afb9fae2440b0ed45`,
+  released Heroku preview v5, and passed liveness/readiness.
+- Proof PR #28 merged into `develop` as
+  `df36329a904220739b373d2de994764a7c04588d`.
+- Close-event runs
+  [30018349971](https://github.com/InKCre/core-py/actions/runs/30018349971) and
+  [30018350049](https://github.com/InKCre/core-py/actions/runs/30018350049) deleted the
+  deterministic Heroku app and Neon branch.
+- Provider-side verification found `inkcre-core-pr-28` absent and zero Neon branches named
+  `preview/pr-28`. Canonical `production` and `preview-base` branches remained ready,
+  non-expiring, and in their expected parent relationship.
+
+## Closure
+
+- Status: complete.
+- Objective result: repository checks, automatic exact-head Preview create/update/delete,
+  exact-main Production delivery, formatting, dependency policy, and agent navigation now
+  form one executable development contract.
+- Deferred by design: Cloudflare Pages API documentation hosting and PDM workspace. Neither
+  is needed to keep the current baseline safe or operable.

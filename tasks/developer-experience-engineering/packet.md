@@ -8,16 +8,16 @@
 
 ## Current Control Surface
 
-- Status: the original engineering baseline and Executions 01–07 are complete. Production
-  delivery, recovery, schema convergence, OCI validation, deterministic preview databases,
-  and manual preview delivery all have recorded execution evidence.
-- Current Understanding: automatic PR application delivery still needs a reliable event
-  trigger and live proof; formatting, obsolete API-documentation automation, residual action
-  runtimes, and stale guidance are bounded by Execution 08.
-- Active Mode: follow
-  [`execution-08-dx-closure.md`](execution-08-dx-closure.md).
-- Next Step: complete Execution 08 and open a new packet for any later platform enhancement;
-  do not resume the historical Explore plan below as current work.
+- Status: Executions 01–08 are complete. Production delivery, recovery, schema convergence,
+  OCI validation, deterministic preview databases, manual preview delivery, and automatic
+  preview create/update/delete all have recorded execution evidence.
+- Current Understanding: the trusted PR-target workflow now deploys the exact synchronized
+  head after repository, artifact, and Neon checks; formatting and residual action-runtime
+  debt are executable contracts; obsolete API-documentation automation is removed.
+- Active Mode: Solidify complete; see
+  [`execution-08-dx-closure.md`](execution-08-dx-closure.md) for the final proof.
+- Next Step: open a new packet for any later platform enhancement; do not resume the
+  historical Explore plan below as current work.
 
 ## Historical Opening Classification And Mode
 
