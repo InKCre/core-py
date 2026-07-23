@@ -79,5 +79,8 @@ surface.
 - The incorrectly named `codex/dx-migration-containment` branch
   (`br-falling-moon-a1lombim`) reported zero written bytes and was deleted. Provider state
   entered `storage_deleted`; it cannot affect `master`, `staging`, or `develop`.
+- Free-v3 rejects per-endpoint suspend overrides with `modifying the suspend interval is not
+  permitted on this account`; the workflow therefore inherits the project endpoint default
+  and relies on exact close cleanup plus the seven-day branch TTL.
 - `pdm run check` and workflow YAML parsing are green locally. PR synchronization must now
   prove `preview/pr-17` creation, migration, readiness, and schema summary.

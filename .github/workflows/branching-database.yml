@@ -46,7 +46,6 @@ jobs:
           branch_type: schema-only
           parent_branch: ${{ env.NEON_PARENT_BRANCH }}
           role: neondb_owner
-          suspend_timeout: 300
           expires_at: ${{ env.EXPIRES_AT }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
