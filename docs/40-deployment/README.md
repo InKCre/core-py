@@ -23,6 +23,7 @@ This layer stores operational truth: how the service starts, how environments ar
 - `.github/workflows/ci.yml`
 - `.github/workflows/copilot-setup-steps.yml`
 - `.github/workflows/openapi-doc.yml`
-- `.github/workflows/preview-delivery.yml`
+- `.github/actions/preview-verify/action.yml`
+- `.github/actions/preview-delivery/action.yml`
 - `.github/workflows/preview-deploy.yml`
 - `docs/openapi.json`

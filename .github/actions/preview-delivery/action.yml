@@ -1,0 +1,153 @@
+name: Heroku preview delivery
+description: Release and probe prebuilt process images for one deterministic preview
+
+inputs:
+  head_sha:
+    description: Exact pull request head commit to deploy
+    required: true
+  heroku_api_key:
+    description: Heroku authorization for preview app lifecycle
+    required: true
+  llm_sp_ak:
+    description: Preview LLM provider credential
+    required: true
+  llm_sp_base_url:
+    description: Preview LLM provider base URL
+    required: true
+  neon_api_key:
+    description: Neon authorization for resolving the preview connection
+    required: true
+  neon_project_id:
+    description: Neon project containing preview branches
+    required: true
+  pr_number:
+    description: Pull request number
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install pinned deployment CLIs
+      shell: bash
+      run: npm install --global heroku@11.8.1
+
+    - name: Resolve matching Neon preview URL
+      id: neon
+      shell: bash
+      env:
+        NEON_API_KEY: ${{ inputs.neon_api_key }}
+        NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+      run: |
+        database_url="$(
+          npx --yes neonctl@2.36.0 connection-string \
+            "preview/pr-$PR_NUMBER" \
+            --project-id "$NEON_PROJECT_ID" \
+            --role-name neondb_owner \
+            --pooled \
+            --no-color
+        )"
+        echo "::add-mask::$database_url"
+        echo "database_url=$database_url" >> "$GITHUB_OUTPUT"
+
+    - name: Create or verify deterministic Heroku app
+      id: heroku
+      shell: bash
+      env:
+        DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        LLM_SP_AK: ${{ inputs.llm_sp_ak }}
+        LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+      run: |
+        app_name="inkcre-core-pr-$PR_NUMBER"
+        if ! app_json="$(heroku apps:info --app "$app_name" --json 2>/dev/null)"; then
+          heroku apps:create "$app_name" --region us --stack container
+          app_json="$(heroku apps:info --app "$app_name" --json)"
+        fi
+
+        test "$(jq -r '.app.stack.name' <<<"$app_json")" = "container"
+        test "$(jq -r '.app.region.name' <<<"$app_json")" = "us"
+
+        pipeline_json="$(heroku pipelines:info inkcre-core --json)"
+        stage="$(
+          jq -r --arg app "$app_name" \
+            '.apps[] | select(.name == $app) | .pipelineCoupling.stage // empty' \
+            <<<"$pipeline_json"
+        )"
+        if [ -z "$stage" ]; then
+          heroku pipelines:add inkcre-core --app "$app_name" --stage review
+        else
+          test "$stage" = "review"
+        fi
+
+        web_url="$(jq -r '.app.web_url' <<<"$app_json")"
+        jwt_secret="$(heroku config:get JWT_SECRET --app "$app_name")"
+        if [ -z "$jwt_secret" ]; then
+          jwt_secret="$(openssl rand -hex 32)"
+        fi
+        client_id="$(
+          python -c \
+            "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, 'inkcre-core-pr-$PR_NUMBER'))"
+        )"
+
+        heroku config:set --app "$app_name" \
+          "CLIENT_BASE_URL=$web_url" \
+          "CLIENT_ID=$client_id" \
+          "CLIENT_NAME=core-py-pr-$PR_NUMBER" \
+          "DATABASE_SCALE_0=true" \
+          "DATABASE_URL=$DATABASE_URL" \
+          "INKCRE_ENV_FILE=" \
+          "JWT_SECRET=$jwt_secret" \
+          "LLM_SP_AK=$LLM_SP_AK" \
+          "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
+          "OBSRV__LOGGING_BACKEND=none" \
+          "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+
+        echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
+        echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
+
+    - name: Push and release web and migration processes
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+      run: |
+        printf '%s' "$HEROKU_API_KEY" |
+          docker login --username=_ --password-stdin registry.heroku.com
+        docker tag \
+          "inkcre-preview-web:$HEAD_SHA" \
+          "registry.heroku.com/$APP_NAME/web"
+        docker tag \
+          "inkcre-preview-release:$HEAD_SHA" \
+          "registry.heroku.com/$APP_NAME/release"
+        docker push "registry.heroku.com/$APP_NAME/web"
+        docker push "registry.heroku.com/$APP_NAME/release"
+        heroku container:release web release --app "$APP_NAME"
+        heroku ps:scale web=1:eco --app "$APP_NAME"
+
+    - name: Probe deployed preview
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        WEB_URL: ${{ steps.heroku.outputs.web_url }}
+      run: |
+        for _ in $(seq 1 60); do
+          if curl --fail --silent "${WEB_URL}livez" >/dev/null &&
+            curl --fail --silent "${WEB_URL}readyz" >/dev/null; then
+            {
+              echo "### Heroku preview"
+              echo
+              echo "- App: \`$APP_NAME\`"
+              echo "- URL: $WEB_URL"
+              echo "- Liveness: ready"
+              echo "- Readiness: ready"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          sleep 5
+        done
+
+        heroku logs --num 200 --app "$APP_NAME"
+        exit 1

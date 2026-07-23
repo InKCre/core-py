@@ -17,7 +17,9 @@
 ## Classification And Mode
 
 - Constraint: local Docker is unavailable, so Heroku Registry publishing must run on a
-  GitHub runner after artifact CI.
+  GitHub runner after artifact CI. New reusable workflows cannot be bootstrapped reliably
+  from a non-default branch, so verification and delivery are local composite actions with
+  a separate secret-free Docker build step between them.
 - Reality: the only current app is `inkcre-core-staging` on the Python buildpack; pipeline
   `inkcre-core` has no production or review app. GitHub has no Heroku deploy credential.
 - Artifact: Heroku-compatible image targets, trusted preview deploy/cleanup workflow,
@@ -45,6 +47,8 @@
   - create/reuse deterministic app, attach to review stage, set explicit runtime config,
     release, scale to one web dyno, and probe;
   - destroy the exact app on trusted PR-close events.
+  - load the automatic delivery implementation from the trusted workflow SHA while using
+    the isolated PR checkout only as a Docker build context.
 - Explicit exclusions:
   - no mutation of `inkcre-core-staging`;
   - no `main`/production deployment, production app creation, or traffic switch;
@@ -60,7 +64,8 @@
   - web formation remains exactly one until scheduler ownership is extracted;
   - `portless.json` remains untouched.
 - Likely files: `Dockerfile`, `.github/workflows/ci.yml`,
-  `.github/workflows/preview-delivery.yml`, `.github/workflows/preview-deploy.yml`,
+  `.github/actions/preview-verify/action.yml`, `.github/actions/preview-delivery/action.yml`,
+  `.github/workflows/preview-deploy.yml`,
   `.github/workflows/copilot-setup-steps.yml`, `.github/workflows/openapi-doc.yml`,
   `.pre-commit-config.yaml`, `docs/40-deployment/heroku.md`, and this packet.
 
