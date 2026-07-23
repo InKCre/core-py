@@ -89,9 +89,6 @@ runs:
         DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         HEROKU_APP_NAME: ${{ inputs.heroku_app_name }}
-        JWT_SECRET: ${{ inputs.jwt_secret }}
-        LLM_SP_AK: ${{ inputs.llm_sp_ak }}
-        LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
         MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
       run: |
         test "$HEROKU_APP_NAME" = "inkcre-core-production"
@@ -123,25 +120,40 @@ runs:
         fi
 
         web_url="$(jq -r '.app.web_url' <<<"$app_json")"
-        client_id="$(
-          python -c \
-            "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, '$HEROKU_APP_NAME'))"
+        deployed_release="$(
+          heroku releases --app "$HEROKU_APP_NAME" --json |
+            jq -r \
+              '[.[] |
+                select(.status == "succeeded" and
+                  (.description | startswith("Deployed web")))] |
+                first | .version // empty'
         )"
-        heroku config:set --app "$HEROKU_APP_NAME" \
-          "CLIENT_BASE_URL=$web_url" \
-          "CLIENT_ID=$client_id" \
-          "CLIENT_NAME=core-py-production" \
-          "DATABASE_SCALE_0=true" \
-          "DATABASE_URL=$DATABASE_URL" \
-          "INKCRE_ENV_FILE=" \
-          "JWT_SECRET=$JWT_SECRET" \
-          "LLM_SP_AK=$LLM_SP_AK" \
-          "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
-          "MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL" \
-          "OBSRV__LOGGING_BACKEND=none" \
-          "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+        has_deployed_release=false
+        if [ -n "$deployed_release" ]; then
+          has_deployed_release=true
+          current_database_url="$(
+            heroku config:get DATABASE_URL --app "$HEROKU_APP_NAME" || true
+          )"
+          current_migration_database_url="$(
+            heroku config:get MIGRATION_DATABASE_URL \
+              --app "$HEROKU_APP_NAME" || true
+          )"
+          url_host() {
+            python -c \
+              'import sys; from urllib.parse import urlparse; print(urlparse(sys.argv[1]).hostname or "")' \
+              "$1"
+          }
+          test -n "$current_database_url"
+          test "$(url_host "$current_database_url")" = \
+            "$(url_host "$DATABASE_URL")"
+          if [ -n "$current_migration_database_url" ]; then
+            test "$(url_host "$current_migration_database_url")" = \
+              "$(url_host "$MIGRATION_DATABASE_URL")"
+          fi
+        fi
 
         echo "app_name=$HEROKU_APP_NAME" >> "$GITHUB_OUTPUT"
+        echo "has_deployed_release=$has_deployed_release" >> "$GITHUB_OUTPUT"
         echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
 
     - name: Push and release web and migration processes
@@ -149,9 +161,75 @@ runs:
       shell: bash
       env:
         APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
+        HAS_DEPLOYED_RELEASE: ${{ steps.heroku.outputs.has_deployed_release }}
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        JWT_SECRET: ${{ inputs.jwt_secret }}
+        LLM_SP_AK: ${{ inputs.llm_sp_ak }}
+        LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+        WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: |
+        wait_for_release() {
+          local version="$1"
+          local status
+          for _ in $(seq 1 120); do
+            status="$(
+              heroku releases --app "$APP_NAME" --json |
+                jq -r --argjson version "$version" \
+                  '.[] | select(.version == $version) | .status'
+            )"
+            case "$status" in
+              succeeded)
+                return 0
+                ;;
+              failed)
+                heroku releases:output "v$version" --app "$APP_NAME"
+                return 1
+                ;;
+            esac
+            sleep 5
+          done
+          echo "Timed out waiting for Heroku release v$version" >&2
+          return 1
+        }
+
+        configure_app() {
+          local before_release
+          local client_id
+          local release_version
+
+          before_release="$(
+            heroku releases --app "$APP_NAME" --json |
+              jq -r '.[0].version // empty'
+          )"
+          client_id="$(
+            python -c \
+              "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, '$APP_NAME'))"
+          )"
+          heroku config:set --app "$APP_NAME" \
+            "CLIENT_BASE_URL=$WEB_URL" \
+            "CLIENT_ID=$client_id" \
+            "CLIENT_NAME=core-py-production" \
+            "DATABASE_SCALE_0=true" \
+            "DATABASE_URL=$DATABASE_URL" \
+            "INKCRE_ENV_FILE=" \
+            "JWT_SECRET=$JWT_SECRET" \
+            "LLM_SP_AK=$LLM_SP_AK" \
+            "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
+            "MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL" \
+            "OBSRV__LOGGING_BACKEND=none" \
+            "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+          release_version="$(
+            heroku releases --app "$APP_NAME" --json |
+              jq -r '.[0].version // empty'
+          )"
+          if [ "$release_version" != "$before_release" ]; then
+            wait_for_release "$release_version"
+          fi
+        }
+
         previous_release="$(
           heroku releases --app "$APP_NAME" --json |
             jq -r \
@@ -160,6 +238,10 @@ runs:
                   (.description | startswith("Deployed web")))] |
                 first | .version // empty'
         )"
+        if [ "$HAS_DEPLOYED_RELEASE" = false ]; then
+          configure_app
+        fi
+
         printf '%s' "$HEROKU_API_KEY" |
           docker login --username=_ --password-stdin registry.heroku.com
         docker tag \
@@ -170,7 +252,22 @@ runs:
           "registry.heroku.com/$APP_NAME/release"
         docker push "registry.heroku.com/$APP_NAME/web"
         docker push "registry.heroku.com/$APP_NAME/release"
+        before_image_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
         heroku container:release web release --app "$APP_NAME"
+        image_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        test "$image_release" != "$before_image_release"
+        wait_for_release "$image_release"
+
+        if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
+          configure_app
+        fi
+
         heroku ps:scale web=1:eco --app "$APP_NAME"
 
         echo "previous_release=$previous_release" >> "$GITHUB_OUTPUT"
