@@ -81,7 +81,10 @@ class SourceModel(sqlmodel.SQLModel, table=True):
     An absolute import path to the module where souce class at.
     When delete a source type, all sources of this type will be deleted too.
     """
-  nickname: Opt[str] = sqlmodel.Field(nullable=True, default=None)
+  nickname: Opt[str] = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=True),
+  )
   config: dict = sqlmodel.Field(
     sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,

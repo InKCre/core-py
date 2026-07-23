@@ -149,6 +149,9 @@ stop image cleanly
   `data/` ignore rule and therefore was absent from Git and the build context. The prompt
   sources are now explicitly tracked while runtime data remains ignored; the artifact job
   must rerun to complete container proof.
+- The next artifact run built and migrated successfully, then `alembic check` exposed eight
+  `TEXT` versus SQLModel `AutoString/VARCHAR` metadata drifts. The models now declare those
+  published `TEXT` types explicitly; existing revision files remain unchanged.
 
 ## Explicit Residuals
 

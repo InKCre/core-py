@@ -42,10 +42,18 @@ class LogModel(sqlmodel.SQLModel, table=True):
     ),
   )
   severity_number: int = sqlmodel.Field(sa_type=sa.SmallInteger)
-  severity_text: str
-  body: str
-  trace_id: Opt[str] = None
-  span_id: Opt[str] = None
+  severity_text: str = sqlmodel.Field(
+    sa_column=sa.Column(sa.Text, nullable=False)
+  )
+  body: str = sqlmodel.Field(sa_column=sa.Column(sa.Text, nullable=False))
+  trace_id: Opt[str] = sqlmodel.Field(
+    default=None,
+    sa_column=sa.Column(sa.Text, nullable=True),
+  )
+  span_id: Opt[str] = sqlmodel.Field(
+    default=None,
+    sa_column=sa.Column(sa.Text, nullable=True),
+  )
   attributes: Dict[str, Any] = sqlmodel.Field(
     sa_type=JSONB,
     default_factory=dict,

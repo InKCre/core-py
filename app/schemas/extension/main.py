@@ -19,7 +19,9 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
 
   __tablename__: str = "extensions"  # type: ignore
 
-  id: ExtensionID = sqlmodel.Field(primary_key=True)
+  id: ExtensionID = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, primary_key=True)
+  )
   version: str = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.Text, nullable=False))
   """Version of extension.
     
@@ -39,7 +41,10 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
 
   Empty array means disabled for all clients.
   """
-  nickname: Opt[str] = sqlmodel.Field(default=None)
+  nickname: Opt[str] = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=True),
+  )
   config: dict = sqlmodel.Field(
     default_factory=dict,
     sa_column=sqlmodel.Column(
