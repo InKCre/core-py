@@ -145,5 +145,14 @@ archive from Execution 05.
   - re-upgrade returned to a byte-identical post-manifest;
   - final `alembic check` and readiness pass at `c4e8a7b6d5f0`.
 - Repository proof:
-  - `pdm run check` passes with 94 tests and the single new migration head;
-  - fresh PostgreSQL/OCI verification remains the final external gate after push.
+  - `pdm run check` passes with 95 tests and the single new migration head;
+  - initial fresh run
+    [30001911161](https://github.com/InKCre/core-py/actions/runs/30001911161)
+    passed migration and metadata checks, then exposed a real startup defect:
+    self-registration omitted required `clients.config_schema`;
+  - the focused fix supplies empty config values only on INSERT while preserving existing
+    config on conflict, with a regression test for both sides;
+  - final run
+    [30002122774](https://github.com/InKCre/core-py/actions/runs/30002122774)
+    passes the hermetic repository contract, fresh PostgreSQL migration, metadata check,
+    OCI build, self-registration, liveness, and readiness.
