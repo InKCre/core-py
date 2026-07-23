@@ -21,7 +21,6 @@ This layer stores operational truth: how the service starts, how environments ar
 - `app.json`
 - `.github/workflows/branching-database.yml`
 - `.github/workflows/ci.yml`
-- `.github/workflows/copilot-setup-steps.yml`
 - `.github/workflows/openapi-doc.yml`
 - `.github/actions/preview-verify/action.yml`
 - `.github/actions/preview-delivery/action.yml`
