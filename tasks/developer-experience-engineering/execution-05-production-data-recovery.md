@@ -22,7 +22,8 @@
   - there is no Neon `production` branch and no Heroku production app;
   - Git `main` and `develop` have diverged by 7 and 131 unique commits respectively;
   - the Neon free-v3 plan cannot protect branches;
-  - this host does not yet provide `pg_dump` or `pg_restore`.
+  - the source schema claims repository head `a1b2c3d4e5f6` but differs from current
+    metadata by 17 Alembic operations.
 - Constraint: existing production rows must survive any later migration reset or hard
   cut-off; they are not seed data.
 - Artifact: recovery checkpoint branch, encrypted custom-format dump, checksum/manifest,
@@ -46,12 +47,15 @@
     no runtime references it;
   - create/reuse the exact checkpoint from `staging` without expiry;
   - install a PostgreSQL client new enough for the Neon server;
-  - produce `pg_dump --format=custom --no-owner --no-privileges` from the checkpoint;
-  - encrypt the archive to the operator's existing SSH public key and remove only the
-    plaintext temporary file;
+  - stream `pg_dump --format=custom --no-owner` from the checkpoint directly into
+    encryption, retaining application grants without creating a plaintext archive;
+  - encrypt the archive to the operator's existing SSH public key;
   - capture SHA-256 and a value-free source manifest;
-  - create an isolated rehearsal branch, reset only its application schema, restore with
-    `--clean --if-exists --exit-on-error`, and verify equivalence.
+  - create an isolated rehearsal branch and restore with
+    `--clean --if-exists --no-owner --exit-on-error`;
+  - preserve the provider-owned `public` schema defaults and filter only the two Neon-owned
+    `DEFAULT ACL` entries which the database owner cannot replay;
+  - verify data and schema equivalence.
 - Explicit exclusions:
   - no writes, migrations, schema reset, or traffic changes on `staging`;
   - no use of `develop`, `preview-base`, or production rows as seed data;
@@ -59,8 +63,10 @@
   - no Git commit containing the archive, credentials, row values, or backup manifest;
   - no deletion of the checkpoint or encrypted archive in this execution.
 - Invariants:
-  - branch names and connection targets are resolved and checked before destructive reset;
-  - only the rehearsal branch may be reset;
+  - branch IDs, names, parents, endpoint IDs, and connection targets are resolved and checked
+    before destructive restore;
+  - only archive-listed objects on the rehearsal branch may be cleaned;
+  - the provider-owned `public` schema is not dropped;
   - the encrypted archive is readable only through the selected operator key;
   - manifest comparison includes Alembic head and every application table;
   - `portless.json` remains untouched.
@@ -69,7 +75,9 @@
 
 ## Acceptance Criteria
 
-1. `staging` branch identity and updated timestamp do not change because of this execution.
+1. `staging` branch identity, migration head, table counts, and row counts remain unchanged.
+   Provider metadata timestamps are not used as a write detector because child-branch
+   operations update them.
 2. The checkpoint has `staging` as its parent, no TTL, and contains the same migration head
    and table counts.
 3. The only retained portable artifact is encrypted; its SHA-256 and decryption command are
@@ -80,8 +88,45 @@
 7. `pdm run container:ready` succeeds against the restored branch at repository head.
 8. Existing Heroku staging/preview apps and the production dataset remain unchanged.
 
+## Evidence
+
+- Source:
+  - Neon project `small-feather-66252738`;
+  - branch `staging` / `br-broad-bread-a1j7v4ct`;
+  - initial and post-rehearsal manifests are byte-identical;
+  - logical size remains `33325056` bytes.
+- Checkpoint:
+  - `backup/pre-cutover-20260723` / `br-polished-forest-a1m6qwrd`;
+  - parent is the exact source branch;
+  - parent LSN `0/8126370`, parent timestamp `2026-07-23T09:22:15Z`;
+  - no TTL.
+- Portable artifact:
+  - encrypted custom archive is `472938` bytes;
+  - SHA-256 is
+    `03b57de3733186f1d547136bf3d0693351495e68e18e2328842f5e82c16a055e`;
+  - PostgreSQL client 18.4 and age 1.3.1;
+  - no plaintext archive was written;
+  - operator instructions and all evidence remain outside Git at the guarded backup path
+    with mode `0600`.
+- Rehearsal:
+  - `rehearsal/production-restore-20260723` / `br-divine-band-a11acyf6`;
+  - parent is the exact checkpoint and TTL expires `2026-07-30T10:40:36Z`;
+  - repeated pipeline exited with `age=0` and `pg_restore=0`;
+  - source and restored manifests share SHA-256
+    `b28e6f446047ce1c80aa07976b63de52a031ac8e3786a4df8fc3034a3c83fdfc`;
+  - the manifest records head `a1b2c3d4e5f6`, 12 application tables, and 476 rows;
+  - checkpoint-to-rehearsal Neon schema diff is empty;
+  - `pdm run container:ready` passes;
+  - the provider-owned `public` schema and 35 `authenticated` table ACL entries survive.
+- Diagnostic:
+  - `alembic check` reports the same 17-operation metadata drift on source and rehearsal;
+  - the restore reproduced current production faithfully, so this is a pre-existing migration
+    lineage defect rather than restore loss.
+
 ## Follow-Up Boundary
 
-Execution 06 must reconcile `main` with the tested delivery line before creating production
-CD. It may promote the recovered checkpoint into a canonical `production` branch only after
-documenting rollback to both the encrypted archive and the Neon checkpoint.
+Execution 06 must append a schema-convergence migration and prove it on a disposable
+descendant of the recovered checkpoint before any live branch is migrated. Execution 07
+must then reconcile `main` with the tested delivery line before creating production CD.
+It may promote a verified branch into canonical `production` only after documenting rollback
+to both the encrypted archive and the Neon checkpoint.

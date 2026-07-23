@@ -55,6 +55,32 @@ Application bootstrap may create its required runtime records after preview depl
 production data is never treated as seed data. The production cutover packet must establish
 which canonical runtime branch refreshes `preview-base` before `main` CD is enabled.
 
+## Recovery Contract
+
+Before a production migration or branch cutover:
+
+1. create a durable Neon checkpoint from the exact live branch;
+2. stream a PostgreSQL custom archive directly into encryption without writing plaintext;
+3. retain object privileges in the archive, but exclude provider-owned default ACL entries
+   from the restore list;
+4. restore only into a newly created, identity-guarded branch;
+5. compare a value-free manifest containing the Alembic head and every application-table
+   row count;
+6. require an empty provider schema diff and a passing checked-in readiness command.
+
+Do not drop and recreate Neon's `public` schema during restore. A database-owner connection
+cannot recreate provider-owned default privileges, while `pg_restore --clean` can replace the
+archive-listed application objects without disturbing those provider defaults.
+
+The value-free manifest command is:
+
+```bash
+DATABASE_URL=... pdm run db:manifest
+```
+
+Portable archives, checksums, manifests, and credentials are operational artifacts outside
+Git and CI. Production rows are recovery data, never seed data.
+
 ## Operational Implication
 
 Neon branch lifecycle and scale-to-zero behavior are deployment truths. They should stay documented here rather than mixed into product docs or task notes.

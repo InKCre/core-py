@@ -27,7 +27,8 @@ def _repository_heads() -> tuple[str, ...]:
   return tuple(sorted(ScriptDirectory.from_config(config).get_heads()))
 
 
-def _validate_tables(actual: set[str], expected: set[str]) -> None:
+def validate_application_tables(actual: set[str], expected: set[str]) -> None:
+  """Require the exact managed application table set and Alembic lineage."""
   if actual != expected | {LINEAGE_TABLE}:
     missing = sorted((expected | {LINEAGE_TABLE}) - actual)
     unexpected = sorted(actual - (expected | {LINEAGE_TABLE}))
@@ -64,7 +65,7 @@ def sanitize_preview_base(database_url: str) -> tuple[str, ...]:
           )
         ).scalars()
       )
-      _validate_tables(actual_tables, expected_tables)
+      validate_application_tables(actual_tables, expected_tables)
 
       current_heads = tuple(
         sorted(
