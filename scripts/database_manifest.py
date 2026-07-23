@@ -39,15 +39,11 @@ def build_database_manifest(database_url: str) -> dict[str, object]:
       validate_application_tables(actual_tables, expected_tables)
 
       heads = sorted(
-        connection.execute(
-          text(f'SELECT version_num FROM "{LINEAGE_TABLE}"')
-        ).scalars()
+        connection.execute(text(f'SELECT version_num FROM "{LINEAGE_TABLE}"')).scalars()
       )
       quote = connection.dialect.identifier_preparer.quote
       counts = {
-        table: connection.execute(
-          text(f"SELECT count(*) FROM {quote(table)}")
-        ).scalar_one()
+        table: connection.execute(text(f"SELECT count(*) FROM {quote(table)}")).scalar_one()
         for table in sorted(expected_tables)
       }
       server_version = connection.execute(

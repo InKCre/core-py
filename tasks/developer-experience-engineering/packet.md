@@ -6,13 +6,26 @@
 - Guardrails Touched: preserve current product behavior; use PDM for Python dependency management; keep implementation truth in code, tests, types, lint, and CI; keep shared product/cross-unit truth source-first in `InKCre/docs`; treat `docs/_shared/**` as read-only; keep local runtime truth in `docs/40-deployment/`; collect migration evidence before changing migrations; do not mix Hub docs, shared-ref bumps, and Spoke-local changes in one commit; do not include unrelated existing `pyproject.toml`, `portless.json`, or task changes.
 - Verification: inventory the current developer and delivery paths; reproduce and explain migration-chain problems; define a provider-neutral build/release contract; prove the proposed production and PR-preview lifecycles as sequence diagrams and acceptance criteria; identify automated checks for workspace integrity, migration safety, preview creation/teardown, rollback, and shared-doc freshness; obtain explicit user authorization before implementation.
 
-## Classification and Mode
+## Current Control Surface
+
+- Status: the original engineering baseline and Executions 01–07 are complete. Production
+  delivery, recovery, schema convergence, OCI validation, deterministic preview databases,
+  and manual preview delivery all have recorded execution evidence.
+- Current Understanding: automatic PR application delivery still needs a reliable event
+  trigger and live proof; formatting, obsolete API-documentation automation, residual action
+  runtimes, and stale guidance are bounded by Execution 08.
+- Active Mode: follow
+  [`execution-08-dx-closure.md`](execution-08-dx-closure.md).
+- Next Step: complete Execution 08 and open a new packet for any later platform enhancement;
+  do not resume the historical Explore plan below as current work.
+
+## Historical Opening Classification And Mode
 
 - Input types:
   - Constraint: development tooling, package/workspace structure, CI/CD, deploy portability, and environment topology.
   - Reality: the reported database migration problems and any additional observed delivery blockers.
   - Artifact: this task packet and the eventual phased implementation plan.
-- Active mode: Explore.
+- Opening mode (historical): Explore.
 - Exit from Explore: evidence is sufficient to choose a target architecture and split it into independently verifiable execution slices.
 - Expected next modes:
   - Diagnose for migration-chain and current deployment mismatches.
@@ -533,7 +546,7 @@ Exit proof:
 7. What is the acceptable production deployment approval policy: fully automatic after protected-branch merge, or an environment approval gate?
 8. Does any archived `develop` database content have independent retention value, or may the branch be recreated from the new baseline?
 
-## Next Step
+## Historical Next Step
 
 Solidify the Phase 0 evidence into an executable series of small task packets:
 

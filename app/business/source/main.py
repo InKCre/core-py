@@ -160,7 +160,7 @@ class SourceManager:
   @classmethod
   def get_source_ins(cls, source_id: SourceID) -> SourceBase:
     """Get source instance by ID.
-    
+
     :param source_id: The source ID
     :return: Source instance
     """

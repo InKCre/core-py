@@ -1,5 +1,5 @@
 name: Verify preview source
-description: Require a same-repository pull request and green checks for its exact head
+description: Require an open same-repository pull request and green checks for its exact head
 
 inputs:
   github_token:
@@ -34,6 +34,7 @@ runs:
         )"
         test "$(jq -r '.head.repo.full_name' <<<"$pr_json")" = "$GITHUB_REPOSITORY"
         test "$(jq -r '.head.sha' <<<"$pr_json")" = "$HEAD_SHA"
+        test "$(jq -r '.state' <<<"$pr_json")" = "open"
 
         required_checks=(
           "Hermetic repository contract"
@@ -51,7 +52,9 @@ runs:
           for check_name in "${required_checks[@]}"; do
             conclusion="$(
               jq -r --arg name "$check_name" \
-                '[.check_runs[] | select(.name == $name)] | last | .conclusion // ""' \
+                '[.check_runs[] |
+                  select(.name == $name and .app.slug == "github-actions")] |
+                  last | .conclusion // ""' \
                 <<<"$checks_json"
             )"
             if [ "$conclusion" != "success" ]; then

@@ -16,25 +16,25 @@ Python selector and PDM version.
 cp .env.example .env
 pdm install -G dev --frozen-lockfile
 pdm run doctor
-pdm run check:foundation
+pdm run check
 pdm run dev
 ```
 
-`doctor` and `check:foundation` do not start the application or connect to a database.
-The foundation gate checks tool versions, lock/export consistency, and the migration
-contract.
+`doctor` and `check` do not start the application or connect to a database. The full
+repository contract checks tool versions, lock/export consistency, migration integrity,
+formatting, lint, settings isolation, and the complete unit-test suite.
 
-Full diagnostics are intentionally separate:
+Use narrower read-only checks while iterating:
 
 ```bash
+pdm run check:foundation
+pdm run format:check
 pdm run lint
 pdm run test
 ```
 
-They currently expose known legacy lint and extension-test debt and are not part of the
-foundation gate. Full test collection can also read `.env`, attempt database access, and
-render validation inputs in tracebacks. Until that suite is isolated, do not run it with a
-credential-bearing `.env` in shared CI or agent logs.
+The test harness disables dotenv before application imports. Repository checks do not read a
+developer `.env` or use its database and API credentials.
 
 ## Required Environment Variables
 
@@ -58,10 +58,11 @@ Commonly needed:
 
 The repository currently uses Neon branch automation for pull requests.
 
-- `branching-database.yml` creates a schema-only Neon branch for PRs
-- the parent branch is the PR base branch, with `develop` as fallback
+- `branching-database.yml` creates or reuses `preview/pr-<number>` for trusted PRs
+- every preview branch is a seven-day child of the sanitized `preview-base`
+- checked-in migrations and exact-head readiness run before application delivery
 - the workflow posts schema diffs back to the PR
-- PR close deletes the Neon branch
+- PR close deletes only the matching deterministic Neon branch
 
 ## Migration Commands
 

@@ -58,6 +58,7 @@ dev = "python run.py"
 doctor = "python scripts/doctor.py"
 lint = "ruff check --no-cache ."
 format = "ruff format ."
+"format:check" = "ruff format --check ."
 test = "python -m pytest -q"
 "check:lock" = "python scripts/check_lock.py"
 "check:requirements" = "python scripts/check_requirements.py"
@@ -68,7 +69,7 @@ test = "python -m pytest -q"
 "lint:settings" = "ruff check --no-cache tests/test_settings.py"
 "test:settings" = "python -m pytest -q tests/test_settings.py"
 "check:foundation" = { composite = ["doctor", "check:lock", "check:requirements", "check:migrations", "lint:settings", "test:settings"] }
-"check" = { composite = ["check:foundation", "lint", "test"] }
+"check" = { composite = ["check:foundation", "format:check", "lint", "test"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"
 "db:record" = "python scripts/check_migration_history.py --record-new"

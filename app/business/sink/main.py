@@ -28,7 +28,7 @@ class SinkManager:
     num_rerank: int = 5,
   ) -> SinkV1RAGResBody:
     """RAG (Retrieval Augmented Generation) endpoint
-    
+
     :param query: User query
     :param context: Additional context string
     :param context_blocks: Additional context block IDs
@@ -54,7 +54,7 @@ class SinkManager:
         num=num_retrieve,
         max_distance=0.5,  # More lenient initial retrieval
       )
-      
+
       # Apply reranker if enabled
       if use_reranker and related_blocks:
         related_blocks = EmbeddingManager.rerank_blocks(
@@ -62,7 +62,7 @@ class SinkManager:
           blocks=related_blocks,
           top_k=num_rerank,
         )
-      
+
       # Convert blocks to text for LLM
       tmp = []
       for block in related_blocks:
