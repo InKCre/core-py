@@ -33,7 +33,7 @@ jobs:
         uses: neondatabase/create-branch-action@v6
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: ${{ steps.branch_name.outputs.current_branch }}
+          branch_name: copilot/${{ steps.branch_name.outputs.current_branch }}
           parent_branch: preview-base
           expires_at: ${{ env.EXPIRES_AT }}
           api_key: ${{ secrets.NEON_API_KEY }}

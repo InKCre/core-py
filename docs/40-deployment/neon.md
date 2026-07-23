@@ -28,8 +28,8 @@ Neon branch automation is defined in:
 
 Trusted pull requests use one data-free branch named `preview/pr-<number>`:
 
-1. create or update the durable `preview-base` from the current runtime branch, then run
-   the guarded sanitizer once to remove every allowlisted application row while preserving
+1. branch the durable `preview-base` from canonical `production`, then run the guarded
+   sanitizer once to remove every allowlisted application row while preserving
    `alembic_version`
 2. create or reuse the deterministic branch with a seven-day TTL
 3. install the frozen migration runtime and apply `alembic upgrade head`
@@ -52,8 +52,9 @@ PR cleanup workflow only targets the `preview/pr-<number>` namespace. Upgrade th
 or revisit branch protection before broadening administrative access.
 
 Application bootstrap may create its required runtime records after preview deployment, but
-production data is never treated as seed data. The production cutover packet must establish
-which canonical runtime branch refreshes `preview-base` before `main` CD is enabled.
+production data is never treated as seed data. Canonical `production` is the required parent
+whenever `preview-base` is replaced. Sanitization must finish and prove zero application rows
+before any PR child is created.
 
 ## Recovery Contract
 
