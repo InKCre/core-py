@@ -212,7 +212,12 @@ poetry.lock
 .env
 .DS_Store
 
-data/
+# Runtime data remains local. Prompt source is immutable application input.
+data/*
+!data/ai/
+data/ai/*
+!data/ai/prompts/
+!data/ai/prompts/*.txt
 scratch/
 ipynb
 

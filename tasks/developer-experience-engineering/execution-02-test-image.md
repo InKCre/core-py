@@ -145,6 +145,10 @@ stop image cleanly
 - Docker and Compose source contracts are checked in; no compatible local container runtime
   is installed, so the GitHub Actions artifact job is the required build/migrate/probe
   execution proof.
+- Initial artifact CI exposed that `data/ai/prompts/*.txt` existed locally under a broad
+  `data/` ignore rule and therefore was absent from Git and the build context. The prompt
+  sources are now explicitly tracked while runtime data remains ignored; the artifact job
+  must rerun to complete container proof.
 
 ## Explicit Residuals
 
