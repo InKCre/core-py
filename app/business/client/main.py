@@ -28,6 +28,8 @@ class ClientManager:
         id=settings.client_id,
         name=settings.client_name,
         rest_api_url=settings.client_base_url,
+        config={},
+        config_schema={},
       )
       stmt = stmt.on_conflict_do_update(
         index_elements=["id"],
