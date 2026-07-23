@@ -63,17 +63,6 @@ The repository currently uses Neon branch automation for pull requests.
 - the workflow posts schema diffs back to the PR
 - PR close deletes the Neon branch
 
-## Agent / Hosted Setup
-
-`copilot-setup-steps.yml` currently:
-
-- checks out the repo
-- creates a schema-only Neon branch for the current branch
-- writes the resulting `DATABASE_URL` to `.env`
-- installs project dependencies with PDM
-
-This file is the checked-in truth behind the old "development requires a prepared database branch" note.
-
 ## Migration Commands
 
 - `pdm run db:generate "message"` creates a candidate revision for review.

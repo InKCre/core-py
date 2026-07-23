@@ -21,10 +21,7 @@ This exists to reduce stale-connection failures when the database has gone idle.
 
 ## Branching Workflow
 
-Neon branch automation is defined in:
-
-- `.github/workflows/branching-database.yml`
-- `.github/workflows/copilot-setup-steps.yml`
+Neon branch automation is defined in `.github/workflows/branching-database.yml`.
 
 Trusted pull requests use one data-free branch named `preview/pr-<number>`:
 
@@ -51,12 +48,9 @@ cannot be enabled on `preview-base`. The sanitizer requires the exact branch nam
 PR cleanup workflow only targets the `preview/pr-<number>` namespace. Upgrade the Neon plan
 or revisit branch protection before broadening administrative access.
 
-The same plan currently permits ten branches. Copilot setup therefore keys real agent and
-manual-test branches as `copilot/run-<github-run-id>` with a seven-day TTL, while ordinary
-push and pull-request validation installs dependencies without allocating a database
-branch. This avoids both collisions with permanent branch names and quota pressure from
-workflow self-validation. Completed agent branches may be deleted early once no session
-uses them.
+The same plan currently permits ten branches. Keep disposable test branches short-lived
+and delete them as soon as no active session depends on them. Ordinary push validation does
+not allocate a database branch.
 
 Application bootstrap may create its required runtime records after preview deployment, but
 production data is never treated as seed data. Canonical `production` is the required parent
