@@ -148,6 +148,11 @@ There is no persistent staging environment. The `inkcre-core` pipeline contains 
 two canonical production apps above; review apps exist only for an eligible pull request and
 are removed when it closes.
 
+The pipeline is intentionally not connected to a GitHub repository in Heroku. GitHub Actions
+is the only review-environment controller and couples each deterministic app through the
+Heroku Platform API. Reconnecting Heroku's legacy GitHub integration would create an
+all-events repository webhook and a competing review-app authority.
+
 The former `inkcre-core-staging` and `inkcre-pgrst` apps were deleted on 2026-07-24. Deleting
 the staging app also removed its Logtail addon and Better Stack drain. Neither app had a
 custom domain. GitHub no longer contains their staging environment or the all-events Heroku
