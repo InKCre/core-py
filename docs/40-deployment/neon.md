@@ -44,7 +44,8 @@ Production is not mutated, and production rows never enter a PR-owned branch.
 
 The current Neon free-v3 plan has a protected-branch quota of zero, so provider protection
 cannot be enabled on `preview-base`. The sanitizer requires the exact branch name, and the
-PR cleanup workflow only targets the `preview/pr-<number>` namespace. Upgrade the Neon plan
+PR cleanup workflow only targets the exact legacy and repository-qualified PR identities during
+the namespace transition. Upgrade the Neon plan
 or revisit branch protection before broadening administrative access.
 
 The same plan currently permits ten branches. Keep disposable test branches short-lived

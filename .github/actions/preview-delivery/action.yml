@@ -44,7 +44,6 @@ runs:
         NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
         PR_NUMBER: ${{ inputs.pr_number }}
       run: |
-        branch_name="preview/pr-$PR_NUMBER"
         branches_json="$(
           npx --yes neonctl@2.36.0 branches list \
             --project-id "$NEON_PROJECT_ID" \
@@ -53,8 +52,15 @@ runs:
             --no-color
         )"
         matches="$(
-          jq -c --arg name "$branch_name" \
-            '[.[] | select(.name == $name)]' <<<"$branches_json"
+          jq -c --arg preferred "preview/core-py/pr-$PR_NUMBER" \
+            --arg legacy "preview/pr-$PR_NUMBER" '
+              [.[] | select(.name == $preferred)] as $preferred_matches |
+              if ($preferred_matches | length) > 0 then
+                $preferred_matches
+              else
+                [.[] | select(.name == $legacy)]
+              end
+            ' <<<"$branches_json"
         )"
         test "$(jq 'length' <<<"$matches")" = 1
         branch_id="$(jq -r '.[0].id' <<<"$matches")"
@@ -169,7 +175,7 @@ runs:
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         PR_NUMBER: ${{ inputs.pr_number }}
       run: |
-        app_name="inkcre-core-pr-$PR_NUMBER"
+        app_name="inkcre-core-py-pr-$PR_NUMBER"
         if ! app_json="$(heroku apps:info --app "$app_name" --json 2>/dev/null)"; then
           heroku apps:create "$app_name" --region us --stack container
           app_json="$(heroku apps:info --app "$app_name" --json)"
@@ -305,7 +311,7 @@ runs:
           fi
           client_id="$(
             python -c \
-              "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, 'inkcre-core-pr-$PR_NUMBER'))"
+              "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, 'inkcre-core-py-pr-$PR_NUMBER'))"
           )"
           heroku config:set --app "$APP_NAME" \
             "CLIENT_BASE_URL=$WEB_URL" \
