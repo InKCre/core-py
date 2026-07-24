@@ -4,7 +4,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from migrations.metadata import get_target_metadata
+from migrations.metadata import get_target_metadata, include_protocol_object
 from migrations.settings import get_migration_database_url
 
 
@@ -18,6 +18,7 @@ if config.config_file_name is not None:
   fileConfig(config.config_file_name)
 
 target_metadata = get_target_metadata()
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -41,6 +42,8 @@ def run_migrations_offline() -> None:
   context.configure(
     url=url,
     target_metadata=target_metadata,
+    include_object=include_protocol_object,
+    include_schemas=True,
     literal_binds=True,
     dialect_opts={"paramstyle": "named"},
   )
@@ -65,7 +68,12 @@ def run_migrations_online() -> None:
   )
 
   with connectable.connect() as connection:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+      connection=connection,
+      target_metadata=target_metadata,
+      include_object=include_protocol_object,
+      include_schemas=True,
+    )
 
     with context.begin_transaction():
       context.run_migrations()

@@ -5,7 +5,7 @@
   "revisions": {
     "a1b2c3d4e5f6_add_clients_modify_extensions_enabled.py": "15292a9fcf834474c8453e3d1d9db962962fb5d729bc0b80053615cf71315b96",
     "c4e8a7b6d5f0_converge_production_schema.py": "fb5687ad523c64297fe101d109918af2501bec26219de78353944a762eadfe4e",
-    "d9f4e2a1b7c3_adopt_peer_database_protocol.py": "7c4c8dd9d670e9223642fa4d8b0e776b41a85f29871d6e1f92df21abb4e019d7",
+    "d9f4e2a1b7c3_adopt_peer_database_protocol.py": "9a163533b5a0619e51bfb94ba7ad0c5c3d168fba5808b08f67531fd8f7e5f263",
     "e5a01f9e69ef_init.py": "a10de6c0818abc593951a34e51a974ffcd999f60ba5afc441f87ac6cef8d869e"
   }
 }

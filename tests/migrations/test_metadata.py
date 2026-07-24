@@ -1,7 +1,7 @@
 import sqlalchemy
 
 from app.database_contract import PROTOCOL_SCHEMA
-from migrations.metadata import get_target_metadata
+from migrations.metadata import get_target_metadata, include_protocol_object
 
 
 EXPECTED_APPLICATION_TABLES = {
@@ -87,3 +87,25 @@ def test_block_storage_foreign_key_preserves_blocks():
   assert foreign_key.column.table.schema == PROTOCOL_SCHEMA
   assert foreign_key.onupdate == "CASCADE"
   assert foreign_key.ondelete == "SET NULL"
+
+
+def test_autogenerate_ignores_lifecycle_internal_tables():
+  protocol_table = sqlalchemy.Table(
+    "clients",
+    sqlalchemy.MetaData(),
+    schema=PROTOCOL_SCHEMA,
+  )
+  internal_table = sqlalchemy.Table(
+    "contract_state",
+    sqlalchemy.MetaData(),
+    schema="inkcre_internal",
+  )
+
+  assert include_protocol_object(protocol_table, "clients", "table", True, None)
+  assert not include_protocol_object(
+    internal_table,
+    "contract_state",
+    "table",
+    True,
+    None,
+  )

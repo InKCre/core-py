@@ -19,3 +19,21 @@ def get_target_metadata() -> MetaData:
       f"Migration metadata is missing required table: {LogModel.__tablename__}"
     )
   return Base.metadata
+
+
+def include_protocol_object(
+  object_,
+  name: str | None,
+  type_: str,
+  reflected: bool,
+  compare_to,
+) -> bool:
+  """Restrict Alembic comparison to the admitted protocol schema."""
+  if not reflected:
+    return True
+  if type_ == "table":
+    return object_.schema == PROTOCOL_SCHEMA
+  table = getattr(object_, "table", None)
+  if table is not None:
+    return table.schema == PROTOCOL_SCHEMA
+  return True

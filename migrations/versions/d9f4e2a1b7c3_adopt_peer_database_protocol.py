@@ -42,6 +42,11 @@ _APPLICATION_TABLES = (
   "storages",
 )
 
+_LEGACY_PUBLIC_SEQUENCES = (
+  "sources_id_seq",
+  "storages_id_seq",
+)
+
 
 def _move_relation(table_name: str) -> None:
   op.execute(
@@ -63,6 +68,27 @@ def _move_relation(table_name: str) -> None:
   )
 
 
+def _move_sequence(sequence_name: str, target_schema: str) -> None:
+  source_schema = "public" if target_schema == PROTOCOL_SCHEMA else PROTOCOL_SCHEMA
+  op.execute(
+    f"""
+    DO $$
+    BEGIN
+      IF to_regclass('{source_schema}.{sequence_name}') IS NOT NULL
+         AND to_regclass('{target_schema}.{sequence_name}') IS NOT NULL THEN
+        RAISE EXCEPTION
+          'both {source_schema}.{sequence_name} and '
+          '{target_schema}.{sequence_name} exist';
+      ELSIF to_regclass('{source_schema}.{sequence_name}') IS NOT NULL THEN
+        ALTER SEQUENCE "{source_schema}"."{sequence_name}"
+          SET SCHEMA "{target_schema}";
+      END IF;
+    END
+    $$;
+    """
+  )
+
+
 def upgrade() -> None:
   """Move the admitted protocol into dedicated, provider-neutral schemas."""
   op.execute(f'CREATE SCHEMA IF NOT EXISTS "{PROTOCOL_SCHEMA}"')
@@ -70,6 +96,8 @@ def upgrade() -> None:
 
   for table_name in _APPLICATION_TABLES:
     _move_relation(table_name)
+  for sequence_name in _LEGACY_PUBLIC_SEQUENCES:
+    _move_sequence(sequence_name, PROTOCOL_SCHEMA)
 
   op.execute(
     f"""
@@ -247,6 +275,9 @@ def downgrade() -> None:
       $$;
       """
     )
+
+  for sequence_name in _LEGACY_PUBLIC_SEQUENCES:
+    _move_sequence(sequence_name, "public")
 
   op.execute(f'DROP SCHEMA IF EXISTS "{INTERNAL_SCHEMA}"')
   op.execute(f'DROP SCHEMA IF EXISTS "{PROTOCOL_SCHEMA}"')
