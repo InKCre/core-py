@@ -240,8 +240,9 @@ flowchart TB
 - Executions 01–03 are implemented and proven on two branch-scoped disposable Neon copies:
   the production-data copy retained every row through the schema move, and the development
   copy produced one identical fingerprint across duplicate init/seed/reset runs.
-- Execution 04 is implemented in the repository/artifact job and awaits GitHub-hosted Docker
-  proof because this workstation has no Docker-compatible runtime.
+- Execution 04 is complete. GitHub-hosted Docker proved the entire digest-pinned standard
+  pgvector/PostgREST chain, including negative readiness cases, authenticated read/write,
+  wrong-secret and anonymous 401, deterministic reset, and native runtime readiness.
 - Execution 05 is implemented through digest-pinned Compose inputs, OCI revision metadata,
   collision-safe Compose identity, and a main-only GHCR publisher; publication awaits the
   exact main merge.
@@ -251,3 +252,9 @@ flowchart TB
   acceptance. Live execution remains gated on green CI and the fresh checkpoint.
 - Each live production operation stops on unexpected ownership, identity, schema, readiness,
   or row-count evidence.
+- The exact PR artifact also completed a real preview deployment on one Eco Heroku dyno,
+  using `inkcre_core` against its TTL Neon branch; public `/livez` and full `/readyz` passed.
+- A preflight no-TTL recovery branch exists as
+  `backup/peer-contract-20260724-050719` (`br-bitter-field-a14qkbss`). The final cutover
+  checkpoint will be recreated after scaling core to zero so it is contemporaneous with the
+  live mutation.

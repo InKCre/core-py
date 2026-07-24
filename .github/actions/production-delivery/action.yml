@@ -438,6 +438,12 @@ runs:
             "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
             "OBSRV__LOGGING_BACKEND=none" \
             "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+          if [ -n "$(
+            heroku config:get MIGRATION_DATABASE_URL --app "$APP_NAME" || true
+          )" ]; then
+            heroku config:unset MIGRATION_DATABASE_URL \
+              --app "$APP_NAME" >/dev/null
+          fi
           release_version="$(
             heroku releases --app "$APP_NAME" --json |
               jq -r '.[0].version // empty'
@@ -509,17 +515,33 @@ runs:
         retry_command 5 docker push "registry.heroku.com/$APP_NAME/release"
         retry_command 5 docker push \
           "registry.heroku.com/$POSTGREST_APP_NAME/web"
-        before_image_release="$(
+        before_guard_release="$(
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        heroku container:release web release --app "$APP_NAME"
-        image_release="$(
+        heroku container:release release --app "$APP_NAME"
+        guard_release="$(
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        test "$image_release" != "$before_image_release"
-        wait_for_release "$APP_NAME" "$image_release"
+        test "$guard_release" != "$before_guard_release"
+        wait_for_release "$APP_NAME" "$guard_release"
+
+        if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
+          configure_app
+        fi
+
+        before_web_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        heroku container:release web --app "$APP_NAME"
+        web_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        test "$web_release" != "$before_web_release"
+        wait_for_release "$APP_NAME" "$web_release"
 
         before_postgrest_release="$(
           heroku releases --app "$POSTGREST_APP_NAME" --json |
@@ -533,9 +555,6 @@ runs:
         test "$postgrest_release" != "$before_postgrest_release"
         wait_for_release "$POSTGREST_APP_NAME" "$postgrest_release"
 
-        if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
-          configure_app
-        fi
         if [ "$HAS_POSTGREST_RELEASE" = true ]; then
           configure_postgrest
         fi
