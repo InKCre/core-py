@@ -2,11 +2,17 @@
 
 import argparse
 import json
+from pathlib import Path
+import sys
 import time
 from urllib import error, parse, request
 import uuid
 
 import jwt
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.database_contract.constants import (
   JWT_ALGORITHM,
