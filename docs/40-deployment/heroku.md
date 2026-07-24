@@ -6,7 +6,8 @@ Heroku consumes the same provider-neutral OCI source proved in CI:
 
 - `heroku-web` starts core-py;
 - `heroku-release` is a no-op release guard;
-- `Dockerfile.postgrest` adds only a `$PORT` adapter to digest-pinned PostgREST.
+- `Dockerfile.postgrest` adds only a `$PORT` adapter, using a digest-pinned static BusyBox
+  interpreter because the digest-pinned PostgREST runtime contains no shell.
 
 The protected GitHub delivery job runs database lifecycle commands before releasing images.
 This is intentional: Heroku config vars are available to every dyno in an app, so putting a

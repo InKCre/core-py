@@ -33,7 +33,9 @@ by every dyno in an app, so putting a migration owner URL there would also expos
 web process.
 
 `Dockerfile.postgrest` wraps the digest-pinned upstream PostgREST image only to bind its
-server port to Heroku's runtime `$PORT`. JWT and database configuration remain runtime
+server port to Heroku's runtime `$PORT`. The upstream image has no shell, so the wrapper
+copies one static BusyBox executable from a separately digest-pinned official image and
+uses it only as the entry-point interpreter. JWT and database configuration remain runtime
 inputs.
 
 ## Local Compose
@@ -78,10 +80,11 @@ secrets.
 
 ## CI Evidence
 
-The artifact job in `.github/workflows/ci.yml` builds the frozen image and proves the full
-fresh-database chain: duplicate init, JSON readiness, negative drift cases, PostgREST JWT
-read/write and denial behavior, duplicate deterministic reset, Alembic metadata, and web
-liveness/readiness. It uses no Neon or Heroku state.
+The artifact job in `.github/workflows/ci.yml` builds both frozen delivery images and proves
+the full fresh-database chain: duplicate init, JSON readiness, negative drift cases, the
+production PostgREST wrapper binding from `$PORT`, JWT read/write and denial behavior,
+duplicate deterministic reset, Alembic metadata, and web liveness/readiness. It uses no Neon
+or Heroku state.
 
 After that workflow passes on the exact current `main`, `artifact-publish.yml` publishes the
 runtime to GHCR by commit and reports the immutable digest.
