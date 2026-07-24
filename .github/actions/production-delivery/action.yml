@@ -2,6 +2,12 @@ name: Heroku production delivery
 description: Release and probe prebuilt process images for the canonical production branch
 
 inputs:
+  bootstrap_revision:
+    description: One-time production bootstrap revision guard
+    required: false
+  core_database_password:
+    description: Production native runtime role password
+    required: true
   head_sha:
     description: Exact main commit to deploy
     required: true
@@ -32,6 +38,15 @@ inputs:
   neon_project_id:
     description: Neon project containing the production branch
     required: true
+  neon_recovery_branch_id:
+    description: Fresh durable recovery checkpoint branched from production
+    required: true
+  postgrest_app_name:
+    description: Exact canonical production PostgREST app name
+    required: true
+  postgrest_database_password:
+    description: Production PostgREST authenticator role password
+    required: true
 
 runs:
   using: composite
@@ -48,6 +63,7 @@ runs:
         NEON_BRANCH_ID: ${{ inputs.neon_branch_id }}
         NEON_PARENT_BRANCH_ID: ${{ inputs.neon_parent_branch_id }}
         NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
+        NEON_RECOVERY_BRANCH_ID: ${{ inputs.neon_recovery_branch_id }}
       run: |
         branch_json="$(
           npx --yes neonctl@2.36.0 branches get "$NEON_BRANCH_ID" \
@@ -61,7 +77,25 @@ runs:
         test "$(jq -r '.expires_at // ""' <<<"$branch_json")" = ""
         test "$(jq -r '.current_state' <<<"$branch_json")" = "ready"
 
-        runtime_database_url="$(
+        recovery_json="$(
+          npx --yes neonctl@2.36.0 branches get "$NEON_RECOVERY_BRANCH_ID" \
+            --project-id "$NEON_PROJECT_ID" \
+            --output json \
+            --no-color
+        )"
+        test "$(jq -r '.id' <<<"$recovery_json")" = "$NEON_RECOVERY_BRANCH_ID"
+        test "$(jq -r '.parent_id' <<<"$recovery_json")" = "$NEON_BRANCH_ID"
+        test "$(jq -r '.expires_at // ""' <<<"$recovery_json")" = ""
+        test "$(jq -r '.current_state' <<<"$recovery_json")" = "ready"
+        case "$(jq -r '.name' <<<"$recovery_json")" in
+          backup/peer-contract-*) ;;
+          *)
+            echo "Unexpected recovery checkpoint name" >&2
+            exit 1
+            ;;
+        esac
+
+        pooled_owner_database_url="$(
           npx --yes neonctl@2.36.0 connection-string "$NEON_BRANCH_ID" \
             --project-id "$NEON_PROJECT_ID" \
             --role-name neondb_owner \
@@ -69,7 +103,7 @@ runs:
             --pooled \
             --no-color
         )"
-        migration_database_url="$(
+        direct_owner_database_url="$(
           npx --yes neonctl@2.36.0 connection-string "$NEON_BRANCH_ID" \
             --project-id "$NEON_PROJECT_ID" \
             --role-name neondb_owner \
@@ -77,21 +111,23 @@ runs:
             --no-pooled \
             --no-color
         )"
-        echo "::add-mask::$runtime_database_url"
-        echo "::add-mask::$migration_database_url"
-        echo "runtime_database_url=$runtime_database_url" >> "$GITHUB_OUTPUT"
-        echo "migration_database_url=$migration_database_url" >> "$GITHUB_OUTPUT"
+        echo "::add-mask::$pooled_owner_database_url"
+        echo "::add-mask::$direct_owner_database_url"
+        echo "pooled_owner_database_url=$pooled_owner_database_url" >> "$GITHUB_OUTPUT"
+        echo "direct_owner_database_url=$direct_owner_database_url" >> "$GITHUB_OUTPUT"
 
-    - name: Create or verify production app
+    - name: Create or verify canonical production apps
       id: heroku
       shell: bash
       env:
-        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         HEROKU_APP_NAME: ${{ inputs.heroku_app_name }}
-        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+        OWNER_DATABASE_URL: ${{ steps.neon.outputs.pooled_owner_database_url }}
+        POSTGREST_APP_NAME: ${{ inputs.postgrest_app_name }}
       run: |
         test "$HEROKU_APP_NAME" = "inkcre-core-production"
+        test "$POSTGREST_APP_NAME" = "inkcre-postgrest-production"
+
         if ! app_json="$(
           heroku apps:info --app "$HEROKU_APP_NAME" --json 2>/dev/null
         )"; then
@@ -104,22 +140,40 @@ runs:
         test "$(jq -r '.app.region.name' <<<"$app_json")" = "us"
         test "$(heroku addons --app "$HEROKU_APP_NAME" --json | jq 'length')" = 0
 
-        pipeline_json="$(heroku pipelines:info inkcre-core --json)"
-        stage="$(
-          jq -r --arg app "$HEROKU_APP_NAME" \
-            '.apps[] | select(.name == $app) |
-              .pipelineCoupling.stage // empty' \
-            <<<"$pipeline_json"
-        )"
-        if [ -z "$stage" ]; then
-          heroku pipelines:add inkcre-core \
-            --app "$HEROKU_APP_NAME" \
-            --stage production
-        else
-          test "$stage" = "production"
+        if ! postgrest_json="$(
+          heroku apps:info --app "$POSTGREST_APP_NAME" --json 2>/dev/null
+        )"; then
+          heroku apps:create "$POSTGREST_APP_NAME" --region us --stack container
+          postgrest_json="$(
+            heroku apps:info --app "$POSTGREST_APP_NAME" --json
+          )"
         fi
+        test "$(jq -r '.app.name' <<<"$postgrest_json")" = "$POSTGREST_APP_NAME"
+        test "$(jq -r '.app.stack.name' <<<"$postgrest_json")" = "container"
+        test "$(jq -r '.app.region.name' <<<"$postgrest_json")" = "us"
+        test "$(
+          heroku addons --app "$POSTGREST_APP_NAME" --json | jq 'length'
+        )" = 0
+
+        pipeline_json="$(heroku pipelines:info inkcre-core --json)"
+        for production_app in "$HEROKU_APP_NAME" "$POSTGREST_APP_NAME"; do
+          stage="$(
+            jq -r --arg app "$production_app" \
+              '.apps[] | select(.name == $app) |
+                .pipelineCoupling.stage // empty' \
+              <<<"$pipeline_json"
+          )"
+          if [ -z "$stage" ]; then
+            heroku pipelines:add inkcre-core \
+              --app "$production_app" \
+              --stage production
+          else
+            test "$stage" = "production"
+          fi
+        done
 
         web_url="$(jq -r '.app.web_url' <<<"$app_json")"
+        postgrest_url="$(jq -r '.app.web_url' <<<"$postgrest_json")"
         deployed_release="$(
           heroku releases --app "$HEROKU_APP_NAME" --json |
             jq -r \
@@ -128,55 +182,188 @@ runs:
                   (.description | startswith("Deployed web")))] |
                 first | .version // empty'
         )"
+        postgrest_deployed_release="$(
+          heroku releases --app "$POSTGREST_APP_NAME" --json |
+            jq -r \
+              '[.[] |
+                select(.status == "succeeded" and
+                  (.description | startswith("Deployed web")))] |
+                first | .version // empty'
+        )"
         has_deployed_release=false
+        url_host() {
+          python -c \
+            'import sys; from urllib.parse import urlparse; print(urlparse(sys.argv[1]).hostname or "")' \
+            "$1"
+        }
         if [ -n "$deployed_release" ]; then
           has_deployed_release=true
           current_database_url="$(
             heroku config:get DATABASE_URL --app "$HEROKU_APP_NAME" || true
           )"
-          current_migration_database_url="$(
-            heroku config:get MIGRATION_DATABASE_URL \
-              --app "$HEROKU_APP_NAME" || true
-          )"
-          url_host() {
-            python -c \
-              'import sys; from urllib.parse import urlparse; print(urlparse(sys.argv[1]).hostname or "")' \
-              "$1"
-          }
           test -n "$current_database_url"
           test "$(url_host "$current_database_url")" = \
-            "$(url_host "$DATABASE_URL")"
-          if [ -n "$current_migration_database_url" ]; then
-            test "$(url_host "$current_migration_database_url")" = \
-              "$(url_host "$MIGRATION_DATABASE_URL")"
-          fi
+            "$(url_host "$OWNER_DATABASE_URL")"
+        fi
+        has_postgrest_release=false
+        if [ -n "$postgrest_deployed_release" ]; then
+          has_postgrest_release=true
+          current_postgrest_database_url="$(
+            heroku config:get PGRST_DB_URI --app "$POSTGREST_APP_NAME" || true
+          )"
+          test -n "$current_postgrest_database_url"
+          test "$(url_host "$current_postgrest_database_url")" = \
+            "$(url_host "$OWNER_DATABASE_URL")"
         fi
 
         echo "app_name=$HEROKU_APP_NAME" >> "$GITHUB_OUTPUT"
         echo "has_deployed_release=$has_deployed_release" >> "$GITHUB_OUTPUT"
+        echo "has_postgrest_release=$has_postgrest_release" >> "$GITHUB_OUTPUT"
+        echo "postgrest_app_name=$POSTGREST_APP_NAME" >> "$GITHUB_OUTPUT"
+        echo "postgrest_url=$postgrest_url" >> "$GITHUB_OUTPUT"
         echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
 
-    - name: Push and release web and migration processes
+    - name: Bootstrap or converge the production database contract
+      id: database
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        BOOTSTRAP_REVISION: ${{ inputs.bootstrap_revision }}
+        CORE_DATABASE_PASSWORD: ${{ inputs.core_database_password }}
+        HAS_DEPLOYED_RELEASE: ${{ steps.heroku.outputs.has_deployed_release }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.direct_owner_database_url }}
+        NEON_API_KEY: ${{ inputs.neon_api_key }}
+        NEON_BRANCH_ID: ${{ inputs.neon_branch_id }}
+        NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
+        POOLED_OWNER_DATABASE_URL: ${{ steps.neon.outputs.pooled_owner_database_url }}
+        POSTGREST_DATABASE_PASSWORD: ${{ inputs.postgrest_database_password }}
+      run: |
+        environment="$(
+          docker run --rm \
+            --env MIGRATION_DATABASE_URL \
+            --entrypoint python \
+            "inkcre-production-release:$HEAD_SHA" \
+            scripts/database_environment.py
+        )"
+
+        bootstrap_performed=false
+        if [ "$environment" != "production" ]; then
+          if [ "$environment" != "runtime" ] && [ "$environment" != "absent" ]; then
+            echo "Refusing production bootstrap from environment $environment" >&2
+            exit 1
+          fi
+          test "$BOOTSTRAP_REVISION" = "peer-database-runtime-v1"
+          bootstrap_performed=true
+          if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
+            heroku ps:scale web=0 --app "$APP_NAME"
+          fi
+
+          roles_json="$(
+            npx --yes neonctl@2.36.0 roles list \
+              --project-id "$NEON_PROJECT_ID" \
+              --branch "$NEON_BRANCH_ID" \
+              --output json \
+              --no-analytics \
+              --no-color
+          )"
+          for role in authenticated anonymous authenticator inkcre_core; do
+            if jq -e --arg role "$role" \
+              'any(.[]; .name == $role)' <<<"$roles_json" >/dev/null; then
+              npx --yes neonctl@2.36.0 roles delete "$role" \
+                --project-id "$NEON_PROJECT_ID" \
+                --branch "$NEON_BRANCH_ID" \
+                --no-analytics \
+                --no-color
+            fi
+          done
+        fi
+
+        docker run --rm \
+          --env DATABASE_URL="$MIGRATION_DATABASE_URL" \
+          --entrypoint python \
+          "inkcre-production-release:$HEAD_SHA" \
+          scripts/database_manifest.py > "$RUNNER_TEMP/production-before.json"
+
+        docker run --rm \
+          --env CORE_DATABASE_PASSWORD \
+          --env MIGRATION_DATABASE_URL \
+          --env POSTGREST_DATABASE_PASSWORD \
+          "inkcre-production-release:$HEAD_SHA" \
+          python scripts/container.py \
+          db init --profile runtime --environment production
+        docker run --rm \
+          --env MIGRATION_DATABASE_URL \
+          "inkcre-production-release:$HEAD_SHA" \
+          python scripts/container.py \
+          db ready --profile runtime --json
+
+        docker run --rm \
+          --env DATABASE_URL="$MIGRATION_DATABASE_URL" \
+          --entrypoint python \
+          "inkcre-production-release:$HEAD_SHA" \
+          scripts/database_manifest.py > "$RUNNER_TEMP/production-after.json"
+        jq -e '.schema == "inkcre"' \
+          "$RUNNER_TEMP/production-after.json" >/dev/null
+        test "$(
+          jq -cS '.table_counts' "$RUNNER_TEMP/production-before.json"
+        )" = "$(
+          jq -cS '.table_counts' "$RUNNER_TEMP/production-after.json"
+        )"
+
+        core_database_url="$(
+          docker run --rm \
+            --env SOURCE_DATABASE_URL="$POOLED_OWNER_DATABASE_URL" \
+            --env TARGET_DATABASE_PASSWORD="$CORE_DATABASE_PASSWORD" \
+            --env TARGET_DATABASE_ROLE=inkcre_core \
+            --entrypoint python \
+            "inkcre-production-release:$HEAD_SHA" \
+            scripts/rebind_database_url.py \
+            --scheme postgresql+psycopg
+        )"
+        postgrest_database_url="$(
+          docker run --rm \
+            --env SOURCE_DATABASE_URL="$POOLED_OWNER_DATABASE_URL" \
+            --env TARGET_DATABASE_PASSWORD="$POSTGREST_DATABASE_PASSWORD" \
+            --env TARGET_DATABASE_ROLE=authenticator \
+            --entrypoint python \
+            "inkcre-production-release:$HEAD_SHA" \
+            scripts/rebind_database_url.py \
+            --scheme postgresql
+        )"
+        echo "::add-mask::$core_database_url"
+        echo "::add-mask::$postgrest_database_url"
+        echo "core_database_url=$core_database_url" >> "$GITHUB_OUTPUT"
+        echo "postgrest_database_url=$postgrest_database_url" >> "$GITHUB_OUTPUT"
+        echo "bootstrap_performed=$bootstrap_performed" >> "$GITHUB_OUTPUT"
+
+    - name: Push and release canonical peer processes
       id: release
       shell: bash
       env:
         APP_NAME: ${{ steps.heroku.outputs.app_name }}
-        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
+        BOOTSTRAP_PERFORMED: ${{ steps.database.outputs.bootstrap_performed }}
+        DATABASE_URL: ${{ steps.database.outputs.core_database_url }}
         HAS_DEPLOYED_RELEASE: ${{ steps.heroku.outputs.has_deployed_release }}
+        HAS_POSTGREST_RELEASE: ${{ steps.heroku.outputs.has_postgrest_release }}
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         JWT_SECRET: ${{ inputs.jwt_secret }}
         LLM_SP_AK: ${{ inputs.llm_sp_ak }}
         LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
-        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+        POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
+        POSTGREST_DATABASE_URL: ${{ steps.database.outputs.postgrest_database_url }}
+        POSTGREST_URL: ${{ steps.heroku.outputs.postgrest_url }}
         WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: |
         wait_for_release() {
-          local version="$1"
+          local app_name="$1"
+          local version="$2"
           local status
           for _ in $(seq 1 120); do
             status="$(
-              heroku releases --app "$APP_NAME" --json |
+              heroku releases --app "$app_name" --json |
                 jq -r --argjson version "$version" \
                   '.[] | select(.version == $version) | .status'
             )"
@@ -185,13 +372,13 @@ runs:
                 return 0
                 ;;
               failed)
-                heroku releases:output "v$version" --app "$APP_NAME"
+                heroku releases:output "v$version" --app "$app_name"
                 return 1
                 ;;
             esac
             sleep 5
           done
-          echo "Timed out waiting for Heroku release v$version" >&2
+          echo "Timed out waiting for $app_name release v$version" >&2
           return 1
         }
 
@@ -249,15 +436,45 @@ runs:
             "JWT_SECRET=$JWT_SECRET" \
             "LLM_SP_AK=$LLM_SP_AK" \
             "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
-            "MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL" \
             "OBSRV__LOGGING_BACKEND=none" \
             "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+          if [ -n "$(
+            heroku config:get MIGRATION_DATABASE_URL --app "$APP_NAME" || true
+          )" ]; then
+            heroku config:unset MIGRATION_DATABASE_URL \
+              --app "$APP_NAME" >/dev/null
+          fi
           release_version="$(
             heroku releases --app "$APP_NAME" --json |
               jq -r '.[0].version // empty'
           )"
           if [ "$release_version" != "$before_release" ]; then
-            wait_for_release "$release_version"
+            wait_for_release "$APP_NAME" "$release_version"
+          fi
+        }
+
+        configure_postgrest() {
+          local before_release
+          local release_version
+
+          before_release="$(
+            heroku releases --app "$POSTGREST_APP_NAME" --json |
+              jq -r '.[0].version // empty'
+          )"
+          heroku config:set --app "$POSTGREST_APP_NAME" \
+            "PGRST_DB_ANON_ROLE=anonymous" \
+            "PGRST_DB_POOL=2" \
+            "PGRST_DB_PRE_REQUEST=inkcre_internal.check_jwt" \
+            "PGRST_DB_SCHEMAS=inkcre" \
+            "PGRST_DB_URI=$POSTGREST_DATABASE_URL" \
+            "PGRST_JWT_AUD=inkcre-api" \
+            "PGRST_JWT_SECRET=$JWT_SECRET" >/dev/null
+          release_version="$(
+            heroku releases --app "$POSTGREST_APP_NAME" --json |
+              jq -r '.[0].version // empty'
+          )"
+          if [ "$release_version" != "$before_release" ]; then
+            wait_for_release "$POSTGREST_APP_NAME" "$release_version"
           fi
         }
 
@@ -269,8 +486,19 @@ runs:
                   (.description | startswith("Deployed web")))] |
                 first | .version // empty'
         )"
+        previous_postgrest_release="$(
+          heroku releases --app "$POSTGREST_APP_NAME" --json |
+            jq -r \
+              '[.[] |
+                select(.status == "succeeded" and
+                  (.description | startswith("Deployed web")))] |
+                first | .version // empty'
+        )"
         if [ "$HAS_DEPLOYED_RELEASE" = false ]; then
           configure_app
+        fi
+        if [ "$HAS_POSTGREST_RELEASE" = false ]; then
+          configure_postgrest
         fi
 
         login_registry
@@ -280,48 +508,99 @@ runs:
         docker tag \
           "inkcre-production-release:$HEAD_SHA" \
           "registry.heroku.com/$APP_NAME/release"
+        docker tag \
+          "inkcre-production-postgrest:$HEAD_SHA" \
+          "registry.heroku.com/$POSTGREST_APP_NAME/web"
         retry_command 5 docker push "registry.heroku.com/$APP_NAME/web"
         retry_command 5 docker push "registry.heroku.com/$APP_NAME/release"
-        before_image_release="$(
+        retry_command 5 docker push \
+          "registry.heroku.com/$POSTGREST_APP_NAME/web"
+        before_guard_release="$(
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        heroku container:release web release --app "$APP_NAME"
-        image_release="$(
+        heroku container:release release --app "$APP_NAME"
+        guard_release="$(
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        test "$image_release" != "$before_image_release"
-        wait_for_release "$image_release"
+        test "$guard_release" != "$before_guard_release"
+        wait_for_release "$APP_NAME" "$guard_release"
 
         if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
           configure_app
         fi
 
+        before_web_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        heroku container:release web --app "$APP_NAME"
+        web_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        test "$web_release" != "$before_web_release"
+        wait_for_release "$APP_NAME" "$web_release"
+
+        before_postgrest_release="$(
+          heroku releases --app "$POSTGREST_APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        heroku container:release web --app "$POSTGREST_APP_NAME"
+        postgrest_release="$(
+          heroku releases --app "$POSTGREST_APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        test "$postgrest_release" != "$before_postgrest_release"
+        wait_for_release "$POSTGREST_APP_NAME" "$postgrest_release"
+
+        if [ "$HAS_POSTGREST_RELEASE" = true ]; then
+          configure_postgrest
+        fi
+
         heroku ps:scale web=1:eco --app "$APP_NAME"
+        heroku ps:scale web=1:eco --app "$POSTGREST_APP_NAME"
 
         echo "previous_release=$previous_release" >> "$GITHUB_OUTPUT"
+        echo "previous_postgrest_release=$previous_postgrest_release" \
+          >> "$GITHUB_OUTPUT"
 
-    - name: Probe production or roll back application
+    - name: Probe production peers or roll back applications
       shell: bash
       env:
         APP_NAME: ${{ steps.heroku.outputs.app_name }}
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        JWT_SECRET: ${{ inputs.jwt_secret }}
+        POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
+        POSTGREST_URL: ${{ steps.heroku.outputs.postgrest_url }}
         PREVIOUS_RELEASE: ${{ steps.release.outputs.previous_release }}
+        PREVIOUS_POSTGREST_RELEASE: >-
+          ${{ steps.release.outputs.previous_postgrest_release }}
         WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: |
         for _ in $(seq 1 60); do
           if curl --fail --silent "${WEB_URL}livez" >/dev/null &&
-            curl --fail --silent "${WEB_URL}readyz" >/dev/null; then
+            curl --fail --silent "${WEB_URL}readyz" >/dev/null &&
+            docker run --rm \
+              --entrypoint python \
+              "inkcre-production-release:$HEAD_SHA" \
+              scripts/verify_postgrest_contract.py \
+              --base-url "$POSTGREST_URL" \
+              --jwt-secret "$JWT_SECRET" \
+              --wrong-jwt-secret "wrong-$JWT_SECRET"; then
             {
               echo "### Heroku production"
               echo
-              echo "- App: \`$APP_NAME\`"
-              echo "- URL: $WEB_URL"
+              echo "- Core app: \`$APP_NAME\`"
+              echo "- Core URL: $WEB_URL"
+              echo "- PostgREST app: \`$POSTGREST_APP_NAME\`"
+              echo "- PostgREST URL: $POSTGREST_URL"
               echo "- Commit: \`$HEAD_SHA\`"
-              echo "- Liveness: ready"
-              echo "- Readiness: ready"
+              echo "- Core liveness/readiness: ready"
+              echo "- PostgREST JWT read/write/deny contract: ready"
+              echo "- Formation: Eco"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -329,10 +608,22 @@ runs:
         done
 
         heroku logs --num 200 --app "$APP_NAME"
-        if [ -n "$PREVIOUS_RELEASE" ]; then
+        heroku logs --num 200 --app "$POSTGREST_APP_NAME"
+        if [ "$BOOTSTRAP_PERFORMED" = true ]; then
+          heroku ps:scale web=0 --app "$APP_NAME"
+          echo "Kept core stopped after first-contract cutover failure" >&2
+        elif [ -n "$PREVIOUS_RELEASE" ]; then
           heroku releases:rollback "v$PREVIOUS_RELEASE" --app "$APP_NAME"
           echo "Rolled application back to v$PREVIOUS_RELEASE" >&2
         else
           echo "No previous deployed application release exists" >&2
+        fi
+        if [ -n "$PREVIOUS_POSTGREST_RELEASE" ]; then
+          heroku releases:rollback "v$PREVIOUS_POSTGREST_RELEASE" \
+            --app "$POSTGREST_APP_NAME"
+          echo "Rolled PostgREST back to v$PREVIOUS_POSTGREST_RELEASE" >&2
+        else
+          heroku ps:scale web=0 --app "$POSTGREST_APP_NAME"
+          echo "Scaled unproven PostgREST deployment to zero" >&2
         fi
         exit 1

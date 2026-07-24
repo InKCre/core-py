@@ -11,7 +11,7 @@ Startup and background execution span application bootstrap, scheduler setup, ex
 Current bootstrap flow in `run.py`:
 
 1. expose process-only liveness and report readiness as false
-2. wait asynchronously until the database is reachable at the artifact's Alembic head
+2. wait asynchronously until the complete runtime database contract is ready
 3. register the current client
 4. persist registered storage types and set up built-in storage instances
 5. sync the fixed extension profile unless `SKIP_EXTENSIONS_SYNC=1`
@@ -57,8 +57,8 @@ module import.
 ### 6. Health probes have separate semantics
 
 - `/livez` and compatibility alias `/heartbeat` only prove that the web process can answer
-- `/readyz` is read-only and requires both the exact Alembic head and completed runtime
-  bootstrap
+- `/readyz` is read-only and requires the complete role/ACL/catalog/migration contract plus
+  completed runtime bootstrap
 - health routes do not require JWT credentials and never include connection errors or
   database URLs in their payloads
 

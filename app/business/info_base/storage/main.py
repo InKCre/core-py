@@ -11,6 +11,7 @@ import sqlmodel
 import typing
 from typing import Optional as Opt
 from app.engine import SessionLocal
+from app.database_contract.profile import BUILTIN_STORAGE_TYPES_BY_ID
 from app.schemas.info_base.storage import (
   StorageID,
   StorageTypeID,
@@ -41,10 +42,17 @@ class StorageManager:
     """Persist registered storage types during explicit runtime bootstrap."""
     with SessionLocal() as db:
       for storage_cls in cls._STORAGE_CLASSES.values():
+        builtin = BUILTIN_STORAGE_TYPES_BY_ID.get(storage_cls.__stgtype__)
         stmt = sqlalchemy.dialects.postgresql.insert(StorageTypesModel).values(
           id=storage_cls.__stgtype__,
-          description=storage_cls.__doc__ or "No description.",
-          config_schema=storage_cls.__configschema__,
+          description=(
+            builtin.description
+            if builtin is not None
+            else storage_cls.__doc__ or "No description."
+          ),
+          config_schema=(
+            builtin.config_schema if builtin is not None else storage_cls.__configschema__
+          ),
         )
         stmt = stmt.on_conflict_do_update(
           index_elements=[StorageTypesModel.id],

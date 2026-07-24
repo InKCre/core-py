@@ -1,6 +1,8 @@
+name: ${INKCRE_COMPOSE_PROJECT_NAME:-inkcre}
+
 services:
   postgres:
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-inkcre}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -19,24 +21,36 @@ services:
       timeout: 5s
       retries: 12
 
-  migrate:
-    build: .
-    command: ["migrate"]
+  init:
+    build:
+      context: .
+      args:
+        SOURCE_REVISION: ${INKCRE_SOURCE_REVISION:-local}
+    command: ["db", "init", "--profile", "development"]
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-inkcre}"
+      CORE_DATABASE_PASSWORD: ${CORE_DATABASE_PASSWORD:-local-core-database-password-at-least-32-bytes}
+      MIGRATION_DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-inkcre}"
+      POSTGREST_DATABASE_PASSWORD: ${POSTGREST_DATABASE_PASSWORD:-local-postgrest-database-password-at-least-32-bytes}
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        SOURCE_REVISION: ${INKCRE_SOURCE_REVISION:-local}
     command: ["web"]
     depends_on:
-      migrate:
+      init:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-inkcre}"
-      JWT_SECRET: ${JWT_SECRET:-local-development-only}
+      CLIENT_BASE_URL: http://localhost:${APP_PORT:-8000}
+      CLIENT_ID: 00000000-0000-4000-8000-000000000002
+      CLIENT_NAME: core-py-development
+      DATABASE_URL: "postgresql+psycopg://inkcre_core:${CORE_DATABASE_PASSWORD:-local-core-database-password-at-least-32-bytes}@postgres:5432/${POSTGRES_DB:-inkcre}"
+      INKCRE_ENV_FILE: ""
+      JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-at-least-32-bytes}
       OBSRV__LOGGING_BACKEND: ${OBSRV__LOGGING_BACKEND:-none}
       PORT: 8000
     ports:
@@ -52,6 +66,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 6
+    restart: unless-stopped
+
+  postgrest:
+    image: postgrest/postgrest:v14.15@sha256:2f8e7b656f09db697a8875177694b417b35cb76c21370de07fc54e711e902326
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    environment:
+      PGRST_DB_ANON_ROLE: anonymous
+      PGRST_DB_PRE_REQUEST: inkcre_internal.check_jwt
+      PGRST_DB_SCHEMAS: inkcre
+      PGRST_DB_URI: "postgresql://authenticator:${POSTGREST_DATABASE_PASSWORD:-local-postgrest-database-password-at-least-32-bytes}@postgres:5432/${POSTGRES_DB:-inkcre}"
+      PGRST_JWT_AUD: inkcre-api
+      PGRST_JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-at-least-32-bytes}
+      PGRST_SERVER_PORT: 3000
+    ports:
+      - "${POSTGREST_PORT:-3000}:3000"
     restart: unless-stopped
 
 volumes:

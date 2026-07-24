@@ -69,12 +69,14 @@ jobs:
       - name: Deliver preview
         uses: ./.delivery/.github/actions/preview-delivery
         with:
+          core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
           head_sha: ${{ github.event.pull_request.head.sha }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           llm_sp_ak: ${{ secrets.LLM_SP_AK }}
           llm_sp_base_url: ${{ secrets.LLM_SP_BASE_URL }}
           neon_api_key: ${{ secrets.NEON_API_KEY }}
           neon_project_id: ${{ vars.NEON_PROJECT_ID }}
+          postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
           pr_number: ${{ github.event.pull_request.number }}
 
   cleanup:

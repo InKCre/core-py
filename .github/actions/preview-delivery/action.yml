@@ -2,6 +2,9 @@ name: Heroku preview delivery
 description: Release and probe prebuilt process images for one deterministic preview
 
 inputs:
+  core_database_password:
+    description: Preview native runtime role password
+    required: true
   head_sha:
     description: Exact pull request head commit to deploy
     required: true
@@ -20,6 +23,9 @@ inputs:
   neon_project_id:
     description: Neon project containing preview branches
     required: true
+  postgrest_database_password:
+    description: Preview PostgREST authenticator role password
+    required: true
   pr_number:
     description: Pull request number
     required: true
@@ -30,7 +36,7 @@ runs:
       shell: bash
       run: npm install --global heroku@11.8.1
 
-    - name: Resolve matching Neon preview URLs
+    - name: Resolve exact matching Neon preview branch
       id: neon
       shell: bash
       env:
@@ -38,9 +44,25 @@ runs:
         NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
         PR_NUMBER: ${{ inputs.pr_number }}
       run: |
+        branch_name="preview/pr-$PR_NUMBER"
+        branches_json="$(
+          npx --yes neonctl@2.36.0 branches list \
+            --project-id "$NEON_PROJECT_ID" \
+            --output json \
+            --no-analytics \
+            --no-color
+        )"
+        matches="$(
+          jq -c --arg name "$branch_name" \
+            '[.[] | select(.name == $name)]' <<<"$branches_json"
+        )"
+        test "$(jq 'length' <<<"$matches")" = 1
+        branch_id="$(jq -r '.[0].id' <<<"$matches")"
+        test -n "$(jq -r '.[0].expires_at // empty' <<<"$matches")"
+
         runtime_database_url="$(
           npx --yes neonctl@2.36.0 connection-string \
-            "preview/pr-$PR_NUMBER" \
+            "$branch_id" \
             --project-id "$NEON_PROJECT_ID" \
             --role-name neondb_owner \
             --pooled \
@@ -48,7 +70,7 @@ runs:
         )"
         migration_database_url="$(
           npx --yes neonctl@2.36.0 connection-string \
-            "preview/pr-$PR_NUMBER" \
+            "$branch_id" \
             --project-id "$NEON_PROJECT_ID" \
             --role-name neondb_owner \
             --no-pooled \
@@ -56,16 +78,95 @@ runs:
         )"
         echo "::add-mask::$runtime_database_url"
         echo "::add-mask::$migration_database_url"
+        echo "branch_id=$branch_id" >> "$GITHUB_OUTPUT"
         echo "runtime_database_url=$runtime_database_url" >> "$GITHUB_OUTPUT"
         echo "migration_database_url=$migration_database_url" >> "$GITHUB_OUTPUT"
+
+    - name: Normalize inherited provider roles on first bootstrap
+      shell: bash
+      env:
+        BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+        NEON_API_KEY: ${{ inputs.neon_api_key }}
+        NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
+      run: |
+        environment="$(
+          docker run --rm \
+            --env MIGRATION_DATABASE_URL \
+            --entrypoint python \
+            "inkcre-preview-release:$HEAD_SHA" \
+            scripts/database_environment.py
+        )"
+        if [ "$environment" = "preview" ]; then
+          exit 0
+        fi
+        if [ "$environment" != "runtime" ] && [ "$environment" != "absent" ]; then
+          echo "Refusing preview bootstrap from environment $environment" >&2
+          exit 1
+        fi
+
+        roles_json="$(
+          npx --yes neonctl@2.36.0 roles list \
+            --project-id "$NEON_PROJECT_ID" \
+            --branch "$BRANCH_ID" \
+            --output json \
+            --no-analytics \
+            --no-color
+        )"
+        for role in authenticated anonymous authenticator inkcre_core; do
+          if jq -e --arg role "$role" \
+            'any(.[]; .name == $role)' <<<"$roles_json" >/dev/null; then
+            npx --yes neonctl@2.36.0 roles delete "$role" \
+              --project-id "$NEON_PROJECT_ID" \
+              --branch "$BRANCH_ID" \
+              --no-analytics \
+              --no-color
+          fi
+        done
+
+    - name: Initialize and verify exact preview database contract
+      id: database
+      shell: bash
+      env:
+        CORE_DATABASE_PASSWORD: ${{ inputs.core_database_password }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+        POSTGREST_DATABASE_PASSWORD: ${{ inputs.postgrest_database_password }}
+        SOURCE_DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
+      run: |
+        docker run --rm \
+          --env CORE_DATABASE_PASSWORD \
+          --env MIGRATION_DATABASE_URL \
+          --env POSTGREST_DATABASE_PASSWORD \
+          "inkcre-preview-release:$HEAD_SHA" \
+          python scripts/container.py \
+          db init --profile runtime --environment preview
+        docker run --rm \
+          --env MIGRATION_DATABASE_URL \
+          "inkcre-preview-release:$HEAD_SHA" \
+          python scripts/container.py \
+          db ready --profile runtime --json
+
+        runtime_database_url="$(
+          docker run --rm \
+            --env SOURCE_DATABASE_URL \
+            --env TARGET_DATABASE_PASSWORD="$CORE_DATABASE_PASSWORD" \
+            --env TARGET_DATABASE_ROLE=inkcre_core \
+            --entrypoint python \
+            "inkcre-preview-release:$HEAD_SHA" \
+            scripts/rebind_database_url.py \
+            --scheme postgresql+psycopg
+        )"
+        echo "::add-mask::$runtime_database_url"
+        echo "runtime_database_url=$runtime_database_url" >> "$GITHUB_OUTPUT"
 
     - name: Create or verify deterministic Heroku app
       id: heroku
       shell: bash
       env:
-        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
+        DATABASE_URL: ${{ steps.database.outputs.runtime_database_url }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
-        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
         PR_NUMBER: ${{ inputs.pr_number }}
       run: |
         app_name="inkcre-core-pr-$PR_NUMBER"
@@ -104,9 +205,6 @@ runs:
           current_database_url="$(
             heroku config:get DATABASE_URL --app "$app_name" || true
           )"
-          current_migration_database_url="$(
-            heroku config:get MIGRATION_DATABASE_URL --app "$app_name" || true
-          )"
           url_host() {
             python -c \
               'import sys; from urllib.parse import urlparse; print(urlparse(sys.argv[1]).hostname or "")' \
@@ -115,27 +213,22 @@ runs:
           test -n "$current_database_url"
           test "$(url_host "$current_database_url")" = \
             "$(url_host "$DATABASE_URL")"
-          if [ -n "$current_migration_database_url" ]; then
-            test "$(url_host "$current_migration_database_url")" = \
-              "$(url_host "$MIGRATION_DATABASE_URL")"
-          fi
         fi
 
         echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
         echo "has_deployed_release=$has_deployed_release" >> "$GITHUB_OUTPUT"
         echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
 
-    - name: Push and release web and migration processes
+    - name: Push and release web with a safe release guard
       shell: bash
       env:
         APP_NAME: ${{ steps.heroku.outputs.app_name }}
-        DATABASE_URL: ${{ steps.neon.outputs.runtime_database_url }}
+        DATABASE_URL: ${{ steps.database.outputs.runtime_database_url }}
         HAS_DEPLOYED_RELEASE: ${{ steps.heroku.outputs.has_deployed_release }}
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         LLM_SP_AK: ${{ inputs.llm_sp_ak }}
         LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
-        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
         PR_NUMBER: ${{ inputs.pr_number }}
         WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: |
@@ -224,9 +317,14 @@ runs:
             "JWT_SECRET=$jwt_secret" \
             "LLM_SP_AK=$LLM_SP_AK" \
             "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
-            "MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL" \
             "OBSRV__LOGGING_BACKEND=none" \
             "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+          if [ -n "$(
+            heroku config:get MIGRATION_DATABASE_URL --app "$APP_NAME" || true
+          )" ]; then
+            heroku config:unset MIGRATION_DATABASE_URL \
+              --app "$APP_NAME" >/dev/null
+          fi
           release_version="$(
             heroku releases --app "$APP_NAME" --json |
               jq -r '.[0].version // empty'
@@ -249,21 +347,34 @@ runs:
           "registry.heroku.com/$APP_NAME/release"
         retry_command 5 docker push "registry.heroku.com/$APP_NAME/web"
         retry_command 5 docker push "registry.heroku.com/$APP_NAME/release"
-        before_image_release="$(
+
+        before_guard_release="$(
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        heroku container:release web release --app "$APP_NAME"
-        image_release="$(
+        heroku container:release release --app "$APP_NAME"
+        guard_release="$(
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        test "$image_release" != "$before_image_release"
-        wait_for_release "$image_release"
+        test "$guard_release" != "$before_guard_release"
+        wait_for_release "$guard_release"
 
         if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
           configure_app
         fi
+
+        before_web_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        heroku container:release web --app "$APP_NAME"
+        web_release="$(
+          heroku releases --app "$APP_NAME" --json |
+            jq -r '.[0].version // empty'
+        )"
+        test "$web_release" != "$before_web_release"
+        wait_for_release "$web_release"
 
         heroku ps:scale web=1:eco --app "$APP_NAME"
 

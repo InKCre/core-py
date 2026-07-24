@@ -10,8 +10,58 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from libs.obsrv.log_record import TRACE_ID
+from app.database_contract.constants import (
+  JWT_ALGORITHM,
+  JWT_AUDIENCE,
+  JWT_ISSUER,
+  JWT_MAX_LIFETIME_SECONDS,
+  JWT_ROLE,
+)
 from app.settings import settings
 from libs.obsrv.main import get_logger
+
+
+def decode_peer_jwt(
+  token: str,
+  secret: str,
+  *,
+  now: float | None = None,
+) -> dict:
+  """Validate the canonical peer JWT contract used by every HTTP surface."""
+  claims = jwt.decode(
+    token,
+    secret,
+    algorithms=[JWT_ALGORITHM],
+    audience=JWT_AUDIENCE,
+    issuer=JWT_ISSUER,
+    options={
+      "require": ["role", "iss", "aud", "iat", "exp"],
+      "verify_exp": False,
+      "verify_iat": False,
+    },
+  )
+  issued_at = claims["iat"]
+  expires_at = claims["exp"]
+  valid_numeric_dates = (
+    isinstance(issued_at, (int, float))
+    and not isinstance(issued_at, bool)
+    and isinstance(expires_at, (int, float))
+    and not isinstance(expires_at, bool)
+  )
+  if not valid_numeric_dates:
+    raise jwt.exceptions.InvalidTokenError("JWT claim contract mismatch")
+  issued_at_number = float(issued_at)
+  expires_at_number = float(expires_at)
+  current_epoch = time.time() if now is None else now
+  if (
+    claims["role"] != JWT_ROLE
+    or issued_at_number > current_epoch + 60
+    or expires_at_number <= current_epoch
+    or expires_at_number <= issued_at_number
+    or expires_at_number - issued_at_number > JWT_MAX_LIFETIME_SECONDS
+  ):
+    raise jwt.exceptions.InvalidTokenError("JWT claim contract mismatch")
+  return claims
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -126,17 +176,9 @@ class JWTMiddleware(BaseHTTPMiddleware):
     token = auth_header[7:]  # Remove "Bearer "
 
     try:
-      # Decode JWT
-      jwt.decode(
-        token,
-        self.jwt_secret,
-        algorithms=["HS256"],
-        audience=("inkcre-client-web", "inkcre-client-webext"),
-      )
-    except jwt.exceptions.ExpiredSignatureError:
-      raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.exceptions.InvalidTokenError as e:
-      raise HTTPException(status_code=401, detail=e)
+      decode_peer_jwt(token, self.jwt_secret)
+    except jwt.exceptions.InvalidTokenError:
+      raise HTTPException(status_code=401, detail="Invalid token")
 
     # Proceed to next middleware/handler
     return await call_next(request)

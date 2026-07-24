@@ -4,13 +4,27 @@
 
 - Python 3.12
 - PDM 2.27.0
-- PostgreSQL
+- a Docker-compatible runtime for the complete local peer stack, or PostgreSQL/pgvector
+  supplied separately
 - a populated `.env` file
 
 The checked-in Python selector is `.python-version`. The foundation CI uses the same
 Python selector and PDM version.
 
 ## Local Startup
+
+The supported complete runtime is:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+It starts PostgreSQL/pgvector, performs deterministic development initialization, then
+starts both core-py and PostgREST. Core is available on port 8000 and PostgREST on port 3000
+by default.
+
+For Python-only iteration against an already initialized database:
 
 ```bash
 cp .env.example .env
@@ -40,10 +54,16 @@ developer `.env` or use its database and API credentials.
 
 The checked-in baseline is `.env.example`.
 
-Required in practice:
+Required for direct Python execution:
 
 - `DATABASE_URL`
 - `JWT_SECRET`
+
+Lifecycle execution additionally requires:
+
+- `MIGRATION_DATABASE_URL`
+- `CORE_DATABASE_PASSWORD`
+- `POSTGREST_DATABASE_PASSWORD`
 
 Commonly needed:
 
@@ -60,8 +80,8 @@ The repository currently uses Neon branch automation for pull requests.
 
 - `branching-database.yml` creates or reuses `preview/pr-<number>` for trusted PRs
 - every preview branch is a seven-day child of the sanitized `preview-base`
-- checked-in migrations and exact-head readiness run before application delivery
-- the workflow posts schema diffs back to the PR
+- the branch workflow only establishes the exact isolated branch identity
+- the exact PR artifact owns initialization and readiness during application delivery
 - PR close deletes only the matching deterministic Neon branch
 
 ## Migration Commands
@@ -69,6 +89,10 @@ The repository currently uses Neon branch automation for pull requests.
 - `pdm run db:generate "message"` creates a candidate revision for review.
 - `pdm run db:record` appends reviewed new revisions to the integrity manifest.
 - `pdm run db:migrate` applies checked-in revisions.
+- `pdm run db:init --profile development` creates the complete deterministic baseline.
+- `pdm run db:ready --profile development --json` verifies it without mutation.
+- `pdm run db:reset-dev --confirm reset-development-data` restores the same guarded
+  baseline and refuses every non-development database.
 - `pdm run check:migrations` checks the local graph, metadata registration, and release
   contract without connecting to a database.
 - CI validates `migrations/revision-integrity.json` on pull requests and managed-branch

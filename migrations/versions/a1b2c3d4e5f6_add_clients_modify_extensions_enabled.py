@@ -48,11 +48,6 @@ def upgrade() -> None:
     ),
     sa.PrimaryKeyConstraint("id"),
   )
-
-  # 2. Grant permissions on clients table
-  op.execute("GRANT ALL ON public.clients TO authenticated;")
-
-
 def downgrade() -> None:
   """Downgrade schema."""
   # 1. Drop clients table

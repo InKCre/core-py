@@ -14,7 +14,7 @@ class MigrationSettings(BaseSettings):
     extra="ignore",
   )
 
-  database_url: str
+  database_url: str | None = None
   migration_database_url: str | None = None
 
   @field_validator("database_url", "migration_database_url")
@@ -35,4 +35,7 @@ class MigrationSettings(BaseSettings):
 def get_migration_database_url() -> str:
   """Load the database URL without constructing application settings."""
   settings = MigrationSettings()
-  return settings.migration_database_url or settings.database_url
+  selected = settings.migration_database_url or settings.database_url
+  if selected is None:
+    raise ValueError("DATABASE_URL or MIGRATION_DATABASE_URL is required")
+  return selected

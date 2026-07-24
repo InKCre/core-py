@@ -1,0 +1,75 @@
+name: Publish runtime artifact
+
+on:
+  workflow_run:
+    workflows:
+      - Repository and artifact checks
+    types:
+      - completed
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-runtime-artifact
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish exact main image
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact verified source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Verify source is current main
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$HEAD_SHA"
+
+      - name: Build and publish immutable runtime
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          image="ghcr.io/$repository"
+          commit_ref="$image:$HEAD_SHA"
+
+          printf '%s' "$GHCR_TOKEN" |
+            docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker build \
+            --build-arg "SOURCE_REVISION=$HEAD_SHA" \
+            --target artifact \
+            --tag "$commit_ref" \
+            .
+          docker push "$commit_ref"
+          docker tag "$commit_ref" "$image:main"
+          docker push "$image:main"
+          docker pull "$commit_ref" >/dev/null
+
+          digest_ref="$(
+            docker inspect \
+              --format='{{index .RepoDigests 0}}' \
+              "$commit_ref"
+          )"
+          test "${digest_ref%%@*}" = "$image"
+          {
+            echo "### core-py runtime artifact"
+            echo
+            echo "- Commit: \`$HEAD_SHA\`"
+            echo "- Immutable reference: \`$digest_ref\`"
+            echo "- Contract command: \`db contract --json\`"
+          } >> "$GITHUB_STEP_SUMMARY"

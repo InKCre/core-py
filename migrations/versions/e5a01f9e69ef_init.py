@@ -217,19 +217,6 @@ def upgrade() -> None:
   )
   # ### end Alembic commands ###
 
-  # Create role and grant for PostgREST
-  op.execute("CREATE ROLE authenticated NOLOGIN NOINHERIT;")
-  op.execute("GRANT authenticated TO postgres;")
-  op.execute("GRANT SELECT ON public.sources_types TO authenticated;")
-  op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON public.sources TO authenticated;")
-  op.execute("GRANT SELECT, INSERT ON public.sources_collect_jobs TO authenticated;")
-  op.execute("GRANT ALL ON public.extensions TO authenticated;")
-  op.execute("GRANT SELECT ON public.logs TO authenticated;")
-  op.execute(
-    "GRANT SELECT ON public.blocks, public.relations, public.storages, public.storage_types TO authenticated;"
-  )
-  op.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;")
-
   # Add trigger function and trigger for auto-updating updated_at on content change
   op.execute("""
   CREATE OR REPLACE FUNCTION update_updated_at_column()

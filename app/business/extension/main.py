@@ -8,6 +8,7 @@ import tomllib
 import json
 from typing import Optional as Opt
 from app.engine import SessionLocal
+from app.database_contract.profile import BUILTIN_EXTENSIONS_BY_ID
 from app.schemas.extension.main import ExtensionModel, ExtensionID
 from libs.obsrv.main import get_logger
 
@@ -386,6 +387,10 @@ class ExtensionManager:
             LOGGER.debug(f"Processing local extension: {ext_id}")
 
             nickname, version = cls._read_metadata(ext_path)
+            builtin = BUILTIN_EXTENSIONS_BY_ID.get(ext_id)
+            if builtin is not None:
+              nickname = builtin.nickname
+              version = builtin.version
 
             # Skip if we couldn't read any metadata
             if nickname is None and version is None:

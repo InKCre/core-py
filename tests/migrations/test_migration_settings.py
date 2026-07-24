@@ -2,7 +2,6 @@ import ast
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from migrations.settings import MigrationSettings, get_migration_database_url
 
@@ -45,15 +44,28 @@ def test_migration_settings_normalize_to_psycopg(
   assert settings.database_url == expected
 
 
-def test_migration_settings_require_only_database_url(monkeypatch: pytest.MonkeyPatch):
+def test_migration_settings_require_one_database_url(monkeypatch: pytest.MonkeyPatch):
   monkeypatch.delenv("DATABASE_URL", raising=False)
   monkeypatch.delenv("MIGRATION_DATABASE_URL", raising=False)
   monkeypatch.delenv("JWT_SECRET", raising=False)
 
-  with pytest.raises(ValidationError) as error:
-    MigrationSettings(_env_file=None)
+  with pytest.raises(
+    ValueError,
+    match="DATABASE_URL or MIGRATION_DATABASE_URL is required",
+  ):
+    get_migration_database_url()
 
-  assert [item["loc"] for item in error.value.errors()] == [("database_url",)]
+
+def test_direct_migration_url_is_sufficient(monkeypatch: pytest.MonkeyPatch):
+  monkeypatch.delenv("DATABASE_URL", raising=False)
+  monkeypatch.setenv(
+    "MIGRATION_DATABASE_URL",
+    "postgresql://release:password@direct.example/inkcre",
+  )
+
+  assert get_migration_database_url() == (
+    "postgresql+psycopg://release:password@direct.example/inkcre"
+  )
 
 
 def test_direct_migration_url_takes_precedence(monkeypatch: pytest.MonkeyPatch):

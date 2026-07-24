@@ -15,7 +15,10 @@ __all__ = [
 import sqlalchemy.orm
 import sqlmodel
 
-Base = sqlalchemy.orm.declarative_base()
+from app.database_contract import PROTOCOL_SCHEMA
+
+
+Base = sqlalchemy.orm.declarative_base(metadata=sqlalchemy.MetaData(schema=PROTOCOL_SCHEMA))
 sqlmodel.SQLModel.metadata = Base.metadata
 
 from .info_base.block import BlockModel

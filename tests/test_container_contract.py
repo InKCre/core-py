@@ -39,22 +39,18 @@ def test_web_command_rejects_invalid_port(monkeypatch):
     container._web()
 
 
-def test_migrate_command_is_upgrade_only(monkeypatch):
-  executed = {}
+def test_database_command_forwards_only_structured_arguments(monkeypatch):
+  forwarded = {}
+  import scripts.database
+
   monkeypatch.setattr(
-    container.os,
-    "execvp",
-    lambda executable, arguments: executed.update(
-      executable=executable,
-      arguments=arguments,
-    ),
+    scripts.database,
+    "main",
+    lambda arguments: forwarded.update(arguments=arguments) or 0,
   )
 
-  assert container._migrate() == 0
-  assert executed == {
-    "executable": "alembic",
-    "arguments": ["alembic", "upgrade", "head"],
-  }
+  assert container._database(["migrate"]) == 0
+  assert forwarded == {"arguments": ["migrate"]}
 
 
 def test_release_artifact_has_no_runtime_extension_downloader():

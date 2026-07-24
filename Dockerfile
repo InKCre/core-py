@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ARG PYTHON_VERSION=3.12
+ARG SOURCE_REVISION=unknown
 
 FROM python:${PYTHON_VERSION}-slim AS builder
 
@@ -18,7 +19,10 @@ RUN pdm install --prod --no-editable --frozen-lockfile
 
 FROM python:${PYTHON_VERSION}-slim AS runtime
 
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision="${SOURCE_REVISION}"
 ENV INKCRE_ENV_FILE="" \
+    INKCRE_SOURCE_REVISION="${SOURCE_REVISION}" \
     PATH="/app/.venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -65,7 +69,7 @@ ENTRYPOINT []
 
 FROM heroku-runtime AS heroku-release
 
-CMD ["python", "scripts/container.py", "migrate"]
+CMD ["python", "-c", "print('database lifecycle completed before Heroku release')"]
 
 
 FROM heroku-runtime AS heroku-web

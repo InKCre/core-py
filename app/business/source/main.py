@@ -6,6 +6,7 @@ import typing
 from typing import Optional as Opt
 
 from app.engine import SessionLocal
+from app.database_contract.profile import BUILTIN_SOURCE_TYPES_BY_ID
 from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceModel, SourceID, SourceTypesModel
 from app.scheduler import scheduler
@@ -108,10 +109,17 @@ class SourceManager:
     """Persist registered source types during explicit runtime bootstrap."""
     with SessionLocal() as db:
       for source_type, source_cls in cls._SOURCE_CLASSES.items():
+        builtin = BUILTIN_SOURCE_TYPES_BY_ID.get(source_type)
         stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
           id=source_type,
-          description=source_cls.__doc__ or "No description.",
-          config_schema=source_cls.__configschema__,
+          description=(
+            builtin.description
+            if builtin is not None
+            else source_cls.__doc__ or "No description."
+          ),
+          config_schema=(
+            builtin.config_schema if builtin is not None else source_cls.__configschema__
+          ),
         )
         stmt = stmt.on_conflict_do_update(
           index_elements=[SourceTypesModel.id],
