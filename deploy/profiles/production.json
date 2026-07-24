@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "environment": "production",
+  "database_contract": {
+    "revision": "peer-database-runtime-v1",
+    "migration_head": "d9f4e2a1b7c3",
+    "protocol_schema": "inkcre"
+  },
+  "client": {
+    "id": "1eaaadc6-2c1d-4515-ad06-22905dc890a9",
+    "name": "client-web"
+  },
+  "core": {
+    "client_id": "063cd1df-c495-5006-a119-67aa633b26be",
+    "url": "https://inkcre-core-production-b26009ded782.herokuapp.com/"
+  },
+  "postgrest": {
+    "anonymous_access": "deny",
+    "database_role": "authenticator",
+    "url": "https://inkcre-postgrest-production-7b8a014c552b.herokuapp.com/"
+  },
+  "jwt": {
+    "algorithm": "HS256",
+    "role": "authenticated",
+    "issuer": "inkcre-client",
+    "audience": "inkcre-api",
+    "required_claims": [
+      "role",
+      "iss",
+      "aud",
+      "iat",
+      "exp"
+    ],
+    "maximum_lifetime_seconds": 86400
+  }
+}

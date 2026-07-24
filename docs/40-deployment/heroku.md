@@ -62,6 +62,9 @@ Production is one logical environment containing two peer transports:
 
 Both apps use the container stack, US region, no addons, and the `production` stage of the
 single `inkcre-core` pipeline. They address the exact canonical Neon `production` branch.
+Peers discover their non-secret connection contract through
+[`deploy/profiles/production.json`](../../deploy/profiles/production.json); credentials never
+enter that profile.
 
 `.github/workflows/production-deploy.yml` runs only after repository/runtime checks pass for
 the exact current `main` SHA, or by a main-only recovery dispatch. It builds core and
