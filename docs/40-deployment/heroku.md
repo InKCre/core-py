@@ -18,9 +18,10 @@ Core Heroku config contains only an `inkcre_core` URL. PostgREST config contains
 Heroku supplies compute, routing, and runtime configuration; it owns neither the build nor
 the database.
 
-`Procfile`, `requirements.txt`, and `app.json` remain legacy buildpack inputs for the
-existing staging app until the legacy-retirement execution. They do not define preview or
-production CD.
+The retired buildpack surfaces (`Procfile`, `requirements.txt`, and `app.json`) are no longer
+checked in. PDM owns dependency resolution and the OCI Dockerfiles own every deployed process,
+so leaving Heroku does not require reconstructing runtime behavior from provider-specific
+files.
 
 ## Pull Request Previews
 
@@ -141,5 +142,13 @@ The protected job is the single migration writer and runs
 not reverse database state. Every revision must pass the fresh digest-pinned
 pgvector/PostgREST runtime check and the matching Neon preview before production delivery.
 
-Preview and production automation is not authority to mutate or delete legacy staging
-resources; those remain under the explicit retirement execution.
+## Retired Runtime
+
+There is no persistent staging environment. The `inkcre-core` pipeline contains exactly the
+two canonical production apps above; review apps exist only for an eligible pull request and
+are removed when it closes.
+
+The former `inkcre-core-staging` and `inkcre-pgrst` apps were deleted on 2026-07-24. Deleting
+the staging app also removed its Logtail addon and Better Stack drain. Neither app had a
+custom domain. GitHub no longer contains their staging environment or the all-events Heroku
+webhook.

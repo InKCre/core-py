@@ -19,8 +19,6 @@ This layer stores operational truth: how the service starts, how environments ar
 - `Dockerfile`
 - `Dockerfile.postgrest`
 - `docker-compose.yml`
-- `Procfile`
-- `app.json`
 - `.github/workflows/branching-database.yml`
 - `.github/workflows/ci.yml`
 - `.github/workflows/artifact-publish.yml`
