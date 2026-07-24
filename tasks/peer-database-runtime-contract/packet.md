@@ -271,3 +271,16 @@ flowchart TB
   `backup/peer-contract-20260724-054730` (`br-misty-tree-a10sklpt`) became the recovery
   authority. The delivery image now carries a digest-pinned static BusyBox interpreter, and
   CI exercises that exact wrapper from a Heroku-style `$PORT`.
+- Execution 06 live acceptance is complete on main `7ea76e931098e22e2979c5ca26042548c3934332`.
+  Production delivery run `30070716650` converged the database idempotently and brought both
+  canonical peers up with one Eco dyno. Core readiness, authenticated PostgREST read/write,
+  fixed probe cleanup, wrong-secret 401, and anonymous 401 all passed.
+- Core connects only as `inkcre_core`; PostgREST connects only as `authenticator`; Heroku has
+  no migration owner URL. Both apps share the same masked JWT secret and occupy the
+  `production` stage of the one `inkcre-core` pipeline.
+- The non-secret production profile publishes the existing canonical client-web registration
+  `1eaaadc6-2c1d-4515-ad06-22905dc890a9`, the canonical URLs, contract revision, migration
+  head, and JWT claims. GHCR publication run `30070716655` produced immutable core digest
+  `sha256:2d0c477866c7b2bfaa8cd81cad11aea21d1f2ddf6d8558557babcab09fa605d1`.
+- The one-time provider-role bootstrap variable has been removed. Execution 07 client-web
+  consumption is now the next package; it does not block this production contract.

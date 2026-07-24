@@ -78,6 +78,18 @@ PostgREST exposes only `inkcre`, connects as `authenticator`, uses `anonymous` a
 explicit denied fallback, and invokes `inkcre_internal.check_jwt` before every admitted
 request. The FastAPI middleware validates the same vectors.
 
+## Canonical Production Profile
+
+[`deploy/profiles/production.json`](../../deploy/profiles/production.json) is the checked-in,
+non-secret discovery surface for peers that join canonical production. It publishes the
+stable client-web registration ID, core and PostgREST URLs, contract revision, migration
+head, protocol schema, anonymous policy, and exact JWT claim contract.
+
+The profile deliberately contains no credential, database URL, or mutable image tag.
+Consumers supply the shared JWT secret through their own secret store. Runtime image digests
+remain release evidence because writing a commit's own digest back into that commit would
+create a circular artifact identity.
+
 ## Versioning
 
 `db contract --json` reports `peer-database-runtime-v1` plus the image source revision.
