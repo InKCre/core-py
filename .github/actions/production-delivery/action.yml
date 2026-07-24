@@ -304,13 +304,9 @@ runs:
           --entrypoint python \
           "inkcre-production-release:$HEAD_SHA" \
           scripts/database_manifest.py > "$RUNNER_TEMP/production-after.json"
-        jq -e '.schema == "inkcre"' \
-          "$RUNNER_TEMP/production-after.json" >/dev/null
-        test "$(
-          jq -cS '.table_counts' "$RUNNER_TEMP/production-before.json"
-        )" = "$(
-          jq -cS '.table_counts' "$RUNNER_TEMP/production-after.json"
-        )"
+        python scripts/verify_database_manifest_transition.py \
+          "$RUNNER_TEMP/production-before.json" \
+          "$RUNNER_TEMP/production-after.json"
 
         core_database_url="$(
           docker run --rm \

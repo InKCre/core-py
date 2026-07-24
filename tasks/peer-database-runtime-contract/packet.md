@@ -249,12 +249,18 @@ flowchart TB
 - Execution 06 delivery code now guards a fresh production recovery checkpoint, performs the
   one-time provider-role bootstrap, keeps owner credentials out of Heroku, deploys separate
   Eco core/PostgREST apps in one production stage, and runs black-box JWT read/write/deny
-  acceptance. Live execution remains gated on green CI and the fresh checkpoint.
+  acceptance. The first live run reached the portable head with full production readiness and
+  preserved every business-table row, then stopped before application release because the
+  original row-count gate rejected one expected built-in source-type addition. A focused
+  follow-up changes that gate so business tables remain strict while artifact-owned catalogs
+  may only grow.
 - Each live production operation stops on unexpected ownership, identity, schema, readiness,
   or row-count evidence.
 - The exact PR artifact also completed a real preview deployment on one Eco Heroku dyno,
   using `inkcre_core` against its TTL Neon branch; public `/livez` and full `/readyz` passed.
-- A preflight no-TTL recovery branch exists as
-  `backup/peer-contract-20260724-050719` (`br-bitter-field-a14qkbss`). The final cutover
-  checkpoint will be recreated after scaling core to zero so it is contemporaneous with the
-  live mutation.
+- The contemporaneous no-TTL recovery branch is
+  `backup/peer-contract-20260724-052651` (`br-frosty-math-a1zt10nx`), created only after
+  production core reached zero dynos. The preflight checkpoint remains independent.
+- Production convergence evidence from that checkpoint to the live database is exact for
+  eleven protocol tables. `sources_types` changed from six rows to seven because the
+  checked-in built-in profile supplied the missing catalog entry; no table decreased.
