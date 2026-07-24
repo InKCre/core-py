@@ -23,7 +23,7 @@ This exists to reduce stale-connection failures when the database has gone idle.
 
 Neon branch automation is defined in `.github/workflows/branching-database.yml`.
 
-Trusted pull requests use one data-free branch named `preview/pr-<number>`:
+Trusted pull requests use one data-free branch named `preview/core-py/pr-<number>`:
 
 1. branch the durable `preview-base` from canonical `production`, then run the guarded
    sanitizer once to remove every allowlisted application row while preserving
@@ -44,8 +44,7 @@ Production is not mutated, and production rows never enter a PR-owned branch.
 
 The current Neon free-v3 plan has a protected-branch quota of zero, so provider protection
 cannot be enabled on `preview-base`. The sanitizer requires the exact branch name, and the
-PR cleanup workflow only targets the exact legacy and repository-qualified PR identities during
-the namespace transition. Upgrade the Neon plan
+PR cleanup workflow only targets the exact repository-qualified PR identity. Upgrade the Neon plan
 or revisit branch protection before broadening administrative access.
 
 The same plan currently permits ten branches. Keep disposable test branches short-lived

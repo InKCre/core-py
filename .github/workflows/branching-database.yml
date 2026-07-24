@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NEON_BRANCH_NAME: preview/pr-${{ github.event.number }}
+  NEON_BRANCH_NAME: preview/core-py/pr-${{ github.event.number }}
   NEON_PARENT_BRANCH: preview-base
   NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
   PDM_CHECK_UPDATE: "false"
@@ -74,7 +74,7 @@ jobs:
           : "${NEON_API_KEY:?missing NEON_API_KEY}"
           : "${NEON_PROJECT_ID:?missing NEON_PROJECT_ID}"
           : "${NEON_BRANCH_NAME:?missing NEON_BRANCH_NAME}"
-          if [[ ! "$NEON_BRANCH_NAME" =~ ^preview/pr-[0-9]+$ ]]; then
+          if [[ ! "$NEON_BRANCH_NAME" =~ ^preview/core-py/pr-[0-9]+$ ]]; then
             echo "Refusing unexpected branch namespace: $NEON_BRANCH_NAME" >&2
             exit 1
           fi
@@ -102,33 +102,29 @@ jobs:
             exit 1
           fi
 
-          for branch_name in \
-            "$NEON_BRANCH_NAME" \
-            "preview/core-py/pr-${{ github.event.number }}"; do
-            matches="$(
-              jq -c --arg name "$branch_name" \
-                '[.[] | select(.name == $name)]' <<<"$list_json"
-            )"
-            match_count="$(jq 'length' <<<"$matches")"
-            if [[ "$match_count" == 0 ]]; then
-              echo "Neon branch already absent: $branch_name"
-              continue
-            fi
-            if [[ "$match_count" != 1 ]]; then
-              echo "Expected one Neon branch named $branch_name" >&2
-              exit 1
-            fi
+          matches="$(
+            jq -c --arg name "$NEON_BRANCH_NAME" \
+              '[.[] | select(.name == $name)]' <<<"$list_json"
+          )"
+          match_count="$(jq 'length' <<<"$matches")"
+          if [[ "$match_count" == 0 ]]; then
+            echo "Neon branch already absent: $NEON_BRANCH_NAME"
+            exit 0
+          fi
+          if [[ "$match_count" != 1 ]]; then
+            echo "Expected one Neon branch named $NEON_BRANCH_NAME" >&2
+            exit 1
+          fi
 
-            branch_id="$(jq -r '.[0].id' <<<"$matches")"
-            actual_parent_id="$(jq -r '.[0].parent_id' <<<"$matches")"
-            if [[ ! "$branch_id" =~ ^br-[a-z0-9-]+$ ]] ||
-              [[ "$actual_parent_id" != "$expected_parent_id" ]]; then
-              echo "Refusing Neon branch with unexpected identity or parent" >&2
-              exit 1
-            fi
+          branch_id="$(jq -r '.[0].id' <<<"$matches")"
+          actual_parent_id="$(jq -r '.[0].parent_id' <<<"$matches")"
+          if [[ ! "$branch_id" =~ ^br-[a-z0-9-]+$ ]] ||
+            [[ "$actual_parent_id" != "$expected_parent_id" ]]; then
+            echo "Refusing Neon branch with unexpected identity or parent" >&2
+            exit 1
+          fi
 
-            "${cli[@]}" branches delete "$branch_id" \
-              --project-id "$NEON_PROJECT_ID" \
-              --no-analytics \
-              --no-color
-          done
+          "${cli[@]}" branches delete "$branch_id" \
+            --project-id "$NEON_PROJECT_ID" \
+            --no-analytics \
+            --no-color
