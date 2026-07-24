@@ -78,7 +78,7 @@ Commonly needed:
 
 The repository currently uses Neon branch automation for pull requests.
 
-- `branching-database.yml` creates or reuses `preview/core-py/pr-<number>` for trusted PRs
+- `branching-database.yml` creates or reuses `preview/pr-<number>` for trusted PRs
 - every preview branch is a seven-day child of the sanitized `preview-base`
 - the branch workflow only establishes the exact isolated branch identity
 - the exact PR artifact owns initialization and readiness during application delivery

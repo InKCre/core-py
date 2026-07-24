@@ -26,11 +26,11 @@ production CD.
 
 Trusted same-repository pull requests currently use:
 
-- app name `inkcre-core-py-pr-<number>`;
+- app name `inkcre-core-pr-<number>` during the namespace transition;
 - pipeline `inkcre-core`, stage `review`;
 - container stack in the US region;
 - one Eco `web` dyno;
-- matching seven-day Neon branch `preview/core-py/pr-<number>`;
+- matching seven-day Neon branch `preview/pr-<number>` during the namespace transition;
 - no Heroku addon.
 
 The branch workflow owns only exact isolated branch creation/deletion. After the repository,
@@ -48,8 +48,9 @@ The owner URL and PostgREST database password never enter preview Heroku config.
 PR close destroys only the deterministic app; the independent Neon workflow deletes only
 the deterministic database branch.
 
-The repository-qualified app and database identities prevent same-numbered pull requests
-from peer repositories from colliding in shared provider accounts.
+The delivery bridge prefers repository-qualified identities and temporarily accepts the
+exact legacy identity. The next execution removes this bridge after proving the final
+namespace through a separate pull request.
 
 ## Canonical Production
 
