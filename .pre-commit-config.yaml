@@ -27,23 +27,17 @@ repos:
         language: system
         files: ^(pyproject\.toml|pdm\.lock)$
         pass_filenames: false
-      - id: check-requirements
-        name: Check requirements export
-        entry: python scripts/check_requirements.py
-        language: system
-        files: ^(pyproject\.toml|pdm\.lock|requirements\.txt)$
-        pass_filenames: false
       - id: lint-migrations
         name: Lint migration contract
-        entry: ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_requirements.py scripts/check_migration_history.py scripts/database_manifest.py scripts/sanitize_preview_base.py tests/migrations
+        entry: ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_migration_history.py scripts/database_manifest.py scripts/sanitize_preview_base.py tests/migrations
         language: system
-        files: ^(Procfile|alembic\.ini|migrations/|scripts/|tests/migrations/)
+        files: ^(alembic\.ini|migrations/|scripts/|tests/migrations/)
         pass_filenames: false
       - id: test-migrations
         name: Test migration contract
         entry: python -m pytest -q tests/migrations
         language: system
-        files: ^(Procfile|alembic\.ini|migrations/|tests/migrations/)
+        files: ^(alembic\.ini|migrations/|tests/migrations/)
         pass_filenames: false
       - id: lint-settings
         name: Lint settings contract
