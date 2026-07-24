@@ -122,7 +122,7 @@ class Source(SourceBase[AtomSourceConfig], config_cls=AtomSourceConfig):
             rel = link_elem.get("rel", "alternate")
             if rel == "alternate" or not link:
               href = link_elem.get("href")
-              if href:
+              if isinstance(href, str):
                 link = href
                 if rel == "alternate":
                   break

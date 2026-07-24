@@ -38,6 +38,5 @@ class PostgreSQLHandler(logging.Handler):
 
   def close(self) -> None:
     """Close the database engine."""
-    if self.engine:
-      self.engine.dispose()
+    self.engine.dispose()
     super().close()

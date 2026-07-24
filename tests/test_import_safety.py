@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import typing
 
 
 from app.business.info_base.storage import main as storage_module
@@ -25,7 +26,8 @@ def test_storage_registration_is_memory_only(monkeypatch):
 
   monkeypatch.setattr(storage_module, "SessionLocal", fail_session)
   try:
-    storage_module.StorageManager.register_storage(TestStorage)
+    storage_class = typing.cast(type[storage_module.Storage], TestStorage)
+    storage_module.StorageManager.register_storage(storage_class)
     assert (
       storage_module.StorageManager._STORAGE_CLASSES[TestStorage.__stgtype__] is TestStorage
     )
@@ -46,7 +48,8 @@ def test_source_registration_is_memory_only(monkeypatch):
   source_type = f"{TestSource.__module__}.{TestSource.__qualname__}"
   monkeypatch.setattr(source_module, "SessionLocal", fail_session)
   try:
-    source_module.SourceManager.add_source_type(TestSource)
+    source_class = typing.cast(type[source_module.SourceBase], TestSource)
+    source_module.SourceManager.add_source_type(source_class)
     assert source_module.SourceManager._SOURCE_CLASSES[source_type] is TestSource
   finally:
     source_module.SourceManager._SOURCE_CLASSES.pop(source_type, None)

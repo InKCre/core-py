@@ -15,6 +15,12 @@ repos:
         language: system
         files: ^(.*\.py|pyproject\.toml|ruff\.toml)$
         pass_filenames: false
+      - id: typecheck
+        name: Check Pyrefly types
+        entry: pyrefly check --min-severity=warn --output-format=min-text --progress-bar=no
+        language: system
+        files: ^(app/|extensions/|libs/|migrations/|scripts/|tests/|utils/|run\.py$|pyproject\.toml$|pdm\.lock$)
+        pass_filenames: false
       - id: check-lock
         name: Check PDM lock
         entry: python scripts/check_lock.py

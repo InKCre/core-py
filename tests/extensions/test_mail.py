@@ -78,6 +78,7 @@ def test_body_types_text_only():
   # Extract with text only
   body_text, body_html = ImapSource._get_email_body(msg, body_types="text")
 
+  assert body_text is not None
   assert body_text.strip() == "This is plain text"
   assert body_html is None
 
@@ -95,6 +96,7 @@ def test_body_types_html_only():
   body_text, body_html = ImapSource._get_email_body(msg, body_types="html")
 
   assert body_text is None
+  assert body_html is not None
   assert body_html.strip() == "<html><body>This is HTML</body></html>"
 
 
@@ -110,6 +112,8 @@ def test_body_types_both():
   # Extract both
   body_text, body_html = ImapSource._get_email_body(msg, body_types="both")
 
+  assert body_text is not None
+  assert body_html is not None
   assert body_text.strip() == "This is plain text"
   assert body_html.strip() == "<html><body>This is HTML</body></html>"
 

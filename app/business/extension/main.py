@@ -2,7 +2,6 @@ import abc
 import typing
 import fastapi
 import sqlmodel
-import sqlalchemy
 import importlib
 import os
 import tomllib
@@ -34,13 +33,15 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     **kwargs,
   ) -> None:
     cls.__extid__ = ext_id
-    cls.__configcls__ = config_cls
+    # ConfigTV is bound by each concrete extension subclass; Python's type model
+    # cannot represent a class attribute specialized by that subclass binding.
+    cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
     cls.__configschema__ = config_cls.model_json_schema()
     return super().__init_subclass__(**kwargs)
 
   @classmethod
   def on_start(cls, app: fastapi.FastAPI, extension: ExtensionModel):
-    cls.config = cls.__configcls__(**(extension.config or {}))
+    cls.config = cls.__configcls__(**(extension.config or {}))  # pyrefly: ignore[no-access]
     with SessionLocal() as db:
       extension.config_schema = cls.__configschema__
       db.add(extension)
@@ -63,7 +64,10 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
 
   @classmethod
   async def on_close(cls):
-    ExtensionManager.save_config(ext_id=cls.__extid__, config=cls.config)
+    ExtensionManager.save_config(
+      ext_id=cls.__extid__,
+      config=cls.config,  # pyrefly: ignore[missing-attribute]
+    )
     LOGGER.info(f"Extension {cls.__extid__} closed.")
 
   @classmethod
@@ -81,9 +85,9 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     :param new_config:
     """
     if isinstance(new_config, dict):
-      cls.config = cls.__configcls__(**new_config)
+      cls.config = cls.__configcls__(**new_config)  # pyrefly: ignore[no-access]
     else:
-      cls.config = new_config
+      cls.config = new_config  # pyrefly: ignore[no-access]
 
 
 class ExtensionManager:
@@ -316,9 +320,8 @@ class ExtensionManager:
       if enabled_only:
         client_id = ClientManager.get_current_client_id()
         # Filter: client_id must be in the enabled array
-        query = query.where(
-          ExtensionModel.enabled.any(client_id, operator=sqlalchemy.sql.operators.eq)
-        )
+        enabled_column = typing.cast(typing.Any, ExtensionModel.enabled)
+        query = query.where(enabled_column.any(client_id))
 
       return tuple(db.exec(query).all())
 
@@ -435,7 +438,7 @@ class ExtensionManager:
       # Runtime artifacts are immutable. Database-only records are never downloaded.
       all_db_extensions = db.exec(sqlmodel.select(ExtensionModel)).all()
       db_only = sorted(
-        str(extension.id)
+        extension.id
         for extension in all_db_extensions
         if extension.id not in local_extensions
       )

@@ -77,7 +77,12 @@ def edit_block(
 ) -> BlockModel:
   """编辑块（部分更新），只更新请求中提供的字段。"""
   try:
-    updated = BlockManager.edit_block(block_id, body)
+    updated = BlockManager.edit_block(
+      block_id,
+      content=body.content,
+      resolver=body.resolver,
+      storage=body.storage,
+    )
   except ValueError:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_404_NOT_FOUND,

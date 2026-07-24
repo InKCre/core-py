@@ -11,7 +11,7 @@ from app.schemas.source import SourceModel, SourceID, SourceTypesModel
 from app.scheduler import scheduler
 
 if typing.TYPE_CHECKING:
-  from collect_job import SourceCollectJobModel
+  from .collect_job import SourceCollectJobModel
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
 
@@ -28,7 +28,8 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
   __configcls__: type[ConfigTV]
 
   def __init_subclass__(cls, config_cls: type[ConfigTV], **kwargs) -> None:
-    cls.__configcls__ = config_cls
+    # ConfigTV is bound by the concrete source subclass.
+    cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
     cls.__configschema__ = config_cls.model_json_schema()
     SourceManager.add_source_type(cls)
     return super().__init_subclass__(**kwargs)
@@ -68,7 +69,7 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     """Get the configuration of the source."""
     with SessionLocal() as db:
       source = db.exec(sqlmodel.select(SourceModel).where(SourceModel.id == self._id)).one()
-      return typing.cast(ConfigTV, self.__configcls__.model_validate(source.config))
+      return self.__configcls__.model_validate(source.config)
 
   def get_state(self) -> dict:
     """Get the source state from database."""
@@ -153,7 +154,7 @@ class SourceManager:
       source_class = cls._SOURCE_CLASSES.get(source_type, None)
       if source_class is None:
         raise ValueError(f"Source class {source_type} not registered.")
-      ins = source_class(_id=typing.cast(SourceID, source_id))
+      ins = source_class(_id=source_id)
       cls.SOURCES[source_id] = ins
     return ins
 

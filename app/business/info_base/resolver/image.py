@@ -6,12 +6,13 @@ import tencentcloud.common.credential
 import tencentcloud.lke.v20231130.lke_client
 import tencentcloud.lke.v20231130.models
 import aiohttp
+import sqlmodel
 
 from typing import Optional as Opt
 
-from .main import Resolver
+from .main import BreakdownItem, Resolver
 from app.schemas.info_base.main import SubGraphForm, ArcForm
-from app.schemas.info_base.block import ResolverType, BlockModel
+from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.engine import SessionLocal
 from utils.base import AIOHTTP_CONNECTOR_GETTER
@@ -34,7 +35,7 @@ class Img2TextResult(typing.TypedDict):
   summary: str
 
 
-class ImageResolver(Resolver, rso_type="image"):
+class ImageResolver(Resolver[str, bytes], rso_type="image"):
   @classmethod
   def create_graph(cls, url: str, alt_text: Opt[str] = None) -> SubGraphForm:
     return SubGraphForm(
@@ -60,10 +61,11 @@ class ImageResolver(Resolver, rso_type="image"):
       return {
         "ImgSource": base64.b64encode(self._block.content.encode("utf-8")).decode("utf-8")
       }
-    elif self._block.get_storage_type() != "URL":
-      raise NotImplementedError
-    else:
-      return {"ImgURL": self._block.content}
+    if self._block.storage != -1:
+      raise NotImplementedError(
+        f"Image workflow does not support storage {self._block.storage}"
+      )
+    return {"ImgURL": self._block.content}
 
   async def __img2text(self) -> Img2TextResult:
     """Transform image to text
@@ -81,85 +83,144 @@ class ImageResolver(Resolver, rso_type="image"):
     )
 
   async def __run_lke_workflow(self, workflow_id: str, **kwargs) -> dict:
-    req = tencentcloud.lke.v20231130.models.CreateWorkflowRunRequest()
-    req.AppBizId = workflow_id
-    req.CustomVariables = tuple({"Name": k, "Value": v} for k, v in kwargs.items())
-    workflow_run_id = TENCENT_LKE_CLIENT.CreateWorkflowRun(req).WorkflowRunId
+    create_request = tencentcloud.lke.v20231130.models.CreateWorkflowRunRequest()
+    create_request.AppBizId = workflow_id
+    create_request.CustomVariables = tuple(
+      {"Name": key, "Value": value} for key, value in kwargs.items()
+    )
+    create_response = TENCENT_LKE_CLIENT.CreateWorkflowRun(create_request)
+    workflow_run_id = create_response.WorkflowRunId
+    if not isinstance(workflow_run_id, str):
+      raise RuntimeError("Tencent LKE did not return a workflow run ID")
 
-    workflow_finish = False
-    req = tencentcloud.lke.v20231130.models.DescribeWorkflowRunRequest()
-    req.WorkflowRunId = workflow_run_id
-    resp = None
-    while not workflow_finish:
-      resp = TENCENT_LKE_CLIENT.DescribeWorkflowRun(req)
-      if resp.WorkflowRun.State in (2, 3, 4):
-        workflow_finish = True
+    describe_request = tencentcloud.lke.v20231130.models.DescribeWorkflowRunRequest()
+    describe_request.WorkflowRunId = workflow_run_id
+    while True:
+      describe_response = TENCENT_LKE_CLIENT.DescribeWorkflowRun(describe_request)
+      workflow_run = describe_response.WorkflowRun
+      if workflow_run is None:
+        raise RuntimeError("Tencent LKE did not return workflow state")
+      if workflow_run.State in (2, 3, 4):
+        break
       await asyncio.sleep(1)
 
-    for node in resp.NodeRuns:
+    for node in describe_response.NodeRuns or ():
       if node.NodeType == 16:
-        end_node_run_id = node.NodeRunId
-        req = tencentcloud.lke.v20231130.models.DescribeNodeRunRequest()
-        req.NodeRunId = end_node_run_id
-        resp = TENCENT_LKE_CLIENT.DescribeNodeRun(req)
-        if not resp.NodeRun.OutputRef:
-          return json.loads(resp.NodeRun.Output)
-        else:
-          # TODO extract to download()
-          async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
-            async with session.get(resp.NodeRun.OutputRef) as response:
-              response.raise_for_status()
-              raw_res = await response.json()
-              return raw_res
-        # else:
-        # return requests.get(url=resp.NodeRun.OutputRef).json()
+        node_run_id = node.NodeRunId
+        if not isinstance(node_run_id, str):
+          raise RuntimeError("Tencent LKE end node is missing its run ID")
+        node_request = tencentcloud.lke.v20231130.models.DescribeNodeRunRequest()
+        node_request.NodeRunId = node_run_id
+        node_response = TENCENT_LKE_CLIENT.DescribeNodeRun(node_request)
+        node_run = node_response.NodeRun
+        if node_run is None:
+          raise RuntimeError("Tencent LKE did not return end-node output")
+
+        output_ref = node_run.OutputRef
+        if output_ref is None:
+          output = node_run.Output
+          if not isinstance(output, str):
+            raise RuntimeError("Tencent LKE end node returned no inline output")
+          parsed_output = json.loads(output)
+          if not isinstance(parsed_output, dict):
+            raise RuntimeError("Tencent LKE workflow output must be a JSON object")
+          return parsed_output
+
+        if not isinstance(output_ref, str):
+          raise RuntimeError("Tencent LKE returned an invalid output URL")
+        # TODO extract to download()
+        async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
+          async with session.get(output_ref) as response:
+            response.raise_for_status()
+            remote_output = await response.json()
+            if not isinstance(remote_output, dict):
+              raise RuntimeError("Tencent LKE workflow output must be a JSON object")
+            return remote_output
 
     raise RuntimeError("Workflow did not complete successfully.")
 
-  async def __interactively_extract_BaR(self, img2text_result: Img2TextResult):
-    #  -> typing.AsyncGenerator[Resolver.BorRT, Resolver.BorRT]:
+  async def breakdown(
+    self,
+  ) -> typing.AsyncGenerator[BreakdownItem, BreakdownItem]:
+    """Persist an image summary and its extracted details as related blocks."""
+    img2text_result = await self.__img2text()
+
     # alt:text
-    alt_text_block = yield BlockModel(resolver="text", content=img2text_result["summary"])
-    yield RelationModel(from_=self._block.id, to_=alt_text_block.id, content="alt:text")
+    alt_text_block = typing.cast(
+      BlockModel,
+      (yield BlockModel(resolver="text", content=img2text_result["summary"])),
+    )
+    yield RelationModel(
+      from_=self.block_id,
+      to_=typing.cast(int, alt_text_block.id),
+      content="alt:text",
+    )
 
     # info (key information)
     for item in img2text_result["details"]:
-      info_block = yield BlockModel(resolver="text", content=item["content"])
-      yield RelationModel(from_=self._block.id, to_=info_block.id, content="has content")
-      info_type_block = yield BlockModel(resolver="text", content=item["type"])
-      yield RelationModel(from_=info_block.id, to_=info_type_block.id, content="is")
+      info_block = typing.cast(
+        BlockModel,
+        (yield BlockModel(resolver="text", content=item["content"])),
+      )
+      yield RelationModel(
+        from_=self.block_id,
+        to_=typing.cast(int, info_block.id),
+        content="has content",
+      )
+      info_type_block = typing.cast(
+        BlockModel,
+        (yield BlockModel(resolver="text", content=item["type"])),
+      )
+      yield RelationModel(
+        from_=typing.cast(int, info_block.id),
+        to_=typing.cast(int, info_type_block.id),
+        content="is",
+      )
       for action in item["actions"]:
-        action_block = yield BlockModel(resolver=ResolverType.TEXT, content=action)
-        yield RelationModel(from_=action_block.id, to_=info_type_block.id, content="needs")
+        action_block = typing.cast(
+          BlockModel,
+          (yield BlockModel(resolver="text", content=action)),
+        )
+        yield RelationModel(
+          from_=typing.cast(int, action_block.id),
+          to_=typing.cast(int, info_type_block.id),
+          content="needs",
+        )
 
-  async def get_text(self):
+  async def get_text(self) -> str:
     """find relation "alt:text" and return the to block content"""
     with SessionLocal() as db_session:
-      alt_text_relation = (
-        db_session.query(RelationModel)
-        .filter(
-          RelationModel.content == "alt:text",
-          RelationModel.from_ == self._block.id,
+      alt_text_relation = db_session.exec(
+        sqlmodel.select(RelationModel).where(
+          sqlmodel.col(RelationModel.content) == "alt:text",
+          sqlmodel.col(RelationModel.from_) == self.block_id,
         )
-        .one_or_none()
-      )
+      ).one_or_none()
       if alt_text_relation:
-        alt_text_to_block = (
-          db_session.query(BlockModel).filter(BlockModel.id == alt_text_relation.to_).one()
-        )
+        alt_text_to_block = db_session.exec(
+          sqlmodel.select(BlockModel).where(
+            sqlmodel.col(BlockModel.id) == alt_text_relation.to_
+          )
+        ).one()
         return alt_text_to_block.content
 
       img2text_result = await self.__img2text()
-      alt_text_block_table = BlockModel(
-        resolver="text", content=img2text_result["summary"]
-      ).to_table()
-      db_session.add(alt_text_block_table)
+      alt_text_block = BlockModel(resolver="text", content=img2text_result["summary"])
+      db_session.add(alt_text_block)
       db_session.flush()
-      alt_text_relation_table = RelationModel(
-        content="alt:text", to_=alt_text_block_table.id, from_=self._block.id
-      ).to_table()
-      db_session.add(alt_text_relation_table)
+      if alt_text_block.id is None:
+        raise RuntimeError("Persisted alt-text block is missing its database ID")
+      alt_text_relation = RelationModel(
+        content="alt:text",
+        to_=alt_text_block.id,
+        from_=self.block_id,
+      )
+      db_session.add(alt_text_relation)
 
       db_session.commit()
 
       return img2text_result["summary"]
+
+  async def get_str_for_embedding(self) -> str:
+    """Use the image's text representation as the embedding input."""
+    return await self.get_text()

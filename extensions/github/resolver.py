@@ -12,12 +12,14 @@ from utils.sql import find_by_json_contains
 from .schema import GithubRepo, GithubUser
 
 
-class GithubRepoResolver(Resolver, rso_type="github_repo"):
+class GithubRepoResolver(Resolver[GithubRepo, str], rso_type="github_repo"):
   """Resolver for GitHub repository blocks."""
 
-  def __post_init__(self, raw_content):
-    if raw_content is not None:
-      self.set_solved_content(GithubRepo.model_validate_json(raw_content))
+  def __post_init__(self, raw_content: str | None = None) -> None:
+    if raw_content is None:
+      raise ValueError("GitHub repository blocks require inline JSON content")
+    self._content = GithubRepo.model_validate_json(raw_content)
+    self.set_solved_content(self._content)
 
   @classmethod
   def create_graph(
@@ -58,7 +60,7 @@ class GithubRepoResolver(Resolver, rso_type="github_repo"):
     existing_block = db_session.exec(
       sqlmodel.select(BlockModel).where(
         BlockModel.resolver == self._block.resolver,
-        find_by_json_contains(BlockModel.content, {"id": self.content.id}),
+        find_by_json_contains(BlockModel.content, {"id": self._content.id}),
       )
     ).one_or_none()
     return existing_block
@@ -68,9 +70,9 @@ class GithubRepoResolver(Resolver, rso_type="github_repo"):
 
     Returns the full name and description.
     """
-    text = self.content.full_name
-    if self.content.description:
-      text += f": {self.content.description}"
+    text = self._content.full_name
+    if self._content.description:
+      text += f": {self._content.description}"
     return text
 
   async def get_str_for_embedding(self) -> str:
@@ -78,21 +80,24 @@ class GithubRepoResolver(Resolver, rso_type="github_repo"):
 
     Combines name, description, topics and language for better semantic search.
     """
-    parts = [self.content.full_name]
-    if self.content.description:
-      parts.append(self.content.description)
-    if self.content.language:
-      parts.append(f"Language: {self.content.language}")
-    if self.content.topics:
-      parts.append(f"Topics: {', '.join(self.content.topics)}")
+    parts = [self._content.full_name]
+    if self._content.description:
+      parts.append(self._content.description)
+    if self._content.language:
+      parts.append(f"Language: {self._content.language}")
+    if self._content.topics:
+      parts.append(f"Topics: {', '.join(self._content.topics)}")
     return "\n".join(parts)
 
 
-class GithubUserResolver(Resolver, rso_type="github_user"):
+class GithubUserResolver(Resolver[GithubUser, str], rso_type="github_user"):
   """Resolver for GitHub user blocks."""
 
-  def __post_init__(self):
-    self._solved_content: GithubUser = GithubUser.model_validate_json(self._block.content)
+  def __post_init__(self, raw_content: str | None = None) -> None:
+    if raw_content is None:
+      raise ValueError("GitHub user blocks require inline JSON content")
+    self._content = GithubUser.model_validate_json(raw_content)
+    self.set_solved_content(self._content)
 
   @classmethod
   def create_block(cls, content: GithubUser | dict, storage=None) -> BlockModel:
@@ -111,16 +116,20 @@ class GithubUserResolver(Resolver, rso_type="github_user"):
 
     Returns the display name and login, or just login if no name.
     """
-    if self._solved_content.name:
-      return f"{self._solved_content.name} (@{self._solved_content.login})"
-    return f"@{self._solved_content.login}"
+    if self._content.name:
+      return f"{self._content.name} (@{self._content.login})"
+    return f"@{self._content.login}"
+
+  async def get_str_for_embedding(self) -> str:
+    """Use the display representation for semantic retrieval."""
+    return await self.get_text()
 
   def get_existing(self, db_session: Session) -> BlockModel | None:
     """Check for existing GitHub user by ID."""
     existing_block = db_session.exec(
       sqlmodel.select(BlockModel).where(
         BlockModel.resolver == self._block.resolver,
-        find_by_json_contains(BlockModel.content, {"id": self._solved_content.id}),
+        find_by_json_contains(BlockModel.content, {"id": self._content.id}),
       )
     ).one_or_none()
     return existing_block

@@ -189,7 +189,8 @@ class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
     :param stg_type: Unique storage type string
     :param config_cls: Configuration class for the storage
     """
-    cls.__configcls__ = config_cls
+    # ConfigTV is bound by the concrete storage subclass.
+    cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
     cls.__configschema__ = config_cls.model_json_schema()
     cls.__stgtype__ = stg_type
     StorageManager.register_storage(cls)
