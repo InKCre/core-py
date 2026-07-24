@@ -245,11 +245,11 @@ flowchart TB
 - Execution 08 uses `preview/core-py/pr-N` plus `inkcre-core-py-pr-N`, permits only trusted PRs
   targeting `main`, and proved exact creation and cleanup in real PRs #37 and #38. Production
   deploy run `30091595400` is green. Every Heroku web formation is Eco.
-- Execution 09 removed the core all-events Heroku webhook, stale GitHub environments and
-  OpenAPI registration, repository-level legacy secrets, core Git `develop`/`staging`,
-  client-web Git `develop` plus its obsolete Heroku branch, Neon `develop`, and the
-  `inkcre-core-staging`/`inkcre-pgrst` apps. Historical client branches remain reachable
-  through archive tags.
+- Execution 09 removed the Heroku pipeline's legacy GitHub repository link and all-events
+  webhook, stale GitHub environments and OpenAPI registration, repository-level legacy
+  secrets, core Git `develop`/`staging`, client-web Git `develop` plus its obsolete Heroku
+  branch, Neon `develop`, and the `inkcre-core-staging`/`inkcre-pgrst` apps. Historical client
+  branches remain reachable through archive tags.
 - Neon staging storage is retained only as
   `archive/staging-lineage-20250824` without a compute endpoint: Neon forbids deleting an
   ancestor of the retained pre-cutover checkpoint and production lineage. No active address

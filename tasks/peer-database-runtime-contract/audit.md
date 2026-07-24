@@ -212,9 +212,10 @@ All retirement gates were satisfied on 2026-07-24:
 - core preview PRs #37 and #38 proved repository-qualified Neon/Heroku creation and exact
   close cleanup;
 - core production run `30091595400` passed after cleanup with both Eco peers ready;
-- the Heroku all-events hook, staging app, legacy PostgREST app, Logtail addon/drain, stale
-  GitHub environments, and unused repository secrets are absent; the historical OpenAPI
-  workflow registration is disabled;
+- the Heroku pipeline's legacy GitHub repository link and its all-events hook are absent, so
+  exact GitHub Actions controllers are the only review authority; the staging app, legacy
+  PostgREST app, Logtail addon/drain, stale GitHub environments, and unused repository secrets
+  are also absent; the historical OpenAPI workflow registration is disabled;
 - core Git `develop` and `staging` are absent; client-web has only protected `main`, while the
   retired long-lived branches remain recoverable through archive tags;
 - Neon `develop` is absent. The historical staging branch is storage-only under
