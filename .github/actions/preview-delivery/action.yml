@@ -52,15 +52,8 @@ runs:
             --no-color
         )"
         matches="$(
-          jq -c --arg preferred "preview/core-py/pr-$PR_NUMBER" \
-            --arg legacy "preview/pr-$PR_NUMBER" '
-              [.[] | select(.name == $preferred)] as $preferred_matches |
-              if ($preferred_matches | length) > 0 then
-                $preferred_matches
-              else
-                [.[] | select(.name == $legacy)]
-              end
-            ' <<<"$branches_json"
+          jq -c --arg name "preview/core-py/pr-$PR_NUMBER" \
+            '[.[] | select(.name == $name)]' <<<"$branches_json"
         )"
         test "$(jq 'length' <<<"$matches")" = 1
         branch_id="$(jq -r '.[0].id' <<<"$matches")"

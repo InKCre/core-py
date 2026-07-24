@@ -101,10 +101,7 @@ jobs:
               exit 1
               ;;
           esac
-          for app_name in \
-            "inkcre-core-py-pr-$PR_NUMBER" \
-            "inkcre-core-pr-$PR_NUMBER"; do
-            if heroku apps:info --app "$app_name" >/dev/null 2>&1; then
-              heroku apps:destroy --app "$app_name" --confirm "$app_name"
-            fi
-          done
+          app_name="inkcre-core-py-pr-$PR_NUMBER"
+          if heroku apps:info --app "$app_name" >/dev/null 2>&1; then
+            heroku apps:destroy --app "$app_name" --confirm "$app_name"
+          fi
