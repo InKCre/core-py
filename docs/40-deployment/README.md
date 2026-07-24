@@ -5,6 +5,7 @@ This layer stores operational truth: how the service starts, how environments ar
 ## Documents
 
 - [development-environment.md](development-environment.md)
+- [database-contract.md](database-contract.md)
 - [docker.md](docker.md)
 - [heroku.md](heroku.md)
 - [neon.md](neon.md)
@@ -16,11 +17,13 @@ This layer stores operational truth: how the service starts, how environments ar
 - `.python-version`
 - `.env.example`
 - `Dockerfile`
+- `Dockerfile.postgrest`
 - `docker-compose.yml`
 - `Procfile`
 - `app.json`
 - `.github/workflows/branching-database.yml`
 - `.github/workflows/ci.yml`
+- `.github/workflows/artifact-publish.yml`
 - `.github/actions/preview-verify/action.yml`
 - `.github/actions/preview-delivery/action.yml`
 - `.github/workflows/preview-deploy.yml`

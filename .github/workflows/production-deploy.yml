@@ -50,22 +50,31 @@ jobs:
           github_token: ${{ github.token }}
           head_sha: ${{ steps.source.outputs.head_sha }}
 
-      - name: Build web and release images without deployment secrets
+      - name: Build core and PostgREST images without deployment secrets
         env:
           HEAD_SHA: ${{ steps.source.outputs.head_sha }}
         run: |
           docker build \
+            --build-arg "SOURCE_REVISION=$HEAD_SHA" \
             --target heroku-web \
             --tag "inkcre-production-web:$HEAD_SHA" \
             .
           docker build \
+            --build-arg "SOURCE_REVISION=$HEAD_SHA" \
             --target heroku-release \
             --tag "inkcre-production-release:$HEAD_SHA" \
+            .
+          docker build \
+            --build-arg "SOURCE_REVISION=$HEAD_SHA" \
+            --file Dockerfile.postgrest \
+            --tag "inkcre-production-postgrest:$HEAD_SHA" \
             .
 
       - name: Deliver production
         uses: ./.github/actions/production-delivery
         with:
+          bootstrap_revision: ${{ vars.DATABASE_CONTRACT_BOOTSTRAP_REVISION }}
+          core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
           head_sha: ${{ steps.source.outputs.head_sha }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ vars.HEROKU_APP_NAME }}
@@ -76,3 +85,6 @@ jobs:
           neon_branch_id: ${{ vars.NEON_BRANCH_ID }}
           neon_parent_branch_id: ${{ vars.NEON_PARENT_BRANCH_ID }}
           neon_project_id: ${{ vars.NEON_PROJECT_ID }}
+          neon_recovery_branch_id: ${{ vars.NEON_RECOVERY_BRANCH_ID }}
+          postgrest_app_name: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
+          postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}

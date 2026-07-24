@@ -162,6 +162,31 @@ error while normalizing its driver URL. It is not recorded in this task artifact
 credential must be rotated during P0 containment. Rotation must update or retire every
 remaining staging consumer atomically and must not affect canonical production credentials.
 
+## Disposable Execution Evidence
+
+Two TTL-bound branches were created under the exact Neon project:
+
+- a child of canonical production proved `c4e8a7b6d5f0 -> d9f4e2a1b7c3`, `public -> inkcre`,
+  with every application-table row count preserved;
+- a child of `preview-base` proved duplicate development init, duplicate seed, duplicate
+  guarded reset, and one stable baseline fingerprint.
+
+On the production-data copy:
+
+- provider-created unsafe protocol roles were removed through the exact branch-scoped Neon
+  control plane;
+- portable SQL created final role attributes atomically;
+- `authenticator` had no direct table access and could switch only to `authenticated`;
+- `inkcre_core` connected as a native runtime peer and full JSON readiness passed without an
+  owner URL;
+- anonymous login was disabled;
+- a preview-identity reset was refused without changing rows.
+
+Neon permits SQL role creation but rejects general `ALTER ROLE` for non-provider owners.
+The portable provisioner therefore creates final attributes atomically, treats a matching
+existing role as a no-op, and fails closed on drift. Stable per-environment role passwords
+are held by protected GitHub environments rather than regenerated per release.
+
 ## Retirement Gates
 
 Before removing the old staging core/PostgREST or Neon staging branch:

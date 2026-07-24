@@ -29,10 +29,9 @@ Trusted pull requests use one data-free branch named `preview/pr-<number>`:
    sanitizer once to remove every allowlisted application row while preserving
    `alembic_version`
 2. create or reuse the deterministic branch with a seven-day TTL
-3. install the frozen migration runtime and apply `alembic upgrade head`
-4. verify that the branch is at the artifact's exact head
-5. publish a credential-free schema diff to the GitHub job summary
-6. delete the same deterministic branch when the PR closes
+3. let the exact PR artifact own role normalization, migration, catalog reconciliation, and
+   readiness during trusted preview delivery
+4. delete the same deterministic branch when the PR closes
 
 The workflow pins Neon CLI 2.36.0. Connection URLs are consumed only through masked action
 outputs and are never written to logs or artifacts.
@@ -105,9 +104,14 @@ pre-cutover checkpoint, not a rename or in-place migration of `staging`. Its ini
 manifest preserved every application-table row count and changed only the Alembic head to
 the convergence revision.
 
-Runtime processes use the pooled `DATABASE_URL`. Migration/release processes prefer the
-direct `MIGRATION_DATABASE_URL` and fall back to `DATABASE_URL` for local and legacy
-environments. Both URLs must resolve to the same exact guarded branch.
+Native runtime and PostgREST use role-specific URLs derived from the pooled branch
+coordinate. The protected GitHub lifecycle process alone receives the direct owner
+`MIGRATION_DATABASE_URL`; Heroku config never contains that URL. Both coordinates are
+resolved from the same exact guarded branch during each delivery.
+
+Every production mutation also requires a fresh no-TTL recovery branch whose parent is the
+exact live production branch. Delivery refuses a missing, expiring, incorrectly parented,
+or unexpectedly named recovery branch.
 
 The current Neon plan cannot protect this branch. GitHub environment isolation, exact
 branch-ID/parent guards, serialized release execution, the durable checkpoint, and the

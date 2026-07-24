@@ -38,8 +38,8 @@ runs:
 
         required_checks=(
           "Hermetic repository contract"
-          "Portable artifact and fresh database"
-          "Provision and migrate"
+          "Portable peer database runtime"
+          "Provision isolated branch"
         )
 
         for _ in $(seq 1 120); do

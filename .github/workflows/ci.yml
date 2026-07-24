@@ -74,11 +74,12 @@ jobs:
         run: pdm run pre-commit run --all-files
 
   artifact:
-    name: Portable artifact and fresh database
+    name: Portable peer database runtime
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: pgvector/pgvector:pg17
+        image: >-
+          pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
         env:
           POSTGRES_DB: inkcre
           POSTGRES_USER: postgres
@@ -91,17 +92,28 @@ jobs:
           --health-timeout 5s
           --health-retries 12
     env:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/inkcre
-      JWT_SECRET: ci-only-placeholder
+      CORE_DATABASE_PASSWORD: ci-core-database-password-at-least-32-bytes
+      DATABASE_URL: >-
+        postgresql+psycopg://inkcre_core:ci-core-database-password-at-least-32-bytes@127.0.0.1:5432/inkcre
       INKCRE_ENV_FILE: ""
+      JWT_SECRET: ci-development-jwt-secret-at-least-32-bytes
+      MIGRATION_DATABASE_URL: >-
+        postgresql+psycopg://postgres:postgres@127.0.0.1:5432/inkcre
       OBSRV__LOGGING_BACKEND: none
+      POSTGREST_DATABASE_PASSWORD: ci-postgrest-database-password-at-least-32-bytes
+      POSTGREST_IMAGE: >-
+        postgrest/postgrest:v14.15@sha256:2f8e7b656f09db697a8875177694b417b35cb76c21370de07fc54e711e902326
       IMAGE_TAG: inkcre-core:${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Build frozen artifact
-        run: docker build --tag "$IMAGE_TAG" .
+        run: >-
+          docker build
+          --build-arg "SOURCE_REVISION=${{ github.sha }}"
+          --tag "$IMAGE_TAG"
+          .
 
       - name: Inspect artifact contents
         run: >-
@@ -109,22 +121,98 @@ jobs:
           "from pathlib import Path;
           required = (
             'app', 'libs', 'utils', 'extensions', 'migrations/versions',
-            'alembic.ini', 'scripts/container.py', 'data/ai/prompts'
+            'alembic.ini', 'scripts/container.py', 'scripts/database.py',
+            'scripts/verify_postgrest_contract.py', 'data/ai/prompts'
           );
           missing = [path for path in required if not Path(path).exists()];
           assert not missing, missing"
 
-      - name: Migrate disposable database
-        run: >-
-          docker run --rm --network host
-          --env DATABASE_URL
-          "$IMAGE_TAG" migrate
-
-      - name: Verify migration head and metadata
+      - name: Initialize fresh database twice
         run: |
-          docker run --rm --network host --env DATABASE_URL "$IMAGE_TAG" ready
-          docker run --rm --network host --env DATABASE_URL \
+          docker run --rm --network host \
+            --env CORE_DATABASE_PASSWORD \
+            --env MIGRATION_DATABASE_URL \
+            --env POSTGREST_DATABASE_PASSWORD \
+            "$IMAGE_TAG" db init --profile development
+          docker run --rm --network host \
+            --env CORE_DATABASE_PASSWORD \
+            --env MIGRATION_DATABASE_URL \
+            --env POSTGREST_DATABASE_PASSWORD \
+            "$IMAGE_TAG" db init --profile development
+
+      - name: Verify migration, metadata, and machine readiness
+        run: |
+          docker run --rm --network host \
+            --env MIGRATION_DATABASE_URL \
+            "$IMAGE_TAG" db ready --profile development --json
+          docker run --rm --network host --env MIGRATION_DATABASE_URL \
             --entrypoint alembic "$IMAGE_TAG" check
+
+      - name: Prove readiness rejects contract drift
+        run: |
+          docker run --rm --network host \
+            --env CORE_DATABASE_PASSWORD \
+            --env MIGRATION_DATABASE_URL \
+            --env POSTGREST_DATABASE_PASSWORD \
+            --entrypoint python \
+            "$IMAGE_TAG" \
+            scripts/verify_database_contract_failures.py
+
+      - name: Start PostgREST and verify peer read/write contract
+        run: |
+          postgrest_database_url="postgresql://authenticator:${POSTGREST_DATABASE_PASSWORD}@127.0.0.1:5432/inkcre"
+          postgrest_id="$(
+            docker run --detach --network host \
+              --env "PGRST_DB_URI=$postgrest_database_url" \
+              --env PGRST_DB_SCHEMAS=inkcre \
+              --env PGRST_DB_ANON_ROLE=anonymous \
+              --env PGRST_DB_PRE_REQUEST=inkcre_internal.check_jwt \
+              --env "PGRST_JWT_SECRET=$JWT_SECRET" \
+              --env PGRST_JWT_AUD=inkcre-api \
+              --env PGRST_SERVER_PORT=13000 \
+              "$POSTGREST_IMAGE"
+          )"
+          trap 'docker logs "$postgrest_id"; docker rm --force "$postgrest_id"' EXIT
+
+          for _ in $(seq 1 30); do
+            if docker run --rm --network host \
+              "$IMAGE_TAG" \
+              db contract --json >/dev/null &&
+              docker run --rm --network host \
+                --entrypoint python \
+                "$IMAGE_TAG" \
+                scripts/verify_postgrest_contract.py \
+                --base-url http://127.0.0.1:13000 \
+                --jwt-secret "$JWT_SECRET" \
+                --wrong-jwt-secret ci-wrong-jwt-secret-at-least-32-bytes; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Verify deterministic reset twice
+        run: |
+          fingerprint() {
+            docker run --rm --network host \
+              --env MIGRATION_DATABASE_URL \
+              --entrypoint python \
+              "$IMAGE_TAG" \
+              -c "from app.database_contract.catalog import development_baseline_fingerprint as f; print(f())"
+          }
+          baseline="$(fingerprint)"
+          docker run --rm --network host \
+            --env CORE_DATABASE_PASSWORD \
+            --env MIGRATION_DATABASE_URL \
+            --env POSTGREST_DATABASE_PASSWORD \
+            "$IMAGE_TAG" db reset-dev --confirm reset-development-data
+          test "$(fingerprint)" = "$baseline"
+          docker run --rm --network host \
+            --env CORE_DATABASE_PASSWORD \
+            --env MIGRATION_DATABASE_URL \
+            --env POSTGREST_DATABASE_PASSWORD \
+            "$IMAGE_TAG" db reset-dev --confirm reset-development-data
+          test "$(fingerprint)" = "$baseline"
 
       - name: Start and probe web artifact
         run: |
@@ -133,6 +221,7 @@ jobs:
               --env DATABASE_URL \
               --env JWT_SECRET \
               --env INKCRE_ENV_FILE \
+              --env MIGRATION_DATABASE_URL \
               --env PORT=18080 \
               "$IMAGE_TAG" web
           )"
@@ -186,10 +275,12 @@ jobs:
       - name: Deliver preview
         uses: ./.github/actions/preview-delivery
         with:
+          core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
           head_sha: ${{ github.sha }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           llm_sp_ak: ${{ secrets.LLM_SP_AK }}
           llm_sp_base_url: ${{ secrets.LLM_SP_BASE_URL }}
           neon_api_key: ${{ secrets.NEON_API_KEY }}
           neon_project_id: ${{ vars.NEON_PROJECT_ID }}
+          postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
           pr_number: ${{ inputs.preview_pr }}

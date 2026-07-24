@@ -1,117 +1,141 @@
 # Heroku
 
-## Artifact And Process Model
+## Artifact And Authority Model
 
-Heroku consumes the same provider-neutral OCI source proved in CI. The `Dockerfile` exposes
-two provider-adapted targets:
+Heroku consumes the same provider-neutral OCI source proved in CI:
 
-- `heroku-web`: starts the application server
-- `heroku-release`: applies `alembic upgrade head` and has no web command
+- `heroku-web` starts core-py;
+- `heroku-release` is a no-op release guard;
+- `Dockerfile.postgrest` adds only a `$PORT` adapter to digest-pinned PostgREST.
 
-The workflow pushes both targets to Heroku Container Registry and releases `web` and
-`release` together. Heroku therefore supplies compute, configuration, and routing; it is not
-the build-system contract and owns no database.
+The protected GitHub delivery job runs database lifecycle commands before releasing images.
+This is intentional: Heroku config vars are available to every dyno in an app, so putting a
+migration-owner URL into Release Phase would also expose it to the web process.
 
-Heroku wraps release commands in an internal shell program to stream release logs. These
-two targets therefore clear the provider-neutral image entry point and put the complete
-allowlisted Python invocation in `CMD`. `scripts/container.py` remains strict and never
-parses or evaluates Heroku's shell wrapper. They include `curl` solely so release output is
-streamed back to the deployment job rather than requiring a later app-log lookup.
+Core Heroku config contains only an `inkcre_core` URL. PostgREST config contains only an
+`authenticator` URL. The direct Neon owner URL exists only in the protected delivery job.
+Heroku supplies compute, routing, and runtime configuration; it owns neither the build nor
+the database.
 
-`Procfile`, `requirements.txt`, and `app.json` remain legacy buildpack entry points for the
-existing staging app. They do not govern container previews and must not be used as the
-production CD contract without a separate cutover.
+`Procfile`, `requirements.txt`, and `app.json` remain legacy buildpack inputs for the
+existing staging app until the legacy-retirement execution. They do not define preview or
+production CD.
 
 ## Pull Request Previews
 
-Trusted same-repository pull requests use:
+Trusted same-repository pull requests currently use:
 
-- app name `inkcre-core-pr-<number>`
-- pipeline `inkcre-core`, stage `review`
-- container stack in the US region
-- one Eco `web` dyno
-- matching Neon branch `preview/pr-<number>`
-- no Heroku PostgreSQL or other addon
+- app name `inkcre-core-pr-<number>`;
+- pipeline `inkcre-core`, stage `review`;
+- container stack in the US region;
+- one Eco `web` dyno;
+- matching seven-day Neon branch `preview/pr-<number>`;
+- no Heroku addon.
 
-`.github/actions/preview-verify/action.yml` verifies that the exact PR head passed the
-repository, portable-artifact, and preview-database checks. The caller then builds both
-images in a step that receives no deployment inputs. Only afterward does
-`.github/actions/preview-delivery/action.yml` resolve the masked Neon URL, configure the
-app, push both process images, run the release, and probe `/livez` plus `/readyz`.
+The branch workflow owns only exact isolated branch creation/deletion. After the repository,
+portable-runtime, and branch checks pass for the exact PR SHA, preview delivery:
 
-`.github/workflows/preview-deploy.yml` uses the base branch's trusted
-`pull_request_target` workflow for same-repository pull requests. It first waits for the
-exact PR head's repository, artifact, and preview-database checks, then checks out the
-untrusted PR source separately and uses it only as the secret-free Docker build context.
-Deployment inputs are exposed only to the later delivery action. A PR-close event destroys
-only the deterministic app. The matching Neon workflow independently deletes only its
-deterministic database branch.
+1. builds images before receiving deployment secrets;
+2. verifies the exact branch and TTL;
+3. removes inherited provider-created protocol roles only on first bootstrap;
+4. runs the PR artifact's complete preview-profile initialization and readiness;
+5. derives an `inkcre_core` URL without logging it;
+6. configures and releases the Heroku app;
+7. forces `web=1:eco` and probes `/livez` plus `/readyz`.
 
-The manual `workflow_dispatch` input on `.github/workflows/ci.yml` is a recovery and initial
-bootstrap path. It executes the same repository and artifact checks before calling the same
-delivery action.
+The owner URL and PostgREST database password never enter preview Heroku config.
+PR close destroys only the deterministic app; the independent Neon workflow deletes only
+the deterministic database branch.
 
-## Production Delivery
+The current `preview/pr-<number>` identity remains a known single-repository limitation.
+Repository-qualified review identities are owned by the later multi-repository CD execution.
 
-Production uses:
+## Canonical Production
 
-- Git source: the exact current `main` SHA
-- app: `inkcre-core-production`
-- pipeline: `inkcre-core`, stage `production`
-- stack/region: container, US
-- database: canonical Neon branch `production`
-- formation: one Eco `web` process and one on-demand `release` process
-- addons: none
+Production is one logical environment containing two peer transports:
 
-`.github/workflows/production-deploy.yml` runs only after the repository/artifact workflow
-succeeds for a `main` push, or through a main-only recovery dispatch. The verifier resolves
-the current main ref and requires the hermetic repository and fresh-database artifact checks
-for the same SHA. Images are built before any deployment input is referenced.
+| App | Responsibility | Database principal | Formation |
+|---|---|---|---|
+| `inkcre-core-production` | native core peer | `inkcre_core` | one Eco web dyno |
+| `inkcre-postgrest-production` | browser HTTP peer transport | `authenticator` | one Eco web dyno |
 
-The delivery action guards the exact production branch ID and checkpoint parent, resolves a
-pooled `DATABASE_URL` for web traffic and a direct `MIGRATION_DATABASE_URL` for Alembic,
-then releases both Heroku process images. A failed post-release probe rolls the application
-back to its previous deployed release when one exists, but still fails the workflow.
-Application rollback never runs an Alembic downgrade.
+Both apps use the container stack, US region, no addons, and the `production` stage of the
+single `inkcre-core` pipeline. They address the exact canonical Neon `production` branch.
 
-For a new app, explicit config is installed before its first image release. For an existing
-app, delivery first proves that its current pooled and direct hosts still belong to the
-expected Neon branch, releases the new image against that same database, and only then
-updates config. This prevents a Heroku config release from running a new schema through an
-older migration image. Every image and config release is polled to a terminal successful
-state. Only registry login and image transfer receive bounded retries; migration and probe
-failures remain operator-visible failures.
+`.github/workflows/production-deploy.yml` runs only after repository/runtime checks pass for
+the exact current `main` SHA, or by a main-only recovery dispatch. It builds core and
+PostgREST before receiving deployment inputs.
 
-The default Heroku URL is the initial verification endpoint. Custom-domain and DNS traffic
-cutover are separate decisions; the legacy staging app remains unchanged during bootstrap.
+Production delivery guards:
+
+- exact live branch ID, name, historical parent, no TTL, and ready state;
+- a fresh no-TTL recovery branch whose parent is the exact live branch;
+- exact core and PostgREST app names, stack, region, addon absence, and pipeline stage;
+- a one-time `peer-database-runtime-v1` bootstrap switch for provider-role replacement;
+- every application-table row count before and after lifecycle convergence.
+
+The first hard cut scales the old core web process to zero before replacing unsafe inherited
+roles and moving the protocol schema. Later deliveries simply converge the idempotent
+contract. Images and config releases are polled to a terminal state; registry login and
+transfer alone receive bounded retries.
+
+The acceptance probe requires:
+
+- core liveness and full database readiness;
+- PostgREST authenticated read and write;
+- cleanup of the fixed probe row;
+- wrong-secret HTTP 401;
+- anonymous HTTP 401;
+- both formations remaining Eco.
+
+A failed probe rolls back both images when the database contract was already established.
+During the one-time schema hard cut, an old core image is incompatible; failure therefore
+leaves core stopped instead of performing a false rollback. No workflow runs an Alembic
+downgrade.
+
+## PostgREST Runtime Contract
+
+PostgREST is a separate app, not a second process supervised inside the core dyno. It uses:
+
+```text
+PGRST_DB_SCHEMAS=inkcre
+PGRST_DB_ANON_ROLE=anonymous
+PGRST_DB_PRE_REQUEST=inkcre_internal.check_jwt
+PGRST_JWT_AUD=inkcre-api
+```
+
+`PGRST_DB_URI` and `PGRST_JWT_SECRET` are runtime secrets. The pre-request function enforces
+issuer, role, numeric dates, expiry, and maximum lifetime in addition to PostgREST signature
+and audience validation.
 
 ## Secret Boundary
 
-The GitHub `preview` environment owns `HEROKU_API_KEY`, `LLM_SP_AK`, and
-`LLM_SP_BASE_URL`. `NEON_API_KEY` remains a repository secret and `NEON_PROJECT_ID` a
-repository variable. Deployment values are never Docker build arguments or persisted in an
-artifact.
+The GitHub `preview` environment owns its Heroku authorization, LLM inputs, and the two
+database-role passwords. `NEON_API_KEY` remains a repository secret and `NEON_PROJECT_ID` a
+repository variable.
 
-The Heroku secret is a dedicated global authorization named
-`GitHub InKCre/core-py preview CD`, created with a 365-day lifetime on 2026-07-23. Rotate it
-no later than 2027-07-23 and revoke the superseded authorization after a green preview
-deployment.
+The GitHub `production` environment independently owns:
 
-The GitHub `production` environment independently owns its Heroku authorization, JWT
-signing secret, and LLM inputs. It also records exact non-secret app and Neon branch
-identities and admits deployments from `main` only. Production must not reuse the preview
-Heroku authorization or JWT secret.
+- dedicated Heroku authorization;
+- JWT signing secret;
+- LLM inputs;
+- `CORE_DATABASE_PASSWORD`;
+- `POSTGREST_DATABASE_PASSWORD`.
 
-Heroku configuration is explicit. `DATABASE_SCALE_0=true` enables resilient Neon
-connections, `OBSRV__LOGGING_BACKEND=none` keeps console logs without a remote/database
-handler, and the fixed checked-in extension profile boots normally. `CLIENT_ID` is
-deterministic per app so restarts do not create a new runtime identity.
+It records exact non-secret app and Neon branch identities, the fresh recovery branch, and
+the one-time bootstrap revision. Production admits deployments from `main` only and does
+not reuse preview authorization, database passwords, or JWT secret.
 
-## Migration And Rollback Constraint
+The preview Heroku authorization named `GitHub InKCre/core-py preview CD` was created with a
+365-day lifetime on 2026-07-23. Rotate it no later than 2027-07-23 and revoke the superseded
+authorization after a green preview deployment.
 
-The release target is a single-writer `alembic upgrade head` operation. A failed migration
-fails the release; rolling the web image back does not reverse the database. Every revision
-must therefore pass the fresh pgvector artifact check and the matching Neon preview before
-delivery.
+## Migration Constraint
 
-Preview automation is not authority to mutate the existing staging app or production data.
+The protected job is the single migration writer and runs
+`db init --profile runtime --environment preview|production`. Rolling a web image back does
+not reverse database state. Every revision must pass the fresh digest-pinned
+pgvector/PostgREST runtime check and the matching Neon preview before production delivery.
+
+Preview and production automation is not authority to mutate or delete legacy staging
+resources; those remain under the explicit retirement execution.

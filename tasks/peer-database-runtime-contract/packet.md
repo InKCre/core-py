@@ -235,9 +235,19 @@ flowchart TB
 
 ## Current Execution Slice
 
-- Execution 00: publish the cross-unit peer database protocol in the Hub and bump the core-py
-  shared reference in an isolated commit.
-- Then contain live identity hazards and build the portable baseline against disposable
-  PostgreSQL before touching canonical production.
-- Each live production operation requires a fresh value-free manifest/checkpoint check and
-  stops on any unexpected ownership, schema, or row-count evidence.
+- Execution 00 is complete. The Hub contract landed on the shared SVC v9.8 line and core-py
+  consumes that exact commit.
+- Executions 01–03 are implemented and proven on two branch-scoped disposable Neon copies:
+  the production-data copy retained every row through the schema move, and the development
+  copy produced one identical fingerprint across duplicate init/seed/reset runs.
+- Execution 04 is implemented in the repository/artifact job and awaits GitHub-hosted Docker
+  proof because this workstation has no Docker-compatible runtime.
+- Execution 05 is implemented through digest-pinned Compose inputs, OCI revision metadata,
+  collision-safe Compose identity, and a main-only GHCR publisher; publication awaits the
+  exact main merge.
+- Execution 06 delivery code now guards a fresh production recovery checkpoint, performs the
+  one-time provider-role bootstrap, keeps owner credentials out of Heroku, deploys separate
+  Eco core/PostgREST apps in one production stage, and runs black-box JWT read/write/deny
+  acceptance. Live execution remains gated on green CI and the fresh checkpoint.
+- Each live production operation stops on unexpected ownership, identity, schema, readiness,
+  or row-count evidence.
