@@ -202,3 +202,32 @@ Before removing the old staging core/PostgREST or Neon staging branch:
 7. retain the pre-cutover checkpoint and portable encrypted backup;
 8. remove the stale GitHub staging environment and pipeline coupling;
 9. archive/delete staging/develop resources in an order with bounded rollback evidence.
+
+## Closure Evidence
+
+All retirement gates were satisfied on 2026-07-24:
+
+- canonical client-web production discovery, legacy-host detection, typed relation contract,
+  local runtime, doctor, and isolated database E2E landed in PR #18;
+- core preview PRs #37 and #38 proved repository-qualified Neon/Heroku creation and exact
+  close cleanup;
+- core production run `30091595400` passed after cleanup with both Eco peers ready;
+- the Heroku all-events hook, staging app, legacy PostgREST app, Logtail addon/drain, stale
+  GitHub environments, and unused repository secrets are absent; the historical OpenAPI
+  workflow registration is disabled;
+- core Git `develop` and `staging` are absent; client-web has only protected `main`, while the
+  retired long-lived branches remain recoverable through archive tags;
+- Neon `develop` is absent. The historical staging branch is storage-only under
+  `archive/staging-lineage-20250824`; its endpoint is absent, and the branch itself is retained
+  solely because it is an ancestor of the pre-cutover checkpoint and canonical production;
+- the Neon `production`, `preview-base`, pre-cutover checkpoint, and two no-TTL production
+  recovery branches remain ready;
+- Heroku pipeline `inkcre-core` contains exactly the native core and PostgREST production
+  apps, both container-based, addon-free, Eco, and up;
+- live core readiness reports contract `peer-database-runtime-v1`, environment `production`,
+  migration current/expected `d9f4e2a1b7c3`, and healthy roles, privileges, and catalogs;
+  unauthenticated PostgREST returns HTTP 401.
+
+Cloudflare Pages activation is not a retirement gate. The static deployment controllers are
+checked in and green when the optional provider is unconfigured; account verification and
+project creation remain an explicit human follow-up.

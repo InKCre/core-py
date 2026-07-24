@@ -117,6 +117,30 @@ The current Neon plan cannot protect this branch. GitHub environment isolation, 
 branch-ID/parent guards, serialized release execution, the durable checkpoint, and the
 encrypted archive are required compensating controls.
 
+## Retained Lineage And Retired Branches
+
+There is no active Neon staging or develop environment:
+
+- the stale `develop` branch was deleted on 2026-07-24;
+- the historical staging branch was renamed to
+  `archive/staging-lineage-20250824` (`br-broad-bread-a1j7v4ct`) and its compute endpoint was
+  deleted;
+- the archived branch remains storage-only because Neon refuses to delete a branch while it
+  is the ancestor of retained children, including `backup/pre-cutover-20260723` and therefore
+  canonical `production`;
+- `master` remains the provider-required default root and is not an application environment.
+
+The retained recovery surface is deliberate:
+
+- `backup/pre-cutover-20260723` preserves the pre-cutover lineage;
+- `backup/peer-contract-20260724-052651` and
+  `backup/peer-contract-20260724-054730` are no-TTL production recovery branches;
+- `preview-base` is the data-free parent for repository-qualified PR branches.
+
+No runtime, workflow, credential, or documented command may address the archived staging
+lineage. Removing it later requires first replacing or deleting every retained descendant;
+that is a recovery-retention decision, not routine environment cleanup.
+
 ## Operational Implication
 
 Neon branch lifecycle and scale-to-zero behavior are deployment truths. They should stay documented here rather than mixed into product docs or task notes.

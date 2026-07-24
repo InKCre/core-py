@@ -30,9 +30,8 @@
   portable contract.
 - Artifact: this packet, the later Hub Product TDD contract, lifecycle commands, database
   protocol surface, readiness schema, and integration proof.
-- Active mode: Execute. Sir authorized execution through canonical production PostgREST
-  acceptance after the read-only audit and Impact Handshake. `client-web` consumption remains
-  the next execution package rather than part of this branch.
+- Active mode: Solidify/close. Executions 00–09 are complete; this final slice promotes the
+  verified runtime truth and removes the last non-authoritative deployment surfaces.
 
 ## Relationship To Earlier DX Work
 
@@ -235,52 +234,34 @@ flowchart TB
 
 ## Current Execution Slice
 
-- Execution 00 is complete. The Hub contract landed on the shared SVC v9.8 line and core-py
-  consumes that exact commit.
-- Executions 01–03 are implemented and proven on two branch-scoped disposable Neon copies:
-  the production-data copy retained every row through the schema move, and the development
-  copy produced one identical fingerprint across duplicate init/seed/reset runs.
-- Execution 04 is complete. GitHub-hosted Docker proved the entire digest-pinned standard
-  pgvector/PostgREST chain, including negative readiness cases, authenticated read/write,
-  wrong-secret and anonymous 401, deterministic reset, and native runtime readiness.
-- Execution 05 is implemented through digest-pinned Compose inputs, OCI revision metadata,
-  collision-safe Compose identity, and a main-only GHCR publisher; publication awaits the
-  exact main merge.
-- Execution 06 delivery code now guards a fresh production recovery checkpoint, performs the
-  one-time provider-role bootstrap, keeps owner credentials out of Heroku, deploys separate
-  Eco core/PostgREST apps in one production stage, and runs black-box JWT read/write/deny
-  acceptance. The first live run reached the portable head with full production readiness and
-  preserved every business-table row, then stopped before application release because the
-  original row-count gate rejected one expected built-in source-type addition. A focused
-  follow-up changes that gate so business tables remain strict while artifact-owned catalogs
-  may only grow.
-- Each live production operation stops on unexpected ownership, identity, schema, readiness,
-  or row-count evidence.
-- The exact PR artifact also completed a real preview deployment on one Eco Heroku dyno,
-  using `inkcre_core` against its TTL Neon branch; public `/livez` and full `/readyz` passed.
-- The contemporaneous no-TTL recovery branch is
-  `backup/peer-contract-20260724-052651` (`br-frosty-math-a1zt10nx`), created only after
-  production core reached zero dynos. The preflight checkpoint remains independent.
-- Production convergence evidence from that checkpoint to the live database is exact for
-  eleven protocol tables. `sources_types` changed from six rows to seven because the
-  checked-in built-in profile supplied the missing catalog entry; no table decreased.
-- The next release passed the corrected data gate and brought the core Eco dyno up, but the
-  PostgREST dyno exited `126`: its checked-in `$PORT` shell adapter assumed `/bin/sh`, while
-  the pinned upstream image contains no shell. The run was cancelled, both peers returned to
-  zero dynos, and a new post-convergence no-TTL checkpoint
-  `backup/peer-contract-20260724-054730` (`br-misty-tree-a10sklpt`) became the recovery
-  authority. The delivery image now carries a digest-pinned static BusyBox interpreter, and
-  CI exercises that exact wrapper from a Heroku-style `$PORT`.
-- Execution 06 live acceptance is complete on main `7ea76e931098e22e2979c5ca26042548c3934332`.
-  Production delivery run `30070716650` converged the database idempotently and brought both
-  canonical peers up with one Eco dyno. Core readiness, authenticated PostgREST read/write,
-  fixed probe cleanup, wrong-secret 401, and anonymous 401 all passed.
-- Core connects only as `inkcre_core`; PostgREST connects only as `authenticator`; Heroku has
-  no migration owner URL. Both apps share the same masked JWT secret and occupy the
-  `production` stage of the one `inkcre-core` pipeline.
-- The non-secret production profile publishes the existing canonical client-web registration
-  `1eaaadc6-2c1d-4515-ad06-22905dc890a9`, the canonical URLs, contract revision, migration
-  head, and JWT claims. GHCR publication run `30070716655` produced immutable core digest
-  `sha256:2d0c477866c7b2bfaa8cd81cad11aea21d1f2ddf6d8558557babcab09fa605d1`.
-- The one-time provider-role bootstrap variable has been removed. Execution 07 client-web
-  consumption is now the next package; it does not block this production contract.
+- Executions 00–06 established the shared contract, portable role/ACL baseline, deterministic
+  lifecycle CLI, standard PostgreSQL/PostgREST acceptance harness, digest-pinned OCI runtime,
+  and canonical production PostgREST. Production data survived the hard cut with manifest
+  evidence and remains at migration head `d9f4e2a1b7c3`.
+- Execution 07 landed in client-web PR #18. `pnpm dev`, `pnpm run doctor`, deterministic
+  database lifecycle commands, generated relation types, canonical production discovery,
+  legacy endpoint detection, JWT convergence, and full browser E2E now consume the pinned
+  runtime contract rather than SQL or inferred startup order.
+- Execution 08 uses `preview/core-py/pr-N` plus `inkcre-core-py-pr-N`, permits only trusted PRs
+  targeting `main`, and proved exact creation and cleanup in real PRs #37 and #38. Production
+  deploy run `30091595400` is green. Every Heroku web formation is Eco.
+- Execution 09 removed the core all-events Heroku webhook, stale GitHub environments and
+  OpenAPI registration, repository-level legacy secrets, core Git `develop`/`staging`,
+  client-web Git `develop` plus its obsolete Heroku branch, Neon `develop`, and the
+  `inkcre-core-staging`/`inkcre-pgrst` apps. Historical client branches remain reachable
+  through archive tags.
+- Neon staging storage is retained only as
+  `archive/staging-lineage-20250824` without a compute endpoint: Neon forbids deleting an
+  ancestor of the retained pre-cutover checkpoint and production lineage. No active address
+  or credential targets it.
+- The `inkcre-core` pipeline now contains exactly `inkcre-core-production` and
+  `inkcre-postgrest-production`, both in production with one Eco web dyno. Core `/livez` and
+  `/readyz` return 200; readiness reports `peer-database-runtime-v1` at
+  `d9f4e2a1b7c3`; unauthenticated PostgREST returns 401.
+- client-web `main` requires PRs, linear history, and the three green checks `Workspace
+  contract`, `Peer database browser E2E`, and `Dependency security review`; force pushes and
+  deletion are disabled. Main dependency audit has zero critical/high vulnerabilities.
+- Cloudflare Pages code is ready but provider activation remains optional and externally
+  blocked by Cloudflare account verification. PR #19 makes unconfigured provider jobs skip
+  explicitly; once the project variable exists, deployment failures remain blocking.
+- The packet is closed. `portless.json` and unrelated branches remain outside its scope.

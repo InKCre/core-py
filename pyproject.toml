@@ -63,14 +63,13 @@ format = "ruff format ."
 typecheck = "pyrefly check --min-severity=warn --output-format=min-text --progress-bar=no"
 test = "python -m pytest -q"
 "check:lock" = "python scripts/check_lock.py"
-"check:requirements" = "python scripts/check_requirements.py"
-"lint:migrations" = "ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_requirements.py scripts/check_migration_history.py scripts/database_manifest.py scripts/sanitize_preview_base.py tests/migrations"
+"lint:migrations" = "ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_migration_history.py scripts/database_manifest.py scripts/sanitize_preview_base.py tests/migrations"
 "test:migrations" = "python -m pytest -q tests/migrations"
 "check:migrations" = { composite = ["lint:migrations", "test:migrations", "alembic heads"] }
 "check:migration-history" = "python scripts/check_migration_history.py {args}"
 "lint:settings" = "ruff check --no-cache tests/test_settings.py"
 "test:settings" = "python -m pytest -q tests/test_settings.py"
-"check:foundation" = { composite = ["doctor", "check:lock", "check:requirements", "check:migrations", "lint:settings", "test:settings"] }
+"check:foundation" = { composite = ["doctor", "check:lock", "check:migrations", "lint:settings", "test:settings"] }
 "check" = { composite = ["check:foundation", "format:check", "lint", "typecheck", "test"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"

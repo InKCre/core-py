@@ -17,6 +17,18 @@ no persistent staging
 
 All Heroku web formations remain Eco.
 
+## Completion Status
+
+Executions 00–09 completed on 2026-07-24. Canonical production and the standard
+PostgreSQL/PostgREST acceptance path are green; client-web consumes the pinned contract and
+has protected-main CI plus isolated database E2E; review identities are repository-qualified;
+legacy staging control-plane resources are retired.
+
+Cloudflare Pages provider activation is intentionally tracked as a non-blocking follow-up.
+The checked-in static deployment and exact preview cleanup controllers skip while the project
+variable is absent, then fail closed once configured. Creating the provider project remains a
+human account-verification action and is not part of the database/runtime contract exit proof.
+
 ## Execution 00 — Solidify Cross-Unit Contract
 
 - promote stable peer topology, trust-domain, protocol, JWT, and environment claims to the

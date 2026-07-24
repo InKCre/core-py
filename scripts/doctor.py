@@ -14,7 +14,7 @@ REQUIRED_FILES = (
   "pdm.lock",
   "pyproject.toml",
   "alembic.ini",
-  "Procfile",
+  "Dockerfile",
 )
 REQUIRED_TOOLS = ("alembic", "pyrefly", "pytest", "ruff")
 
