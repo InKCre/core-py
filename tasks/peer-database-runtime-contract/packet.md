@@ -264,3 +264,10 @@ flowchart TB
 - Production convergence evidence from that checkpoint to the live database is exact for
   eleven protocol tables. `sources_types` changed from six rows to seven because the
   checked-in built-in profile supplied the missing catalog entry; no table decreased.
+- The next release passed the corrected data gate and brought the core Eco dyno up, but the
+  PostgREST dyno exited `126`: its checked-in `$PORT` shell adapter assumed `/bin/sh`, while
+  the pinned upstream image contains no shell. The run was cancelled, both peers returned to
+  zero dynos, and a new post-convergence no-TTL checkpoint
+  `backup/peer-contract-20260724-054730` (`br-misty-tree-a10sklpt`) became the recovery
+  authority. The delivery image now carries a digest-pinned static BusyBox interpreter, and
+  CI exercises that exact wrapper from a Heroku-style `$PORT`.

@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1
 
+FROM busybox:1.37.0-musl@sha256:222ad6d973c0d198014546a65cd02c5fdedcc172123c5b4c2bf0af636550bd94 AS postgrest-shell
+
 FROM postgrest/postgrest:v14.15@sha256:2f8e7b656f09db697a8875177694b417b35cb76c21370de07fc54e711e902326
 
 ARG SOURCE_REVISION=unknown
 LABEL org.opencontainers.image.revision="${SOURCE_REVISION}"
 
+COPY --from=postgrest-shell /bin/busybox /usr/local/bin/busybox
 COPY --chmod=755 scripts/postgrest-entrypoint.sh /usr/local/bin/inkcre-postgrest
 
-ENTRYPOINT ["/usr/local/bin/inkcre-postgrest"]
+ENTRYPOINT ["/usr/local/bin/busybox", "sh", "/usr/local/bin/inkcre-postgrest"]
