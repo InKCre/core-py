@@ -101,7 +101,7 @@ jobs:
               exit 1
               ;;
           esac
-          app_name="inkcre-core-pr-$PR_NUMBER"
+          app_name="inkcre-core-py-pr-$PR_NUMBER"
           if heroku apps:info --app "$app_name" >/dev/null 2>&1; then
             heroku apps:destroy --app "$app_name" --confirm "$app_name"
           fi

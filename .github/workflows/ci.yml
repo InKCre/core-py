@@ -4,14 +4,8 @@ on:
   pull_request:
   push:
     branches:
-      - develop
       - main
   workflow_dispatch:
-    inputs:
-      preview_pr:
-        description: Trusted pull request number to deploy after checks pass
-        required: false
-        type: number
 
 permissions:
   checks: read
@@ -240,51 +234,3 @@ jobs:
 
           curl --fail --silent http://127.0.0.1:18080/livez
           curl --fail --silent http://127.0.0.1:18080/readyz
-
-  preview:
-    name: Deploy trusted preview
-    if: github.event_name == 'workflow_dispatch' && inputs.preview_pr != 0
-    needs:
-      - repository
-      - artifact
-    runs-on: ubuntu-latest
-    environment: preview
-    steps:
-      - name: Checkout trusted bootstrap source
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-
-      - name: Verify exact pull request head
-        uses: ./.github/actions/preview-verify
-        with:
-          github_token: ${{ github.token }}
-          head_sha: ${{ github.sha }}
-          pr_number: ${{ inputs.preview_pr }}
-
-      - name: Build web and release images without deployment secrets
-        env:
-          HEAD_SHA: ${{ github.sha }}
-        run: |
-          docker build \
-            --target heroku-web \
-            --tag "inkcre-preview-web:$HEAD_SHA" \
-            .
-          docker build \
-            --target heroku-release \
-            --tag "inkcre-preview-release:$HEAD_SHA" \
-            .
-
-      - name: Deliver preview
-        uses: ./.github/actions/preview-delivery
-        with:
-          core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
-          head_sha: ${{ github.sha }}
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          llm_sp_ak: ${{ secrets.LLM_SP_AK }}
-          llm_sp_base_url: ${{ secrets.LLM_SP_BASE_URL }}
-          neon_api_key: ${{ secrets.NEON_API_KEY }}
-          neon_project_id: ${{ vars.NEON_PROJECT_ID }}
-          postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
-          pr_number: ${{ inputs.preview_pr }}
