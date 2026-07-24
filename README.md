@@ -6,11 +6,13 @@ Python backend implementation of InKCre, built with FastAPI, SQLModel, APSchedul
 
 ```bash
 cp .env.example .env
-pdm install -G dev --frozen-lockfile
-pdm run doctor
-pdm run check
-pdm run dev
+docker compose up --build
 ```
+
+This starts the complete peer runtime: pgvector, deterministic database initialization,
+core-py, and PostgREST. For Python-only iteration, install with
+`pdm install -G dev --frozen-lockfile`, run `pdm run check`, then `pdm run dev` against an
+initialized database.
 
 `pdm run check` is the hermetic repository contract used by CI: frozen dependency
 checks, migration containment, formatting, lint, and the complete unit-test suite.

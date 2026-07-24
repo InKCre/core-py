@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 
 TEST_DATABASE_URL = "postgresql+psycopg://user:password@localhost/testdb"
-TEST_JWT_SECRET = "test-only-jwt"  # noqa: S105
+TEST_JWT_SECRET = "test-only-jwt-secret-at-least-32-bytes"  # noqa: S105
 TEST_LOGTAIL_TOKEN = "test-only-logtail-token"  # noqa: S105
 
 # Importing app.settings constructs the process-global settings object. Give that import

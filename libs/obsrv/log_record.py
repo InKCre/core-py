@@ -8,6 +8,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 import sqlmodel
 
+from app.database_contract.constants import PROTOCOL_SCHEMA
+
 
 TRACE_ID: ContextVar[str | None] = ContextVar("TRACE_ID", default=None)
 SPAN_ID: ContextVar[str | None] = ContextVar("SPAN_ID", default=None)
@@ -32,6 +34,7 @@ class LogModel(sqlmodel.SQLModel, table=True):
   """Log model"""
 
   __tablename__ = "logs"  # type: ignore
+  __table_args__ = {"schema": PROTOCOL_SCHEMA}
 
   id: Opt[int] = sqlmodel.Field(
     default=None,

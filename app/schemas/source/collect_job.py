@@ -62,7 +62,9 @@ class SourceCollectJobModel(sqlmodel.SQLModel, table=True):
     default=SourceCollectJobStatus.PENDING,
     sa_column=sqlalchemy.Column(
       sqlalchemy.Enum(
-        SourceCollectJobStatus, values_callable=lambda x: [e.value for e in x]
+        SourceCollectJobStatus,
+        values_callable=lambda x: [e.value for e in x],
+        inherit_schema=True,
       ),
       server_default=SourceCollectJobStatus.PENDING,
       nullable=False,

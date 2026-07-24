@@ -15,6 +15,7 @@ from sqlalchemy.pool import NullPool
 
 from migrations.metadata import get_target_metadata
 from migrations.settings import MigrationSettings
+from app.database_contract import PROTOCOL_SCHEMA
 
 
 SANITIZE_GUARD = "ALLOW_PREVIEW_BASE_SANITIZE"
@@ -28,10 +29,10 @@ def _repository_heads() -> tuple[str, ...]:
 
 
 def validate_application_tables(actual: set[str], expected: set[str]) -> None:
-  """Require the exact managed application table set and Alembic lineage."""
-  if actual != expected | {LINEAGE_TABLE}:
-    missing = sorted((expected | {LINEAGE_TABLE}) - actual)
-    unexpected = sorted(actual - (expected | {LINEAGE_TABLE}))
+  """Require the exact managed application table set in the protocol schema."""
+  if actual != expected:
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected)
     details = []
     if missing:
       details.append(f"missing tables: {', '.join(missing)}")
@@ -48,7 +49,9 @@ def sanitize_preview_base(database_url: str) -> tuple[str, ...]:
     raise ValueError(f"PREVIEW_BASE_BRANCH_NAME must be {EXPECTED_BRANCH_NAME}")
 
   normalized_url = MigrationSettings(database_url=database_url).database_url
-  expected_tables = set(get_target_metadata().tables)
+  if normalized_url is None:
+    raise ValueError("DATABASE_URL is required")
+  expected_tables = {table.name for table in get_target_metadata().tables.values()}
   expected_heads = _repository_heads()
   engine = create_engine(normalized_url, poolclass=NullPool)
 
@@ -60,26 +63,33 @@ def sanitize_preview_base(database_url: str) -> tuple[str, ...]:
             """
             SELECT table_name
             FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+            WHERE table_schema = :schema AND table_type = 'BASE TABLE'
             """
-          )
+          ),
+          {"schema": PROTOCOL_SCHEMA},
         ).scalars()
       )
       validate_application_tables(actual_tables, expected_tables)
 
       current_heads = tuple(
         sorted(
-          connection.execute(text("SELECT version_num FROM alembic_version")).scalars()
+          connection.execute(
+            text("SELECT version_num FROM public.alembic_version")
+          ).scalars()
         )
       )
       if current_heads != expected_heads:
         raise ValueError("preview base is not at the repository Alembic head")
 
-      quoted_tables = ", ".join(f'"{table}"' for table in sorted(expected_tables))
+      quoted_tables = ", ".join(
+        f'"{PROTOCOL_SCHEMA}"."{table}"' for table in sorted(expected_tables)
+      )
       connection.execute(text(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE"))
 
       for table in sorted(expected_tables):
-        remaining = connection.execute(text(f'SELECT count(*) FROM "{table}"')).scalar_one()
+        remaining = connection.execute(
+          text(f'SELECT count(*) FROM "{PROTOCOL_SCHEMA}"."{table}"')
+        ).scalar_one()
         if remaining:
           raise RuntimeError(f"table {table} was not sanitized")
   finally:

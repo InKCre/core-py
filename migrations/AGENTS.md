@@ -57,7 +57,8 @@ pdm run check:migrations
 **特殊迁移**:
 - PostgreSQL Enum 变更：使用 `alembic-postgresql-enum` 插件
 - 数据迁移：在 `upgrade()` 中使用 `op.execute()` 执行 SQL
-- 权限管理：见 [grant.sql](grant.sql)
+- 权限管理：由 `app/database_contract/roles.py` 的幂等生命周期命令负责；migration
+  不创建 cluster-global role，也不嵌入密码
 
 ### 配置
 
@@ -67,8 +68,8 @@ pdm run check:migrations
 url = get_migration_database_url()
 ```
 
-唯一必需输入是 `DATABASE_URL`。Migration 不得依赖 `JWT_SECRET`、LLM、client、
-logging 或应用 startup。
+`DATABASE_URL` 或更高优先级的 `MIGRATION_DATABASE_URL` 必须存在其一。Migration
+不得依赖 `JWT_SECRET`、LLM、client、logging 或应用 startup。
 
 ### 版本控制
 
@@ -79,11 +80,11 @@ logging 或应用 startup。
   public table allowlist 与 metadata 完全一致、数据库位于 repository head，然后
   truncate 所有业务表但保留 `alembic_version`。production、普通 preview 和 release
   禁止调用
-- 已发布 revision 必须 append-only；不得修改、删除或在 release 中临时生成
-- `revision-integrity.json` 是 hard-cut 后的可信基线；CI 会验证 worktree，并在 base
-  已含清单时禁止更改既有条目
+- 通常已发布 revision 必须 append-only；不得修改、删除或在 release 中临时生成
+- `revision-integrity.json` format 2 可显式链接一个受控 hard cut 到前一清单摘要；
+  hard cut 之后恢复 append-only，CI 同时验证链接、revision 内容和新增顺序
 - Pull request 与受管分支 push 都会执行完整性检查
-- 当前历史将在独立 hard-cut packet 中重建 baseline；在此之前不得改写现有 revision
+- 当前可信 baseline 是 `peer-database-runtime-v1`
 
 ### 编码指引
 

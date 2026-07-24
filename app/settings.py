@@ -10,6 +10,7 @@ from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.database_contract.constants import JWT_MINIMUM_SECRET_BYTES
 from libs.obsrv.setting import ObsrvSetting
 
 
@@ -48,6 +49,7 @@ class Settings(BaseSettings):
   # JWT authentication
   jwt_secret: str = Field(
     ...,  # Required field
+    min_length=JWT_MINIMUM_SECRET_BYTES,
     description="Secret key for JWT token signing and verification",
   )
 

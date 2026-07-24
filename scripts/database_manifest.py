@@ -14,36 +14,67 @@ from sqlalchemy.pool import NullPool
 
 from migrations.metadata import get_target_metadata
 from migrations.settings import MigrationSettings
+from app.database_contract import PROTOCOL_SCHEMA
 from scripts.sanitize_preview_base import LINEAGE_TABLE, validate_application_tables
+
+
+def _resolve_application_schema(connection, expected_tables: set[str]) -> str:
+  candidates: list[str] = []
+  for schema_name in (PROTOCOL_SCHEMA, "public"):
+    actual_tables = set(
+      connection.execute(
+        text(
+          """
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_schema = :schema
+            AND table_type = 'BASE TABLE'
+            AND table_name <> :lineage_table
+          """
+        ),
+        {
+          "schema": schema_name,
+          "lineage_table": LINEAGE_TABLE,
+        },
+      ).scalars()
+    )
+    try:
+      validate_application_tables(actual_tables, expected_tables)
+    except ValueError:
+      continue
+    candidates.append(schema_name)
+  if len(candidates) != 1:
+    raise ValueError(
+      f"expected exactly one complete application schema, found {len(candidates)}"
+    )
+  return candidates[0]
 
 
 def build_database_manifest(database_url: str) -> dict[str, object]:
   """Return migration lineage and row counts without reading row values."""
   normalized_url = MigrationSettings(database_url=database_url).database_url
-  expected_tables = set(get_target_metadata().tables)
+  if normalized_url is None:
+    raise ValueError("DATABASE_URL is required")
+  expected_tables = {table.name for table in get_target_metadata().tables.values()}
   engine = create_engine(normalized_url, poolclass=NullPool)
 
   try:
     with engine.connect() as connection:
-      actual_tables = set(
-        connection.execute(
-          text(
-            """
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-            """
-          )
-        ).scalars()
+      application_schema = _resolve_application_schema(
+        connection,
+        expected_tables,
       )
-      validate_application_tables(actual_tables, expected_tables)
 
       heads = sorted(
-        connection.execute(text(f'SELECT version_num FROM "{LINEAGE_TABLE}"')).scalars()
+        connection.execute(
+          text(f'SELECT version_num FROM public."{LINEAGE_TABLE}"')
+        ).scalars()
       )
       quote = connection.dialect.identifier_preparer.quote
       counts = {
-        table: connection.execute(text(f"SELECT count(*) FROM {quote(table)}")).scalar_one()
+        table: connection.execute(
+          text(f"SELECT count(*) FROM {quote(application_schema)}.{quote(table)}")
+        ).scalar_one()
         for table in sorted(expected_tables)
       }
       server_version = connection.execute(
@@ -53,7 +84,8 @@ def build_database_manifest(database_url: str) -> dict[str, object]:
     engine.dispose()
 
   return {
-    "format": 1,
+    "format": 2,
+    "schema": application_schema,
     "server_version_num": server_version,
     "alembic_heads": heads,
     "table_counts": counts,
