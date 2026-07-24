@@ -19,6 +19,7 @@ from .constants import (
   RESET_CONFIRMATION,
 )
 from .migration import migrate
+from .protocol import protocol_document
 from .roles import RoleSecrets, provision_roles
 
 
@@ -80,6 +81,7 @@ def contract_document() -> dict[str, object]:
       "maximum_lifetime_seconds": JWT_MAX_LIFETIME_SECONDS,
     },
     "profiles": ["runtime", "development"],
+    "protocol": protocol_document(),
     "commands": [
       "init",
       "migrate",

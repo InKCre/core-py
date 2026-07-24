@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any, cast
 import uuid
 from urllib.parse import urlparse
 
@@ -29,6 +30,43 @@ def test_production_profile_projects_the_executable_contract():
   assert profile["jwt"] == contract["jwt"]
   assert profile["postgrest"]["database_role"] == AUTHENTICATOR_ROLE
   assert profile["postgrest"]["anonymous_access"] == "deny"
+
+
+def test_contract_publishes_the_complete_protocol_projection():
+  contract = contract_document()
+  protocol = cast(dict[str, Any], contract["protocol"])
+
+  assert protocol["format"] == 1
+  assert protocol["schema"] == PROTOCOL_SCHEMA
+  assert set(protocol["relations"]) == {
+    "block_embeddings",
+    "blocks",
+    "clients",
+    "extensions",
+    "logs",
+    "relation_embeddings",
+    "relations",
+    "sources",
+    "sources_collect_jobs",
+    "sources_types",
+    "storage_types",
+    "storages",
+  }
+  assert protocol["functions"] == {}
+  assert protocol["relations"]["clients"]["columns"]["id"] == {
+    "type": {"kind": "string", "format": "uuid"},
+    "nullable": False,
+    "generated": False,
+    "has_default": True,
+  }
+  assert protocol["relations"]["sources_collect_jobs"]["columns"]["status"]["type"] == {
+    "kind": "enum",
+    "values": ["pending", "running", "finished", "failed"],
+  }
+  assert protocol["relations"]["block_embeddings"]["columns"]["embedding"]["type"] == {
+    "kind": "array",
+    "items": {"kind": "number"},
+  }
 
 
 def test_production_profile_has_stable_ids_and_https_endpoints():
