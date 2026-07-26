@@ -5,14 +5,14 @@ Python backend implementation of InKCre, built with FastAPI, SQLModel, APSchedul
 ## Local Start
 
 ```bash
-cp .env.example .env
-docker compose up --build
+pdm install -G dev --frozen-lockfile
+svc dev ensure database --repo . --json
 ```
 
 This starts the complete peer runtime: pgvector, deterministic database initialization,
-core-py, and PostgREST. For Python-only iteration, install with
-`pdm install -G dev --frozen-lockfile`, run `pdm run check`, then `pdm run dev` against an
-initialized database.
+core-py, and PostgREST. Committed configuration uses local Docker; ignored
+`svc.local.json` may select a validated SSH Docker provider. For Python-only iteration,
+run `pdm run check`, then `pdm run dev` against an initialized database.
 
 `pdm run check` is the hermetic repository contract used by CI: frozen dependency
 checks, migration containment, formatting, lint, and the complete unit-test suite.
@@ -24,9 +24,8 @@ Developer setup and shared-skill notes: [CONTRIBUTING.md](CONTRIBUTING.md)
 If `docs/_shared/` is missing, run `git submodule update --init --recursive` before following shared-doc links.
 
 - Agent operating guide: [AGENTS.md](AGENTS.md)
-- Shared framework baseline: [docs/_shared/00-meta/_svc_v9_8.md](docs/_shared/00-meta/_svc_v9_8.md)
-- Shared topology extension: [docs/_shared/00-meta/multi-repo.md](docs/_shared/00-meta/multi-repo.md)
-- Shared implementation taste: [docs/_shared/00-meta/implementation-taste.md](docs/_shared/00-meta/implementation-taste.md)
+- Working protocol: run `svc status . --json` and query the installed SVC 10.0.1 corpus.
+- Shared Hub/Spoke operations: [docs/_shared/00-meta/](docs/_shared/00-meta/)
 - Shared product truth: [docs/_shared/10-prd/index.md](docs/_shared/10-prd/index.md)
 - Shared product glossary: [docs/_shared/10-prd/glossary.md](docs/_shared/10-prd/glossary.md)
 - Shared cross-unit technical truth: [docs/_shared/20-product-tdd/](docs/_shared/20-product-tdd/)

@@ -90,6 +90,7 @@ test = "python -m pytest -q"
 "container:web" = "python scripts/container.py web"
 "container:migrate" = "python scripts/container.py db migrate"
 "container:ready" = "python scripts/container.py ready"
+"dev:database" = "python scripts/dev_database.py {args}"
 
 [tool.pyrefly]
 project-includes = [

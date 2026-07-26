@@ -19,6 +19,10 @@ This layer stores operational truth: how the service starts, how environments ar
 - `Dockerfile`
 - `Dockerfile.postgrest`
 - `docker-compose.yml`
+- `svc.json`
+- `scripts/dev_database.py`
+- `scripts/dev_database_provider.py`
+- `scripts/remote-compose.sh`
 - `.github/workflows/branching-database.yml`
 - `.github/workflows/ci.yml`
 - `.github/workflows/artifact-publish.yml`

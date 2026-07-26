@@ -17,61 +17,18 @@ This repository is a Spoke repo in the SVC optional multi-repo topology. Shared 
 - Product TDD (`docs/_shared/20-product-tdd/`): owns cross-unit technical contracts and topology.
 - Unit TDD (`docs/30-unit-tdd/`): owns this repo's internal logic architecture and internal contracts.
 
-## Read Order
+## Working Protocol
 
-1. Read this file first.
-2. Read `docs/_shared/00-meta/_svc_v9_8.md`.
-3. Read `docs/_shared/00-meta/multi-repo.md` when the task touches shared truth, `docs/_shared/`, or cross-repo ownership.
-4. Read the matching route doc in `docs/_shared/00-meta/input-*.md`.
-5. Read the active mode SOP in `docs/_shared/00-meta/mode-*.md`.
-6. Read `docs/_shared/00-meta/implementation-taste.md` for non-trivial code design or implementation changes that shape structure, boundaries, data, state, authority, durable naming, abstraction, or complexity budget.
-7. Read `docs/_shared/00-meta/concepts.md` only when boundary language is unclear.
-8. Read the relevant local `AGENTS.md` before touching a subtree.
-9. Read shared PRD or Product TDD when the owning layer demands it:
-   - `docs/_shared/10-prd/`
-   - `docs/_shared/15-alignment/` if present
-   - `docs/_shared/20-product-tdd/`
-10. Read local unit or runtime docs when relevant:
-   - `docs/30-unit-tdd/`
-   - `docs/40-deployment/`
-11. Read the active `tasks/` packet for volatile plans, diagnostics, evidence, local-pressure capture, and artifact work.
-
-## Operating Model
-
-1. Classify the request as Intent, Constraint, Reality, or Artifact.
-2. Identify the owning layer and likely blast radius.
-3. For non-trivial work, open or update an agent-owned task packet with Objective & Hypothesis, Guardrails Touched, and Verification.
-4. Keep the task packet current when discussion, exploration, implementation friction, or verification changes the working state.
-5. Choose the active mode for this slice of work: Explore, Solidify, Execute, or Diagnose.
-6. Load only the route doc, mode SOP, topology extension, and governing anchors needed for the current step.
-   - For non-trivial code work, load `docs/_shared/00-meta/implementation-taste.md`.
-7. Search source and durable docs with volatile workspaces and generated surfaces excluded by default.
-8. Expand into Alignment Substrate fields only when MVT is not enough to constrain mutation safely.
-9. Execute and verify.
-10. Re-enter another mode if the evidence state changes.
-11. Promote only stable truths after verification.
-
-## Typed Input Guide
-
-- Intent: the business wants new behavior, scope, or policy. Update shared PRD first.
-- Constraint: product behavior stays the same, but technical or environment boundaries change. Update shared Product TDD or local Unit TDD.
-- Reality: runtime truth disagrees with expectation. Diagnose with evidence first, then add recurrence tripwires near code if needed.
-- Artifact: produce a bounded deliverable. Keep it tactical unless reuse is proven.
-
-## Mode Guide
-
-- Explore: map unknowns, alternatives, and assumptions.
-- Solidify: restate findings into explicit claims, contracts, or decisions.
-- Execute: implement a clear, verified change.
-- Diagnose: investigate mismatches between expected and observed reality.
-
-Mode guidance:
-
-- creative engineering is non-linear; do not model work as design -> code -> verify
-- prepare the verification shape as soon as a design claim is stable enough, and let it constrain Execute
-- do not assume one task equals one mode
-- switch modes when evidence or clarity changes
-- mode selection never overrides durable ownership
+- SVC 10.0.1 owns the upstream working protocol and implementation judgment. Run
+  `svc status . --json`, then query only the guidance needed with `svc lookup`.
+- This repository owns its product projections, local architecture, runtime truth, task
+  state, and unmarked instructions; generated SVC surfaces are not project truth.
+- Read the active task packet and nearest local `AGENTS.md` before modifying a governed
+  subtree.
+- Read shared PRD or Product TDD only when the owning layer demands it, then read the
+  relevant local Unit TDD or deployment document.
+- Prepare an Impact Handshake before reference-sensitive, logic-altering, or
+  non-obviously-local durable mutation.
 
 ## Task Packet Guidance
 
@@ -91,7 +48,10 @@ Mode guidance:
 - If local work discovers missing shared truth, capture the local pressure in the active task packet before editing the Hub source repo.
 - Never edit `docs/_shared/**` directly from this repo context.
 - Never mix Hub doc edits, shared-ref bumps, and Spoke-local code or local-doc changes in one commit.
-- Shared truth lives in `docs/_shared/00-meta/`, `docs/_shared/10-prd/`, and `docs/_shared/20-product-tdd/`; local structure lives in `docs/30-unit-tdd/`; runtime truth lives in `docs/40-deployment/`; tactical hazards live in the nearest local `AGENTS.md`.
+- Shared product truth lives in `docs/_shared/10-prd/` and
+  `docs/_shared/20-product-tdd/`; Hub/Spoke operations live in
+  `docs/_shared/00-meta/`; local structure lives in `docs/30-unit-tdd/`; runtime truth
+  lives in `docs/40-deployment/`; tactical hazards live in the nearest local `AGENTS.md`.
 - When a shared-doc update is required, use the canonical workflow at `docs/_shared/00-meta/skills/edit-svc-shared-docs/` via the repo-root wrapper when needed.
 
 ## Impact Handshake
@@ -148,3 +108,13 @@ Read these local guides when working in their areas:
 - If the same logic appears in more than two places, extract it.
 - Export frequently used package items from `__init__.py`.
 - Keep implementation truth in code, tests, types, assertions, lint, and CI whenever possible.
+
+<!-- svc:begin navigation sha256=01d8643023a40533a997a67c70e920bb0ff0056081d2d18bec59e47324318152 -->
+## SVC
+
+This project uses the local Sustainable Vibe Coding CLI. Query framework guidance when it is needed instead of copying framework documents into this repository.
+
+- Use `svc lookup --keyword "<need>"` to find relevant guidance, then `svc lookup --name '<exact-path-regex>'` to read an authoritative document.
+- Use `svc status` before broad process changes. If the installed corpus is newer than the adopted version in `svc.json`, read its migration guidance before `svc adopt`.
+- Treat all unmarked project instructions and documentation as consumer-owned.
+<!-- svc:end navigation -->
