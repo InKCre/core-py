@@ -27,8 +27,9 @@ identities are repository-qualified; legacy staging control-plane resources are 
 The 2026-07-26 closure audit reopened Execution 00 because core-py, client-web, and Hub `main`
 no longer shared one published Product TDD authority. Execution 10 has now published that
 authority on canonical Hub commit `a0ba0d4`, moved both Spokes to it, and locally proved the
-core-owned SSH Docker runtime plus client-web's exact external attachment. Spoke publication
-is the only remaining handoff step.
+core-owned SSH Docker runtime plus client-web's exact external attachment. core-py PR 41 and
+client-web PR 26 are merged; both main check suites pass, the core runtime artifact and
+production delivery are green, and exact review-app/database cleanup succeeded.
 
 Cloudflare Pages production and preview delivery are now proven and continue under
 client-web's own DX packet. They are not part of core-py's remaining scope.

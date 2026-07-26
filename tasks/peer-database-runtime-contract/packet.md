@@ -33,10 +33,11 @@
   portable contract.
 - Artifact: this packet, the later Hub Product TDD contract, lifecycle commands, database
   protocol surface, readiness schema, and integration proof.
-- Active mode: Execute/Verify. Executions 01–09 remain operationally complete. The
+- Active mode: Solidify complete. Executions 01–09 remain operationally complete. The
   2026-07-26 closure audit reopened Execution 00 after disproving its durable-authority exit
-  condition; canonical Hub convergence is now published, and Execution 10's core-owned remote
-  runtime plus client-web attachment are locally green pending Spoke publication.
+  condition; Execution 10 restored canonical authority, published both Spoke changes, and
+  proved the core-owned remote runtime plus client-web attachment locally, in CI, and through
+  production delivery.
 
 ## Relationship To Earlier DX Work
 
@@ -269,9 +270,8 @@ flowchart TB
 - Cloudflare Pages code is ready but provider activation remains optional and externally
   blocked by Cloudflare account verification. PR #19 makes unconfigured provider jobs skip
   explicitly; once the project variable exists, deployment failures remain blocking.
-- The production/runtime portion remains closed and healthy. The packet itself is reopened
-  for Execution 10. `portless.json`, unrelated branches, and client-web's in-progress
-  application work remain outside its scope.
+- The packet is closed after Execution 10. `portless.json`, unrelated branches, client-web
+  Pages delivery, and client-web's in-progress application work remain outside its scope.
 
 ## 2026-07-26 Closure Reassessment
 
@@ -335,6 +335,16 @@ flowchart TB
 - client-web's browser database E2E automatically selected an independently owned SSH runtime,
   passed authenticated read/write and missing/wrong-credential rejection, and removed that
   temporary Compose project. The core-py project remained running and ready.
-- core-py `pdm run check` passes with 150 tests and zero Pyrefly diagnostics. client-web
+- core-py `pdm run check` passes with 151 tests and zero Pyrefly diagnostics. client-web
   `pnpm check` and `pnpm test:e2e:web` pass; its only host-level warning is Node 26 versus the
   repository's pinned Node 22.22.3.
+- core-py PR 41 and client-web PR 26 were rebase-merged without collapsing the shared-ref and
+  Spoke-local commit boundary. Their canonical main revisions are respectively `0d5db0e` and
+  `cd4a6af`.
+- core-py main checks `30197684807`, runtime publication `30197734657`, and production
+  delivery `30197734650` passed. Both production apps run one Eco web dyno; live core
+  readiness returns HTTP 200 at contract `peer-database-runtime-v1` and head
+  `d9f4e2a1b7c3`, while anonymous PostgREST remains denied with HTTP 401.
+- Closing PR 41 removed the exact Heroku review app and Neon preview branch in successful
+  runs `30197684918` and `30197684873`. The active local descriptor now records exact core-py
+  main revision `0d5db0e` and client-web remains healthy against that same runtime instance.
