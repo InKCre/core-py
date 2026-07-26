@@ -1,0 +1,46 @@
+{
+  "schema_version": 2,
+  "svc_version": "10.0.1",
+  "dev": {
+    "profile": "local",
+    "profiles": {
+      "local": {
+        "targets": {
+          "database": {
+            "scope": "worktree",
+            "probe": {
+              "kind": "exec",
+              "argv": [
+                "pdm",
+                "run",
+                "dev:database",
+                "probe",
+                "${dev.instance}"
+              ],
+              "cwd": ".",
+              "timeout": 8,
+              "output_limit": 2048
+            },
+            "provision": {
+              "kind": "exec",
+              "mode": "run",
+              "argv": [
+                "pdm",
+                "run",
+                "dev:database",
+                "ensure",
+                "${dev.instance}"
+              ],
+              "cwd": ".",
+              "env": {
+                "INKCRE_DATABASE_PROVIDER": "local"
+              }
+            },
+            "readiness_timeout": 600,
+            "poll_interval": 1
+          }
+        }
+      }
+    }
+  }
+}

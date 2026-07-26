@@ -20,7 +20,10 @@
   migration head, system catalogs, and development seed through stable JSON and exit codes;
   exercise valid/invalid JWT requests, explicit anonymous policy, safe reset, deterministic
   baseline recovery, and a digest-pinned OCI artifact; preserve production through independent
-  backup/restore and schema-equivalence evidence before any lineage hard cut.
+  backup/restore and schema-equivalence evidence before any lineage hard cut; restore the
+  peer-database contract to the canonical SVC 10.0.1 Hub truth consumed by both Spokes; prove
+  local Docker commands can target the same explicit remote runtime instance as client-web
+  without relying on coincidental ports, Compose project names, or implicit SSH state.
 
 ## Classification And Active Mode
 
@@ -30,8 +33,10 @@
   portable contract.
 - Artifact: this packet, the later Hub Product TDD contract, lifecycle commands, database
   protocol surface, readiness schema, and integration proof.
-- Active mode: Solidify/close. Executions 00–09 are complete; this final slice promotes the
-  verified runtime truth and removes the last non-authoritative deployment surfaces.
+- Active mode: Execute/Verify. Executions 01–09 remain operationally complete. The
+  2026-07-26 closure audit reopened Execution 00 after disproving its durable-authority exit
+  condition; canonical Hub convergence is now published, and Execution 10's core-owned remote
+  runtime plus client-web attachment are locally green pending Spoke publication.
 
 ## Relationship To Earlier DX Work
 
@@ -264,4 +269,72 @@ flowchart TB
 - Cloudflare Pages code is ready but provider activation remains optional and externally
   blocked by Cloudflare account verification. PR #19 makes unconfigured provider jobs skip
   explicitly; once the project variable exists, deployment failures remain blocking.
-- The packet is closed. `portless.json` and unrelated branches remain outside its scope.
+- The production/runtime portion remains closed and healthy. The packet itself is reopened
+  for Execution 10. `portless.json`, unrelated branches, and client-web's in-progress
+  application work remain outside its scope.
+
+## 2026-07-26 Closure Reassessment
+
+- Runtime truth remains healthy:
+  - core-py `main` repository checks, OCI publication, and production delivery are green;
+  - canonical core and PostgREST production apps remain Eco and ready;
+  - live readiness reports contract `peer-database-runtime-v1` and migration head
+    `d9f4e2a1b7c3`;
+  - no active staging/develop runtime has reappeared.
+- The former Execution 00 exit proof is false:
+  - core-py consumes Hub commit `f648612`, published only on the SVC v9.8 alignment branch;
+  - client-web consumes Hub commit `ad464fd`, published on the SVC 10.0.1 adoption branch;
+  - Hub `main` is `179336c` and does not contain the peer-database runtime contract;
+  - the SVC 10.0.1 projection omitted the dedicated contract and its topology/authority
+    references.
+- Cloudflare Pages is no longer blocked or owned by this packet. client-web records a proven
+  production deployment, Direct Upload project, and `app.inkcre.dev`; its continuing Pages
+  work is independent of core-py's remaining work.
+- This machine deliberately has no local Docker daemon. client-web already proves Docker
+  execution through SSH host `wsl.win-ws.localhost`; core-py should consume the same
+  provider-neutral capability.
+- Remote Docker sharing must mean one explicit runtime instance, not merely the same daemon.
+  The selected instance identity, Compose project, network, database endpoint, contract
+  revision, and owner repository must be machine-readable and checked before either Spoke
+  reuses it.
+
+## Execution 10 Scope And Exclusions
+
+- Promote the peer database/JWT/environment contract into the canonical SVC 10.0.1 Hub
+  structure and publish the Hub source commit first.
+- Bump core-py and client-web to that same published Hub commit in isolated Spoke commits,
+  without disturbing client-web's current application work.
+- Adopt SVC 10.0.1 in core-py's local dispatcher and shared-doc workflow.
+- Reuse client-web's SSH Docker transport and instance-provenance model in core-py; keep local
+  Docker as the portable default and allow a validated SSH alias as a machine-local override.
+- Prove both Spokes resolve the same database instance through stable identity and readiness
+  evidence before sharing it.
+- Do not add a cross-Spoke shared-ref or contract-freshness CI gate. Sir explicitly rejected
+  that mechanism; alignment is part of this bounded execution, not a new permanent check.
+- Do not modify client-web Pages delivery, current application work, production data, Heroku
+  topology, Neon topology, or the unrelated `portless.json`.
+
+## Execution 10 Verification Evidence
+
+- Hub PR 4 published the restored SVC 10.0.1 peer-runtime authority on canonical commit
+  `a0ba0d415dbda735ce7da06145354f49c7bedecd`; core-py and client-web now consume that exact
+  commit. No cross-Spoke freshness gate was added.
+- core-py resolves this worktree to database runtime instance `b0a97f7ca6abfdf7`, Compose
+  project `inkcre-core-py-b0a97f7ca6abfdf7`, and Docker daemon
+  `0e5fa4b3-f25e-4af9-bdcb-b4387a42281e` through the ignored SSH provider. The committed
+  provider remains portable local Docker.
+- The owner descriptor publishes contract `peer-database-runtime-v1`, migration head
+  `d9f4e2a1b7c3`, source fingerprint, loopback endpoints, and bounded tunnel identity.
+  Consecutive ensure operations reuse and converge the same instance.
+- A real guarded reset returned the exact same deterministic baseline fingerprint before and
+  after reset:
+  `8fd29afe98602906a881ec2468556c911dd5b4fa7a14eb86be35978b34259e22`.
+- client-web keeps its own SVC attachment identity `4ac9df364b54706e` but reports the same
+  database runtime instance, owner, Compose project, daemon, contract, head, and readiness.
+  It refuses shared reset and teardown; core readiness remains healthy after its stop command.
+- client-web's browser database E2E automatically selected an independently owned SSH runtime,
+  passed authenticated read/write and missing/wrong-credential rejection, and removed that
+  temporary Compose project. The core-py project remained running and ready.
+- core-py `pdm run check` passes with 150 tests and zero Pyrefly diagnostics. client-web
+  `pnpm check` and `pnpm test:e2e:web` pass; its only host-level warning is Node 26 versus the
+  repository's pinned Node 22.22.3.

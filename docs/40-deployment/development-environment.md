@@ -4,8 +4,7 @@
 
 - Python 3.12
 - PDM 2.27.0
-- a Docker-compatible runtime for the complete local peer stack, or PostgreSQL/pgvector
-  supplied separately
+- local Docker, or one Docker daemon reachable through an SSH-config alias
 - a populated `.env` file
 
 The checked-in Python selector is `.python-version`. The foundation CI uses the same
@@ -13,16 +12,34 @@ Python selector and PDM version.
 
 ## Local Startup
 
-The supported complete runtime is:
+The supported complete runtime is an SVC worktree capability:
 
 ```bash
-cp .env.example .env
-docker compose up --build
+svc status . --json
+svc dev ensure database --repo . --json
 ```
 
 It starts PostgreSQL/pgvector, performs deterministic development initialization, then
-starts both core-py and PostgREST. Core is available on port 8000 and PostgREST on port 3000
-by default.
+starts both core-py and PostgREST. Committed `svc.json` selects local Docker. An ignored
+`svc.local.json` may select `ssh`, one SSH-config alias, and the remote Docker executable;
+tracked files never own a hostname, user, key, or machine path.
+
+The SSH provider sends an allowlisted build context and one bounded Compose payload to the
+remote host. Remote services publish dynamic remote-loopback ports and an instance-owned
+OpenSSH control tunnel maps independent local-loopback ports to them.
+
+Runtime state is written to `.runtime/database/<core-svc-instance>/`. Its `runtime.json`,
+`profile.json`, and `readiness.json` record:
+
+- owner repository and core-py SVC instance;
+- exact Compose project and Docker daemon ID;
+- source revision and dirty-source fingerprint;
+- database contract revision and migration head;
+- core and PostgREST loopback URLs.
+
+Peers must consume that exact profile/descriptor. Sharing only an SSH alias, daemon, port,
+or contract version does not prove that core-py and client-web use the same database.
+Only core-py owns Compose startup, reset, volume deletion, credentials, and tunnel cleanup.
 
 For Python-only iteration against an already initialized database:
 
@@ -45,6 +62,8 @@ pdm run check:foundation
 pdm run format:check
 pdm run lint
 pdm run test
+svc dev status database --repo . --json
+pdm run dev:database ready
 ```
 
 The test harness disables dotenv before application imports. Repository checks do not read a
@@ -100,3 +119,14 @@ The repository currently uses Neon branch automation for pull requests.
   protected entries and revision contents may not be modified, deleted, or renamed.
 
 Generation and application are deliberately separate operations.
+
+## Bounded Runtime Cleanup
+
+```bash
+pdm run dev:database reset --yes
+pdm run dev:database stop
+```
+
+Both commands resolve the current core-py SVC worktree identity. Reset remains protected by
+the database-owned development marker. Stop removes only the descriptor's exact Compose
+project, volume, credentials, and SSH control tunnel.

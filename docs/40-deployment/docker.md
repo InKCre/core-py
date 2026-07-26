@@ -40,11 +40,11 @@ inputs.
 
 ## Local Compose
 
-`docker-compose.yml` defines:
+`docker-compose.yml` defines the canonical local and SSH-transported topology:
 
 - `postgres`: digest-pinned PostgreSQL 17 with pgvector and a health check
 - `init`: a one-shot development-profile lifecycle initializer
-- `app`: the same image using the unprivileged `inkcre_core` login
+- `core`: the same image using the unprivileged `inkcre_core` login
 - `postgrest`: digest-pinned PostgREST using the unprivileged `authenticator` login
 
 Start the stack:
@@ -53,12 +53,13 @@ Start the stack:
 docker compose up --build
 ```
 
-Override local ports with `POSTGRES_PORT`, `APP_PORT`, and `POSTGREST_PORT`. Set
+The canonical agent-friendly entry point is `svc dev ensure database --repo . --json`.
+Override direct-Compose ports with `POSTGRES_PORT`, `CORE_PORT`, and `POSTGREST_PORT`. Set
 `INKCRE_COMPOSE_PROJECT_NAME` to give each worktree or agent a separate network and volume:
 
 ```bash
 INKCRE_COMPOSE_PROJECT_NAME=inkcre-agent-a \
-POSTGRES_PORT=55432 APP_PORT=58000 POSTGREST_PORT=53000 \
+POSTGRES_PORT=55432 CORE_PORT=58000 POSTGREST_PORT=53000 \
 docker compose up --build
 ```
 
@@ -89,5 +90,8 @@ or Heroku state.
 After that workflow passes on the exact current `main`, `artifact-publish.yml` publishes the
 runtime to GHCR by commit and reports the immutable digest.
 
-When no local Docker-compatible runtime is installed, this CI job is the authoritative
-container execution proof.
+When no local Docker-compatible runtime is installed, `svc.local.json` may select the
+checked-in SSH provider implemented by `scripts/dev_database_provider.py` and
+`scripts/remote-compose.sh`. It executes this same Compose file, records the remote daemon
+identity, allocates dynamic loopback ports, and keeps cleanup instance-bounded. CI remains
+the authoritative clean-environment container proof.

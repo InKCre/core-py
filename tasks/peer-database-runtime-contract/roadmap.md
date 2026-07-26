@@ -19,15 +19,19 @@ All Heroku web formations remain Eco.
 
 ## Completion Status
 
-Executions 00–09 completed on 2026-07-24. Canonical production and the standard
-PostgreSQL/PostgREST acceptance path are green; client-web consumes the pinned contract and
-has protected-main CI plus isolated database E2E; review identities are repository-qualified;
-legacy staging control-plane resources are retired.
+Executions 01–09 completed on 2026-07-24 and remain operationally green. Canonical production
+and the standard PostgreSQL/PostgREST acceptance path are healthy; client-web consumes the
+pinned executable contract and has protected-main CI plus isolated database E2E; review
+identities are repository-qualified; legacy staging control-plane resources are retired.
 
-Cloudflare Pages provider activation is intentionally tracked as a non-blocking follow-up.
-The checked-in static deployment and exact preview cleanup controllers skip while the project
-variable is absent, then fail closed once configured. Creating the provider project remains a
-human account-verification action and is not part of the database/runtime contract exit proof.
+The 2026-07-26 closure audit reopened Execution 00 because core-py, client-web, and Hub `main`
+no longer shared one published Product TDD authority. Execution 10 has now published that
+authority on canonical Hub commit `a0ba0d4`, moved both Spokes to it, and locally proved the
+core-owned SSH Docker runtime plus client-web's exact external attachment. Spoke publication
+is the only remaining handoff step.
+
+Cloudflare Pages production and preview delivery are now proven and continue under
+client-web's own DX packet. They are not part of core-py's remaining scope.
 
 ## Execution 00 — Solidify Cross-Unit Contract
 
@@ -228,6 +232,31 @@ Exit proof:
 - no active code, config, hook, app, domain, branch, or documented command addresses staging;
 - canonical production and review smoke remain green after a bounded observation window;
 - rollback artifacts remain available for the agreed retention period.
+
+## Execution 10 — Shared Authority And Remote Docker Convergence
+
+- promote the peer topology, protocol, JWT, and environment contract into the canonical SVC
+  10.0.1 Hub structure;
+- publish one Hub source commit, then move both Spoke shared refs to that exact commit without
+  mixing Hub, ref-bump, or Spoke-local commits;
+- adopt SVC 10.0.1 in core-py's local guidance;
+- preserve local Docker as the portable default while supporting an ignored, machine-local
+  SSH Docker target compatible with `wsl.win-ws.localhost`;
+- expose a stable runtime-instance identity covering owner, Compose project, network,
+  database endpoint, contract revision, and lifecycle scope;
+- refuse reuse when core-py and client-web resolve different instance identities, even when
+  they happen to address the same daemon or port.
+
+Exit proof:
+
+- Hub owns the peer database contract in its SVC 10.0.1 structure;
+- core-py and client-web consume the same published Hub commit;
+- core-py local guidance resolves entirely through SVC 10.0.1;
+- core-py can run its database lifecycle against the remote Docker host without installing a
+  local daemon;
+- both Spokes report the same explicit runtime-instance identity and contract revision before
+  sharing a database;
+- no cross-Spoke shared-ref/freshness CI gate is introduced.
 
 ## client-web DX Delta
 
