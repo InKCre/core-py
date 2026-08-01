@@ -3,7 +3,9 @@
 - Shared product truth: [`_shared/10-prd/`](_shared/10-prd/)
 - Shared cross-unit contracts: [`_shared/20-product-tdd/`](_shared/20-product-tdd/)
 - Local unit architecture: [`30-unit-tdd/`](30-unit-tdd/)
+- Core security model: [`30-unit-tdd/security-model.md`](30-unit-tdd/security-model.md)
 - Deployment and runtime truth: [`40-deployment/`](40-deployment/)
+- Vulnerability reporting policy: [`../SECURITY.md`](../SECURITY.md)
 - Active agent-owned work: [`../tasks/`](../tasks/)
 
 <!-- svc:begin navigation sha256=01d8643023a40533a997a67c70e920bb0ff0056081d2d18bec59e47324318152 -->
