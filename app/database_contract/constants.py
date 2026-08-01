@@ -39,5 +39,6 @@ APPLICATION_TABLES = (
   "sources_collect_jobs",
   "sources_types",
   "storage_types",
+  "storage_blobs",
   "storages",
 )

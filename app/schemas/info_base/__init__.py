@@ -1,6 +1,6 @@
 from .block import BlockModel, BlockID, ResolverType
 from .relation import RelationModel, RelationID
-from .storage import StorageModel, StorageID, StorageTypesModel
+from .storage import StorageBlobModel, StorageModel, StorageID, StorageTypesModel
 from .main import SubGraphForm, ArcForm, Vector
 
 __all__ = [
@@ -10,6 +10,7 @@ __all__ = [
   "RelationModel",
   "RelationID",
   "StorageModel",
+  "StorageBlobModel",
   "StorageID",
   "StorageTypesModel",
   "SubGraphForm",

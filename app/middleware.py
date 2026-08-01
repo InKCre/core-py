@@ -64,6 +64,32 @@ def decode_peer_jwt(
   return claims
 
 
+def require_peer_jwt(request: Request) -> dict:
+  """Require the canonical peer JWT for an explicitly protected route tree."""
+  auth_header = request.headers.get("Authorization")
+  if not auth_header:
+    raise HTTPException(
+      status_code=401,
+      detail="Authorization header missing",
+      headers={"WWW-Authenticate": "Bearer"},
+    )
+  if not auth_header.startswith("Bearer "):
+    raise HTTPException(
+      status_code=401,
+      detail="Invalid authorization header format",
+      headers={"WWW-Authenticate": "Bearer"},
+    )
+
+  try:
+    return decode_peer_jwt(auth_header[7:], settings.jwt_secret)
+  except jwt.exceptions.InvalidTokenError as error:
+    raise HTTPException(
+      status_code=401,
+      detail="Invalid token",
+      headers={"WWW-Authenticate": "Bearer"},
+    ) from error
+
+
 class LoggingMiddleware(BaseHTTPMiddleware):
   """Middleware for logging requests, responses, and exceptions with trace ID."""
 
@@ -164,21 +190,7 @@ class JWTMiddleware(BaseHTTPMiddleware):
     ):
       return await call_next(request)
 
-    # Get Authorization header
-    auth_header = request.headers.get("Authorization")
-    if not auth_header:
-      raise HTTPException(status_code=401, detail="Authorization header missing")
-
-    # Check Bearer token format
-    if not auth_header.startswith("Bearer "):
-      raise HTTPException(status_code=401, detail="Invalid authorization header format")
-
-    token = auth_header[7:]  # Remove "Bearer "
-
-    try:
-      decode_peer_jwt(token, self.jwt_secret)
-    except jwt.exceptions.InvalidTokenError:
-      raise HTTPException(status_code=401, detail="Invalid token")
+    require_peer_jwt(request)
 
     # Proceed to next middleware/handler
     return await call_next(request)

@@ -64,7 +64,9 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     :param relations: Relations of the block.
     """
     self._block = block
-    self.__relations = relations or None
+    self.__relations: dict[tuple[bool, bool], tuple[RelationModel, ...]] = {}
+    if relations is not None:
+      self.__relations[(True, True)] = relations
     self.__raw_content: RawContentTV | None = None
     """The (real) content of the block, commonly fetched from storage. 
     If storage is None, uses block.content
@@ -137,11 +139,23 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     :param include_in: bool, whether to get incoming relations. Default True.
     :param include_out: bool, whether to get outgoing relations. Default True.
     """
-    if self.__relations is None:
-      self.__relations = RelationManager.get(
-        block_id=self.block_id, include_in=include_in, include_out=include_out
-      )
-    return self.__relations
+    key = (include_in, include_out)
+    if key not in self.__relations:
+      all_relations = self.__relations.get((True, True))
+      if all_relations is not None:
+        self.__relations[key] = tuple(
+          relation
+          for relation in all_relations
+          if (include_in and relation.to_ == self.block_id)
+          or (include_out and relation.from_ == self.block_id)
+        )
+      else:
+        self.__relations[key] = RelationManager.get(
+          block_id=self.block_id,
+          include_in=include_in,
+          include_out=include_out,
+        )
+    return self.__relations[key]
 
   @classmethod
   # @abc.abstractmethod TODO

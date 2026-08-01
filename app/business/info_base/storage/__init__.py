@@ -1,8 +1,9 @@
-from .main import Storage, StorageManager
+from .main import Storage, StorageManager, WritableStorage
 
 __all__ = [
   "Storage",
   "StorageManager",
+  "WritableStorage",
   "HTTPStorage",
   "HTTPStorageConfig",
   "HTTPImageStorage",
@@ -11,6 +12,7 @@ __all__ = [
   "HTTPJsonStorage",
   "HTTPBinaryStorage",
   "HTTPHtmlStorage",
+  "PostgreSQLBinaryStorage",
 ]
 
 # Import storage implementations to ensure they're registered
@@ -24,3 +26,4 @@ from .http import (
   HTTPBinaryStorage,
   HTTPHtmlStorage,
 )
+from .postgresql import PostgreSQLBinaryStorage

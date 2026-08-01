@@ -4,6 +4,7 @@ __all__ = ["ROUTER"]
 
 import typing
 import fastapi
+import pydantic
 from app.business.extension.main import ExtensionManager
 from app.schemas.extension.main import ExtensionModel, ExtensionID
 
@@ -67,16 +68,18 @@ def update_extension_config(
 
   编辑成功将会立刻应用到插件中（如果正在运行）
   """
-  updated_ext = ExtensionManager.save_config(extid, body)
+  try:
+    updated_ext = ExtensionManager.update_config(extid, body)
+  except pydantic.ValidationError as error:
+    raise fastapi.HTTPException(
+      status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
+      detail=error.errors(),
+    ) from error
 
   if updated_ext is None:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_404_NOT_FOUND,
       detail=f"Extension with id {extid} not found.",
     )
-
-  ext_cls = ExtensionManager.RUNNING_EXTENSIONS.get(extid, None)
-  if ext_cls is not None:
-    ext_cls.update_config(updated_ext.config)
 
   return updated_ext
