@@ -2,6 +2,7 @@ __all__ = [
   "Base",
   "BlockModel",
   "StorageModel",
+  "StorageBlobModel",
   "StorageTypesModel",
   "RelationModel",
   "SourceModel",
@@ -22,7 +23,7 @@ Base = sqlalchemy.orm.declarative_base(metadata=sqlalchemy.MetaData(schema=PROTO
 sqlmodel.SQLModel.metadata = Base.metadata
 
 from .info_base.block import BlockModel
-from .info_base.storage import StorageModel, StorageTypesModel
+from .info_base.storage import StorageBlobModel, StorageModel, StorageTypesModel
 from .info_base.relation import RelationModel
 from .source import SourceModel, SourceCollectJobModel
 from .extension.main import ExtensionModel

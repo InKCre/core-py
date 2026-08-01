@@ -36,6 +36,8 @@ def _type_document(column_type: TypeEngine[Any]) -> dict[str, object]:
     return {"kind": "string", "format": "uuid"}
   if isinstance(column_type, sqlalchemy.DateTime):
     return {"kind": "string", "format": "date-time"}
+  if isinstance(column_type, sqlalchemy.LargeBinary):
+    return {"kind": "string", "format": "bytea"}
   if isinstance(column_type, sqlalchemy.Boolean):
     return {"kind": "boolean"}
   if isinstance(

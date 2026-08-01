@@ -56,12 +56,17 @@ class BlockManager:
     return tuple(blocks)
 
   @classmethod
-  def get(cls, block_id: BlockID) -> Opt[BlockModel]:
-    with SessionLocal() as db_session:
-      block = db_session.exec(
-        sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
-      ).one_or_none()
-    return block
+  def get(
+    cls,
+    block_id: BlockID,
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> Opt[BlockModel]:
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get(block_id, owned_session)
+    return db_session.exec(
+      sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
+    ).one_or_none()
 
   @classmethod
   def get_resolver(cls, block_id: BlockID) -> Opt["Resolver"]:
@@ -377,32 +382,63 @@ class BlockManager:
     content: Opt[str] = None,
     resolver: Opt[ResolverType] = None,
     storage: Opt[StorageID] | Undefined = _undefined,
+    db_session: Opt[sqlmodel.Session] = None,
   ) -> BlockModel:
     """编辑块"""
     logger.info("Editing block", extra={"block_id": block_id})
-    with SessionLocal() as db_session:
-      block = db_session.exec(
-        sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
-      ).one_or_none()
-      if block is None:
-        logger.warning("Block not found for editing", extra={"block_id": block_id})
-        raise ValueError("Block not found")
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        block = cls.edit_block(
+          block_id,
+          content=content,
+          resolver=resolver,
+          storage=storage,
+          db_session=owned_session,
+        )
+        owned_session.commit()
+        owned_session.refresh(block)
+        return block
 
-      if content is not None:
-        block.content = content
-      if resolver is not None:
-        block.resolver = resolver
-      if storage is not _undefined:
-        block.storage = storage  # type: ignore
+    block = cls.get(block_id, db_session)
+    if block is None:
+      logger.warning("Block not found for editing", extra={"block_id": block_id})
+      raise ValueError("Block not found")
 
-      db_session.add(block)
-      db_session.commit()
-      db_session.refresh(block)
+    if content is not None:
+      block.content = content
+    if resolver is not None:
+      block.resolver = resolver
+    if storage is not _undefined:
+      block.storage = storage  # type: ignore
 
-      logger.info("Block edited successfully", extra={"block_id": block.id})
-      logger.debug(
-        "Embedding will be updated asynchronously by interval job",
-        extra={"block_id": block.id},
-      )
+    db_session.add(block)
+    db_session.flush()
+    db_session.refresh(block)
+
+    logger.info("Block edited successfully", extra={"block_id": block.id})
+    logger.debug(
+      "Embedding will be updated asynchronously by interval job",
+      extra={"block_id": block.id},
+    )
 
     return block
+
+  @classmethod
+  def delete(
+    cls,
+    block_id: BlockID,
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> bool:
+    """Delete a block, using the caller's transaction when supplied."""
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        deleted = cls.delete(block_id, owned_session)
+        owned_session.commit()
+        return deleted
+
+    block = cls.get(block_id, db_session)
+    if block is None:
+      return False
+    db_session.delete(block)
+    db_session.flush()
+    return True

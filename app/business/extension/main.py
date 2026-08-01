@@ -10,6 +10,8 @@ from typing import Optional as Opt
 from app.engine import SessionLocal
 from app.database_contract.profile import BUILTIN_EXTENSIONS_BY_ID
 from app.schemas.extension.main import ExtensionModel, ExtensionID
+from app.middleware import require_peer_jwt
+from .routing import ExtensionRouteMount
 from libs.obsrv.main import get_logger
 
 
@@ -41,21 +43,30 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     return super().__init_subclass__(**kwargs)
 
   @classmethod
-  def on_start(cls, app: fastapi.FastAPI, extension: ExtensionModel):
-    cls.config = cls.__configcls__(**(extension.config or {}))  # pyrefly: ignore[no-access]
-    with SessionLocal() as db:
-      extension.config_schema = cls.__configschema__
-      db.add(extension)
-      db.commit()
+  def on_start(cls, extension: ExtensionModel) -> fastapi.APIRouter:
+    cls.config = cls.validate_config(extension.config or {})  # pyrefly: ignore[no-access]
 
-    router = fastapi.APIRouter(prefix=f"/{cls.__extid__}")
+    router = fastapi.APIRouter(
+      prefix=f"/{cls.__extid__}",
+      tags=["extension", cls.__extid__],
+      dependencies=cls.api_dependencies(),
+    )
     cls._register_apis(router)
-    app.include_router(router, tags=["extension", cls.__extid__])
 
     cls._init_sources()
-    cls._init_resolvers()
 
     LOGGER.info(f"Extension {cls.__extid__} started.")
+    return router
+
+  @classmethod
+  def api_dependencies(cls) -> list[typing.Any]:
+    """Return root API dependencies; override with [] to compose extension auth."""
+    return [fastapi.Depends(require_peer_jwt)]
+
+  @classmethod
+  def load_decoders(cls) -> None:
+    """Load persisted-content decoders independently of live API/source state."""
+    cls._init_resolvers()
 
   @classmethod
   def _init_resolvers(cls): ...
@@ -65,10 +76,6 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
 
   @classmethod
   async def on_close(cls):
-    ExtensionManager.save_config(
-      ext_id=cls.__extid__,
-      config=cls.config,  # pyrefly: ignore[missing-attribute]
-    )
     LOGGER.info(f"Extension {cls.__extid__} closed.")
 
   @classmethod
@@ -90,10 +97,21 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     else:
       cls.config = new_config  # pyrefly: ignore[no-access]
 
+  @classmethod
+  def validate_config(cls, config: dict) -> ConfigTV:
+    """Validate and normalize persisted configuration for this extension."""
+    return cls.__configcls__.model_validate(config)  # pyrefly: ignore[missing-attribute]
+
+  @classmethod
+  def config_schema(cls) -> dict:
+    """Return optional UI metadata derived from the authoritative config model."""
+    return cls.__configschema__  # pyrefly: ignore[no-access]
+
 
 class ExtensionManager:
   RUNNING_EXTENSIONS: dict[ExtensionID, type[ExtensionBase]] = dict()
-  FASTAPI_APP: fastapi.FastAPI
+  ROUTE_MOUNTS: dict[ExtensionID, ExtensionRouteMount] = dict()
+  FASTAPI_APP: fastapi.FastAPI | None = None
 
   @classmethod
   def start_enabled(cls, app: fastapi.FastAPI):
@@ -103,15 +121,20 @@ class ExtensionManager:
       cls.start(extension=extension)
 
   @classmethod
+  def load_installed_decoders(cls) -> None:
+    """Make decoders for installed artifacts available even while disabled."""
+    for extension in cls.get_installed():
+      cls._load_extension_class(extension.id).load_decoders()
+
+  @classmethod
   async def close_running(cls):
     """Close all running extensions.
 
     It could involves closes of connections, so asynchronous.
     """
-    to_close = tuple(cls.RUNNING_EXTENSIONS.values())
-    for extension_class in to_close:
-      await extension_class.on_close()
-      cls.RUNNING_EXTENSIONS.pop(extension_class.__extid__, None)
+    to_close = tuple(cls.RUNNING_EXTENSIONS)
+    for extid in to_close:
+      await cls.close(extid)
 
   @classmethod
   def start(
@@ -123,34 +146,60 @@ class ExtensionManager:
     """Start a specific extension."""
     if app is None:
       app = cls.FASTAPI_APP
+    else:
+      cls.FASTAPI_APP = app
     if app is None:
       raise ValueError("FastAPI app instance is required to start extension.")
     if extension is None and extid is not None:
       extension = cls.get(extid)
     if not extension:
       raise ValueError(f"Extension not provided or not found: {extid}")
-    extension_module = importlib.import_module(f"extensions.{extension.id}")
-    extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
+    extension_class = cls._load_extension_class(extension.id)
 
-    if extension_class in cls.RUNNING_EXTENSIONS:
+    if extension.id in cls.RUNNING_EXTENSIONS:
       LOGGER.warning(f"Extension {extension.id} is already running.")
     else:
-      extension_class.on_start(
-        app=app,
-        extension=extension,
-      )
+      extension_class.load_decoders()
+      cls._save_config_schema(extension.id, extension_class.config_schema())
+      router = extension_class.on_start(extension=extension)
+      mount = ExtensionRouteMount(app=app, router=router)
+      mount.publish()
+      cls.ROUTE_MOUNTS[extension.id] = mount
       cls.RUNNING_EXTENSIONS[extension_class.__extid__] = extension_class
 
   @classmethod
   async def close(cls, extid: ExtensionID):
     """Close a specific extension."""
-    extension_module = importlib.import_module(f"extensions.{extid}")
-    extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
-    if extension_class in cls.RUNNING_EXTENSIONS:
-      await extension_class.on_close()
-      cls.RUNNING_EXTENSIONS.pop(extension_class.__extid__, None)
-    else:
+    extension_class = cls.RUNNING_EXTENSIONS.get(extid)
+    if extension_class is None:
       LOGGER.warning(f"Extension {extid} is not running.")
+      return
+
+    mount = cls.ROUTE_MOUNTS.get(extid)
+    if mount is not None:
+      mount.unpublish()
+
+    # Keep the runtime entry after a close failure so a later disable/close can retry.
+    await extension_class.on_close()
+    cls.ROUTE_MOUNTS.pop(extid, None)
+    cls.RUNNING_EXTENSIONS.pop(extid, None)
+
+  @classmethod
+  def _load_extension_class(cls, extid: ExtensionID) -> type[ExtensionBase]:
+    extension_module = importlib.import_module(f"extensions.{extid}")
+    return typing.cast(type[ExtensionBase], extension_module.Extension)
+
+  @classmethod
+  def _save_config_schema(cls, extid: ExtensionID, config_schema: dict) -> None:
+    with SessionLocal() as db:
+      extension = db.exec(
+        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
+      ).first()
+      if extension is None or extension.config_schema == config_schema:
+        return
+      extension.config_schema = config_schema
+      db.add(extension)
+      db.commit()
 
   @classmethod
   def _read_metadata(cls, ext_path: str) -> tuple[Opt[str], Opt[str]]:
@@ -335,32 +384,33 @@ class ExtensionManager:
       ).first()
 
   @classmethod
-  def save_config(
+  def update_config(
     cls,
-    ext_id: ExtensionID,
-    config: sqlmodel.SQLModel | dict,
-  ) -> ExtensionModel:
-    """Save extension config to database.
-
-    Args:
-        ext_id (ExtensionID):
-        config (sqlmodel.SQLModel | dict):
-
-    Returns:
-        ExtensionModel: updated extension
-    """
+    extid: ExtensionID,
+    patch: dict[str, typing.Any],
+  ) -> ExtensionModel | None:
+    """Validate a shallow config patch, persist it, then apply it live."""
     with SessionLocal() as db:
       extension_model = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == ext_id)
-      ).one()
-      extension_model.config = (
-        config.model_dump() if isinstance(config, sqlmodel.SQLModel) else config
-      )
+        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
+      ).first()
+      if extension_model is None:
+        return None
+
+      extension_class = cls._load_extension_class(extid)
+      candidate = {**(extension_model.config or {}), **patch}
+      validated = extension_class.validate_config(candidate)
+      extension_model.config = validated.model_dump(mode="json")
+      extension_model.config_schema = extension_class.config_schema()
       db.add(extension_model)
       db.commit()
       db.refresh(extension_model)
 
-      return extension_model
+    running_class = cls.RUNNING_EXTENSIONS.get(extid)
+    if running_class is not None:
+      running_class.update_config(validated)
+
+    return extension_model
 
   @classmethod
   def sync(cls):

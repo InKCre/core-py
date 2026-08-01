@@ -16,6 +16,7 @@ EXPECTED_APPLICATION_TABLES = {
   "sources_collect_jobs",
   "sources_types",
   "storage_types",
+  "storage_blobs",
   "storages",
 }
 
@@ -77,6 +78,15 @@ def test_log_ids_are_bigint():
   metadata = get_target_metadata()
 
   assert isinstance(_table("logs").columns["id"].type, sqlalchemy.BigInteger)
+
+
+def test_storage_blobs_own_only_uuid_pointer_and_binary_bytes():
+  table = _table("storage_blobs")
+
+  assert set(table.columns.keys()) == {"id", "data"}
+  assert isinstance(table.columns["id"].type, sqlalchemy.Uuid)
+  assert isinstance(table.columns["data"].type, sqlalchemy.LargeBinary)
+  assert table.columns["data"].nullable is False
 
 
 def test_block_storage_foreign_key_preserves_blocks():

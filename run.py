@@ -36,7 +36,7 @@ from app.business.extension import ExtensionManager
 from app.business.client import ClientManager
 from app.business.info_base.main import InfoBaseManager
 from app.business.sink import SinkManager
-from app.middleware import LoggingMiddleware, JWTMiddleware
+from app.middleware import LoggingMiddleware, require_peer_jwt
 from app.health import check_database_readiness
 from app.runtime import RUNTIME_STATUS, RuntimePhase
 
@@ -59,6 +59,7 @@ def bootstrap_runtime(app: fastapi.FastAPI) -> None:
 
   if not SKIP_EXTENSIONS_SYNC:
     ExtensionManager.sync()
+    ExtensionManager.load_installed_decoders()
     ExtensionManager.start_enabled(app)
     SourceManager.sync_source_types()
     SourceManager.set_up_collect_jobs()
@@ -130,9 +131,6 @@ api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
 # 添加日志中间件
 api_app.add_middleware(LoggingMiddleware)
 
-# 添加JWT认证中间件
-api_app.add_middleware(JWTMiddleware)
-
 # 添加CORS中间件以支持跨域请求
 api_app.add_middleware(
   CORSMiddleware,
@@ -171,16 +169,20 @@ async def readiness() -> JSONResponse:
 
 root_router = fastapi.APIRouter(tags=["root"])
 sink_router = fastapi.APIRouter(prefix="/sink", tags=["sink"])
+core_router = fastapi.APIRouter(
+  dependencies=[fastapi.Depends(require_peer_jwt)],
+)
 
 root_router.put("/graph")(InfoBaseManager.insert_subgrpah)
 sink_router.get("/rag")(SinkManager.rag)
 
-api_app.include_router(block_router)
-api_app.include_router(relation_router)
-api_app.include_router(extension_router)
-api_app.include_router(source_router)
-api_app.include_router(root_router)
-api_app.include_router(sink_router)
+core_router.include_router(block_router)
+core_router.include_router(relation_router)
+core_router.include_router(extension_router)
+core_router.include_router(source_router)
+core_router.include_router(root_router)
+core_router.include_router(sink_router)
+api_app.include_router(core_router)
 
 if __name__ == "__main__":
   uvicorn.run(api_app, host=settings.host, port=settings.port)

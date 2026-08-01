@@ -71,6 +71,7 @@ BUILTIN_EXTENSIONS = (
   ExtensionProfile("github", "0.1.0", "GitHub"),
   ExtensionProfile("learn_english", "0.1.0", "Learn English"),
   ExtensionProfile("mail", "0.1.0", "Mail"),
+  ExtensionProfile("memos", "0.1.0", "Memos"),
   ExtensionProfile("rss", "0.1.0", "RSS/Atom Feeds"),
   ExtensionProfile("telegram", "0.1.0", "Telegram"),
   ExtensionProfile("twitter", "0.1.0", "Twitter"),
@@ -90,6 +91,18 @@ BUILTIN_STORAGE_TYPES = tuple(
     ("http_text", "HTTP storage for plain text content."),
     ("http_video", "HTTP storage for video content."),
   )
+)
+
+BUILTIN_STORAGE_TYPES += (
+  TypeProfile(
+    "postgresql_binary",
+    "PostgreSQL storage for deployment-owned binary content.",
+    _object_schema(
+      "PostgreSQLBinaryStorageConfig",
+      "Configuration for PostgreSQL binary storage.",
+      {},
+    ),
+  ),
 )
 
 _FEED_PROPERTIES = {
@@ -205,6 +218,7 @@ BUILTIN_STORAGES = (
   StorageProfile(-1, "http_image", "HTTP Image", {}),
   StorageProfile(-2, "http_video", "HTTP Video", {}),
   StorageProfile(-3, "http_html", "HTTP HTML", {}),
+  StorageProfile(-4, "postgresql_binary", "PostgreSQL Binary", {}),
 )
 
 BUILTIN_EXTENSIONS_BY_ID = {item.id: item for item in BUILTIN_EXTENSIONS}
