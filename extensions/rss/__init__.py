@@ -33,8 +33,8 @@ class Extension(
 
   @classmethod
   def _init_resolvers(cls):
-    """Initialize feed item resolver."""
-    from .resolver import FeedItemResolver  # noqa: F401
+    """Initialize exact feed-family resolvers."""
+    from .resolver import EnclosureResolver, FeedItemResolver, FeedResolver  # noqa: F401
 
   @classmethod
   def _init_sources(cls):
@@ -45,3 +45,6 @@ class Extension(
   @classmethod
   def _register_apis(cls, router: APIRouter):
     """Register API endpoints for RSS extension."""
+    from .api import register_api
+
+    register_api(router)

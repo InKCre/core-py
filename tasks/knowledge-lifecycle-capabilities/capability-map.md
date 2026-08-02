@@ -52,15 +52,16 @@ block、relation、resolver、storage、source、extension/registry 与跨仓合
 ```text
 block.content ───────────────┐
                             ├─ resolver ─→ solved / use-facing representation
-storage ─→ raw content ─────┤
+storage ─→ hydrated content ┤
 local relations ────────────┘
 ```
 
 - block 是 info-base 的基本持久信息单元；source-native Tweet、GithubRepo、FeedItem 等不会
   另外形成并行 durable object store。
 - relation 使多个 blocks 形成 graph，并可能参与 root block 的完整意义。
-- storage 只负责在需要时取得 raw content；它不是 semantic owner。
-- resolver 联合 raw content 与 local relations 产生明确的解释/projection。
+- storage 只负责在需要时按 pointer 取得 actual content；它不是 semantic owner。
+- block hydration 隐藏 inline/pointer 分支，resolver 联合 hydrated content 与 local relations 产生明确的
+  解释/projection。
 - collection 可以为了正确持久化 source information 而拆成多个 blocks/relations；
   organization 则处理已经存在的 info-base，目的不同。
 
@@ -70,11 +71,12 @@ local relations ────────────┘
 
 | Order | Unit family | State | Why here |
 | --- | --- | --- | --- |
-| 1 | [Memos extension](units/memos-extension/packet.md) | **Active；backend MVP** | Sir 的直接产品需求；可用 released client 做端到端验收，并首先检验 memo canonical/graph/read contract |
-| 2 | Existing source hardening | Queued | 为新增 source 后的共同 collection contract 提供回归基线；精确范围待 Memos unit 后选择 |
-| 3 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
-| 4 | Organization units | Queued | 以改善 use 为目标，分别讨论 breakdown/merge/linking 及后续发现的能力；现有实现不构成设计约束 |
-| 5 | Application units | Queued | 分别建立 feature/semantic/graph-navigation 的产品与质量合同，再决定 indexing/projection 支撑 |
+| 1 | [Memos extension](units/memos-extension/packet.md) | **Closed；backend MVP implemented** | Sir 的直接产品需求；released client E2E 已证明 memo canonical/graph/read contract；durable owner projections prepared |
+| 2 | [RSS extension hardening](units/rss-extension-hardening/packet.md) | **Closed；implemented, verified and documented** | 已用 RSS/Atom vertical 建立 source instance → collect job → graph → resolver → state 的可信 collection baseline |
+| 3 | Other existing source hardening | Queued | 只在具体 source 或 RSS 暴露的重复压力证明后选择；不把所有旧 sources 当成一个横切 cleanup unit |
+| 4 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
+| 5 | Organization units | Queued | 以改善 use 为目标，分别讨论 breakdown/merge/linking 及后续发现的能力；现有实现不构成设计约束 |
+| 6 | Application units | Queued | 分别建立 feature/semantic/graph-navigation 的产品与质量合同，再决定 indexing/projection 支撑 |
 
 这不是永久开发顺序。active unit 结束时，应根据用户价值、已暴露依赖和不确定性重新选择下一个
 unit；不得仅因为表格编号自动启动。

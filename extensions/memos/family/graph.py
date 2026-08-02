@@ -13,8 +13,9 @@ from .schema import CanonicalMemo, MemoCursor
 
 
 MEMO_RESOLVER = "extensions.memos.memo.v1"
-ATTACHMENT_RESOLVER = "extensions.memos.attachment.v1"
+ATTACHMENT_RESOLVER = "extensions.memos.attachment.v2"
 ATTACHMENT_RELATION_PREFIX = "attachment:"
+CONTENT_RELATION = "content"
 PARENT_RELATION = "parent"
 REFERENCE_RELATION = "reference"
 

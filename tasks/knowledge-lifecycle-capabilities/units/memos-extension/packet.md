@@ -1,6 +1,8 @@
 # Memos Extension
 
 - **Unit ID**: `memos-extension`。
+- **Unit State**: **Closed**；backend MVP implementation 与 verification 已完成，durable owner projections 已随
+  RSS/common promotion batch 准备。Commit/push/Hub publication 仍是独立授权操作。
 - **Active delivery scope**: `memos-backend` MVP。
 - **Objective**: 建立拥有 memo-family CanonicalMemo、graph mapping、resolver 与
   product-generation adapters 的 core extension；首个 MVP 让 MoeMemos Android 2.0.4 把
@@ -26,8 +28,8 @@
   D-039–D-048 关闭；完整排障见 [preflight.md](preflight.md)。I-01–I-08 均已关闭；官方 MoeMemos
   2.0.4 APK 已证明登录、双 state 多页同步、create、attachment upload/read、pin/edit、archive/delete，且
   真实调用发现并修复了显式空 `pageToken=` 的首页兼容缺口。E2E 数据、PAT 与 runner 已精确清理。
-- **Next Step**: Sir 复审本 unit 的实现与 evidence；通过后再启动独立 durable documentation promotion
-  batch，并另行决定 commit/publish 节奏。
+- **Next Step**: none for backend MVP。Future collector/versioned-product work 必须作为新的 delivery
+  scope 重新通过 gate；prepared durable docs await owner-specific commit/publication decisions。
 
 ## Lifecycle Gates
 
@@ -41,6 +43,7 @@
 | Impact Handshake | **Approved** | Sir 已批准 [impact-handshake.md](impact-handshake.md) 所界定的 address/object、state diff、blast radius、invariants、verification 与 uncertainty |
 | Explicit Start | **Granted** | Sir 已明确说“批准，开始” |
 | Execute / Verify | **Completed** | I-01–I-08 已通过 unit、repository-wide、migration/readiness、PostgreSQL HTTP→graph→resolver/storage/delete 与官方 APK journey；E2E residue 为 0 |
+| Unit Close | **Completed** | implementation/verification evidence 已满足 unit acceptance；durable projection 已准备，publication 仍按 owner 独立 |
 
 只有本文件维护 Memos extension 当前 delivery scope 的 phase、gate 和 next step。supporting
 documents 只保存设计、证据和验收内容，不另设控制状态；未来 scope 不继承 backend MVP 的

@@ -216,6 +216,20 @@ class WritableStorage(Storage[ConfigTV, ContentTV], abc.ABC):
     with SessionLocal() as db_session:
       return self.read_raw_content(block_content, db_session)
 
+  def create_raw_content(
+    self,
+    content: ContentTV,
+    db_session: sqlmodel.Session,
+  ) -> str:
+    """Write content and return the opaque pointer persisted in ``block.content``."""
+    pointer = self.write_raw_content(content, db_session)
+    return self.serialize_pointer(pointer)
+
+  @abc.abstractmethod
+  def serialize_pointer(self, pointer: typing.Any) -> str:
+    """Encode a storage-owned key as one opaque block pointer string."""
+    ...
+
   @abc.abstractmethod
   def read_raw_content(
     self,
@@ -231,6 +245,16 @@ class WritableStorage(Storage[ConfigTV, ContentTV], abc.ABC):
     content: ContentTV,
     db_session: sqlmodel.Session,
   ) -> typing.Any: ...
+
+  @abc.abstractmethod
+  def update_raw_content(
+    self,
+    block_content: str,
+    content: ContentTV,
+    db_session: sqlmodel.Session,
+  ) -> bool:
+    """Replace bytes addressed by an existing pointer without changing it."""
+    ...
 
   @abc.abstractmethod
   def delete_raw_content(

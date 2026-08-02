@@ -16,6 +16,7 @@ from app.schemas.info_base.relation import RelationModel
 from .graph import (
   ATTACHMENT_RELATION_PREFIX,
   ATTACHMENT_RESOLVER,
+  CONTENT_RELATION,
   MemoGraphRepository,
 )
 from .schema import CanonicalAttachment, SolvedAttachment
@@ -79,22 +80,67 @@ class AttachmentGraphRepository:
     storage = StorageManager.get_storage(DATABASE_BINARY_STORAGE_ID, db_session)
     if not isinstance(storage, WritableStorage):
       raise TypeError("Configured PostgreSQL binary storage is not writable")
-    blob_id = storage.write_raw_content(content, db_session)
+    block_pointer = storage.create_raw_content(content, db_session)
     canonical = CanonicalAttachment(
       filename=filename,
       media_type=media_type,
       size=len(content),
       created_at=created_at,
-      blob_id=blob_id,
     )
-    return BlockManager.create(
+    metadata_block = BlockManager.create(
       BlockModel(
         resolver=ATTACHMENT_RESOLVER,
-        storage=DATABASE_BINARY_STORAGE_ID,
         content=canonical.to_block_content(),
       ),
       db_session,
     )
+    semantic_resolver = ResolverManager.match_media_type(media_type) or "core.file.v1"
+    content_block = BlockManager.create(
+      BlockModel(
+        resolver=semantic_resolver,
+        storage=DATABASE_BINARY_STORAGE_ID,
+        content=block_pointer,
+      ),
+      db_session,
+    )
+    if metadata_block.id is None or content_block.id is None:
+      raise RuntimeError("Persisted attachment graph contains an unassigned block ID")
+    RelationManager.create(
+      metadata_block.id,
+      content_block.id,
+      CONTENT_RELATION,
+      db_session,
+    )
+    return metadata_block
+
+  @classmethod
+  def content_block(
+    cls,
+    attachment_id: int,
+    db_session: sqlmodel.Session,
+  ) -> BlockModel:
+    relations = tuple(
+      relation
+      for relation in RelationManager.get(
+        attachment_id,
+        include_in=False,
+        include_out=True,
+        content=CONTENT_RELATION,
+        db_session=db_session,
+      )
+      if relation.from_ == attachment_id
+    )
+    if len(relations) != 1:
+      raise AttachmentOwnershipError(
+        f"Attachment attachments/{attachment_id} must have exactly one content relation"
+      )
+    block = BlockManager.get(relations[0].to_, db_session)
+    if block is None:
+      raise AttachmentNotFoundError(
+        f"Attachment content block {relations[0].to_} not found"
+      )
+    ResolverManager.get(block)
+    return block
 
   @classmethod
   def current_attachment_relations(
@@ -179,11 +225,32 @@ class AttachmentGraphRepository:
     block = cls.get_block(attachment_id, db_session)
     if block is None:
       return False
-    storage = StorageManager.get_storage(DATABASE_BINARY_STORAGE_ID, db_session)
+    content_block = cls.content_block(attachment_id, db_session)
+    if content_block.id is None:
+      raise RuntimeError("Persisted semantic content block has no ID")
+    other_content_owners = tuple(
+      relation
+      for relation in RelationManager.get(
+        content_block.id,
+        include_in=True,
+        include_out=False,
+        content=CONTENT_RELATION,
+        db_session=db_session,
+      )
+      if relation.to_ == content_block.id and relation.from_ != attachment_id
+    )
+    deleted = BlockManager.delete(attachment_id, db_session)
+    if other_content_owners:
+      return deleted
+
+    if content_block.storage is None:
+      raise TypeError("Attachment semantic content must use writable storage")
+    storage = StorageManager.get_storage(content_block.storage, db_session)
     if not isinstance(storage, WritableStorage):
-      raise TypeError("Configured PostgreSQL binary storage is not writable")
-    storage.delete_raw_content(block.content, db_session)
-    return BlockManager.delete(attachment_id, db_session)
+      raise TypeError("Attachment semantic content storage is not writable")
+    storage.delete_raw_content(content_block.content, db_session)
+    BlockManager.delete(content_block.id, db_session)
+    return deleted
 
 
 class AttachmentApplicationService:
@@ -250,7 +317,12 @@ class AttachmentApplicationService:
         f"Attachment filename does not match attachments/{attachment_id}"
       )
     try:
-      content = await ResolverManager.get(block).get_raw_content()
+      with SessionLocal() as db_session:
+        content_block = AttachmentGraphRepository.content_block(
+          attachment_id,
+          db_session,
+        )
+      content = await ResolverManager.get(content_block).get_raw_content()
     except StorageBlobNotFoundError as error:
       raise AttachmentNotFoundError(str(error)) from error
     if not isinstance(content, bytes):

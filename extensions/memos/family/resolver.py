@@ -24,8 +24,21 @@ class MemoResolver(Resolver[SolvedMemo, str], rso_type=MEMO_RESOLVER):
       content=content.to_block_content(),
     )
 
-  async def _get_solved_content(self) -> SolvedMemo:
-    relations = await self.get_relations(include_in=False, include_out=True)
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> SolvedMemo:
+    if refresh:
+      self._canonical = CanonicalMemo.from_block_content(
+        await self.get_raw_content(refresh=True)
+      )
+    relations = await self.get_relations(
+      include_in=False,
+      include_out=True,
+      refresh=refresh,
+    )
     links = solve_memo_links(self.block_id, relations)
     from .schema import SolvedAttachment
 
@@ -38,7 +51,10 @@ class MemoResolver(Resolver[SolvedMemo, str], rso_type=MEMO_RESOLVER):
       block = BlockManager.get(attachment_id)
       if block is None:
         raise ValueError(f"Attachment block {attachment_id} does not exist")
-      solved = await ResolverManager.get(block).get_solved_content()
+      solved = await ResolverManager.get(block).get_solved_content(
+        refresh=refresh,
+        materialize_missing=materialize_missing,
+      )
       if not isinstance(solved, SolvedAttachment):
         raise TypeError(f"Block {attachment_id} is not a solved attachment")
       attachments.append(solved)
@@ -50,11 +66,29 @@ class MemoResolver(Resolver[SolvedMemo, str], rso_type=MEMO_RESOLVER):
       reference_ids=links.reference_ids,
     )
 
-  async def get_text(self) -> str:
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    del materialize_missing
+    if refresh:
+      self._canonical = CanonicalMemo.from_block_content(
+        await self.get_raw_content(refresh=True)
+      )
     return self._canonical.body
 
-  async def get_str_for_embedding(self) -> str:
-    return self._canonical.body
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    return await self.get_text(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
 
 
 __all__ = ["MemoResolver"]

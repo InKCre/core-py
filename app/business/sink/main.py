@@ -9,6 +9,21 @@ from libs.ai import Chat, Message, MessageContent, Prompt, Embedding
 from app.schemas.info_base.block import BlockID
 
 
+async def _optional_resolver_text(resolver) -> str | None:
+  from app.business.info_base.resolver import UnsupportedResolverCapability
+
+  try:
+    return await resolver.get_text()
+  except UnsupportedResolverCapability:
+    return None
+
+
+async def _optional_block_text(block) -> str | None:
+  from app.business.info_base.resolver import ResolverManager
+
+  return await _optional_resolver_text(ResolverManager.get(block))
+
+
 class SinkV1RAGResBody(sqlmodel.SQLModel):
   message: str
 
@@ -42,10 +57,12 @@ class SinkManager:
     # retrieve from base
     if retrieve_mode == "reasoning":
       related_blocks = await BlockManager.query_by_reasoning(query=query)
-      tmp = []
-      for block in related_blocks:
-        tmp.append(await block.get_context_as_text())
-      retrieve_result_prompt = MessageContent(content="\n".join(tmp))
+      texts = await asyncio.gather(
+        *(_optional_block_text(block) for block in related_blocks)
+      )
+      retrieve_result_prompt = MessageContent(
+        content="\n".join(text for text in texts if text is not None)
+      )
     elif retrieve_mode == "embedding":
       # Use embedding-based retrieval
       query_embedding = Embedding("", "text-embedding-v3").embed(query)
@@ -64,10 +81,12 @@ class SinkManager:
         )
 
       # Convert blocks to text for LLM
-      tmp = []
-      for block in related_blocks:
-        tmp.append(await block.get_context_as_text())
-      retrieve_result_prompt = MessageContent(content="\n".join(tmp))
+      texts = await asyncio.gather(
+        *(_optional_block_text(block) for block in related_blocks)
+      )
+      retrieve_result_prompt = MessageContent(
+        content="\n".join(text for text in texts if text is not None)
+      )
     else:
       raise NotImplementedError(f"Retrieve mode '{retrieve_mode}' not implemented")
 
@@ -76,9 +95,9 @@ class SinkManager:
     if context_blocks:
       resolvers = [BlockManager.get_resolver(bid) for bid in context_blocks]
       block_content_texts = await asyncio.gather(
-        *tuple(i.get_text() for i in resolvers if i)
+        *(_optional_resolver_text(resolver) for resolver in resolvers if resolver)
       )
-      context_text += "\n".join(block_content_texts)
+      context_text += "\n".join(text for text in block_content_texts if text is not None)
 
     prompt = Prompt("sink_rag")
     prompt.format(

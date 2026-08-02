@@ -3,7 +3,6 @@
 import datetime
 import json
 from pathlib import Path
-import uuid
 
 import fastapi
 from fastapi.testclient import TestClient
@@ -49,12 +48,12 @@ def _attachment(
 ) -> SolvedAttachment:
   return SolvedAttachment(
     block_id=block_id,
+    content_block_id=block_id + 100,
     canonical=CanonicalAttachment(
       filename=filename,
       media_type="image/png",
       size=3,
       created_at=datetime.datetime(2026, 8, 1, 8, tzinfo=datetime.UTC),
-      blob_id=uuid.UUID(int=block_id),
     ),
     owner_memo_id=owner_memo_id,
   )

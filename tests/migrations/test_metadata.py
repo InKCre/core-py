@@ -89,14 +89,14 @@ def test_storage_blobs_own_only_uuid_pointer_and_binary_bytes():
   assert table.columns["data"].nullable is False
 
 
-def test_block_storage_foreign_key_preserves_blocks():
+def test_block_storage_foreign_key_restricts_catalog_deletion():
   metadata = get_target_metadata()
   storage = _table("blocks").columns["storage"]
   foreign_key = next(iter(storage.foreign_keys))
 
   assert foreign_key.column.table.schema == PROTOCOL_SCHEMA
   assert foreign_key.onupdate == "CASCADE"
-  assert foreign_key.ondelete == "SET NULL"
+  assert foreign_key.ondelete == "RESTRICT"
 
 
 def test_autogenerate_ignores_lifecycle_internal_tables():

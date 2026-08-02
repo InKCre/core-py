@@ -20,6 +20,15 @@ class EmailResolver(Resolver[Email, str], rso_type="email"):
     if raw_content is not None:
       self.set_solved_content(Email.model_validate_json(raw_content))
 
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> Email:
+    del materialize_missing
+    return Email.model_validate_json(await self.get_raw_content(refresh=refresh))
+
   @classmethod
   def create_graph(
     cls,
@@ -75,12 +84,28 @@ class EmailResolver(Resolver[Email, str], rso_type="email"):
     """Email does not check uniqueness."""
     return None
 
-  async def get_text(self) -> str:
-    email = await self.get_solved_content()
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    email = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
     return email.body_text or email.body_html or email.subject
 
-  async def get_str_for_embedding(self) -> str:
-    email = await self.get_solved_content()
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    email = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
     body = email.body_text or email.body_html or ""
     return f"Subject: {email.subject}\n\n{body}"
 
@@ -93,6 +118,15 @@ class NewsletterResolver(Resolver[Newsletter, str], rso_type="newsletter"):
     """Parse newsletter content after initialization."""
     if raw_content is not None:
       self.set_solved_content(Newsletter.model_validate_json(raw_content))
+
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> Newsletter:
+    del materialize_missing
+    return Newsletter.model_validate_json(await self.get_raw_content(refresh=refresh))
 
   @classmethod
   def create_graph(cls, newsletter: Newsletter) -> SubGraphForm:
@@ -109,16 +143,34 @@ class NewsletterResolver(Resolver[Newsletter, str], rso_type="newsletter"):
       out_arcs=(),
     )
 
-  async def get_text(self) -> str:
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Get text representation of the newsletter.
 
     Returns the newsletter body.
     """
-    return (await self.get_solved_content()).body
+    return (
+      await self.get_solved_content(
+        refresh=refresh,
+        materialize_missing=materialize_missing,
+      )
+    ).body
 
-  async def get_str_for_embedding(self) -> str:
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Subject and body."""
-    newsletter = await self.get_solved_content()
+    newsletter = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
     return f"Subject: {newsletter.subject}\n\n{newsletter.body}"
 
 
@@ -128,6 +180,15 @@ class EmailAddressResolver(Resolver[EmailAddress, str], rso_type="email_address"
   def __post_init__(self, raw_content=None):
     if raw_content is not None:
       self.set_solved_content(EmailAddress.model_validate_json(raw_content))
+
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> EmailAddress:
+    del materialize_missing
+    return EmailAddress.model_validate_json(await self.get_raw_content(refresh=refresh))
 
   @classmethod
   def create_block(cls, content: EmailAddress | dict, storage=None) -> BlockModel:
@@ -141,18 +202,34 @@ class EmailAddressResolver(Resolver[EmailAddress, str], rso_type="email_address"
   def create_graph(cls, email: EmailAddress | dict) -> SubGraphForm:
     return SubGraphForm(block=cls.create_block(email))
 
-  async def get_text(self) -> str:
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Get text representation of the email address.
 
     Returns the display name and email, or just email if no name.
     """
-    address = await self.get_solved_content()
+    address = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
     if address.name:
       return f"{address.name} <{address.email}>"
     return address.email
 
-  async def get_str_for_embedding(self) -> str:
-    address = await self.get_solved_content()
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    address = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
     return f"{address.name} {address.email}" if address.name else address.email
 
   def get_existing(self, db_session: Session) -> BlockModel | None:

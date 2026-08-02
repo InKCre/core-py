@@ -1,245 +1,113 @@
-# README of InKCre extensions
+# InKCre Extensions
 
-- Built-in and third-party extensions placed under `extensions/`.
-- Folder name is the extension id.
-- Extensions are disabled by default.
+Extensions are checked-in capability packages loaded by the core runtime。Folder name is the extension ID；extensions
+are disabled by default。Runtime installation does not download arbitrary code。
 
-## Development
+Shared extension/graph/resolver/storage contracts live in the Hub Product TDD。This guide owns the current core-py
+package seams；Memos and RSS details live in their Unit TDDs。
 
-- Every extension has a `pyproject.toml` storing the extension metadata:
+## Package Shape
 
-```toml
-[project]
-version = "0.1.0"  # as extension version
-
-[tool.inkcre-ext]
-id = "mail"  # optional since folder name is already the extension id
-nickname = "Mail" 
+```text
+extensions/<extension_id>/
+  __init__.py      ExtensionBase subclass and lifecycle composition
+  schema.py        extension/source canonical config or content models
+  source.py        optional SourceBase implementation
+  resolver.py      optional exact resolver contract
+  api.py           optional extension-owned HTTP surface
+  pyproject.toml   optional extension metadata/dependencies
 ```
 
-## Writing Extension Components
+Dependencies admitted by an extension must also be frozen in the owning root profile/lock；an isolated extension lock
+is not enough for the production artifact。
 
-### Source
-
-Sources collect data as graphs and insert into the info-base.
-
-Graphs consist of blocks and relations. To avoid complex database interaction, use `StarGraphForm` to automatically resolve references and insert all at once.
-
-#### Guidelines for Writing a Source
-
-1. **Inherit from `SourceBase` with a config class**:
-   ```python
-   from app.business.source import SourceBase
-   import sqlmodel
-   
-   class SourceConfig(sqlmodel.SQLModel):
-       """Configuration for this source."""
-       api_key: str = ""
-       server_url: str = ""
-       # Add other configuration fields
-   
-   class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
-       """Your source description."""
-       pass
-   ```
-
-2. **Implement the `collect` method**:
-   - This is the main method that collects data from the external source
-   - Use `self.get_config()` to access source configuration
-   - Use `self.get_state()` and `self.set_state()` to manage collection state
-   - Create `StarGraphForm` objects for collected data
-   - Save to database using `RootManager.add_star_graph_to_session()`
-   
-   Example:
-   ```python
-   async def collect(self, job: SourceCollectJobModel) -> None:
-       config = self.get_config()
-       state = self.get_state()
-       
-       # Collect data from external source
-       data = await fetch_data(config.api_key)
-       
-       # Convert to StarGraphForm
-       collected = []
-       for item in data:
-           graph = YourResolver.create_graph(item)
-           collected.append(graph)
-       
-       # Save to database
-       with SessionLocal() as db:
-           for graph in collected:
-               await RootManager.add_star_graph_to_session(graph, db)
-           db.commit()
-   ```
-
-3. **Implement the `_organize` method**:
-   - Called after collection to organize/process collected blocks
-   - Often left as a no-op if no post-processing is needed
-   
-   ```python
-   async def _organize(self, block_id: BlockID) -> None:
-       """Organize collected block."""
-       pass
-   ```
-
-
-### Schema
-
-Schemas define the data models for content stored in blocks.
-
-#### Guidelines for Writing Schemas
-
-1. **Use Pydantic `BaseModel` for content models**:
-   ```python
-   from pydantic import BaseModel
-   from typing import Optional as Opt
-   from datetime import datetime
-   
-   class YourContentModel(BaseModel):
-       """Your content description."""
-       id: int
-       title: str
-       content: Opt[str] = None
-       created_at: datetime
-       # Add other fields
-   ```
-
-2. **Keep schemas focused on content only**:
-   - Don't include user, chat, or other relational data unless they're core to the content
-   - Use relations in `StarGraphForm` to link related entities
-   - Store only the essential data that defines the content itself
-
-3. **Add resolver reference**:
-   ```python
-   import typing
-   
-   class YourContentModel(BaseModel):
-       # ... fields ...
-       __resolver__: typing.ClassVar[typing.Any] = None
-   ```
-
-4. **Provide good documentation**:
-   - Add docstrings to the class and each field
-   - Include examples in `model_config` if helpful
-
-### Resolver
-
-Resolvers handle blocks containing your schema's data.
-
-#### Guidelines for Writing Resolvers
-
-1. **Inherit from `Resolver` with resolver type**:
-   ```python
-   from app.business.info_base.resolver import Resolver
-   from app.schemas.info_base.block import BlockModel
-   from app.schemas.info_base.main import StarGraphForm
-   
-   class YourResolver(Resolver, rso_type="extensions.<extension_id>.resolver_type"):
-       """Resolver for your content blocks."""
-       
-       def __post_init__(self):
-           """Parse content after initialization."""
-           self.content = YourContentModel.model_validate_json(self._block.content)
-   ```
-
-2. **Implement `create_graph` class method**:
-   - Factory method to create `StarGraphForm` from your content model
-   - Include any relations (in_relations, out_relations) to connect entities
-   
-   ```python
-   @classmethod
-   def create_graph(cls, content: YourContentModel) -> StarGraphForm:
-       """Create a StarGraphForm from content data.
-       
-       :param content: Content object to convert to block
-       :return: StarGraphForm for the content
-       """
-       return StarGraphForm(
-           block=BlockModel(
-               resolver=cls.__rsotype__,
-               content=content.model_dump_json(),
-           ),
-           out_relations=(),  # Add relations if needed
-       )
-   ```
-
-3. **Implement text methods**:
-   - `async def get_text(self) -> str`: Returns human-readable text representation
-   - `def get_str_for_embedding(self) -> str`: Returns text optimized for semantic search
-   
-   ```python
-   async def get_text(self) -> str:
-       """Get text representation of the content."""
-       return self.content.title or "[no title]"
-   
-   def get_str_for_embedding(self) -> str:
-       """Get text for embedding generation."""
-       parts = []
-       if self.content.title:
-           parts.append(f"Title: {self.content.title}")
-       if self.content.content:
-           parts.append(self.content.content)
-       return "\n".join(parts)
-   ```
-
-4. **Register resolver with schema**:
-   ```python
-   # At the end of resolver.py
-   YourContentModel.__resolver__ = YourResolver
-   ```
-
-5. **Implement `get_existing` if needed**:
-   - Override to check if block with same content already exists
-   - Return `None` if uniqueness check not needed
-   
-   ```python
-   def get_existing(self, db_session: Session) -> BlockModel | None:
-       """Check if block already exists."""
-       return None  # Or implement uniqueness check
-   ```
-
-### Storage
-
-Storage type has to follow `extensions.{extension_id}.{type}` pattern.
-
-### Extension Registration
-
-In your extension's `__init__.py`:
+## Extension Lifecycle
 
 ```python
-from app.business.extension.main import ExtensionBase
-
 class Extension(
-    ExtensionBase[YourExtensionConfig],
-    ext_id="your_extension_id",
-    config_cls=YourExtensionConfig,
+  ExtensionBase[ExtensionConfig],
+  ext_id="example",
+  config_cls=ExtensionConfig,
 ):
-    """Your extension description."""
-    
-    @classmethod
-    def _init_resolvers(cls):
-        """Initialize resolvers."""
-        from .resolver import YourResolver  # noqa: F401
-    
-    @classmethod
-    def _init_sources(cls):
-        """Initialize sources."""
-        from .source import Source  # noqa: F401
-    
-    @classmethod
-    def _register_apis(cls, router: APIRouter):
-        """Register API endpoints."""
-        from app.business.source import SourceManager
-        
-        router.post("/your_endpoint")(
-            lambda nickname: SourceManager.create(
-                f"extensions.{cls.__extid__}.source.Source", nickname
-            )
-        )
+  @classmethod
+  def _init_resolvers(cls):
+    from .resolver import ExampleResolver  # noqa: F401
+
+  @classmethod
+  def _init_sources(cls):
+    from .source import Source  # noqa: F401
+
+  @classmethod
+  def _register_apis(cls, router):
+    register_api(router)
 ```
 
-## Examples
+- Import hooks only register runtime classes in memory；explicit bootstrap reconciles database catalogs。
+- Enable/start publishes source/API runtime capability；disable/close removes its route set。
+- Installed exact decoders remain available for persisted blocks even when the extension is disabled。
+- Extension config update is merge → complete typed validation → durable write → live assignment。Disabled extension
+  can be configured before enable。
 
-See the following built-in extensions for reference:
-- **mail**: IMAP email collection with EmailAddress relations
-- **telegram**: Telegram bot message collection with simplified schema
+## Extension API Authentication
+
+Extension routes inherit core peer JWT by default。An external protocol may deliberately request an auth-neutral root，
+then make authentication visible on child routers：
+
+```python
+class Extension(...):
+  @classmethod
+  def api_dependencies(cls):
+    return []
+
+  @classmethod
+  def _register_apis(cls, root):
+    root.include_router(public_router)
+    root.include_router(
+      protocol_router,
+      dependencies=[fastapi.Depends(require_protocol_token)],
+    )
+```
+
+Do not add a global JWT path override or a core User model for one protocol。The extension owns only its bounded route
+authentication；graph/database authority remains unchanged。
+
+## Sources
+
+A source owns native fetch/adapter/policy and maps information into blocks/relations through info-base managers or an
+owning repository/application service。
+
+- Config belongs to the source instance；long-lived cursor/validators belong to source state；one-run overrides and
+  diagnostics belong to collect job。
+- Manual and scheduled triggers create ordinary `PENDING` collect jobs and share the atomic-claim runner。
+- `collect(job)` raises failures；the owning unit defines partial effects and state-advance boundary。
+- Exact native identity outranks heuristic duplicate reduction。Do not fuzzy-overwrite uncertain graph state。
+- `_organize()` is a legacy abstract method, not an automatic post-collection lifecycle。Use an explicit no-op until a
+  real organization command is designed。
+
+## Resolvers
+
+Resolvers interpret a block's hydrated content plus required direct relations。IDs are exact、namespaced and versioned，
+for example `extensions.example.item.v1`。
+
+Concrete resolvers must implement async `get_text()` and `get_str_for_embedding()`。Unsupported capability raises
+`UnsupportedResolverCapability`；supported-but-no-result returns `None`；unknown exact ID fails。`refresh` replaces a
+local snapshot，while `materialize_missing` only permits an absent derivation。
+
+Use one of the nine `core.<kind>.v1` semantic content blocks for text、HTML、image、audio、video、PDF、EPUB、ZIP or
+file bytes。Protocol/source metadata may remain a separate metadata block connected by an owning relation。
+
+## Storage
+
+Storage handlers turn their opaque pointer into bytes；they do not classify content。Writable storage owns pointer
+serialization and byte C/R/U/D。Application/source code calls the common create seam and persists the returned pointer，
+without hard-coding PostgreSQL/S3/Nextcloud pointer grammar。
+
+Current built-ins are generic HTTP read (`-1`) and PostgreSQL binary C/R/U/D (`-4`)。Do not recreate media-specific
+HTTP storage types。
+
+## Reference Units
+
+- [Memos extension](../docs/30-unit-tdd/memos-extension.md)：external protocol API、auth、family graph、semantic
+  attachments、best-effort cleanup。
+- [RSS extension](../docs/30-unit-tdd/rss-extension.md)：incremental source state、exact reconciliation、collect jobs、
+  full text and enclosure materialization。

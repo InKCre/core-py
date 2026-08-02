@@ -1,72 +1,58 @@
 # source/ Local Guide
 
-本文件只描述 `app/business/source/` 的局部事实、术语和变更风险。跨 `extension/source/info_base/sink` 的慢变量结构，先读 [docs/30-unit-tdd/business-pipeline-and-authority.md](../../../docs/30-unit-tdd/business-pipeline-and-authority.md)。
+本文件只描述 `app/business/source/` 的局部事实与变更风险。跨 subtree contract 看
+[business-pipeline-and-authority.md](../../../docs/30-unit-tdd/business-pipeline-and-authority.md)。
 
 ## 何时阅读
 
-在以下情况进入本目录前先读这里：
+- 修改 `SourceBase`、`SourceManager`、`SourceCollectJobManager`；
+- 修改 source registration/config/state；
+- 修改 manual/scheduled job lifecycle、claim 或 timeout；
+- 新增 incremental source。
 
-- 修改 `SourceBase`、`SourceManager`、`SourceCollectJobManager`
-- 修改 source 注册方式、采集状态持久化、任务调度逻辑
-- 修改 source 与 info-base 的写入边界
+## 三层对象
 
-如果改动会影响跨模块结构，再回头核对 [app/business/AGENTS.md](../AGENTS.md) 和 [docs/30-unit-tdd/business-pipeline-and-authority.md](../../../docs/30-unit-tdd/business-pipeline-and-authority.md)。
+- `source type`：registered class/capability identity；
+- `source instance`：持久 config、long-lived state 与 schedule；
+- `collect job`：一次 command 的 config、status、diagnostics 与 timing。
 
-## 局部执行规则
+不要把配置、cursor 或 execution progress 混到同一层。
 
-- 区分三层对象：`source type`、`source instance`、`collect job`。不要把配置、状态、调度语义混写到一个层里。
-- source 负责采集或记录外部输入，不负责定义 block / relation 的持久化规则；持久化协调仍归 info-base。
-- `collect()` / `record()` 发生异常时，优先向上抛，不要在 source 内部静默吞掉并假装成功。
-- 若要改变调度模型，先核对 `main.py` 与 `collect_job.py` 的双路径现状；这是本目录最大的变更风险。
+## Registration
 
-## 关键文件
+- `SourceBase.__init_subclass__()` 只登记内存 class；import 不连接数据库。
+- `SourceManager.sync_source_types()` 在显式 bootstrap reconcile catalog。
+- Extension source 必须在 extension startup import；否则 source type 不存在于当前 runtime registry。
 
-- `app/business/source/main.py`: `SourceBase`、`SourceManager`
-- `app/business/source/collect_job.py`: `SourceCollectJobManager`
-- `app/schemas/source/`: source / collect-job / source-type 模型
-- `app/business/info_base/main.py`: public persistence entry
+## Config And State
 
-## 术语边界
+- `SourceModel.config` 是 validated source-instance config；`SourceModel.state` 是 long-lived conditional/cursor
+  state；`SourceCollectJobModel.config/state` 只属于一次 run。
+- Cursor、ETag、Last-Modified、watermark 必须同时声明 authority scope；config/native identity 改变时不可盲目复用。
+- `SourceBase.get_config/get_state/set_state` 每次从 database读取/写入，不缓存另一份 authority。
 
-- `source type`: 注册到 `sources_types` 的 source 类标识，当前通常长得像 import path
-- `source instance`: `sources` 表中的一条配置记录
-- `collect job`: `sources_collect_jobs` 中的一次执行记录
+## Job-Only Execution Path
 
-不要把这三个词混成一个层级。
+- Manual collection 先通过 `SourceCollectJobManager.create()` 持久化 ordinary `PENDING` job。
+- Schedule firing 调用 `create_scheduled(source_id)`，同样先 create job，再调用 common runner。
+- `run(job_id)` 以 conditional update 原子 claim `PENDING -> RUNNING`；无法 claim 返回 `False`。
+- 成功/失败只从仍为 RUNNING 的 row 关闭；异常写入 job diagnostics 并由 manager 标记 FAILED。
+- `check()` 只调度 pending jobs并处理 running timeout，不直接调用 `source.collect()`。
 
-## 当前稳定事实
+因此不存在 scheduler 直接执行 source 的第二条路径。修改 schedule 时必须保持“schedule creates command”与
+manual path 一致。
 
-### Registration Boundary
+## Collection And Persistence
 
-- `SourceBase.__init_subclass__()` 只把子类登记到 `SourceManager` 的内存 registry。
-- `SourceManager.sync_source_types()` 在显式 runtime bootstrap 中把已登记类型回写到
-  `sources_types`；import 本身不得连接数据库。
-- source 注册仍依赖 import；如果模块从未被 import，对应 source type 就不会出现。
-- extension 提供 source 时，真正的注册触发点是 extension startup 期间的 import。
+- Source 负责 native fetch/adapter/policy，可以产生 graph form 或调用 owning repository/application service。
+- Block/relation persistence 仍通过 info-base managers/caller-owned session；source 不复制通用 persistence。
+- `collect()` 不吞异常或假装成功。Unit 自己定义 per-item transaction、accepted partial effects 与 state advance。
+- `SourceBase._organize()` 仍是 legacy abstract hook；它不是 collection 成功后的通用 lifecycle，也不得用来承载
+  新 organization contract。当前 source 可明确 no-op，未来 organization 另行设计 command。
 
-### State Ownership
+## Incremental Identity
 
-- `SourceModel.config` 是 source instance 的持久化配置。
-- `SourceModel.state` 是 source instance 级别的长期游标或状态。
-- `SourceCollectJobModel.state` 是单次 collect job 的运行态/错误态。
-- 不要把“每次运行的进度”塞进 `SourceModel.state`，也不要把“长期游标”塞进 job state。
-
-### Collection and Persistence Boundary
-
-- source 可以采集原始数据，也可以组织出 `SubGraphForm`。
-- 但 block / relation 的递归插入与去重规则不在 source 层定义，仍由 info-base 协调。
-- 如果 source 想落库，应该通过 info-base 的公开入口，而不是自己复制持久化流程。
-
-### Scheduling Hazard
-
-- 当前代码同时存在两条调度路径：
-  - `SourceManager.set_up_collect_jobs()` 直接把 `source.collect` 挂到 scheduler
-  - `SourceCollectJobManager.check()` 会寻找 `PENDING` jobs 并调度 `run()`
-- `main.py` 里还留着 “应该改成 collect job” 的 TODO，所以这里不是已经收敛完的架构。
-- 因此，调度相关文档只能写“当前现状”，不要把未来想要的 job-only 模型写成既成事实。
-
-## 编辑指引
-
-- 新增 source 类型时，先保证 import 路径会在 runtime 被加载，否则注册表不会出现。
-- 改 source state 结构时，同时检查调用点到底读的是 `SourceModel.state` 还是 `SourceCollectJobModel.state`。
-- 若改动跨到 extension startup、info-base persistence、sink ownership，请同步核对 unit-tdd；不要只在本地 guide 里补一句话了事。
+- Exact native identity优先；不足时显式选择 create/discard/duplicate reduction，不用 fuzzy overwrite。
+- Time watermark 可做 admission heuristic，但不是 identity/reconciliation correctness。
+- Long-lived state 只在 owning unit 的 success boundary 推进；`304`、fatal parse、primary failure 是否推进必须有
+  explicit source contract。

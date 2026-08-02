@@ -133,6 +133,8 @@ class SourceManager:
 
   @classmethod
   def set_up_collect_jobs(cls):
+    from .collect_job import SourceCollectJobManager
+
     with SessionLocal() as db:
       sources = db.exec(
         sqlmodel.select(SourceModel).where(SourceModel.collect_at is not None)
@@ -141,9 +143,9 @@ class SourceManager:
     for source in sources:
       if source.collect_at is None:
         continue
-      # TODO create a source collect job instead of directly scheduling the collect
       scheduler.add_job(
-        func=cls._get_source_ins(typing.cast(SourceID, source.id), source.type).collect,
+        func=SourceCollectJobManager.create_scheduled,
+        args=[typing.cast(SourceID, source.id)],
         trigger=source.collect_at.to_trigger(),
         id=f"source.{source.id}.collect",
         replace_existing=True,

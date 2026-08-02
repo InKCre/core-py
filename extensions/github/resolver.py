@@ -21,6 +21,18 @@ class GithubRepoResolver(Resolver[GithubRepo, str], rso_type="github_repo"):
     self._content = GithubRepo.model_validate_json(raw_content)
     self.set_solved_content(self._content)
 
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> GithubRepo:
+    del materialize_missing
+    self._content = GithubRepo.model_validate_json(
+      await self.get_raw_content(refresh=refresh)
+    )
+    return self._content
+
   @classmethod
   def create_graph(
     cls,
@@ -65,28 +77,46 @@ class GithubRepoResolver(Resolver[GithubRepo, str], rso_type="github_repo"):
     ).one_or_none()
     return existing_block
 
-  async def get_text(self) -> str:
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Get text representation of the repository.
 
     Returns the full name and description.
     """
-    text = self._content.full_name
-    if self._content.description:
-      text += f": {self._content.description}"
+    content = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
+    text = content.full_name
+    if content.description:
+      text += f": {content.description}"
     return text
 
-  async def get_str_for_embedding(self) -> str:
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Get text for embedding generation.
 
     Combines name, description, topics and language for better semantic search.
     """
-    parts = [self._content.full_name]
-    if self._content.description:
-      parts.append(self._content.description)
-    if self._content.language:
-      parts.append(f"Language: {self._content.language}")
-    if self._content.topics:
-      parts.append(f"Topics: {', '.join(self._content.topics)}")
+    content = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
+    parts = [content.full_name]
+    if content.description:
+      parts.append(content.description)
+    if content.language:
+      parts.append(f"Language: {content.language}")
+    if content.topics:
+      parts.append(f"Topics: {', '.join(content.topics)}")
     return "\n".join(parts)
 
 
@@ -98,6 +128,18 @@ class GithubUserResolver(Resolver[GithubUser, str], rso_type="github_user"):
       raise ValueError("GitHub user blocks require inline JSON content")
     self._content = GithubUser.model_validate_json(raw_content)
     self.set_solved_content(self._content)
+
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> GithubUser:
+    del materialize_missing
+    self._content = GithubUser.model_validate_json(
+      await self.get_raw_content(refresh=refresh)
+    )
+    return self._content
 
   @classmethod
   def create_block(cls, content: GithubUser | dict, storage=None) -> BlockModel:
@@ -111,18 +153,35 @@ class GithubUserResolver(Resolver[GithubUser, str], rso_type="github_user"):
   def create_graph(cls, user: GithubUser | dict) -> SubGraphForm:
     return SubGraphForm(block=cls.create_block(user))
 
-  async def get_text(self) -> str:
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Get text representation of the GitHub user.
 
     Returns the display name and login, or just login if no name.
     """
-    if self._content.name:
-      return f"{self._content.name} (@{self._content.login})"
-    return f"@{self._content.login}"
+    content = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
+    if content.name:
+      return f"{content.name} (@{content.login})"
+    return f"@{content.login}"
 
-  async def get_str_for_embedding(self) -> str:
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Use the display representation for semantic retrieval."""
-    return await self.get_text()
+    return await self.get_text(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
 
   def get_existing(self, db_session: Session) -> BlockModel | None:
     """Check for existing GitHub user by ID."""

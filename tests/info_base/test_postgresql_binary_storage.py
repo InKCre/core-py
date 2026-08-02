@@ -42,7 +42,7 @@ def _storage() -> PostgreSQLBinaryStorage:
   )
 
 
-def test_write_read_delete_share_the_callers_transaction():
+def test_write_read_update_delete_share_the_callers_transaction():
   session = _BlobSession()
   storage = _storage()
 
@@ -50,6 +50,8 @@ def test_write_read_delete_share_the_callers_transaction():
   pointer = '{"blob_id":"%s","resolver_metadata":"ignored"}' % blob_id
 
   assert storage.read_raw_content(pointer, session) == b"raw-bytes"  # type: ignore[arg-type]
+  assert storage.update_raw_content(pointer, b"updated", session) is True  # type: ignore[arg-type]
+  assert storage.read_raw_content(pointer, session) == b"updated"  # type: ignore[arg-type]
   assert storage.delete_raw_content(pointer, session) is True  # type: ignore[arg-type]
   with pytest.raises(StorageBlobNotFoundError):
     storage.read_raw_content(pointer, session)  # type: ignore[arg-type]
@@ -60,3 +62,10 @@ def test_delete_of_an_already_missing_blob_is_false():
   pointer = '{"blob_id":"00000000-0000-0000-0000-000000000017"}'
 
   assert _storage().delete_raw_content(pointer, session) is False  # type: ignore[arg-type]
+
+
+def test_update_of_an_already_missing_blob_is_false():
+  session = _BlobSession()
+  pointer = '{"blob_id":"00000000-0000-0000-0000-000000000017"}'
+
+  assert _storage().update_raw_content(pointer, b"updated", session) is False  # type: ignore[arg-type]

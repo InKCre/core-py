@@ -2,27 +2,23 @@
 
 ## Authority Boundary
 
-`core-py` owns the current executable PostgreSQL protocol artifact without becoming a
-privileged central backend. Native runtimes and PostgREST callers are peer transports over
-the `inkcre` schema.
-
-The fixed principals are:
+`core-py` owns the executable PostgreSQL protocol artifact without becoming a privileged central backend. Native
+runtimes and PostgREST callers are peer transports over the admitted `inkcre` schema。
 
 | Principal | Shape | Authority |
-|---|---|---|
+| --- | --- | --- |
 | `authenticated` | NOLOGIN, NOINHERIT | complete admitted `inkcre` protocol capability |
 | `anonymous` | NOLOGIN, NOINHERIT | none |
 | `authenticator` | LOGIN, NOINHERIT | may switch only to `authenticated` after JWT validation |
 | `inkcre_core` | LOGIN, INHERIT | native runtime member of `authenticated` |
 
-Migrations connect through `MIGRATION_DATABASE_URL`. The two login passwords are supplied
-at execution time as `CORE_DATABASE_PASSWORD` and `POSTGREST_DATABASE_PASSWORD`; they never
-live in a migration or image. Application and PostgREST runtimes never receive the migration
-owner URL.
+Migrations connect through `MIGRATION_DATABASE_URL`。Application/PostgREST runtimes receive only their login
+credentials，不接触 migration owner URL。Passwords are execution inputs and never live in migrations、images or
+checked-in profiles。
 
 ## Lifecycle
 
-The OCI artifact exposes one ordered initializer and independently callable primitives:
+The OCI artifact exposes one ordered initializer and independently callable primitives：
 
 ```text
 db init --profile runtime --environment preview|production
@@ -36,33 +32,56 @@ db reset-dev --confirm reset-development-data
 db contract --json
 ```
 
-`init` is the only command consumers need to know for a fresh database. Every command is
-safe to repeat. Catalog reconciliation is import-safe and does not start FastAPI,
-APScheduler, or extensions.
+`init` 是 fresh database 的唯一 consumer entry。Commands are repeatable。Catalog reconciliation is import-safe and
+does not start FastAPI、scheduler or extensions。
 
-`reset-dev` requires both the exact confirmation text and a database-owned
-`environment=development` identity. It refuses runtime, preview, production, missing, and
-unknown identities. The development seed contains only fixed, minimal protocol state,
-including client ID `00000000-0000-4000-8000-000000000001`; production rows are never seed.
+`reset-dev` 同时要求 exact confirmation 与 database-owned `environment=development` identity；runtime、preview、
+production、missing/unknown identity 均拒绝。Development seed只含 fixed protocol state，绝不复制 production rows。
+
+## Protocol Surface
+
+`inkcre` 是 authenticated peers 的 versioned relation/function schema。`inkcre_internal` 保存 migrations、JWT
+checks、trigger helpers 与其他 non-protocol mechanics。Internal helper 不得为了让 peer EXECUTE 而泄漏进 public
+schema。
+
+Current admitted application relations包括 blocks/relations、extensions、sources/jobs、storage catalog、
+`storage_blobs` 与 embeddings。`storage_blobs` 是 PostgreSQL binary storage 的 bytes backing relation，不是
+storage type、block kind 或 MIME authority。
+
+## PostgreSQL Binary Storage Protocol
+
+`peer-database-runtime-v2` admits bytes-only operations required by equivalent peers：
+
+- `create_storage_blob(bytea) -> uuid`：raw `application/octet-stream` request；
+- `read_storage_blob(uuid) -> inkcre."application/octet-stream"`：raw bytes response；
+- exact `storage_blobs` row update/delete：pointer-stable U/D。
+
+PostgREST 14 对 raw byte response 需要 explicit response media-type domain；raw request 只依赖 single unnamed
+`bytea` argument。Readiness separately proves both signatures。
+
+Storage pointer JSON belongs to the `postgresql_binary` handler。Client/application只持有 opaque pointer string；
+bytes、MIME、filename 与 resolver semantics不复制到 pointer。Core native commands通过 caller-owned session进行
+C/R/U/D；browser peer通过 raw RPC + exact relation update/delete获得等价 capability。
+
+Deleting a referenced `storages` catalog row is `RESTRICT`。Changing/deleting a blob does not query or rewrite blocks，
+所以 block timestamps、embedding 与其他 peer cache 不自动代表 storage bytes freshness。
 
 ## Readiness
 
-`db ready --json` has a stable exit code and checks:
+`db ready --json` has stable exit semantics and checks：
 
-- artifact migration head equals database head;
-- immutable environment and contract revision;
-- role attributes and exact memberships;
-- current table, sequence, function, schema, lineage, and internal-state ACLs;
-- owner-specific default ACLs;
-- the checked-in built-in catalog;
-- the fixed development seed when the development profile is selected.
+- artifact migration head equals database head；
+- immutable environment and contract revision；
+- role attributes、memberships、table/sequence/schema/function ACLs；
+- exact public relation/function set and internal-surface exclusion；
+- admitted RPC argument names/types、return database type、set shape、volatility and transport media type；
+- checked-in built-in catalog；
+- fixed development seed when selected。
 
-Errors are component-level and never contain a database URL or provider exception. The
-FastAPI `/readyz` adapter uses the same check through the unprivileged runtime role.
+只检查 function names/EXECUTE 权限不足以证明 wire contract。Readiness errors remain component-level and never expose
+database URLs or provider exceptions。FastAPI `/readyz` 使用同一 unprivileged check。
 
 ## JWT And PostgREST
-
-The canonical JWT contract is:
 
 ```text
 algorithm: HS256
@@ -74,31 +93,27 @@ maximum lifetime: 24 hours
 future iat tolerance: 60 seconds
 ```
 
-PostgREST exposes only `inkcre`, connects as `authenticator`, uses `anonymous` as the
-explicit denied fallback, and invokes `inkcre_internal.check_jwt` before every admitted
-request. The FastAPI middleware validates the same vectors.
+PostgREST exposes only `inkcre`，connects as `authenticator`，uses denied `anonymous` fallback，and invokes
+`inkcre_internal.check_jwt` before every admitted request。FastAPI peer middleware validates the same vectors。
 
 ## Canonical Production Profile
 
-[`deploy/profiles/production.json`](../../deploy/profiles/production.json) is the checked-in,
-non-secret discovery surface for peers that join canonical production. It publishes the
-stable client-web registration ID, core and PostgREST URLs, contract revision, migration
-head, protocol schema, anonymous policy, and exact JWT claim contract.
+[`deploy/profiles/production.json`](../../deploy/profiles/production.json) 是 checked-in non-secret discovery surface。
+它发布 environment URLs、client IDs、contract revision、currently delivered migration head、protocol schema、
+anonymous policy 与 JWT claims；不包含 credential、database URL 或 mutable image tag。
 
-The profile deliberately contains no credential, database URL, or mutable image tag.
-Consumers supply the shared JWT secret through their own secret store. Runtime image digests
-remain release evidence because writing a commit's own digest back into that commit would
-create a circular artifact identity.
+Profile 的 migration head 是 delivery truth，不自动等于当前 dirty worktree/newest local migration。RSS/Memos
+implementation 或 migration verification 不授权修改 production profile 或执行 production migration。
 
 ## Versioning
 
-`db contract --json` reports `peer-database-runtime-v1` plus the image source revision.
-Published core images are addressed as:
+`db contract --json` 当前报告 `peer-database-runtime-v2` 与 artifact source revision。Published core images使用：
 
 ```text
 ghcr.io/inkcre/core-py:<40-character-commit>
 ghcr.io/inkcre/core-py@sha256:<digest>
 ```
 
-The digest is the consumption boundary. The commit tag is a discovery aid, while `main` is
-mutable and must not be used as a reproducibility pin.
+Digest 是 consumption boundary；commit tag是 discovery aid，`main` 不可作为 reproducibility pin。Breaking
+protocol change必须提升 contract revision，并通过 append-only migration、readiness、generated peer projection 与
+portable PostgREST/native acceptance共同证明。

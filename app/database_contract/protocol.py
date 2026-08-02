@@ -15,6 +15,65 @@ from .constants import PROTOCOL_SCHEMA
 
 
 PROTOCOL_DOCUMENT_FORMAT = 1
+POSTGREST_OCTET_STREAM_TYPE = f'{PROTOCOL_SCHEMA}."application/octet-stream"'
+
+PROTOCOL_FUNCTIONS: dict[str, dict[str, object]] = {
+  "create_storage_blob": {
+    "arguments": [
+      {
+        "name": None,
+        "type": {"kind": "string", "format": "bytea"},
+      }
+    ],
+    "returns": {"kind": "string", "format": "uuid"},
+    "returns_set": False,
+    "volatility": "volatile",
+    "request_media_type": "application/octet-stream",
+  },
+  "read_storage_blob": {
+    "arguments": [
+      {
+        "name": "blob_id",
+        "type": {"kind": "string", "format": "uuid"},
+      }
+    ],
+    "returns": {
+      "kind": "string",
+      "format": "bytea",
+      "database_type": POSTGREST_OCTET_STREAM_TYPE,
+    },
+    "returns_set": False,
+    "volatility": "stable",
+    "response_media_type": "application/octet-stream",
+  },
+}
+
+
+def protocol_database_function_signatures() -> dict[
+  str,
+  tuple[tuple[str, ...], tuple[str, ...], str, bool, str],
+]:
+  """Project exact PostgreSQL signatures from the published protocol document."""
+  volatility_codes = {"immutable": "i", "stable": "s", "volatile": "v"}
+  signatures = {}
+  for function_name, function_document in PROTOCOL_FUNCTIONS.items():
+    arguments = cast(list[dict[str, object]], function_document["arguments"])
+    returns = cast(dict[str, object], function_document["returns"])
+    signatures[function_name] = (
+      tuple(
+        cast(str, argument["name"])
+        for argument in arguments
+        if argument["name"] is not None
+      ),
+      tuple(
+        cast(str, cast(dict[str, object], argument["type"])["format"])
+        for argument in arguments
+      ),
+      cast(str, returns.get("database_type", returns["format"])),
+      cast(bool, function_document["returns_set"]),
+      volatility_codes[cast(str, function_document["volatility"])],
+    )
+  return signatures
 
 
 def _type_document(column_type: TypeEngine[Any]) -> dict[str, object]:
@@ -120,5 +179,5 @@ def protocol_document() -> dict[str, object]:
     "format": PROTOCOL_DOCUMENT_FORMAT,
     "schema": PROTOCOL_SCHEMA,
     "relations": relations,
-    "functions": {},
+    "functions": PROTOCOL_FUNCTIONS,
   }
