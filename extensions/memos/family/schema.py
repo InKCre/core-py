@@ -2,7 +2,6 @@
 
 import datetime
 import enum
-import uuid
 
 import pydantic
 
@@ -44,7 +43,7 @@ class CanonicalMemo(pydantic.BaseModel):
 
 
 class CanonicalAttachment(pydantic.BaseModel):
-  """Attachment metadata and PostgreSQL storage pointer owned by its block."""
+  """Memos-authored attachment metadata; actual content remains graph-owned."""
 
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
@@ -52,7 +51,6 @@ class CanonicalAttachment(pydantic.BaseModel):
   media_type: str
   size: int = pydantic.Field(ge=0)
   created_at: datetime.datetime
-  blob_id: uuid.UUID
 
   @pydantic.field_validator("created_at")
   @classmethod
@@ -74,6 +72,7 @@ class SolvedAttachment(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(frozen=True)
 
   block_id: int
+  content_block_id: int
   canonical: CanonicalAttachment
   owner_memo_id: int | None = None
 

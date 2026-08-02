@@ -37,6 +37,7 @@ If `docs/_shared/` is missing, run `git submodule update --init --recursive` bef
 - Shared product glossary: [docs/_shared/10-prd/glossary.md](docs/_shared/10-prd/glossary.md)
 - Shared cross-unit technical truth: [docs/_shared/20-product-tdd/](docs/_shared/20-product-tdd/)
 - Local unit architecture: [docs/30-unit-tdd/business-pipeline-and-authority.md](docs/30-unit-tdd/business-pipeline-and-authority.md)
+- Memos extension architecture: [docs/30-unit-tdd/memos-extension.md](docs/30-unit-tdd/memos-extension.md)
 - Core security model: [docs/30-unit-tdd/security-model.md](docs/30-unit-tdd/security-model.md)
 - Deployment and runtime truth: [docs/40-deployment/README.md](docs/40-deployment/README.md)
 - Agent-owned volatile task workspaces: [tasks/](tasks/)

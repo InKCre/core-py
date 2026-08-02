@@ -110,13 +110,15 @@ def test_owned_delete_plan_stops_on_a_corrupt_parent_cycle(monkeypatch):
     MemoGraphRepository,
     "get_root",
     classmethod(
-      lambda _cls, block_id, _session: BlockModel(
-        id=block_id,
-        resolver=MEMO_RESOLVER,
-        content="{}",
+      lambda _cls, block_id, _session: (
+        BlockModel(
+          id=block_id,
+          resolver=MEMO_RESOLVER,
+          content="{}",
+        )
+        if block_id in {1, 2}
+        else None
       )
-      if block_id in {1, 2}
-      else None
     ),
   )
 
@@ -165,13 +167,15 @@ def test_owned_delete_plan_uses_an_explicit_stack_for_deep_comment_trees(
     MemoGraphRepository,
     "get_root",
     classmethod(
-      lambda _cls, block_id, _session: BlockModel(
-        id=block_id,
-        resolver=MEMO_RESOLVER,
-        content="{}",
+      lambda _cls, block_id, _session: (
+        BlockModel(
+          id=block_id,
+          resolver=MEMO_RESOLVER,
+          content="{}",
+        )
+        if 1 <= block_id <= depth
+        else None
       )
-      if 1 <= block_id <= depth
-      else None
     ),
   )
 

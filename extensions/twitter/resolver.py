@@ -8,37 +8,66 @@ from app.schemas.info_base.main import SubGraphForm
 from .schema import Tweet
 
 
-class TweetResolver(Resolver[Tweet, str], rso_type="extensions.twitter.tweet"):
+class TweetResolver(Resolver[Tweet, str], rso_type="extensions.twitter.tweet.v1"):
   """Tweet Resolver."""
 
-  async def _get_solved_content(self) -> Tweet:
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> Tweet:
     """Get the solved content (non-cache).
 
     - attachments will be resolved from `attachment:` out relations
     """
     # Get the base tweet without attachments
-    tweet_dict = json.loads(await self.get_raw_content())
+    tweet_dict = json.loads(await self.get_raw_content(refresh=refresh))
     tweet = Tweet(**tweet_dict)
 
     # Fetch attachments
-    relations = await self.get_relations(include_in=False)
+    relations = await self.get_relations(include_in=False, refresh=refresh)
     tweet.attachments = []
+    tweet.links = []
     for relation in relations:
-      if relation.content.startswith("attachment:"):
+      if relation.content.startswith("attachment:") or relation.content == "entities:url":
         attachment_resolver = BlockManager.get_resolver(relation.to_)
         if attachment_resolver:
-          tweet.attachments.append(await attachment_resolver.get_solved_content())
+          solved = await attachment_resolver.get_solved_content(
+            refresh=refresh,
+            materialize_missing=materialize_missing,
+          )
+          if relation.content.startswith("attachment:"):
+            tweet.attachments.append(solved)
+          elif isinstance(solved, str):
+            tweet.links.append(solved)
 
     return tweet
 
-  async def get_text(self) -> str:
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Return the text of the tweet."""
-    solved = await self.get_solved_content()
+    solved = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
     return solved.text
 
-  async def get_str_for_embedding(self) -> str:
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Return the text for embedding."""
-    return await self.get_text()
+    return await self.get_text(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
 
   @classmethod
   def create_block(cls, content: Tweet, storage: Opt[int] = None) -> BlockModel:
@@ -46,6 +75,7 @@ class TweetResolver(Resolver[Tweet, str], rso_type="extensions.twitter.tweet"):
     # Remove attachments from the dict for storage
     tweet_dict = content.model_dump()
     tweet_dict.pop("attachments", None)
+    tweet_dict.pop("links", None)
     return BlockModel(
       resolver=cls.__rsotype__,
       content=json.dumps(tweet_dict),

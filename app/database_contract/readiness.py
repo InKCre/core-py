@@ -28,6 +28,7 @@ from .profile import (
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
 )
+from .protocol import PROTOCOL_FUNCTIONS, protocol_database_function_signatures
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -279,7 +280,18 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
   protocol_functions = _function_acl_rows(cursor, PROTOCOL_SCHEMA)
   cursor.execute(
     """
-    SELECT procedure.proname
+    SELECT
+      procedure.proname,
+      procedure.proargnames,
+      ARRAY(
+        SELECT format_type(argument.type_oid, NULL)
+        FROM unnest(procedure.proargtypes::oid[]) WITH ORDINALITY
+          AS argument(type_oid, position)
+        ORDER BY argument.position
+      ),
+      format_type(procedure.prorettype, NULL),
+      procedure.proretset,
+      procedure.provolatile
     FROM pg_proc AS procedure
     JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
     WHERE namespace.nspname = %s
@@ -287,7 +299,30 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
     """,
     (PROTOCOL_SCHEMA,),
   )
-  protocol_function_names = [row[0] for row in cursor.fetchall()]
+  protocol_function_rows = cursor.fetchall()
+  protocol_function_names = [row[0] for row in protocol_function_rows]
+  expected_function_signatures = protocol_database_function_signatures()
+  actual_function_signatures = {
+    function_name: (
+      tuple(argument_names or ()),
+      tuple(argument_types),
+      return_type,
+      returns_set,
+      volatility,
+    )
+    for (
+      function_name,
+      argument_names,
+      argument_types,
+      return_type,
+      returns_set,
+      volatility,
+    ) in protocol_function_rows
+  }
+  if protocol_function_names != sorted(PROTOCOL_FUNCTIONS):
+    problems.append("protocol_functions")
+  elif actual_function_signatures != expected_function_signatures:
+    problems.append("protocol_function_signatures")
   for function_name in protocol_function_names:
     if protocol_functions.get((function_name, AUTHENTICATED_ROLE)) != {"EXECUTE"}:
       problems.append(f"function_acl:{function_name}")
@@ -296,11 +331,12 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
         problems.append(f"function_acl:{function_name}:{denied}")
 
   internal_functions = _function_acl_rows(cursor, INTERNAL_SCHEMA)
-  if internal_functions.get(("check_jwt", AUTHENTICATED_ROLE)) != {"EXECUTE"}:
-    problems.append("jwt_function_acl")
-  for denied in ("PUBLIC", ANONYMOUS_ROLE, AUTHENTICATOR_ROLE):
-    if internal_functions.get(("check_jwt", denied)):
-      problems.append(f"jwt_function_acl:{denied}")
+  for function_name in ("check_jwt", "update_updated_at_column"):
+    if internal_functions.get((function_name, AUTHENTICATED_ROLE)) != {"EXECUTE"}:
+      problems.append(f"internal_function_acl:{function_name}")
+    for denied in ("PUBLIC", ANONYMOUS_ROLE, AUTHENTICATOR_ROLE):
+      if internal_functions.get((function_name, denied)):
+        problems.append(f"internal_function_acl:{function_name}:{denied}")
 
   cursor.execute(
     """

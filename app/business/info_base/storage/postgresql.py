@@ -32,6 +32,10 @@ class PostgreSQLBinaryStorage(
 ):
   """Store raw bytes in the protocol database and return an opaque UUID pointer."""
 
+  def serialize_pointer(self, pointer: object) -> str:
+    blob_id = pydantic.TypeAdapter(uuid.UUID).validate_python(pointer)
+    return PostgreSQLBlobPointer(blob_id=blob_id).model_dump_json()
+
   def read_raw_content(
     self,
     block_content: str,
@@ -53,6 +57,21 @@ class PostgreSQLBinaryStorage(
     db_session.flush()
     db_session.refresh(blob)
     return blob.id
+
+  def update_raw_content(
+    self,
+    block_content: str,
+    content: bytes,
+    db_session: sqlmodel.Session,
+  ) -> bool:
+    pointer = PostgreSQLBlobPointer.model_validate_json(block_content)
+    blob = db_session.get(StorageBlobModel, pointer.blob_id)
+    if blob is None:
+      return False
+    blob.data = content
+    db_session.add(blob)
+    db_session.flush()
+    return True
 
   def delete_raw_content(
     self,

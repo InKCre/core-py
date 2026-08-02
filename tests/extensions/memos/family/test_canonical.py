@@ -3,7 +3,6 @@
 import asyncio
 import datetime
 from pathlib import Path
-import uuid
 
 import pydantic
 import pytest
@@ -20,7 +19,7 @@ from extensions.memos.family.schema import (
 
 
 FIXTURE = Path(__file__).with_name("fixtures") / "canonical_memo_v1.json"
-ATTACHMENT_FIXTURE = Path(__file__).with_name("fixtures") / "canonical_attachment_v1.json"
+ATTACHMENT_FIXTURE = Path(__file__).with_name("fixtures") / "canonical_attachment_v2.json"
 
 
 def _canonical() -> CanonicalMemo:
@@ -41,13 +40,12 @@ def test_canonical_v1_has_deterministic_exact_root_content():
   assert CanonicalMemo.from_block_content(canonical.to_block_content()) == canonical
 
 
-def test_canonical_attachment_v1_has_deterministic_exact_content():
+def test_canonical_attachment_v2_has_deterministic_exact_content():
   canonical = CanonicalAttachment(
     filename="photo.png",
     media_type="image/png",
     size=3,
     created_at=datetime.datetime(2026, 8, 1, 8, tzinfo=datetime.UTC),
-    blob_id=uuid.UUID("00000000-0000-0000-0000-000000000017"),
   )
 
   assert (
@@ -89,7 +87,7 @@ def test_resolver_assembles_graph_owned_links_without_copying_them_into_content(
   attachment_blocks = {
     attachment_id: BlockModel(
       id=attachment_id,
-      resolver="extensions.memos.attachment.v1",
+      resolver="extensions.memos.attachment.v2",
       content="{}",
     )
     for attachment_id in (20, 21)
@@ -99,15 +97,21 @@ def test_resolver_assembles_graph_owned_links_without_copying_them_into_content(
     def __init__(self, attachment_id: int):
       self.attachment_id = attachment_id
 
-    async def get_solved_content(self):
+    async def get_solved_content(
+      self,
+      *,
+      refresh: bool = False,
+      materialize_missing: bool = True,
+    ):
+      del refresh, materialize_missing
       return SolvedAttachment(
         block_id=self.attachment_id,
+        content_block_id=self.attachment_id + 100,
         canonical=CanonicalAttachment(
           filename=f"{self.attachment_id}.png",
           media_type="image/png",
           size=1,
           created_at=datetime.datetime(2026, 8, 1, tzinfo=datetime.UTC),
-          blob_id=uuid.UUID(int=self.attachment_id),
         ),
         owner_memo_id=10,
       )

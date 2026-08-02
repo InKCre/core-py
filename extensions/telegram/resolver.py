@@ -16,6 +16,15 @@ class TelegramMessageResolver(
     if raw_content is not None:
       self.set_solved_content(TelegramMessage.model_validate_json(raw_content))
 
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> TelegramMessage:
+    del materialize_missing
+    return TelegramMessage.model_validate_json(await self.get_raw_content(refresh=refresh))
+
   @classmethod
   def create_graph(cls, message: TelegramMessage) -> SubGraphForm:
     """Create a StarGraphForm from Telegram message data.
@@ -31,12 +40,20 @@ class TelegramMessageResolver(
       out_arcs=(),
     )
 
-  async def get_text(self) -> str:
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Get text representation of the Telegram message.
 
     Returns the message text or caption if available.
     """
-    solved_content = await self.get_solved_content()
+    solved_content = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
     if solved_content.text:
       return solved_content.text
     if solved_content.caption:
@@ -47,12 +64,20 @@ class TelegramMessageResolver(
       return f"[{solved_content.media_type or 'media'}]"
     return "[empty message]"
 
-  async def get_str_for_embedding(self) -> str:
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
     """Get text for embedding generation.
 
     Combines message content for semantic search.
     """
-    solved_content = await self.get_solved_content()
+    solved_content = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
     parts = []
 
     # Add message content

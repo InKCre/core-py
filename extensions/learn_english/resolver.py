@@ -22,5 +22,35 @@ class LexicalResolver(Resolver[LexicalItem, str], rso_type="learn_english.lexica
     if raw_content is not None:
       self.set_solved_content(LexicalItem.model_validate_json(raw_content))
 
-  async def get_str_for_embedding(self) -> str:
-    return (await self.get_solved_content()).text
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> LexicalItem:
+    del materialize_missing
+    return LexicalItem.model_validate_json(await self.get_raw_content(refresh=refresh))
+
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    return (
+      await self.get_solved_content(
+        refresh=refresh,
+        materialize_missing=materialize_missing,
+      )
+    ).text
+
+  async def get_str_for_embedding(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    return await self.get_text(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )

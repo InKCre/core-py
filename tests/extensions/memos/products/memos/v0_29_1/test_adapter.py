@@ -3,7 +3,6 @@
 import datetime
 import json
 from pathlib import Path
-import uuid
 
 from extensions.memos.family import CanonicalAttachment, SolvedAttachment, SolvedMemo
 from extensions.memos.products.memos.v0_29_1.adapter import (
@@ -40,12 +39,12 @@ def test_create_request_round_trips_through_family_without_product_leakage():
 def test_attachment_response_matches_pinned_memos_fixture():
   solved = SolvedAttachment(
     block_id=23,
+    content_block_id=123,
     canonical=CanonicalAttachment(
       filename="photo.png",
       media_type="image/png",
       size=3,
       created_at=datetime.datetime(2026, 8, 1, 8, tzinfo=datetime.UTC),
-      blob_id=uuid.UUID("00000000-0000-0000-0000-000000000017"),
     ),
   )
 

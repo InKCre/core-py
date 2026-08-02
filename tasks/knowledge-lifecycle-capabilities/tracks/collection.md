@@ -10,7 +10,8 @@
 | Slice | Role | Status |
 |---|---|---|
 | Existing sources | 兼容性与回归基线：Twitter、GitHub、RSS、Mail、Telegram | Evidence collected |
-| Memos extension | memo-like 的首个可实现单元；当前 scope 是 backend MVP | Active — Technical review + implementation-plan probe |
+| Memos extension | memo-like 的首个可实现单元；当前 scope 是 backend MVP | Closed — implementation/E2E complete；durable projections prepared |
+| RSS extension hardening | 首个传统 source-path reference unit；固定 RSS/Atom identity、change、graph、job/state 与 failure contract | Closed — implementation/verification/durable reconciliation complete |
 | CalDAV | 日历协议与结构化同步压力 | Queued |
 | Nextcloud Files | 文件层级、binary、pointer/storage 压力 | Queued |
 | Apple Notes | macOS local runtime 与受限访问压力 | Queued |
@@ -23,10 +24,11 @@
 2. **Access**: 外部系统、认证、主动 collect / 被动 record、平台限制。
 3. **Native shape**: source-specific objects 与保留的信息。
 4. **Info-base expression**: 根 block、相关 blocks、relations、inline / pointer。
-5. **Resolver / storage**: raw、solved、text/use 表示与外部内容访问。
+5. **Resolver / storage**: persisted、hydrated、solved、text/use 表示与外部内容访问。
 6. **Change behavior**: identity、新增、更新、删除、移动、重复执行与冲突。
 7. **Extension pressure**: artifact、registration、installation、runtime、client-web。
-8. **Acceptance**: fixtures、错误、兼容性、重复执行与端到端证明。
+8. **Acceptance**: static proof boundary、black-box protocol/service input、错误、兼容性、重复执行与
+   端到端 durable effects；white-box test 需满足 D-049 exception。
 9. **Iteration**: 最小 thin slice 与后续增量。
 10. **Hub projection**: PRD、Product TDD 与 claim realization 影响。
 
@@ -38,5 +40,6 @@
 
 ## Active Slice
 
-See [Memos extension](../units/memos-extension/packet.md)。当前 phase 只属于 backend MVP；future
-collectors/products 仍需各自过 gate，不能继承当前 approval。
+Active unit is [RSS extension hardening](../units/rss-extension-hardening/packet.md)。Closed
+[Memos extension](../units/memos-extension/packet.md) 的 future collectors/products 仍需各自过 gate，
+不能继承 backend MVP approval。

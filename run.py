@@ -48,11 +48,15 @@ from app.scheduler import scheduler
 def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   """Initialize database-backed runtime services after migrations are ready."""
   from app.business.source import SourceCollectJobManager
+  from app.business.info_base.resolver import register_core_resolvers
   from app.business.info_base.storage import StorageManager
   from app.business.sink.embedding import EmbeddingManager
 
   # Register this client first
   ClientManager.register_self()
+
+  # Core decoders exist independently of installed/enabled extensions.
+  register_core_resolvers()
 
   # Setup built-in storage instances
   StorageManager.setup_builtin_storages()

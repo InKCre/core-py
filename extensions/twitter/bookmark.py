@@ -24,6 +24,54 @@ class SourceConfig(sqlmodel.SQLModel):
   ...
 
 
+def _video_url(video) -> str | None:
+  supported = tuple(
+    variant
+    for variant in video.variants
+    if variant.url and variant.content_type in {None, "video/mp4"}
+  )
+  selected = max(supported, key=lambda variant: variant.bitrate or -1, default=None)
+  return selected.url if selected is not None else None
+
+
+def tweet_to_graph(tweet) -> SubGraphForm:
+  """Map one Twitter API DTO into the persisted root and relation-owned links."""
+  canonical = Tweet(
+    id=tweet.id,
+    user_id=tweet.user_id,
+    conversation_id=tweet.conversation_id,
+    quote=tweet.quote,
+    text=tweet.text,
+  )
+  videos = tuple(
+    (video, url) for video in tweet.videos if (url := _video_url(video)) is not None
+  )
+  return SubGraphForm(
+    block=TweetResolver.create_block(canonical),
+    out_arcs=tuple(
+      OutArcForm(
+        relation=RelationModel(content=f"attachment:photo:{photo.id}"),
+        to_subgraph=ImageResolver.create_graph(url=photo.url, alt_text=photo.alt_text),
+      )
+      for photo in tweet.photos
+    )
+    + tuple(
+      OutArcForm(
+        relation=RelationModel(content=f"attachment:video:{video.id}"),
+        to_subgraph=VideoResolver.create_graph(url=url),
+      )
+      for video, url in videos
+    )
+    + tuple(
+      OutArcForm(
+        relation=RelationModel(content="entities:url"),
+        to_subgraph=HTMLResolver.create_graph(url=url),
+      )
+      for url in tweet.urls
+    ),
+  )
+
+
 class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
   """Twitter Bookmark as Source"""
 
@@ -68,39 +116,9 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     for tweet in (
       bookmarks_res.tweets if full else reversed(bookmarks_res.tweets[:old_start_at])
     ):
-      collected.append(
-        SubGraphForm(
-          block=BlockModel(
-            resolver=TweetResolver.__rsotype__,
-            content=Tweet(**tweet.model_dump()).model_dump_json(),
-          ),
-          out_arcs=tuple(
-            OutArcForm(
-              relation=RelationModel(content="attachment:photo"),
-              to_subgraph=ImageResolver.create_graph(
-                url=photo.url, alt_text=photo.alt_text
-              ),
-            )
-            for photo in tweet.photos
-          )
-          + tuple(
-            OutArcForm(
-              relation=RelationModel(content="attachment:video"),
-              to_subgraph=VideoResolver.create_graph(url=video.variants[0].url),
-            )
-            for video in tweet.videos
-          )
-          + tuple(
-            OutArcForm(
-              relation=RelationModel(content="entities:url"),
-              to_subgraph=HTMLResolver.create_graph(url=url),
-            )
-            for url in tweet.urls
-          ),
-        )
-      )
+      collected.append(tweet_to_graph(tweet))
 
-    if not full:
+    if not full and bookmarks_res.tweets:
       state = self.get_state()
       state["latest_tweet_id"] = bookmarks_res.tweets[0].id
       self.set_state(state)
@@ -137,7 +155,9 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
         # TODO log warning
         continue
 
-      reply_block = BlockManager.create(BlockModel(resolver="text", content=reply.text))
+      reply_block = BlockManager.create(
+        BlockModel(resolver="core.text.v1", content=reply.text)
+      )
       RelationManager.create(
         from_=typing.cast(BlockID, block.id),
         to_=typing.cast(BlockID, reply_block.id),

@@ -1,6 +1,10 @@
 """Hermetic process environment for the repository test suite."""
 
 import os
+from pathlib import Path
+import runpy
+
+import pytest
 
 
 database_url = os.environ.get(
@@ -19,3 +23,18 @@ os.environ.update(
     "SKIP_EXTENSIONS_SYNC": "1",
   }
 )
+
+
+@pytest.fixture(scope="session")
+def semantic_content_assets() -> Path:
+  """Generate ignored real-format samples only when a test module needs them."""
+  asset_directory = Path(__file__).parent / "assets" / "semantic-content"
+  namespace = runpy.run_path(
+    str(asset_directory / "generate_assets.py"),
+    run_name="semantic_content_asset_generator",
+  )
+  generate = namespace["main"]
+  if not callable(generate):
+    raise RuntimeError("semantic-content asset generator has no callable main")
+  generate()
+  return asset_directory

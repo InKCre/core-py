@@ -22,20 +22,25 @@ logger = get_logger()
 
 
 class EmbeddingManager:
+  _skipped_block_versions: set[tuple[int, object]] = set()
+
   @classmethod
   async def upsert_block_embedding(
     cls,
     block_id: Opt[BlockID] = None,
     block: Opt[BlockModel] = None,
     db_session: Opt[sqlmodel.Session] = None,
-  ) -> BlockEmbeddingModel:
+  ) -> BlockEmbeddingModel | None:
     """Upsert a block's embedding
 
     :param block_id: Block ID to create/update embedding for
     :param block: Block model to create/update embedding for (alternative to block_id)
     :param db_session: Optional database session. When provided, the caller owns commits.
     """
-    from app.business.info_base.resolver import ResolverManager
+    from app.business.info_base.resolver import (
+      ResolverManager,
+      UnsupportedResolverCapability,
+    )
 
     if block is None:
       if block_id is None:
@@ -49,11 +54,23 @@ class EmbeddingManager:
           raise ValueError(f"Block with id {block_id} not found")
 
     resolver = ResolverManager.get(block)
+    try:
+      embedding_text = await resolver.get_str_for_embedding()
+    except UnsupportedResolverCapability:
+      logger.info(
+        "Skipping block without an embedding-text capability",
+        extra={"block_id": block.id, "resolver": block.resolver},
+      )
+      return None
+    if embedding_text is None:
+      logger.info(
+        "Skipping block whose embedding-text capability returned no value",
+        extra={"block_id": block.id, "resolver": block.resolver},
+      )
+      return None
     embedding = BlockEmbeddingModel(
       id=block.id,  # type: ignore[arg-type]
-      embedding=Embedding("", "text-embedding-v3").embed(
-        await resolver.get_str_for_embedding()
-      ),
+      embedding=Embedding("", "text-embedding-v3").embed(embedding_text),
     )
     if db_session:
       db_session.merge(embedding)
@@ -126,12 +143,16 @@ class EmbeddingManager:
     logger.debug("Checking for missing embeddings")
     with SessionLocal() as db_session:
       # Find blocks without embeddings
-      blocks_without_embeddings = db_session.exec(
+      all_blocks_without_embeddings = db_session.exec(
         sqlmodel.select(BlockModel)
         .outerjoin(BlockEmbeddingModel)
         .where(BlockEmbeddingModel.id == None)  # type: ignore
-        .limit(10)  # Process in batches to avoid long-running jobs
       ).all()
+      blocks_without_embeddings = tuple(
+        block
+        for block in all_blocks_without_embeddings
+        if cls._block_version(block) not in cls._skipped_block_versions
+      )[:10]
 
       # Find relations without embeddings
       relations_without_embeddings = db_session.exec(
@@ -144,7 +165,7 @@ class EmbeddingManager:
       if blocks_without_embeddings:
         logger.info(f"Creating embeddings for {len(blocks_without_embeddings)} blocks")
         block_tasks = tuple(
-          cls.upsert_block_embedding(block=block, db_session=db_session)
+          cls._upsert_missing_block_embedding(block, db_session)
           for block in blocks_without_embeddings
         )
         await asyncio.gather(*block_tasks)
@@ -166,6 +187,34 @@ class EmbeddingManager:
         f"Created embeddings for {len(blocks_without_embeddings)} blocks "
         f"and {len(relations_without_embeddings)} relations"
       )
+
+  @classmethod
+  def _block_version(cls, block: BlockModel) -> tuple[int, object]:
+    if block.id is None:
+      raise ValueError("Persisted block is missing its database ID")
+    return (block.id, block.updated_at)
+
+  @classmethod
+  async def _upsert_missing_block_embedding(
+    cls,
+    block: BlockModel,
+    db_session: sqlmodel.Session,
+  ) -> None:
+    from app.business.info_base.resolver import UnknownResolverError
+
+    try:
+      embedding = await cls.upsert_block_embedding(
+        block=block,
+        db_session=db_session,
+      )
+    except UnknownResolverError:
+      logger.warning(
+        "Skipping block with an unknown retired resolver ID",
+        extra={"block_id": block.id, "resolver": block.resolver},
+      )
+      embedding = None
+    if embedding is None:
+      cls._skipped_block_versions.add(cls._block_version(block))
 
   @classmethod
   def query_blocks_by_embedding(

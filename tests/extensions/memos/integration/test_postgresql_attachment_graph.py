@@ -3,6 +3,7 @@
 import asyncio
 import datetime
 import os
+from pathlib import Path
 
 import fastapi
 from fastapi.testclient import TestClient
@@ -14,6 +15,7 @@ from app.business.info_base.block import BlockManager
 from app.business.extension.routing import ExtensionRouteMount
 from app.business.info_base.relation import RelationManager
 from app.business.info_base.storage import StorageManager
+from app.business.info_base.storage.postgresql import PostgreSQLBlobPointer
 from app.engine import SessionLocal
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
@@ -34,6 +36,13 @@ pytestmark = pytest.mark.skipif(
   not os.getenv("INKCRE_TEST_DATABASE_URL"),
   reason="requires an explicitly selected migrated PostgreSQL runtime",
 )
+
+SEMANTIC_ASSETS = Path(__file__).parents[3] / "assets" / "semantic-content"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _generated_semantic_content_assets(semantic_content_assets: Path) -> None:
+  assert semantic_content_assets == SEMANTIC_ASSETS
 
 
 def _cleanup(tracked_block_ids: set[int], tracked_blob_ids: set) -> None:
@@ -70,6 +79,16 @@ def _cleanup(tracked_block_ids: set[int], tracked_blob_ids: set) -> None:
     db_session.commit()
 
 
+def _track_attachment(solved, tracked_block_ids: set[int], tracked_blob_ids: set):
+  tracked_block_ids.update((solved.block_id, solved.content_block_id))
+  with SessionLocal() as db_session:
+    content_block = BlockManager.get(solved.content_block_id, db_session)
+    assert content_block is not None
+    pointer = PostgreSQLBlobPointer.model_validate_json(content_block.content)
+  tracked_blob_ids.add(pointer.blob_id)
+  return pointer.blob_id
+
+
 def _client(*, raise_server_exceptions: bool = True) -> TestClient:
   app = fastapi.FastAPI()
   model = ExtensionModel(
@@ -81,6 +100,61 @@ def _client(*, raise_server_exceptions: bool = True) -> TestClient:
   mount = ExtensionRouteMount(app, Extension.on_start(model))
   mount.publish()
   return TestClient(app, raise_server_exceptions=raise_server_exceptions)
+
+
+@pytest.mark.parametrize(
+  ("filename", "media_type", "resolver_id"),
+  (
+    ("image.png", "image/png", "core.image.v1"),
+    ("audio.wav", "audio/wav", "core.audio.v1"),
+    ("video.mp4", "video/mp4", "core.video.v1"),
+    ("document.pdf", "application/pdf", "core.pdf.v1"),
+    ("book.epub", "application/epub+zip", "core.epub.v1"),
+    ("archive.zip", "application/zip", "core.zip.v1"),
+    ("unknown.bin", "application/x-inkcre-unknown", "core.file.v1"),
+  ),
+)
+def test_memos_declared_media_type_selects_exact_semantic_content(
+  filename,
+  media_type,
+  resolver_id,
+):
+  Extension._init_resolvers()
+  StorageManager.setup_builtin_storages()
+  tracked_block_ids: set[int] = set()
+  tracked_blob_ids = set()
+
+  try:
+    solved = asyncio.run(
+      AttachmentApplicationService.create(
+        filename=filename,
+        media_type=media_type,
+        content=(SEMANTIC_ASSETS / filename).read_bytes(),
+      )
+    )
+    _track_attachment(solved, tracked_block_ids, tracked_blob_ids)
+    with SessionLocal() as db_session:
+      metadata = BlockManager.get(solved.block_id, db_session)
+      semantic = BlockManager.get(solved.content_block_id, db_session)
+      assert metadata is not None and semantic is not None
+      assert metadata.storage is None
+      assert semantic.resolver == resolver_id
+      assert semantic.storage == -4
+      assert (
+        RelationManager.get(
+          solved.block_id,
+          include_in=False,
+          include_out=True,
+          content="content",
+          db_session=db_session,
+        )[0].to_
+        == solved.content_block_id
+      )
+    assert asyncio.run(
+      AttachmentApplicationService.download(solved.block_id, filename)
+    ) == (media_type, (SEMANTIC_ASSETS / filename).read_bytes())
+  finally:
+    _cleanup(tracked_block_ids, tracked_blob_ids)
 
 
 def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
@@ -104,8 +178,8 @@ def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
         content=b"second",
       )
     )
-    tracked_block_ids.update((first.block_id, second.block_id))
-    tracked_blob_ids.update((first.canonical.blob_id, second.canonical.blob_id))
+    first_blob_id = _track_attachment(first, tracked_block_ids, tracked_blob_ids)
+    second_blob_id = _track_attachment(second, tracked_block_ids, tracked_blob_ids)
 
     memo = asyncio.run(
       MemoApplicationService.create(
@@ -143,7 +217,7 @@ def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
 
     with SessionLocal() as db_session:
       assert BlockManager.get(first.block_id, db_session) is None
-      assert db_session.get(StorageBlobModel, first.canonical.blob_id) is None
+      assert db_session.get(StorageBlobModel, first_blob_id) is None
       remaining_relations = tuple(
         db_session.exec(
           sqlmodel.select(RelationModel).where(
@@ -161,7 +235,7 @@ def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
     AttachmentApplicationService.delete(second.block_id)
     with SessionLocal() as db_session:
       assert BlockManager.get(second.block_id, db_session) is None
-      assert db_session.get(StorageBlobModel, second.canonical.blob_id) is None
+      assert db_session.get(StorageBlobModel, second_blob_id) is None
   finally:
     _cleanup(tracked_block_ids, tracked_blob_ids)
 
@@ -178,8 +252,7 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
       media_type="image/png",
       content=content,
     )
-    tracked_block_ids.add(solved.block_id)
-    tracked_blob_ids.add(solved.canonical.blob_id)
+    _track_attachment(solved, tracked_block_ids, tracked_blob_ids)
     return solved
 
   def canonical(body: str, visibility=MemoVisibility.PRIVATE):
@@ -194,6 +267,15 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
     exclusive = asyncio.run(attachment("exclusive.png", b"exclusive"))
     shared = asyncio.run(attachment("shared.png", b"shared"))
     comment_owned = asyncio.run(attachment("comment.png", b"comment"))
+    exclusive_blob_id = PostgreSQLBlobPointer.model_validate_json(
+      BlockManager.get(exclusive.content_block_id).content  # type: ignore[union-attr]
+    ).blob_id
+    shared_blob_id = PostgreSQLBlobPointer.model_validate_json(
+      BlockManager.get(shared.content_block_id).content  # type: ignore[union-attr]
+    ).blob_id
+    comment_blob_id = PostgreSQLBlobPointer.model_validate_json(
+      BlockManager.get(comment_owned.content_block_id).content  # type: ignore[union-attr]
+    ).blob_id
 
     target = asyncio.run(MemoApplicationService.create(canonical("target")))
     tracked_block_ids.add(target.block_id)
@@ -278,12 +360,12 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
       assert BlockManager.get(nested.block_id, db_session) is None
       assert BlockManager.get(exclusive.block_id, db_session) is None
       assert BlockManager.get(comment_owned.block_id, db_session) is None
-      assert db_session.get(StorageBlobModel, exclusive.canonical.blob_id) is None
-      assert db_session.get(StorageBlobModel, comment_owned.canonical.blob_id) is None
+      assert db_session.get(StorageBlobModel, exclusive_blob_id) is None
+      assert db_session.get(StorageBlobModel, comment_blob_id) is None
 
       assert BlockManager.get(target.block_id, db_session) is not None
       assert BlockManager.get(shared.block_id, db_session) is not None
-      assert db_session.get(StorageBlobModel, shared.canonical.blob_id) is not None
+      assert db_session.get(StorageBlobModel, shared_blob_id) is not None
       surviving_owner = RelationManager.get(
         target.block_id,
         include_in=False,
@@ -386,8 +468,11 @@ def test_primary_delete_succeeds_when_best_effort_attachment_cleanup_fails(
         content=b"residue",
       )
     )
-    tracked_block_ids.add(attachment.block_id)
-    tracked_blob_ids.add(attachment.canonical.blob_id)
+    attachment_blob_id = _track_attachment(
+      attachment,
+      tracked_block_ids,
+      tracked_blob_ids,
+    )
     memo = asyncio.run(
       MemoApplicationService.create(
         CanonicalMemo(
@@ -413,7 +498,7 @@ def test_primary_delete_succeeds_when_best_effort_attachment_cleanup_fails(
     with SessionLocal() as db_session:
       assert BlockManager.get(memo.block_id, db_session) is None
       assert BlockManager.get(attachment.block_id, db_session) is not None
-      assert db_session.get(StorageBlobModel, attachment.canonical.blob_id) is not None
+      assert db_session.get(StorageBlobModel, attachment_blob_id) is not None
   finally:
     _cleanup(tracked_block_ids, tracked_blob_ids)
 
@@ -441,11 +526,12 @@ def test_missing_raw_bytes_are_404_without_fabricating_attachment_success():
     tracked_block_ids.add(attachment_id)
 
     with SessionLocal() as db_session:
-      block = BlockManager.get(attachment_id, db_session)
-      assert block is not None
-      from extensions.memos.family import CanonicalAttachment
-
-      pointer = CanonicalAttachment.from_block_content(block.content)
+      metadata_block = BlockManager.get(attachment_id, db_session)
+      assert metadata_block is not None
+      content_block = AttachmentGraphRepository.content_block(attachment_id, db_session)
+      assert content_block.id is not None
+      tracked_block_ids.add(content_block.id)
+      pointer = PostgreSQLBlobPointer.model_validate_json(content_block.content)
       tracked_blob_ids.add(pointer.blob_id)
       blob = db_session.get(StorageBlobModel, pointer.blob_id)
       assert blob is not None

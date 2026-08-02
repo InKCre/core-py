@@ -11,7 +11,7 @@ from app.business.info_base.storage import main as storage_module
 from app.business.source import main as source_module
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def fail_session():
@@ -67,7 +67,7 @@ def test_application_import_and_openapi_are_database_independent(tmp_path):
     "SKIP_EXTENSIONS_SYNC": "1",
     "PYTHONPATH": str(PROJECT_ROOT),
   }
-  result = subprocess.run(  # noqa: S603
+  result = subprocess.run(
     [
       sys.executable,
       "-c",

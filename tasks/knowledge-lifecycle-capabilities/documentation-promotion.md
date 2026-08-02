@@ -2,10 +2,12 @@
 
 ## Control
 
-- **Mode**: accumulate only；本文件记录候选更新，不修改 Hub、`docs/_shared`、Spoke-local docs
-  或其他仓库。
-- **Apply gate**: 相关 unit contract 获批并形成内聚 batch 后，先做 Impact Handshake；只有 Sir
-  明确“开始”才执行。
+- **Mode**: promotion applied to owner worktrees。Memos/RSS/common contracts 已投影到 Hub source、core-py Unit/
+  deployment docs 与 client-web local architecture；尚未 commit/push、Hub publication 或 bump either Spoke
+  `docs/_shared`。
+- **Apply gate**: unresolved discussion pressure remains here；stable design + verified implementation triggers
+  durable projection during unit completion。Commit、push、Hub publication、shared-ref bump 与 production mutation
+  remain separately authorized operations。
 - **Owner rule**: Hub source、Spoke shared-ref、core-py Unit TDD 与 client-web docs 分属不同
   owner/operation，不混入一个 commit，也不在 `docs/_shared/**` 直接编辑。
 
@@ -21,7 +23,7 @@
 
 ## Known Corrections to Existing Hub Truth
 
-以下是这轮讨论已证明需要审查的纠错方向；Hub 原文仍要在 promotion preflight 精确定位：
+以下纠错已在 Hub source worktree 中按 owner 应用；本表保留 From → To 的 promotion provenance：
 
 | Existing pressure | Intended correction |
 | --- | --- |
@@ -30,10 +32,12 @@
 | breakdown/merge/linking 容易被当成 organization 的完备枚举 | 它们只是已知能力，目标始终是为 use 优化 info-base |
 | indexing 容易被归入 organization | indexing 只作为 application/retrieval 支撑 |
 | source-native objects 可能被误解成 graph 之外的持久模型 | Tweet/GithubRepo/FeedItem 等通过 blocks/relations 持久化；不建立通用 collected god object |
+| resolver 的 `v1` / `v2` 轴被叫作 `generation` | 按开发者惯例叫 `resolver contract version`；这是一致性/自解释修正，不是声称 `generation` 在其他上下文均错误 |
+| graph 中的 source/protocol object 被叫作 `wrapper` | 它是普通 block；在拥有与关联 semantic content 有关的 protocol/source-authored facts 时按职责叫 `metadata block`，不新增 wrapper type |
 
 ## Candidate Hub PRD Batch
 
-### Program-level product truth ready for later review
+### Program-level product truth projected to Hub source
 
 - collection、organization、use 的动作边界，以及 indexing 的归属。
 - memo-like 是独立、多端、低摩擦的 collection surface，用于记录想法、周围事物与零碎
@@ -55,7 +59,7 @@
 - Extension enable/disable normally changes route availability in the running single-process deployment；
   restart is not the ordinary activation boundary。
 
-### Memos extension and backend MVP truth ready for later review
+### Memos extension and backend MVP truth projected to Hub source
 
 - implementable ownership unit 是 Memos extension；CanonicalMemo、graph mapping、resolver 与
   product/generation adapters 由该 extension 拥有。Memos-compatible backend 只是首个 MVP
@@ -80,10 +84,10 @@
 
 ## Candidate Hub Product TDD Batch
 
-### Cross-unit contracts ready for later review
+### Cross-unit contracts projected to Hub source
 
-- block 是基本持久信息单元；resolver 联合 raw content 与 local relations 得到 solved/use-facing
-  interpretation，storage 只负责取得 raw content。
+- block 是基本持久信息单元；block hydration 隐藏 inline/pointer 分支，resolver 联合 hydrated content 与
+  local relations 得到 solved/use-facing interpretation，storage 只负责按 pointer 取得 actual content。
 - source-specific input 通过 extension mapping 持久化为 block/relation graph；`SubGraphForm`
   是 write form，不是完整信息模型。
 - memo root content 直接保存 memo-family `CanonicalMemo`；attachments、parent、references 只由
@@ -92,27 +96,43 @@
   是已证明的 source-defined order exception，应在现有 relation payload 中保留，不推动通用
   relation schema 变化。
 - comment 复用 memo root mapping，并通过 parent relation 连接。
-- product API generation 与 canonical content generation 是正交版本轴；CanonicalMemo decoder
+- product API version 与 CanonicalMemo resolver contract version 是正交版本轴；CanonicalMemo decoder
   由 versioned resolver identity 选择，不在 payload/BlockModel 重复 schema version。
 - info-base local memo identity 是 `block.id`；不建立 generic `resource`、`source_key` 或 source
   binding table。
 - future collector 采用 best-effort exact reconciliation；匹配不足宁可产生可整理 duplicate，
   不得 content/time fuzzy overwrite。
+- 复杂度投入应由边际效益而不是理论完备驱动：先识别仍未解决的问题造成的实际损失，再选择能以最低
+  dependency/obscurity 成本消除主要损失的机制，并在新增机制的边际收益不再覆盖其维护与错误成本时停止。
+  D-056 是 reference pressure：content fingerprint 试图制造更强 identity，却带来 normalization/stability
+  成本；独立 source-time watermark 以更弱、显式的保证取得足够的 duplicate reduction。具体 heuristic
+  仍不得被描述为 identity、reconciliation 或 correctness proof。
+- Cache/effect controls use stable，orthogonal vocabulary across peers：`refresh` bypasses and replaces an existing
+  local snapshot from current authority；`materialize_missing` permits creation only when a required derivation is
+  absent；`recompute` is an explicit organization command that regenerates an existing derivation；`invalidate`
+  discards a cache without reading a replacement。`refresh` itself neither grants AI/graph mutation nor requests
+  recomputation。Python uses snake_case and TypeScript uses camelCase。
+- New InKCre-owned APIs do not use `force` or `reload` as aliases for `refresh`。Protocol-owned names remain exact，
+  including a third-party `force` query parameter。Legacy source-job `full` is not a stable cross-source contract and
+  must not be promoted before its mixed scan/reconciliation/order/pagination effects are separated。
+- Direct relation selection uses `include_in` / `include_out`（TypeScript `includeIn` / `includeOut`）relative to the
+  subject block：incoming has the subject as `to_`，outgoing has it as `from_`；neither option implies recursive graph
+  traversal。
 - D-039 已关闭 deployment-scoped Memos PAT：ordinary raw extension-config lifecycle、generic validated
   update ordering、exact public profile/v0-status-404 与 immediate replace/revoke。
 - D-041/D-042/D-043/D-044 已关闭 partial-graph boundary、CanonicalMemo v1、PostgreSQL binary storage
   与 Memos relation grammar；D-045 要求单独修复 client-web config path；D-046/D-047/D-048 关闭
   owned cleanup、exact fixtures 与 family/product/access-mode extensibility seams。
 
-### Remaining implementation truths before promotion
+### Implementation evidence used for promotion
 
-- versioned resolver generations 的 registry retention、unknown resolver failure 与
-  core-py/client-web parity must be proven by implementation/tests before durable promotion。
-- D-047 exact fixtures and D-046 deletion behavior are approved task truth but still need executable
-  evidence。
-- implementation-plan preflight 证明 existing `/{extension_id}` route 可由 MoeMemos pathful base URL
-  直接复用；不足的是 route-auth wiring、hot lifecycle correctness、mutable graph commands 与
-  read-only storage。当前证据不支持 top-level mount 或通用 extension/resolver registry redesign。
+- installed extension decoder retention、unknown resolver explicit failure、core-py route/config runtime
+  与 client-web config path 已由 implementation/tests 证明。
+- D-047 exact fixtures、D-046 deletion behavior、PostgreSQL binary storage、partial cleanup residue 与
+  official MoeMemos APK journey 均有 executable evidence。
+- existing `/{extension_id}` route 已由 MoeMemos pathful base URL 复用；route-auth composition、hot
+  lifecycle、caller-session graph commands 与 writable storage 已实现。证据仍不支持 top-level mount、
+  generic resource binding 或通用 extension/resolver registry redesign。
 
 ### Deferred technical scope
 
@@ -120,10 +140,9 @@
 - flomo/其他 memo product adapters 及其 fidelity contract。
 - feature/semantic/graph navigation、index/projection invalidation 与 retrieval UI。
 
-## Candidate Spoke Unit TDD Batch
+## Spoke Unit TDD Promotion Applied
 
-等 Memos Technical/Acceptance gates 获批后，core-py local Unit TDD 只记录本仓内部实现
-architecture，例如：
+core-py local Unit TDD promotion 已应用，只记录本仓内部 implementation architecture，例如：
 
 - memo extension package、route/service/resolver/storage/transaction boundaries；
 - graph mutation 与 solved result 的 internal contracts；
@@ -133,14 +152,13 @@ architecture，例如：
   cases；
 - tests、migrations 与 failure/residue handling 的实现真相。
 
-当前代码观察只作为 preflight evidence，不直接 promotion：一个 block 只有一个 content/storage
-pointer；`RelationManager.fetchsert` 当前按 `(from_, to_, content)` 匹配；relation content 还被
-query、embedding、LLM prompt 与 client-web 直接消费；部分 convenience write paths 会独立
-commit。若 intended design 改变它们，代码、tests 和 Unit TDD 必须同步形成唯一 authority。
+具体 ownership 已投影到 `docs/30-unit-tdd/memos-extension.md` 与更新后的
+`business-pipeline-and-authority.md`；临时 implementation observation 未被提升为共享合同。
 
 ## Architecture Understanding Log
 
-这些发现值得保留，但只有通过 Promotion Test 才进入 durable docs：
+这些发现保留为 provenance；已通过 Promotion Test 的内容现在由对应 durable owner 陈述，不以本 log 作为
+并行 authority。U-009 仍只属于 task/workflow evidence：
 
 - **U-001 — Joint graph semantics**: block/relation/resolver/storage 共同决定信息如何保存与解释。
 - **U-002 — Attachment position**: association 默认无序；显式 inline reference 才拥有位置。
@@ -162,13 +180,82 @@ commit。若 intended design 改变它们，代码、tests 和 Unit TDD 必须�
 - **U-010 — Client base URL participates in route compatibility**: protocol annotations 的 relative
   path 必须与 client 对 configurable host path 的保留/拼接一起判断；不能只看到 `api/v1` 就推断
   server-root mount。MoeMemos 可用 `/memos/` base URL 复用当前 extension namespace。
+- **U-011 — Complexity follows marginal utility**: 不以理论上还能更完整为继续设计的充分理由；比较
+  unresolved harm、机制覆盖率、dependency/obscurity 与长期维护成本。选择足够有效的低成本机制后停止，
+  同时把剩余风险与弱保证写清楚。D-056 的 time watermark 是实例，不是这条方法本身。
+- **U-012 — Storage representation is not information kind**: storage 可以把 audio、video、image 或其他
+  information 的 actual content 都保存为 bytes；这不使它们成为 `binary block`。block/resolver 按信息语义
+  命名和解释，storage 只按 pointer 保存/取得 actual content。RSS enclosure 与 Memos attachment 已形成两个
+  当前 reference pressures；PDF/EPUB/ZIP 使用 concrete generations，unknown/unsupported 使用带 MIME 的
+  file fallback。
+- **U-013 — Metadata block can describe related content**: 当 protocol/source object 拥有可独立使用的
+  identity、metadata、role 或 lifecycle 时，使用 `metadata block → semantic content block → storage-backed content`
+  分离 provenance、信息语义与物理保存；resolver 联合 graph 投影 native/use-facing value。这两者都是普通
+  block 的职责命名，不新增 wrapper 类型；没有独立意义的 input 不机械增加 metadata block。RSS
+  enclosure 与 Memos attachment 是当前 reference pressures。
+- **U-014 — One block read contract hides conditional persistence**: `block.content` 在 inline block 上是
+  actual content，在 storage-backed block 上是 opaque pointer；通用 consumer 通过
+  `get_hydrated_content()` 取得 actual content，不自行解释 storage。hydration 可缓存在 ORM 非映射的
+  private state，但绝不能覆盖 mapped pointer。该 read contract 取代含混的 real/raw content 双重命名，
+  也不为追求字段纯粹性提前增加第二套 block representation。
+- **U-015 — Storage mechanics do not define content semantics**: storage type 只描述如何按 pointer
+  定位、读取或写入 opaque content bytes；stream 是 bytes 的 execution representation。resolver 才根据
+  exact resolver ID、graph 与 metadata 把内容解释为 image/video/audio/PDF 等信息。实现 backing table 不是
+  storage type 或 semantic block；不要按 media kind 复制 HTTP/S3/PostgreSQL storage families。
+- **U-016 — Metadata follows authority, not a generic container**: protocol/source-declared filename/MIME/length/URL/time
+  留在 metadata block canonical content；storage retrieval mechanics 留在 opaque pointer/config；
+  content kind 由 exact resolver ID 表达，byte-derived facts 由 solved content 拥有；只有确有长期 use value 的
+  derived facts 才由 organization 物化为 graph enrichment。不要仅因 storage-backed block 的 `content`
+  被 pointer 占用，就增加无边界的通用 block metadata JSON。
+- **U-017 — Effect words name orthogonal controls**: `refresh`、`materialize_missing`、`recompute` 与 `invalidate`
+  分别拥有 cache replacement、missing derivation permission、existing derivation regeneration 与 cache eviction
+  语义；不能用 `force`/`reload` 把这些 effect 压回一个模糊 boolean。该合同只约束确实提供相应能力的 API，
+  不要求所有方法机械增加同一 options bag。
+- **U-018 — Relation direction is subject-relative**: `include_in` / `include_out` 是相对 subject block 的 direct
+  relation selectors，并在 Python/TypeScript 仅做 casing 投影；它们不是 graph traversal depth/mode。
+- **U-019 — Repeated spelling is not yet a common contract**: 多个 source 的 `full` 共享拼写，却混合扩大扫描、
+  绕过增量 cutoff、改变顺序与延续分页等效果。Promotion 以稳定语义而非出现次数为准；`full` 当前是待拆解
+  vocabulary debt，不是应被固化的 common parameter。
+- **U-020 — Conventional version language beats a new synonym**: 当一个轴表达 API、persisted shape 或 resolver
+  contract 的 breaking evolution 时，优先使用通行的 `version`，并用限定词说明是哪一种 version；不再用
+  `generation` 创造项目内同义词。现有 task packet 中把 product/API/canonical `generation` 当作 `version`
+  使用的历史段落属于待批量纠正的 terminology debt，不构成新的领域概念。
+- **U-021 — Readiness proves the executable wire contract**: database protocol readiness 不能只检查 schema、
+  relation/function names 与 ACL；对 admitted RPC 还要验证 argument names/types、return database type、set/
+  volatility shape 和 media-type transport。PostgREST 14 的 raw `bytea` response 需要显式
+  `application/octet-stream` domain，而 raw request 只要求 single unnamed `bytea` parameter；这两者不是同一
+  capability。内部 trigger/helper function 必须留在 internal schema，不能因为 authenticated peer 需要
+  EXECUTE 就进入 public protocol schema。
+- **U-022 — Writable storage owns pointer serialization**: application/extension command 只应提交 actual bytes 并
+  得到可直接持久化到 `block.content` 的 opaque pointer string；storage handler 自己拥有 internal key → pointer
+  grammar。调用者硬编码 PostgreSQL `blob_id` JSON 会让 future S3/Nextcloud storage 反向泄漏进 source domain。
+  Python 的低层 caller-session write 可以保留 storage-native key，但 common create seam 应与 client-web 一样
+  返回 pointer string。
+- **U-023 — Incremental state must name its authority scope**: ETag/Last-Modified 只对产生它们的 configured
+  request URL 有效；source-time watermark 只对产生它的 exact feed graph root 有效。cursor/timestamp 本身不是
+  可跨 identity 重用的事实，因此 state 同时保存 scope reference（本例为 configured URL 与 feed block ID）；
+  config 或 native identity 改变时 reset unrelated heuristic，而不是让旧 cursor 误删/误跳新 source facts。
+- **U-024 — Source config change is not proven feed continuity**: RSS feed continuity 依次由 source-scoped native
+  feed ID、declared self URL、source-scoped configured URL 证明。无法 exact match 时创建新的 feed root，旧 feed/
+  items 保留；同一 declared identity 下 configured URL 可以更新。`source_instance_id` 是 scope，不足以单独
+  证明两次外部 information 来自同一 feed。
+- **U-025 — Schedules create commands, not hidden effects**: manual collection 与 scheduler trigger 都先创建普通
+  PENDING collect job，再由同一个 atomic-claim runner 执行。schedule 是 command creation policy，不应成为绕过
+  job diagnostics、status、retry 和 source-state semantics 的第二条 effect path。
 
 ## Apply Checklist
 
-1. 冻结本 batch 的 confirmed decisions、open exclusions 与 acceptance evidence。
-2. 对每个 durable owner 准备 Address/Object、`From → To`、blast radius、invariants、
-   verification 与 uncertainty。
-3. 在 Hub source repo 修改共享 PRD/Product TDD，不编辑本仓 `docs/_shared`。
-4. Hub source 独立验证后，再按 shared-doc workflow 更新 Spoke ref。
-5. core-py/client-web local docs 各自在自己的 repo/commit 处理。
-6. 验证没有重复 authority、broken links 或把未获批 unit 草案投影成 durable truth。
+1. **Memos/RSS implementation done** — confirmed decisions、exclusions 与 acceptance evidence 已冻结。
+2. **Hub source projected** — PRD claims/workflows、knowledge capability contract、authority/topology 与 claim matrix
+   已吸收 Memos、RSS 及 common patterns；Hub worktree保留未提交状态。
+3. **Core-py local projected** — Memos/RSS Unit TDD、business pipeline、database runtime v2 与最近 local guides
+   已和 implementation reconcile；未编辑 `docs/_shared`。
+4. **Client-web local projected** — peer hydration、exact semantic resolvers、PostgreSQL CRUD 与 safe browser
+   handles 已进入 local architecture；未编辑其 `docs/_shared`。
+5. **Verification complete** — Hub `git diff --check` + SVC noop；45 relative links resolved；core-py owner docs
+   Ruff-format/repository-lint green；client-web complete `pnpm check` green。Core-py full formatter only retains four
+   unrelated pre-existing guide drifts。
+6. **Pending authorization** — Hub commit/push 必须先完成；随后才可单独 bump/commit Spoke shared refs。Local
+   docs/code commits也按 repository owner 分离。
+7. **Tactical guides repaired** — retired semantic HTTP IDs、raw-content domain terminology、scheduler dual-path、
+   Memos attachment v1 与 client-web pointer-rendering docs 已修正。

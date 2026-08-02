@@ -13,7 +13,7 @@ from app.database_contract import (
 )
 from app.database_contract.lifecycle import contract_document
 
-PRODUCTION_PROFILE = Path(__file__).resolve().parents[1] / "deploy/profiles/production.json"
+PRODUCTION_PROFILE = Path(__file__).resolve().parents[2] / "deploy/profiles/production.json"
 
 
 def test_production_profile_projects_the_executable_contract():
@@ -23,7 +23,7 @@ def test_production_profile_projects_the_executable_contract():
   assert profile["format"] == 1
   assert profile["environment"] == "production"
   assert profile["database_contract"] == {
-    "migration_head": "f2c8a6d1e4b7",
+    "migration_head": "d0e3f4a5b6c7",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }
@@ -53,7 +53,36 @@ def test_contract_publishes_the_complete_protocol_projection():
     "storage_blobs",
     "storages",
   }
-  assert protocol["functions"] == {}
+  assert protocol["functions"] == {
+    "create_storage_blob": {
+      "arguments": [
+        {
+          "name": None,
+          "type": {"kind": "string", "format": "bytea"},
+        }
+      ],
+      "returns": {"kind": "string", "format": "uuid"},
+      "returns_set": False,
+      "volatility": "volatile",
+      "request_media_type": "application/octet-stream",
+    },
+    "read_storage_blob": {
+      "arguments": [
+        {
+          "name": "blob_id",
+          "type": {"kind": "string", "format": "uuid"},
+        }
+      ],
+      "returns": {
+        "kind": "string",
+        "format": "bytea",
+        "database_type": 'inkcre."application/octet-stream"',
+      },
+      "returns_set": False,
+      "volatility": "stable",
+      "response_media_type": "application/octet-stream",
+    },
+  }
   assert protocol["relations"]["clients"]["columns"]["id"] == {
     "type": {"kind": "string", "format": "uuid"},
     "nullable": False,

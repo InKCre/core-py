@@ -2,8 +2,8 @@
   "format": 1,
   "environment": "production",
   "database_contract": {
-    "revision": "peer-database-runtime-v1",
-    "migration_head": "f2c8a6d1e4b7",
+    "revision": "peer-database-runtime-v2",
+    "migration_head": "d0e3f4a5b6c7",
     "protocol_schema": "inkcre"
   },
   "client": {

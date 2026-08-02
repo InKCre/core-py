@@ -3,6 +3,8 @@
 - Shared product truth: [`_shared/10-prd/`](_shared/10-prd/)
 - Shared cross-unit contracts: [`_shared/20-product-tdd/`](_shared/20-product-tdd/)
 - Local unit architecture: [`30-unit-tdd/`](30-unit-tdd/)
+- Memos extension architecture: [`30-unit-tdd/memos-extension.md`](30-unit-tdd/memos-extension.md)
+- RSS extension architecture: [`30-unit-tdd/rss-extension.md`](30-unit-tdd/rss-extension.md)
 - Core security model: [`30-unit-tdd/security-model.md`](30-unit-tdd/security-model.md)
 - Deployment and runtime truth: [`40-deployment/`](40-deployment/)
 - Vulnerability reporting policy: [`../SECURITY.md`](../SECURITY.md)
