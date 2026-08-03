@@ -10,8 +10,8 @@
 | Memo-like product and graph role | D-008–D-018 |
 | CanonicalMemo, resolver, identity and time | D-019–D-028, D-032 |
 | Memos extension and current MVP delivery | D-029–D-031, D-034–D-048 |
-| RSS extension rewrite and propagated common contracts | D-049–D-076 |
-| Active Technical question | Remaining parser/runtime and cross-peer execution preflight |
+| RSS extension rewrite, propagated common contracts and close | D-049–D-078 |
+| Active Technical question | None；next implementable unit not selected |
 
 ## Confirmed
 
@@ -1045,6 +1045,24 @@
   gate。Sir clarified that only discussion-time mutation was deferred，not implementation-time reconciliation。
 - **Confidence**: direct clarification from Sir after RSS implementation completion；consistent with the repository's
   one-authority rule and Hub/Spoke workflow。
+
+### D-078 — RSS runtime integration is sufficient close authority；generic test harness waits for a second pressure
+
+- **Acceptance decision**: the real-transport HTTP double → source/job → migrated PostgreSQL graph → storage/
+  resolver → source-state journey，combined with real-format semantic bytes、migration/PostgREST probes and full
+  core-py/client-web regression，is sufficient acceptance authority for the RSS MVP。
+- **Observation boundary**: this is business-runtime vertical integration rather than a full deployment/process-level
+  public-API black box。Opt-in live RSS/Atom smoke was not selected in the final run and proves only fetch/parse when
+  enabled。Additional transient HTTP、whole-feed malformed、enrichment/storage/resolver failure、process-interruption
+  and scheduler exact-one-job probes remain non-blocking future hardening，not retroactive close gates。
+- **Infrastructure decision**: retain the already shared hermetic environment and on-demand real-format asset
+  generator。Keep RSS protocol routes、identity revisions、job/state assertions and graph cleanup local until a second
+  external-source unit proves the same test shape；then extract the smallest common harness without flattening
+  source-specific semantics。
+- **State consequence**: `rss-extension-hardening` is Complete after Sir's 2026-08-03 review；no acceptance follow-up
+  remains active。
+- **Confidence**: Sir explicitly accepted the final acceptance scheme and authorized task-packet completion/cleanup；
+  the infrastructure boundary also follows the program's two-real-pressure abstraction rule。
 
 ## Withdrawn
 

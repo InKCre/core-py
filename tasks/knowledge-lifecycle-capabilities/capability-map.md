@@ -71,8 +71,8 @@ local relations ────────────┘
 
 | Order | Unit family | State | Why here |
 | --- | --- | --- | --- |
-| 1 | [Memos extension](units/memos-extension/packet.md) | **Closed；backend MVP implemented** | Sir 的直接产品需求；released client E2E 已证明 memo canonical/graph/read contract；durable owner projections prepared |
-| 2 | [RSS extension hardening](units/rss-extension-hardening/packet.md) | **Closed；implemented, verified and documented** | 已用 RSS/Atom vertical 建立 source instance → collect job → graph → resolver → state 的可信 collection baseline |
+| 1 | [Memos extension](units/memos-extension/packet.md) | **Complete；backend MVP implemented** | Sir 的直接产品需求；released client E2E 已证明 memo canonical/graph/read contract；durable owner projections committed |
+| 2 | [RSS extension hardening](units/rss-extension-hardening/packet.md) | **Complete；human-accepted 2026-08-03** | 已用 RSS/Atom vertical 建立 source instance → collect job → graph → resolver → state 的可信 collection baseline |
 | 3 | Other existing source hardening | Queued | 只在具体 source 或 RSS 暴露的重复压力证明后选择；不把所有旧 sources 当成一个横切 cleanup unit |
 | 4 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
 | 5 | Organization units | Queued | 以改善 use 为目标，分别讨论 breakdown/merge/linking 及后续发现的能力；现有实现不构成设计约束 |

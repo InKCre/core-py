@@ -10,8 +10,8 @@
 | Slice | Role | Status |
 |---|---|---|
 | Existing sources | 兼容性与回归基线：Twitter、GitHub、RSS、Mail、Telegram | Evidence collected |
-| Memos extension | memo-like 的首个可实现单元；当前 scope 是 backend MVP | Closed — implementation/E2E complete；durable projections prepared |
-| RSS extension hardening | 首个传统 source-path reference unit；固定 RSS/Atom identity、change、graph、job/state 与 failure contract | Closed — implementation/verification/durable reconciliation complete |
+| Memos extension | memo-like 的首个可实现单元；当前 scope 是 backend MVP | Complete — implementation/E2E and owner commits complete |
+| RSS extension hardening | 首个传统 source-path reference unit；固定 RSS/Atom identity、change、graph、job/state 与 failure contract | Complete — human-accepted 2026-08-03 |
 | CalDAV | 日历协议与结构化同步压力 | Queued |
 | Nextcloud Files | 文件层级、binary、pointer/storage 压力 | Queued |
 | Apple Notes | macOS local runtime 与受限访问压力 | Queued |
@@ -40,6 +40,6 @@
 
 ## Active Slice
 
-Active unit is [RSS extension hardening](../units/rss-extension-hardening/packet.md)。Closed
-[Memos extension](../units/memos-extension/packet.md) 的 future collectors/products 仍需各自过 gate，
-不能继承 backend MVP approval。
+当前没有 active collection unit。[RSS extension hardening](../units/rss-extension-hardening/packet.md) 与
+[Memos extension](../units/memos-extension/packet.md) backend MVP 均已完成；future RSS hardening、Memos
+collectors/products 仍需以新 scope 过 gate，不能继承既有 approval。
