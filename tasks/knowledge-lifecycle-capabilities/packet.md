@@ -12,11 +12,12 @@
   或 per-user ownership/ACL，deployment 是单一 owner context，多个 `client` 只是 runtime
   peers（D-033）。[Memos extension](units/memos-extension/packet.md) backend MVP 的 Product、Technical、
   Acceptance、Implementation、official APK E2E 均已完成，core-py commit 是 `304a5c8`，独立
-  client-web config-path fix 是 `f2ab107`；该 implementation unit 已关闭。
+  client-web config-path fix 是 `f2ab107`；该 implementation unit 已完成。
   [RSS extension hardening](units/rss-extension-hardening/packet.md) 的 B0–B8 implementation/verification 与 durable
-  reconciliation 也已完成，unit 已关闭；
-  Hub PRD/Product TDD、core-py Unit/deployment docs 与 client-web info-base architecture 已跟随已验证实现投影到
-  各自 owner 工作树。Commit/push、Hub publication 与 Spoke shared-ref bump 仍是独立授权操作。
+  reconciliation 也已完成，并于 2026-08-03 通过 Sir 的最终验收复审；
+  Hub PRD/Product TDD、core-py Unit/deployment docs 与 client-web info-base architecture 已跟随已验证实现投影并
+  分别提交为 Hub `48b069f`、core-py `835f89a`、client-web `765b22f`。Push、Hub publication、Spoke
+  shared-ref bump 与 production migration 仍是独立授权操作。
   RSS hardening 方向与
   black-box-first acceptance strategy 已获 Sir 接受；D-050 固定 feed-authored content / independent
   full-text enrichment authority，D-051 固定保留 extension identity 的 behavior rewrite 与成熟第三方库
@@ -54,7 +55,7 @@
   `full` 因混合多种 effect 不被提升为通用合同。D-075 固定九个
   `core.<kind>.v1` exact semantic content resolver IDs，abstract text/embedding capability methods，resolver-
   instance invocation，metadata block → semantic content block 命名，以及裸 `text/html/image/video` hard cut-off。
-- **Next Step**: 由 Sir 决定是否按 owner 创建 commits / 发布 Hub，或直接选择下一个 implementable unit。
+- **Next Step**: 从 program queue 选择下一个 implementable unit；没有默认自动启动项。
 
 ## Program Boundary
 
@@ -70,7 +71,7 @@
 
 ## Active Implementable Unit
 
-当前没有 active implementable unit。[RSS extension hardening](units/rss-extension-hardening/packet.md) 已关闭；
+当前没有 active implementable unit。[RSS extension hardening](units/rss-extension-hardening/packet.md) 已完成；
 下一单元从 program queue 重新选择，不因表格顺序自动启动。
 
 [Memos extension](units/memos-extension/packet.md) 已关闭；future collector/product generations 不继承其

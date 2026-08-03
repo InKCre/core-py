@@ -2,9 +2,9 @@
 
 ## Control
 
-- **Status**: implemented and verified；Sir authorized implementation on 2026-08-02，and B0–B8 completed the same
-  day。Durable owner projections followed verified implementation；commit、push、Hub publication、shared-ref bump
-  and production migration remain separate gates。
+- **Status**: complete and human-accepted；Sir authorized implementation on 2026-08-02，B0–B8 completed the same
+  day，and accepted the final verification horizon on 2026-08-03。Durable owner projections and owner-specific
+  commits are complete；push、Hub publication、shared-ref bump and production migration remain separate gates。
 - **Unit**: `rss-extension-hardening`，including the accepted horizontal core/storage/resolver and Memos propagation
   required by the RSS vertical。
 - **Inputs**: D-049–D-076 and the accepted
@@ -20,7 +20,7 @@
 
 ## Outcome And Completion Boundary
 
-The unit is complete when one configured RSS 2.0 or Atom source can travel through the real public path：
+The unit is complete when one configured RSS 2.0 or Atom source can travel through the accepted runtime path：
 
 ```text
 source schedule/manual command
@@ -524,8 +524,8 @@ content-kind HTTP storages + C/R/D writable storage + resolver-owned raw cache
 - live protocol acceptance：replaceable opt-in RSS/Atom tests consume URLs selected through
   `INKCRE_LIVE_RSS_URL` / `INKCRE_LIVE_ATOM_URL`；they skip rather than pinning an external endpoint when none is
   selected。
-- delivery boundaries remain unchanged：no production mutation、commit、push or shared-ref bump was performed；
-  Hub source and Spoke-local durable owner edits were prepared after Sir clarified the promotion timing。
+- delivery boundary after acceptance：Hub `48b069f`、core-py `835f89a` and client-web `765b22f` record the
+  owner-specific batches；no production mutation、push or shared-ref bump was performed。
 - durable validation：Hub `git diff --check` + SVC `init` noop；45 relative links resolved；core-py owner docs targeted
   Ruff format and repository lint passed；client-web complete `pnpm check` passed 56 tests、types and builds。
 
