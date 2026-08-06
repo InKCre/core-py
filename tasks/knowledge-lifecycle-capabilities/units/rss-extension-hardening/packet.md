@@ -32,7 +32,7 @@
 - common horizontal result 包括 block-owned hydration、generic HTTP bytes、PostgreSQL bytes CRUD、九种 exact
   semantic resolvers、Memos attachment v2 与 client-web peer-local parity。
 
-完整决定由 [program decision authority](../../decisions.md) 的 D-049–D-078 拥有；本 packet 不再复制逐条
+完整决定由 [program decision authority](../../decisions/index.md) 的 D-049–D-078 拥有；本 packet 不再复制逐条
 decision text。稳定技术合同已投影到 [RSS Unit TDD](../../../../docs/30-unit-tdd/rss-extension.md) 与 Hub
 PRD/Product TDD。
 

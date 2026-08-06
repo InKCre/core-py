@@ -348,3 +348,12 @@ flowchart TB
 - Closing PR 41 removed the exact Heroku review app and Neon preview branch in successful
   runs `30197684918` and `30197684873`. The active local descriptor now records exact core-py
   main revision `0d5db0e` and client-web remains healthy against that same runtime instance.
+
+## Post-Closure Diagnostic Boundary
+
+The durable shared-runtime troubleshooting boundary now lives in
+[`docs/40-deployment/development-environment.md`](../../docs/40-deployment/development-environment.md#shared-runtime-boundary-diagnostics).
+It records that network/database endpoint identity is currently derived rather than a
+first-class profile field, external attachment proves contract compatibility rather than
+exact artifact equality, and reset rejection lacks a dedicated external-peer negative test.
+These are future diagnostic and hardening anchors; they do not reopen Execution 10.

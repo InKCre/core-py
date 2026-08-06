@@ -1,7 +1,7 @@
 # InKCre Terminology Audit
 
 > Repository evidence snapshot，最初采集于 2026-07-29；不是 durable product truth，也不维护
-> program phase 或当前问题。后续决定以 [decisions.md](decisions.md) 为准。
+> program phase 或当前问题。后续决定以 [decision register](decisions/index.md) 为准。
 
 ## 1. 方法与约束
 
@@ -37,7 +37,12 @@ glossary 的新领域对象。
 | `storage` | block 未内联内容时，按 pointer 取得 actual content 的组件 | storage type、storage row、handler、`Block.storage` FK；内置实现是 HTTP fetch | 它是 pointer-based content 访问能力，不等于 PostgreSQL、bucket，也不等于“把信息持久化”这一动作 |
 | `sink` | 检索或索引 info-base 内容供 downstream use 的 capability | core-py 的 embedding/reasoning/RAG；client-web 的 graph 可视化代码也放在 sink package | 产品能力词，不是持久对象 |
 | `extension` | 可安装并增加 source/resolver/sink 行为的 capability | Python package/class/DB install row/runtime；Web 还有 Module Federation module/runtime | 共享产品词存在，但不同 runtime 的 artifact 与运行模型尚未统一 |
-| `client` | 多 runtime 部署中的一个运行节点 | client record、core-py runtime、client-web runtime | 不是 HTTP client 的同义词 |
+| `peer` | 一个 deployment 中参与同一 info-base 的 InKCre runtime node | 现有 `clients` record、core-py runtime、client-web runtime | D-109 选定的 technical domain term；现有技术 `client` 名称是迁移地址 |
+| `client` | 用户安装、访问或使用的 InKCre 应用 | marketing/landing、non-technical docs、`client-web` 等产品/仓库名 | 保留为 user-facing product term；不用于表达 peer-to-peer technical authority |
+
+`client` 仍可描述真实的 client/server 或外部协议角色，例如 HTTP client、Memos-compatible client、OAuth
+`client_id` 和第三方 SDK client。D-109 只迁移 technical runtime-node domain，不授权机械替换这些词或
+user-facing Client product language。
 
 ### 关键内容词
 
@@ -67,7 +72,7 @@ resolver 的 `v1` / `v2` 轴使用一般开发者更熟悉的 `version`，具体
 ### 稳定的 effect / selection 参数语言
 
 D-074 已固定以下跨 peer 语义；这里只记录命名证据与边界，决定 authority 仍是
-[decisions.md](decisions.md)：
+[decision register](decisions/index.md)：
 
 | 参数/动作 | 稳定语义 | 明确不表示 |
 |---|---|---|

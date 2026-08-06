@@ -242,6 +242,33 @@ core-py local Unit TDD promotion 已应用，只记录本仓内部 implementatio
 - **U-025 — Schedules create commands, not hidden effects**: manual collection 与 scheduler trigger 都先创建普通
   PENDING collect job，再由同一个 atomic-claim runner 执行。schedule 是 command creation policy，不应成为绕过
   job diagnostics、status、retry 和 source-state semantics 的第二条 effect path。
+- **U-026 — Disclose dynamic schemas progressively**: Agent 初始上下文只提供完成语义选择所需的 compact exact
+  identities 与 descriptions；大型、稀疏使用或 runtime-dependent 的具体 input schemas 通过领域专用查询 Tool
+  按需取得。不要把所有可选能力的联合 schema 固定注入每次模型调用，也不要为此建立万能反射服务。
+- **U-027 — Domain owners produce the canonical downstream command**: 领域实现拥有其输入 schema、description 与
+  语义转换，并直接产生下游 authority 接受的 canonical command。Agent/runtime 只提供注册、路由和 typed
+  validation；不要复制领域 schema，也不要增加只为跨 Tool 转换而存在的中间 DTO。Resolver-owned
+  StarsGraphForm authoring 通过一个领域拥有的 normalizer 产生 canonical GraphForm，而非交给 LLM 转换，是当前
+  reference pressure。
+- **U-028 — Separate discovery、proposal and commit by effect**: schema/capability discovery、non-persisting proposal
+  construction 与 durable mutation 使用不同的窄 Tool 边界；写入集中到唯一明确 command，但不扩大成通用
+  capability invocation、通用事务或 delegation job。
+- **U-029 — Do not persist or transmit derivable authority twice**: 当一个值可以通过稳定、低成本且无歧义的不变量
+  从同一 command/result 推导时，不再添加第二个字段表达它。Resolver draft 的 `id_start` 已固定为 star Block ID，
+  因而额外 `entry_id` 只会制造可分歧的重复 authority。
+- **U-030 — Models choose semantics；code enforces mechanics**: LLM/Agent 负责需要语义判断的能力选择、关系表达和
+  是否提交；领域模块负责 exact routing、schema validation、identifier allocation、结构不变量与持久化。不要
+  用模型处理可确定的机械转换，也不要让通用 runtime 接管领域判断。
+- **U-031 — Runtime boundary turns raw input into ordinary typed input**: 接收外部/模型 raw payload 的
+  framework/runtime boundary 负责把它反序列化、验证为 typed input；随后被调用的函数接收普通 typed/domain
+  input，不再用 `validated_input` 命名、`Validated[T]` wrapper 或额外状态重复表达“边界已经验证过”。这不取消
+  各层独有的不变量：Pydantic model 继续拥有自身结构约束，后续模块仍可检查自己拥有的不同约束，数据库继续
+  拥有 referential integrity。`submit_graph` 与 `draft_graph → Resolver.create_graph` 是当前 reference pressure。
+- **U-032 — Batch-local identity solves mutually referencing creation**: 普通 creation Form 不携带数据库生成的
+  identity、timestamps 或其他 database-managed state。当一个批量 command 必须同时声明待创建实体并让同批关系
+  引用它们时，command envelope 可以引入仅在该 command 内有效的 identity namespace；对于 bigint row identity，
+  InKCre 使用非零 signed ID：负数声明待创建实体，正数引用已有实体，零无效。该 exception 属于批量引用机制，
+  不把数据库生成字段重新泄漏进所有 base Forms。GraphForm 是当前 reference pressure。
 
 ## Apply Checklist
 
