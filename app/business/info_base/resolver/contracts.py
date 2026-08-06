@@ -40,6 +40,14 @@ class UnknownResolverError(ResolverContractError):
     super().__init__(f"Unknown resolver ID: {resolver_id}")
 
 
+class UnknownDraftResolverError(ResolverContractError):
+  """The selected exact Resolver has no graph-drafting capability."""
+
+  def __init__(self, resolver_id: str):
+    self.resolver_id = resolver_id
+    super().__init__(f"Resolver is not available for graph drafting: {resolver_id}")
+
+
 class DuplicateResolverRegistrationError(ResolverContractError):
   """Two different decoder classes claimed the same exact resolver ID."""
 

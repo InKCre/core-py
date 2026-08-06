@@ -5,10 +5,11 @@ from .contracts import (
   DuplicateResolverRegistrationError,
   ResolverContentError,
   ResolverContractError,
+  UnknownDraftResolverError,
   UnknownResolverError,
   UnsupportedResolverCapability,
 )
-from .main import ResolverManager, Resolver
+from .main import Resolver, ResolverDraftCapability, ResolverManager
 
 __all__ = [
   "ResolverManager",
@@ -18,9 +19,11 @@ __all__ = [
   "CoreResolverID",
   "ResolverContractError",
   "UnknownResolverError",
+  "UnknownDraftResolverError",
   "DuplicateResolverRegistrationError",
   "ResolverContentError",
   "UnsupportedResolverCapability",
+  "ResolverDraftCapability",
   "AudioResolver",
   "EPUBResolver",
   "FileResolver",

@@ -134,3 +134,19 @@ def test_source_fingerprint_names_and_hashes_each_file(monkeypatch, tmp_path):
   compose.write_text("services:\n  postgres: {}")
 
   assert dev_database._source_fingerprint() != initial
+
+
+def test_reused_runtime_refreshes_complete_artifact_contract(monkeypatch):
+  state = _state("0123456789abcdef")
+  monkeypatch.setattr(dev_database, "CONTRACT_REVISION", "peer-database-runtime-v3")
+  monkeypatch.setattr(dev_database, "get_repository_heads", lambda: ("new-head",))
+  monkeypatch.setattr(dev_database, "_source_revision", lambda: "c" * 40)
+  monkeypatch.setattr(dev_database, "_source_fingerprint", lambda: "d" * 64)
+
+  dev_database._refresh_artifact_state(state)
+
+  assert state["contract_revision"] == "peer-database-runtime-v3"
+  assert state["migration_head"] == "new-head"
+  assert state["source_revision"] == "c" * 40
+  assert state["source_fingerprint"] == "d" * 64
+  assert state["core_image"] == f"inkcre-core-py-development:{'c' * 12}"

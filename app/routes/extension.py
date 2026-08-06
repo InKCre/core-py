@@ -2,25 +2,33 @@
 
 __all__ = ["ROUTER"]
 
-import typing
 import fastapi
 import pydantic
-from app.business.extension.main import ExtensionManager
-from app.schemas.extension.main import ExtensionModel, ExtensionID
+from app.business.extension import EXTENSION_MANAGEMENT_CAPABILITY, ExtensionManager
+from app.business.peer import PeerHTTPInbound
+from app.schemas.extension import (
+  ExtensionID,
+  ExtensionManagementCommand,
+  ExtensionModel,
+)
 
 ROUTER = fastapi.APIRouter(
-  prefix="/extensions",
   tags=["extension"],
+)
+PEER_INBOUND = PeerHTTPInbound(
+  capability=EXTENSION_MANAGEMENT_CAPABILITY,
+  method="POST",
+  path="/extension-management",
 )
 
 
-@ROUTER.get("")
+@ROUTER.get("/extensions")
 def get_extensions() -> tuple[ExtensionModel, ...]:
   """List all installed extensions"""
   return ExtensionManager.get_installed()
 
 
-@ROUTER.post("/{extid}")
+@ROUTER.post("/extensions/{extid}")
 def install_extension(
   extid: ExtensionID,
   disabled: bool = fastapi.Query(default=False),
@@ -36,50 +44,20 @@ def install_extension(
     ) from error
 
 
-@ROUTER.post("/{extid}/enable")
-async def enable_extension(extid: ExtensionID) -> ExtensionModel:
-  """启用插件 (Enable extension for current client)"""
-  try:
-    return await ExtensionManager.enable(extid)
-  except ValueError:
-    raise fastapi.HTTPException(
-      status_code=fastapi.status.HTTP_404_NOT_FOUND,
-      detail=f"Extension with id {extid} not found.",
-    )
-
-
-@ROUTER.post("/{extid}/disable")
-async def disable_extension(extid: ExtensionID) -> ExtensionModel:
-  """禁用插件 (Disable extension for current client)"""
-  try:
-    return await ExtensionManager.disable(extid)
-  except ValueError:
-    raise fastapi.HTTPException(
-      status_code=fastapi.status.HTTP_404_NOT_FOUND,
-      detail=f"Extension with id {extid} not found.",
-    )
-
-
-@ROUTER.put("/{extid}/config")
-def update_extension_config(
-  extid: ExtensionID, body: dict[str, typing.Any] = fastapi.Body(...)
+@ROUTER.post("/extension-management")
+async def manage_extension(
+  body: ExtensionManagementCommand,
 ) -> ExtensionModel:
-  """编辑插件配置 (Edit extension configuration)
-
-  编辑成功将会立刻应用到插件中（如果正在运行）
-  """
+  """Execute one fixed, Peer-local Extension management command."""
   try:
-    updated_ext = ExtensionManager.update_config(extid, body)
+    return await ExtensionManager.manage_local(body)
   except pydantic.ValidationError as error:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
       detail=error.errors(),
     ) from error
-
-  if updated_ext is None:
+  except ValueError as error:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_404_NOT_FOUND,
-      detail=f"Extension with id {extid} not found.",
-    )
-
-  return updated_ext
+      detail=str(error),
+    ) from error

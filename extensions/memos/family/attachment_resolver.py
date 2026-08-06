@@ -2,6 +2,7 @@
 
 from app.business.info_base.block import BlockManager
 from app.business.info_base.resolver import Resolver, ResolverManager
+from app.business.info_base.resolver.label import format_label
 
 from .graph import ATTACHMENT_RELATION_PREFIX, ATTACHMENT_RESOLVER, CONTENT_RELATION
 from .schema import CanonicalAttachment, SolvedAttachment
@@ -65,16 +66,10 @@ class AttachmentResolver(
       self._canonical = CanonicalAttachment.from_block_content(self._block.content)
     return self._canonical.filename
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str:
-    del materialize_missing
+  async def get_label(self, *, refresh: bool = False) -> str:
     if refresh:
       self._canonical = CanonicalAttachment.from_block_content(self._block.content)
-    return f"{self._canonical.filename} ({self._canonical.media_type})"
+    return format_label("memo attachment", self._canonical.filename)
 
 
 __all__ = ["AttachmentResolver"]

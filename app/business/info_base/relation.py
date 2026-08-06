@@ -14,6 +14,33 @@ logger = get_logger()
 
 class RelationManager:
   @classmethod
+  async def get_text(
+    cls,
+    relation: RelationModel,
+    *,
+    refresh: bool = False,
+  ) -> str | None:
+    """Project one directed dynamic property through Block-local endpoint labels."""
+    if not relation.content.strip():
+      return None
+    from app.schemas.info_base.block import BlockModel
+
+    with SessionLocal() as db_session:
+      from_block = db_session.get(BlockModel, relation.from_)
+      to_block = db_session.get(BlockModel, relation.to_)
+    if from_block is None or to_block is None:
+      return None
+
+    # Local imports avoid reversing Resolver -> RelationManager ownership.
+    from app.business.info_base.resolver import ResolverManager
+
+    subject = await ResolverManager.get(from_block).get_label(refresh=refresh)
+    value = await ResolverManager.get(to_block).get_label(refresh=refresh)
+    if not subject.strip() or not value.strip():
+      return None
+    return f"subject:\n{subject}\nproperty:\n{relation.content}\nvalue:\n{value}"
+
+  @classmethod
   def create(
     cls,
     from_: BlockID,

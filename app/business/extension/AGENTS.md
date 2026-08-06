@@ -31,7 +31,7 @@
 ### Extension identity and enablement
 
 - 一个 extension ID 在一个 deployment 中只对应一个安装记录。
-- 是否运行是按 client 控制的，状态存放在 `ExtensionModel.enabled` UUID 数组中。
+- 是否运行是按 Peer 控制的，状态存放在 `ExtensionModel.enabled` UUID 数组中。
 - installed 不等于 enabled，也不等于 running。
 - `extension runtime class` 指从 `extensions.<ext_id>` 加载出的 Python `Extension` 子类。
 - `extension config` 指持久化在 extension record 上的配置 payload，不等于运行中的 Python 对象状态。
@@ -39,8 +39,8 @@
 ### Lifecycle
 
 - `ExtensionBase.on_start()` 会加载配置、回写 `config_schema`、注册 API router、初始化 source 和 resolver。
-- `ExtensionBase.on_close()` 会把运行时配置保存回数据库。
-- `ExtensionManager.start_enabled()` 只启动当前 client 已启用的扩展。
+- `ExtensionBase.on_close()` 负责释放 extension runtime resource；配置更新由显式 config command 持久化。
+- `ExtensionManager.start_enabled()` 只启动当前 Peer 已启用的扩展。
 - start / close 不只是布尔状态切换；它们会修改当前 runtime 的 router、source、resolver 与配置状态。
 
 ### Metadata sources
@@ -66,8 +66,10 @@
 ### State transition boundary
 
 - `installed`、`enabled`、`running` 是三个不同层级的状态。
-- `enable()` 处理当前 client 的允许运行状态，必要时才引发 runtime start。
-- `disable()` 处理当前 client 的允许运行状态移除，并在需要时关闭 runtime。
+- `enable()` 处理当前 Peer 的允许运行状态，必要时才引发 runtime start。
+- `disable()` 处理当前 Peer 的允许运行状态移除，并在需要时关闭 runtime。
+- remote administration 只通过 exact `core.extension.management.v1` 与固定
+  `POST /extension-management` command inbound；不存在按 extension ID 拼接的 enable/disable/config remote routes。
 - 若只想描述共享状态语义，写到 shared Product TDD；若涉及 `install()`、`enable()`、`disable()`、`start_enabled()` 的具体行为，留在这里。
 
 ## 编辑指引
@@ -84,8 +86,7 @@ from app.business.extension import ExtensionBase
 
 class Extension(ExtensionBase, ext_id="my_ext", config_cls=MyConfig):
   @classmethod
-  def _register_apis(cls, router):
-    ...
+  def _register_apis(cls, router): ...
 
   @classmethod
   def _init_sources(cls):

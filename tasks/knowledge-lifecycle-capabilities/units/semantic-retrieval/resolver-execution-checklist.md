@@ -1,7 +1,7 @@
 # Resolver Execution Checklist
 
-> **Status**: proposed implementation contract for final review。D-075、D-096、D-102、D-193 and D-194 own the
-> underlying decisions；this matrix turns them into one execution surface。
+> **Status**: implemented through I5。D-075、D-096、D-102、D-193 and D-194 own the underlying decisions；this matrix is
+> now enforced by exact-ID、abstract capability、projection、producer and draft-capability tests。
 
 ## Shared Label Contract
 
@@ -106,3 +106,8 @@ surviving as an embedding-only hook。
 - structural search proves `get_str_for_embedding()` has no declaration、implementation or consumer；
 - producer parity runs every StarsGraphForm through `InfoBaseManager.normalize_graph()` and checks accepted relation
   direction/grammar。
+- graph drafting is opt-in rather than inferred from decode ability；`core.text.v1` and any loaded explicit extension draft
+  capability publish code-owned description/input schema，while source-native RSS/Memos/GitHub decoders are not automatically
+  exposed as LLM authoring contracts；
+- bound Agent Tool schemas freeze the exact draft Resolver ID set，keep native input details out of `draft_graph`，and expose
+  them only through `get_draft_graph_schema`；Pydantic performs the selected nested input validation before handler entry。

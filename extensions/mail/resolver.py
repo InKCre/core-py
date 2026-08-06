@@ -5,14 +5,18 @@ from typing import Optional as Opt
 from sqlmodel import Session
 import sqlmodel
 from app.business.info_base.resolver import Resolver
-from app.schemas.info_base.block import BlockModel
-from app.schemas.info_base.relation import RelationModel
-from app.schemas.info_base.main import InArcForm, OutArcForm, SubGraphForm
+from app.business.info_base.resolver.label import format_label
+from app.schemas.info_base.block import BlockForm, BlockModel
+from app.schemas.info_base.relation import RelationForm
+from app.schemas.info_base.main import OutArcForm, StarsGraphForm
 from utils.sql import find_by_json_contains
 from .schema import Email, EmailAddress, Newsletter
 
 
-class EmailResolver(Resolver[Email, str], rso_type="email"):
+class EmailResolver(
+  Resolver[Email, str],
+  rso_type="extensions.mail.email.v1",
+):
   """Resolver for email blocks."""
 
   def __post_init__(self, raw_content=None):
@@ -36,7 +40,7 @@ class EmailResolver(Resolver[Email, str], rso_type="email"):
     from_: EmailAddress,
     to: list[EmailAddress],
     cc: Opt[list[EmailAddress]] = None,
-  ) -> SubGraphForm:
+  ) -> StarsGraphForm:
     """Create a StarGraphForm from email data.
 
     :param email: the email
@@ -46,34 +50,32 @@ class EmailResolver(Resolver[Email, str], rso_type="email"):
     :return: StarGraphForm representing the email graph
     ```mermaid
     graph TD
-        A[Email Address] -->|from| B[Email]
+        B[Email] -->|from| A[Email Address]
         B -->|to| C[Email Address]
         B -->|cc| D[Email Address]
     ```
     """
-    return SubGraphForm(
-      in_arcs=(
-        InArcForm(
-          relation=RelationModel(content="from"),
-          from_subgraph=EmailAddressResolver.create_graph(from_),
-        ),
-      ),
-      block=BlockModel(
+    return StarsGraphForm(
+      block=BlockForm(
         resolver=cls.__rsotype__,
         content=email.model_dump_json(),
       ),
       out_arcs=(
+        OutArcForm(
+          relation=RelationForm(content="from"),
+          to_graph=EmailAddressResolver.create_graph(from_),
+        ),
         *(
           OutArcForm(
-            relation=RelationModel(content="to"),
-            to_subgraph=EmailAddressResolver.create_graph(addr),
+            relation=RelationForm(content="to"),
+            to_graph=EmailAddressResolver.create_graph(addr),
           )
           for addr in to
         ),
         *(
           OutArcForm(
-            relation=RelationModel(content="cc"),
-            to_subgraph=EmailAddressResolver.create_graph(addr),
+            relation=RelationForm(content="cc"),
+            to_graph=EmailAddressResolver.create_graph(addr),
           )
           for addr in (cc or [])
         ),
@@ -94,24 +96,22 @@ class EmailResolver(Resolver[Email, str], rso_type="email"):
       refresh=refresh,
       materialize_missing=materialize_missing,
     )
-    return email.body_text or email.body_html or email.subject
-
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str:
-    email = await self.get_solved_content(
-      refresh=refresh,
-      materialize_missing=materialize_missing,
-    )
     body = email.body_text or email.body_html or ""
     return f"Subject: {email.subject}\n\n{body}"
 
+  async def get_label(self, *, refresh: bool = False) -> str:
+    email = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=False,
+    )
+    return format_label("email", email.subject)
+
 
 # TODO
-class NewsletterResolver(Resolver[Newsletter, str], rso_type="newsletter"):
+class NewsletterResolver(
+  Resolver[Newsletter, str],
+  rso_type="extensions.mail.newsletter.v1",
+):
   """Resolver for newsletter blocks."""
 
   def __post_init__(self, raw_content=None):
@@ -129,14 +129,14 @@ class NewsletterResolver(Resolver[Newsletter, str], rso_type="newsletter"):
     return Newsletter.model_validate_json(await self.get_raw_content(refresh=refresh))
 
   @classmethod
-  def create_graph(cls, newsletter: Newsletter) -> SubGraphForm:
+  def create_graph(cls, newsletter: Newsletter) -> StarsGraphForm:
     """Create a StarGraphForm from newsletter data.
 
     :param newsletter: Newsletter object to convert to block
     :return: StarGraphForm for the newsletter
     """
-    return SubGraphForm(
-      block=BlockModel(
+    return StarsGraphForm(
+      block=BlockForm(
         resolver=cls.__rsotype__,
         content=newsletter.model_dump_json(),
       ),
@@ -149,32 +149,25 @@ class NewsletterResolver(Resolver[Newsletter, str], rso_type="newsletter"):
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
-    """Get text representation of the newsletter.
-
-    Returns the newsletter body.
-    """
-    return (
-      await self.get_solved_content(
-        refresh=refresh,
-        materialize_missing=materialize_missing,
-      )
-    ).body
-
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str:
-    """Subject and body."""
+    """Return the newsletter subject and body as one reusable projection."""
     newsletter = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,
     )
     return f"Subject: {newsletter.subject}\n\n{newsletter.body}"
 
+  async def get_label(self, *, refresh: bool = False) -> str:
+    newsletter = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=False,
+    )
+    return format_label("newsletter", newsletter.subject)
 
-class EmailAddressResolver(Resolver[EmailAddress, str], rso_type="email_address"):
+
+class EmailAddressResolver(
+  Resolver[EmailAddress, str],
+  rso_type="extensions.mail.email_address.v1",
+):
   """Resolver for email address blocks."""
 
   def __post_init__(self, raw_content=None):
@@ -191,16 +184,16 @@ class EmailAddressResolver(Resolver[EmailAddress, str], rso_type="email_address"
     return EmailAddress.model_validate_json(await self.get_raw_content(refresh=refresh))
 
   @classmethod
-  def create_block(cls, content: EmailAddress | dict, storage=None) -> BlockModel:
-    return BlockModel(
+  def create_block(cls, content: EmailAddress | dict, storage=None) -> BlockForm:
+    return BlockForm(
       resolver=cls.__rsotype__,
       content=EmailAddress.model_validate(content).model_dump_json(),
       storage=storage,
     )
 
   @classmethod
-  def create_graph(cls, email: EmailAddress | dict) -> SubGraphForm:
-    return SubGraphForm(block=cls.create_block(email))
+  def create_graph(cls, email: EmailAddress | dict) -> StarsGraphForm:
+    return StarsGraphForm(block=cls.create_block(email))
 
   async def get_text(
     self,
@@ -220,17 +213,13 @@ class EmailAddressResolver(Resolver[EmailAddress, str], rso_type="email_address"
       return f"{address.name} <{address.email}>"
     return address.email
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str:
+  async def get_label(self, *, refresh: bool = False) -> str:
     address = await self.get_solved_content(
       refresh=refresh,
-      materialize_missing=materialize_missing,
+      materialize_missing=False,
     )
-    return f"{address.name} {address.email}" if address.name else address.email
+    identifier = f"{address.name} / {address.email}" if address.name else address.email
+    return format_label("email address", identifier)
 
   def get_existing(self, db_session: Session) -> BlockModel | None:
     existing_block = db_session.exec(

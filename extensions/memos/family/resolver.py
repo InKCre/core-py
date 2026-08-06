@@ -1,7 +1,8 @@
 """Versioned CanonicalMemo decoder and graph resolver."""
 
 from app.business.info_base.resolver import Resolver
-from app.schemas.info_base.block import BlockModel
+from app.business.info_base.resolver.label import format_label
+from app.schemas.info_base.block import BlockForm
 
 from .graph import MEMO_RESOLVER, solve_memo_links
 from .schema import CanonicalMemo, SolvedMemo
@@ -16,10 +17,10 @@ class MemoResolver(Resolver[SolvedMemo, str], rso_type=MEMO_RESOLVER):
     self._canonical = CanonicalMemo.from_block_content(raw_content)
 
   @classmethod
-  def create_block(cls, content: CanonicalMemo, storage=None) -> BlockModel:
+  def create_block(cls, content: CanonicalMemo, storage=None) -> BlockForm:
     if storage is not None:
       raise ValueError("CanonicalMemo v1 root content must be inline")
-    return BlockModel(
+    return BlockForm(
       resolver=cls.__rsotype__,
       content=content.to_block_content(),
     )
@@ -79,16 +80,12 @@ class MemoResolver(Resolver[SolvedMemo, str], rso_type=MEMO_RESOLVER):
       )
     return self._canonical.body
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str:
-    return await self.get_text(
-      refresh=refresh,
-      materialize_missing=materialize_missing,
-    )
+  async def get_label(self, *, refresh: bool = False) -> str:
+    if refresh:
+      self._canonical = CanonicalMemo.from_block_content(
+        await self.get_raw_content(refresh=True)
+      )
+    return format_label("memo", self._canonical.body, first_line=True)
 
 
 __all__ = ["MemoResolver"]

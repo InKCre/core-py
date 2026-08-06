@@ -34,8 +34,6 @@ def test_settings_with_all_required_vars():
       "JWT_SECRET": TEST_JWT_SECRET,
       "HOST": "127.0.0.1",
       "PORT": "9000",
-      "LLM_SP_AK": "test-api-key",
-      "LLM_SP_BASE_URL": "https://api.test.com",
     }
   )
 
@@ -43,8 +41,6 @@ def test_settings_with_all_required_vars():
   assert settings.jwt_secret == TEST_JWT_SECRET
   assert settings.host == "127.0.0.1"
   assert settings.port == 9000
-  assert settings.llm_sp_ak == "test-api-key"
-  assert settings.llm_sp_base_url == "https://api.test.com"
 
 
 def test_settings_missing_required_database_url():
@@ -74,8 +70,14 @@ def test_settings_default_values():
   assert settings.host == "0.0.0.0"
   assert settings.port == 8000
   assert settings.database_scale_0 is False
-  assert settings.llm_sp_ak == ""
-  assert settings.llm_sp_base_url == ""
+  assert settings.peer_name == "core-py"
+  assert settings.peer_lease_ttl_seconds == 90
+  assert settings.peer_lease_renew_interval_seconds == 30
+  assert settings.peer_http_timeout_seconds == 30
+  assert settings.semantic_retrieval_maintenance_interval_seconds == 60
+  assert settings.semantic_retrieval_maintenance_max_embeddings == 100
+  assert settings.semantic_retrieval_maintenance_batch_size == 20
+  assert settings.semantic_retrieval_maintenance_scan_page_size == 100
   assert settings.obsrv.logtail_source_token is None
   assert settings.obsrv.logtail_host is None
 

@@ -8,13 +8,13 @@ import sqlmodel
 from app.business.source import SourceBase
 from app.business.info_base.main import InfoBaseManager
 from app.engine import SessionLocal
-from app.schemas.info_base.block import BlockID, BlockModel
-from app.schemas.info_base.main import SubGraphForm
+from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceCollectJobModel
 from app.scheduler import scheduler
 from libs.obsrv.main import get_logger
 
 from .imap import Source as IMAPSource
+from .resolver import NewsletterResolver
 from .schema import Newsletter
 
 LOGGER = get_logger().getChild(__name__)
@@ -224,15 +224,7 @@ class Source(SourceBase[NewsletterSourceConfig], config_cls=NewsletterSourceConf
             logger.debug("Updated last_seen_uid", extra={"new_uid": uid})
 
         # Collect as StarGraphForm
-        collected.append(
-          SubGraphForm(
-            block=BlockModel(
-              resolver="extensions.mail.resolver.NewsletterResolver",
-              content=newsletter_obj.model_dump_json(),
-            ),
-            out_arcs=(),
-          )
-        )
+        collected.append(NewsletterResolver.create_graph(newsletter_obj))
         logger.debug(
           "Collected newsletter",
           extra={"uid": uid, "subject": subject},
@@ -253,11 +245,13 @@ class Source(SourceBase[NewsletterSourceConfig], config_cls=NewsletterSourceConf
     try:
       with SessionLocal() as db:
         for graph in reversed(collected) if full else collected:
-          await InfoBaseManager.add_subgraph_to_session(graph, db)
+          persisted = await InfoBaseManager.add_stars_graph_to_session(graph, db)
+          if persisted.id is None:
+            raise RuntimeError("Persisted newsletter is missing its database ID")
           # Schedule organize
           scheduler.add_job(
             func=self._organize,
-            kwargs={"block_id": graph.block.id},
+            kwargs={"block_id": persisted.id},
             misfire_grace_time=None,
           )
         db.commit()

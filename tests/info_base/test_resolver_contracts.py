@@ -12,7 +12,6 @@ from app.business.info_base.resolver import (
   register_core_resolvers,
 )
 from app.business.info_base.resolver.video import VideoResolver
-from app.business.sink.embedding import EmbeddingManager
 from app.schemas.info_base.block import BlockModel
 import pytest
 
@@ -33,16 +32,9 @@ class _ProjectionResolver(
     )
     return None if content == "supported-null" else content
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str | None:
-    return await self.get_text(
-      refresh=refresh,
-      materialize_missing=materialize_missing,
-    )
+  async def get_label(self, *, refresh: bool = False) -> str:
+    del refresh
+    return "projection"
 
 
 def _block(content: str, resolver: str = _ProjectionResolver.__rsotype__) -> BlockModel:
@@ -59,9 +51,6 @@ def test_registry_is_exact_idempotent_and_rejects_collisions():
       rso_type=_ProjectionResolver.__rsotype__,
     ):
       async def get_text(self, **_kwargs) -> str:
-        return "collision"
-
-      async def get_str_for_embedding(self, **_kwargs) -> str:
         return "collision"
 
 
@@ -127,31 +116,3 @@ def test_media_type_matching_is_normalized_and_exactly_registered(
 )
 def test_media_type_matching_does_not_choose_extension_fallback(media_type):
   assert ResolverManager.match_media_type(media_type) is None
-
-
-def test_embedding_capability_skip_does_not_turn_into_an_empty_embedding():
-  block = _block("pointer", VideoResolver.__rsotype__)
-
-  assert (
-    asyncio.run(
-      EmbeddingManager.upsert_block_embedding(
-        block=block,
-        db_session=object(),  # type: ignore[arg-type]
-      )
-    )
-    is None
-  )
-
-
-def test_periodic_embedding_scan_quarantines_unknown_block_versions():
-  block = _block("historical", "tests.resolver.retired.v1")
-  EmbeddingManager._skipped_block_versions.clear()
-
-  asyncio.run(
-    EmbeddingManager._upsert_missing_block_embedding(
-      block,
-      object(),  # type: ignore[arg-type]
-    )
-  )
-
-  assert EmbeddingManager._block_version(block) in EmbeddingManager._skipped_block_versions

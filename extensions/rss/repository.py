@@ -9,9 +9,8 @@ import sqlmodel
 from app.business.info_base.block import BlockManager
 from app.business.info_base.relation import RelationManager
 from app.engine import SessionLocal
-from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.sink.embedding import BlockEmbeddingModel
 from app.schemas.source import SourceModel
 
 from .schema import CanonicalEnclosure, CanonicalFeed, CanonicalFeedItem
@@ -53,10 +52,6 @@ def _replace_content(
     return False
   block.content = content
   db_session.add(block)
-  if block.id is not None:
-    existing_embedding = db_session.get(BlockEmbeddingModel, block.id)
-    if existing_embedding is not None:
-      db_session.delete(existing_embedding)
   db_session.flush()
   db_session.refresh(block)
   return True
@@ -97,7 +92,7 @@ class FeedGraphRepository:
         result = ReconcileResult(_block_id(feed), "updated" if changed else "unchanged")
       else:
         feed = BlockManager.create(
-          BlockModel(resolver=FEED_RESOLVER_ID, content=content),
+          BlockForm(resolver=FEED_RESOLVER_ID, content=content),
           db_session,
         )
         result = ReconcileResult(_block_id(feed), "created")
@@ -189,7 +184,7 @@ class FeedGraphRepository:
         _replace_content(block, canonical.model_dump_json(), db_session)
       else:
         block = BlockManager.create(
-          BlockModel(
+          BlockForm(
             resolver=ENCLOSURE_RESOLVER_ID,
             content=canonical.model_dump_json(),
           ),
@@ -232,7 +227,7 @@ class FeedGraphRepository:
       content = canonical.model_dump_json()
       if item is None:
         item = BlockManager.create(
-          BlockModel(resolver=FEED_ITEM_RESOLVER_ID, content=content),
+          BlockForm(resolver=FEED_ITEM_RESOLVER_ID, content=content),
           db_session,
         )
         RelationManager.create(

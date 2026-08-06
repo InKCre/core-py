@@ -1,4 +1,5 @@
 import uuid
+import pydantic
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
@@ -7,6 +8,34 @@ from typing import Optional as Opt
 
 
 ExtensionID: typing.TypeAlias = str
+
+
+class EnableExtensionCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["enable"]
+  extension: ExtensionID
+
+
+class DisableExtensionCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["disable"]
+  extension: ExtensionID
+
+
+class PatchExtensionConfigCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["patch_config"]
+  extension: ExtensionID
+  patch: dict[str, typing.Any]
+
+
+ExtensionManagementCommand: typing.TypeAlias = typing.Annotated[
+  EnableExtensionCommand | DisableExtensionCommand | PatchExtensionConfigCommand,
+  pydantic.Field(discriminator="action"),
+]
 
 
 class ExtensionModel(sqlmodel.SQLModel, table=True):
@@ -37,9 +66,9 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
       nullable=False,
     ),
   )
-  """List of client IDs for which this extension is enabled.
+  """List of Peer IDs for which this extension is enabled.
 
-  Empty array means disabled for all clients.
+  Empty array means disabled for all Peers.
   """
   nickname: Opt[str] = sqlmodel.Field(
     default=None,

@@ -1,10 +1,17 @@
 """LearnEnglish's Resolvers"""
 
+from app.business.info_base.resolver.label import format_label
 from app.business.info_base.resolver.main import Resolver
+from app.schemas.info_base.block import BlockForm
+from app.schemas.info_base.main import StarsGraphForm
+
 from .schema import LexicalItem
 
 
-class LexicalResolver(Resolver[LexicalItem, str], rso_type="learn_english.lexical"):
+class LexicalResolver(
+  Resolver[LexicalItem, str],
+  rso_type="extensions.learn_english.lexical.v1",
+):
   """Resolver for english lexical like words, phrases, idioms, etc.
 
   Raw content is :class:`str` (JSON string).
@@ -17,6 +24,21 @@ class LexicalResolver(Resolver[LexicalItem, str], rso_type="learn_english.lexica
   - deliberate practice
   - in:<lang>
   """
+
+  draft_description = (
+    "Create one English lexical item such as a word, phrase, or idiom, "
+    "with optional parts of speech."
+  )
+  draft_input_model = LexicalItem
+
+  @classmethod
+  def create_graph(cls, input: LexicalItem) -> StarsGraphForm:
+    return StarsGraphForm(
+      block=BlockForm(
+        resolver=cls.__rsotype__,
+        content=input.model_dump_json(),
+      )
+    )
 
   def __post_init__(self, raw_content=None):
     if raw_content is not None:
@@ -44,13 +66,9 @@ class LexicalResolver(Resolver[LexicalItem, str], rso_type="learn_english.lexica
       )
     ).text
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str:
-    return await self.get_text(
+  async def get_label(self, *, refresh: bool = False) -> str:
+    content = await self.get_solved_content(
       refresh=refresh,
-      materialize_missing=materialize_missing,
+      materialize_missing=False,
     )
+    return format_label("lexical item", content.text)

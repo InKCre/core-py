@@ -16,9 +16,8 @@ from app.business.info_base.resolver import ResolverManager
 from app.business.info_base.resolver.inspection import detect_media_type
 from app.business.info_base.storage import StorageManager, WritableStorage
 from app.engine import SessionLocal
-from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.sink.embedding import BlockEmbeddingModel
 from app.schemas.source import SourceModel
 
 from .http import HTTPFetchOptions, fetch_http_bytes
@@ -201,17 +200,13 @@ class FullTextEnrichmentService:
         if refresh and content_block.content != text:
           content_block.content = text
           db_session.add(content_block)
-          if content_block.id is not None:
-            embedding = db_session.get(BlockEmbeddingModel, content_block.id)
-            if embedding is not None:
-              db_session.delete(embedding)
           db_session.flush()
           status = "updated"
         else:
           status = "existing"
       else:
         content_block = BlockManager.create(
-          BlockModel(resolver="core.text.v1", content=text),
+          BlockForm(resolver="core.text.v1", content=text),
           db_session,
         )
         RelationManager.create(
@@ -344,7 +339,7 @@ class EnclosureMaterializationService:
         raise TypeError(f"storage {target_storage_id} is not writable")
       pointer = storage.create_raw_content(response.body, db_session)
       content_block = BlockManager.create(
-        BlockModel(
+        BlockForm(
           resolver=resolver_id,
           storage=target_storage_id,
           content=pointer,

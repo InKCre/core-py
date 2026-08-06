@@ -5,10 +5,34 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/heartbeat": {
+    "/livez": {
       "get": {
-        "summary": "<Lambda>",
-        "operationId": "_lambda__heartbeat_get",
+        "summary": "Liveness",
+        "description": "Report process liveness without checking dependencies.",
+        "operationId": "liveness_livez_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Liveness Livez Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readiness",
+        "description": "Report database and runtime compatibility without mutating either.",
+        "operationId": "readiness_readyz_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -142,16 +166,6 @@
               "type": "integer",
               "title": "Block Id"
             }
-          },
-          {
-            "name": "organize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Organize"
-            }
           }
         ],
         "requestBody": {
@@ -196,27 +210,15 @@
         "summary": "Create Block",
         "description": "创建块",
         "operationId": "create_block_blocks_post",
-        "parameters": [
-          {
-            "name": "organize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Organize"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BlockModel"
+                "$ref": "#/components/schemas/BlockForm"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -242,131 +244,6 @@
         }
       }
     },
-    "/blocks/query/by_embedding": {
-      "get": {
-        "tags": [
-          "block"
-        ],
-        "summary": "Query By Embedding",
-        "operationId": "query_by_embedding_blocks_query_by_embedding_get",
-        "parameters": [
-          {
-            "name": "block_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Block Id"
-            }
-          },
-          {
-            "name": "query",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Query"
-            }
-          },
-          {
-            "name": "resolver",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Resolver"
-            }
-          },
-          {
-            "name": "num",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10,
-              "title": "Num"
-            }
-          },
-          {
-            "name": "max_distance",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "default": 0.3,
-              "title": "Max Distance"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BlockModel"
-                  },
-                  "title": "Response Query By Embedding Blocks Query By Embedding Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/blocks/embeddings": {
-      "put": {
-        "tags": [
-          "block"
-        ],
-        "summary": "Refresh Embeddings",
-        "description": "Rebuild all blocks' embeddings - delegates to sink embedding service",
-        "operationId": "refresh_embeddings_blocks_embeddings_put",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/relations": {
       "post": {
         "tags": [
@@ -378,7 +255,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RelationModel"
+                "$ref": "#/components/schemas/RelationCreateForm"
               }
             }
           },
@@ -486,7 +363,7 @@
           "extension"
         ],
         "summary": "Install Extension",
-        "description": "安装插件 (Install extension)",
+        "description": "Register an extension that is already included in this artifact.",
         "operationId": "install_extension_extensions__extid__post",
         "parameters": [
           {
@@ -549,122 +426,42 @@
         }
       }
     },
-    "/extensions/{extid}/enable": {
+    "/extension-management": {
       "post": {
         "tags": [
           "extension"
         ],
-        "summary": "Enable Extension",
-        "description": "启用插件 (Enable extension for current client)",
-        "operationId": "enable_extension_extensions__extid__enable_post",
-        "parameters": [
-          {
-            "name": "extid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Extid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExtensionModel"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/extensions/{extid}/disable": {
-      "post": {
-        "tags": [
-          "extension"
-        ],
-        "summary": "Disable Extension",
-        "description": "禁用插件 (Disable extension for current client)",
-        "operationId": "disable_extension_extensions__extid__disable_post",
-        "parameters": [
-          {
-            "name": "extid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Extid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExtensionModel"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/extensions/{extid}/config": {
-      "put": {
-        "tags": [
-          "extension"
-        ],
-        "summary": "Update Extension Config",
-        "description": "编辑插件配置 (Edit extension configuration)\n\n编辑成功将会立刻应用到插件中（如果正在运行）",
-        "operationId": "update_extension_config_extensions__extid__config_put",
-        "parameters": [
-          {
-            "name": "extid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Extid"
-            }
-          }
-        ],
+        "summary": "Manage Extension",
+        "description": "Execute one fixed, Peer-local Extension management command.",
+        "operationId": "manage_extension_extension_management_post",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EnableExtensionCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DisableExtensionCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PatchExtensionConfigCommand"
+                  }
+                ],
+                "title": "Body",
+                "discriminator": {
+                  "propertyName": "action",
+                  "mapping": {
+                    "enable": "#/components/schemas/EnableExtensionCommand",
+                    "disable": "#/components/schemas/DisableExtensionCommand",
+                    "patch_config": "#/components/schemas/PatchExtensionConfigCommand"
+                  }
+                }
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -751,22 +548,73 @@
         }
       }
     },
-    "/graph": {
-      "put": {
+    "/configs/{key}": {
+      "get": {
         "tags": [
-          "root"
+          "config"
         ],
-        "summary": "Insert Subgrpah",
-        "operationId": "insert_subgrpah_graph_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SubGraphForm"
+        "summary": "Get Config",
+        "operationId": "get_config_configs__key__get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentConfigView"
+                }
               }
             }
           },
-          "required": true
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Replace Config",
+        "operationId": "replace_config_configs__key__put",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentConfigReplaceForm"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -774,7 +622,59 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RootV1InsertGraphResBody"
+                  "$ref": "#/components/schemas/DeploymentConfigView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Patch Config",
+        "operationId": "patch_config_configs__key__patch",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentConfigView"
                 }
               }
             }
@@ -792,100 +692,105 @@
         }
       }
     },
-    "/sink/rag": {
-      "get": {
+    "/graph": {
+      "put": {
         "tags": [
-          "sink"
+          "info-base"
         ],
-        "summary": "Rag",
-        "description": "RAG (Retrieval Augmented Generation) endpoint\n\n:param query: User query\n:param context: Additional context string\n:param context_blocks: Additional context block IDs\n:param retrieve_mode: Retrieval mode - \"embedding\", \"reasoning\", or \"feature\"\n:param use_reranker: Whether to use reranker to improve retrieval results\n:param num_retrieve: Number of blocks to retrieve initially\n:param num_rerank: Number of blocks to keep after reranking",
-        "operationId": "rag_sink_rag_get",
-        "parameters": [
-          {
-            "name": "query",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Query"
+        "summary": "Submit Graph",
+        "operationId": "submit_graph_graph_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GraphForm"
+              }
             }
           },
-          {
-            "name": "context",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Context"
-            }
-          },
-          {
-            "name": "context_blocks",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "integer"
-              },
-              "default": [],
-              "title": "Context Blocks"
-            }
-          },
-          {
-            "name": "retrieve_mode",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/RetrieveMode",
-              "default": "embedding"
-            }
-          },
-          {
-            "name": "use_reranker",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Use Reranker"
-            }
-          },
-          {
-            "name": "num_retrieve",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "title": "Num Retrieve"
-            }
-          },
-          {
-            "name": "num_rerank",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 5,
-              "title": "Num Rerank"
-            }
-          }
-        ],
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SinkV1RAGResBody"
+                  "$ref": "#/components/schemas/SubmitGraphResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/ruminate": {
+      "post": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Ruminate",
+        "operationId": "ruminate_organization_ruminate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuminationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/semantic-retrieval": {
+      "post": {
+        "tags": [
+          "semantic-retrieval"
+        ],
+        "summary": "Retrieve",
+        "operationId": "retrieve_semantic_retrieval_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemanticRetrievalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticRetrievalResult"
                 }
               }
             }
@@ -906,29 +811,8 @@
   },
   "components": {
     "schemas": {
-      "BlockModel": {
+      "BlockForm": {
         "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          },
           "storage": {
             "anyOf": [
               {
@@ -949,12 +833,188 @@
             "title": "Content"
           }
         },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "resolver",
+          "content"
+        ],
+        "title": "BlockForm",
+        "description": "Producer-owned values for creating one Block."
+      },
+      "BlockModel": {
+        "properties": {
+          "storage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage"
+          },
+          "resolver": {
+            "type": "string",
+            "title": "Resolver"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "resolver",
           "content"
         ],
         "title": "BlockModel"
+      },
+      "BlockSemanticRetrievalMatch": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "block",
+            "title": "Type",
+            "default": "block"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/BlockModel"
+          },
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entity",
+          "score"
+        ],
+        "title": "BlockSemanticRetrievalMatch"
+      },
+      "DeploymentConfigReplaceForm": {
+        "properties": {
+          "schema": {
+            "type": "string",
+            "title": "Schema"
+          },
+          "value": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema",
+          "value"
+        ],
+        "title": "DeploymentConfigReplaceForm",
+        "description": "Complete PUT body; schema changes are allowed only through this form."
+      },
+      "DeploymentConfigView": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "schema": {
+            "type": "string",
+            "title": "Schema"
+          },
+          "value": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Value"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "schema",
+          "value",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DeploymentConfigView",
+        "description": "Validated deployment config projection exposed by the HTTP resource."
+      },
+      "DisableExtensionCommand": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "disable",
+            "title": "Action"
+          },
+          "extension": {
+            "type": "string",
+            "title": "Extension"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "extension"
+        ],
+        "title": "DisableExtensionCommand"
+      },
+      "EnableExtensionCommand": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "enable",
+            "title": "Action"
+          },
+          "extension": {
+            "type": "string",
+            "title": "Extension"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "extension"
+        ],
+        "title": "EnableExtensionCommand"
       },
       "ExtensionModel": {
         "properties": {
@@ -1011,6 +1071,112 @@
         "title": "ExtensionModel",
         "description": "Globally, every extension has a unique ID.\nOnly one instance of each extension on a deployment.\nIf a record presents here, the extension is installed."
       },
+      "GraphBlockForm": {
+        "properties": {
+          "storage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage"
+          },
+          "resolver": {
+            "type": "string",
+            "title": "Resolver"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "id": {
+            "type": "integer",
+            "exclusiveMaximum": 0.0,
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "resolver",
+          "content",
+          "id"
+        ],
+        "title": "GraphBlockForm",
+        "description": "A new Block declaration under one GraphForm-local negative ID."
+      },
+      "GraphBlockIDMapping": {
+        "properties": {
+          "local_id": {
+            "type": "integer",
+            "exclusiveMaximum": 0.0,
+            "title": "Local Id"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "local_id",
+          "id"
+        ],
+        "title": "GraphBlockIDMapping",
+        "description": "Map one command-local Block identity to its persisted identity."
+      },
+      "GraphForm": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/GraphBlockForm"
+            },
+            "type": "array",
+            "title": "Blocks",
+            "default": []
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/GraphRelationForm"
+            },
+            "type": "array",
+            "title": "Relations",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "GraphForm",
+        "description": "Flat command for adding arbitrarily connected Blocks and Relations."
+      },
+      "GraphRelationForm": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "from_": {
+            "type": "integer",
+            "title": "From"
+          },
+          "to_": {
+            "type": "integer",
+            "title": "To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content",
+          "from_",
+          "to_"
+        ],
+        "title": "GraphRelationForm",
+        "description": "A Relation declaration over the GraphForm signed Block-ID namespace."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1024,40 +1190,63 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "InArcForm": {
+      "PatchExtensionConfigCommand": {
         "properties": {
-          "relation": {
-            "$ref": "#/components/schemas/RelationModel"
+          "action": {
+            "type": "string",
+            "const": "patch_config",
+            "title": "Action"
           },
-          "from_subgraph": {
-            "$ref": "#/components/schemas/SubGraphForm"
+          "extension": {
+            "type": "string",
+            "title": "Extension"
+          },
+          "patch": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Patch"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "relation",
-          "from_subgraph"
+          "action",
+          "extension",
+          "patch"
         ],
-        "title": "InArcForm"
+        "title": "PatchExtensionConfigCommand"
       },
-      "OutArcForm": {
+      "RelationCreateForm": {
         "properties": {
-          "relation": {
-            "$ref": "#/components/schemas/RelationModel"
+          "content": {
+            "type": "string",
+            "title": "Content"
           },
-          "to_subgraph": {
-            "$ref": "#/components/schemas/SubGraphForm"
+          "from_": {
+            "type": "integer",
+            "title": "From"
+          },
+          "to_": {
+            "type": "integer",
+            "title": "To"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "relation",
-          "to_subgraph"
+          "content",
+          "from_",
+          "to_"
         ],
-        "title": "OutArcForm"
+        "title": "RelationCreateForm",
+        "description": "Standalone Relation creation command with persisted Block endpoints."
       },
       "RelationModel": {
         "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
           "id": {
             "anyOf": [
               {
@@ -1083,62 +1272,125 @@
             "type": "integer",
             "title": "To",
             "default": 0
-          },
-          "content": {
-            "type": "string",
-            "title": "Content"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "content"
         ],
         "title": "RelationModel"
       },
-      "RetrieveMode": {
-        "type": "string",
-        "enum": [
-          "feature",
-          "embedding",
-          "reasoning"
-        ]
-      },
-      "RootV1InsertGraphResBody": {
+      "RelationSemanticRetrievalMatch": {
         "properties": {
-          "blocks": {
-            "items": {
-              "$ref": "#/components/schemas/BlockModel"
-            },
-            "type": "array",
-            "title": "Blocks"
-          },
-          "relations": {
-            "items": {
-              "$ref": "#/components/schemas/RelationModel"
-            },
-            "type": "array",
-            "title": "Relations"
-          }
-        },
-        "type": "object",
-        "required": [
-          "blocks",
-          "relations"
-        ],
-        "title": "RootV1InsertGraphResBody"
-      },
-      "SinkV1RAGResBody": {
-        "properties": {
-          "message": {
+          "type": {
             "type": "string",
-            "title": "Message"
+            "const": "relation",
+            "title": "Type",
+            "default": "relation"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/RelationModel"
+          },
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Score"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "message"
+          "entity",
+          "score"
         ],
-        "title": "SinkV1RAGResBody"
+        "title": "RelationSemanticRetrievalMatch"
+      },
+      "RuminationRequest": {
+        "properties": {
+          "block": {
+            "type": "integer",
+            "title": "Block"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "block"
+        ],
+        "title": "RuminationRequest",
+        "description": "Explicit request to reconsider one focal Block."
+      },
+      "SemanticRetrievalRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile"
+          },
+          "options": {
+            "$ref": "#/components/schemas/VectorRetrievalOptions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "SemanticRetrievalRequest"
+      },
+      "SemanticRetrievalResult": {
+        "properties": {
+          "profile": {
+            "type": "integer",
+            "title": "Profile"
+          },
+          "metric": {
+            "type": "string",
+            "const": "cosine",
+            "title": "Metric",
+            "default": "cosine"
+          },
+          "matches": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/BlockSemanticRetrievalMatch"
+                },
+                {
+                  "$ref": "#/components/schemas/RelationSemanticRetrievalMatch"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "block": "#/components/schemas/BlockSemanticRetrievalMatch",
+                  "relation": "#/components/schemas/RelationSemanticRetrievalMatch"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Matches"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "profile",
+          "matches"
+        ],
+        "title": "SemanticRetrievalResult"
       },
       "SourceCollectJobModel": {
         "properties": {
@@ -1218,34 +1470,22 @@
         ],
         "title": "SourceCollectJobStatus"
       },
-      "SubGraphForm": {
+      "SubmitGraphResult": {
         "properties": {
-          "block": {
-            "$ref": "#/components/schemas/BlockModel"
-          },
-          "out_arcs": {
+          "blocks": {
             "items": {
-              "$ref": "#/components/schemas/OutArcForm"
+              "$ref": "#/components/schemas/GraphBlockIDMapping"
             },
             "type": "array",
-            "title": "Out Arcs",
-            "default": []
-          },
-          "in_arcs": {
-            "items": {
-              "$ref": "#/components/schemas/InArcForm"
-            },
-            "type": "array",
-            "title": "In Arcs",
-            "default": []
+            "title": "Blocks"
           }
         },
         "type": "object",
         "required": [
-          "block"
+          "blocks"
         ],
-        "title": "SubGraphForm",
-        "description": "A form for creating a sub-graph (start from a block, follows its in/out relations,\nincludes all reachable blocks)"
+        "title": "SubmitGraphResult",
+        "description": "Minimal successful graph-command result used by producers and Agent Tools."
       },
       "ValidationError": {
         "properties": {
@@ -1270,6 +1510,13 @@
           "type": {
             "type": "string",
             "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
           }
         },
         "type": "object",
@@ -1279,6 +1526,47 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VectorRetrievalOptions": {
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 20
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": -1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score"
+          },
+          "entity_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "block",
+                "relation"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "title": "Entity Types"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VectorRetrievalOptions",
+        "description": "Query-scoped controls over one already compatible vector space."
       }
     }
   }

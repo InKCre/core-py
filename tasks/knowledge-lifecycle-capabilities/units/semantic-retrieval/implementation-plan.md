@@ -1,8 +1,8 @@
 # Semantic Retrieval Implementation Plan
 
-- **Status**: draft for final review；no code/migration execution is authorized。
-- **Inputs**: approved Product/Technical/Acceptance decisions through D-192，current core-py/client-web code and migration
-  head `e1f4a5b6c7d8`。
+- **Status**: approved and executing；I0–I6 closed，I7 active。
+- **Inputs**: approved Product/Technical/Acceptance decisions through D-196，current core-py/client-web code and delivered
+  core-py migration head `c0d1e2f3a4b5`。
 - **Delivery rule**: one product unit，multiple coherent increments。Each increment must leave its repository internally
   checkable；compatibility aliases for rejected Client、SubGraph、legacy AI/embedding/RAG authorities are forbidden。
 

@@ -99,11 +99,11 @@ pdm run db:migrate
 **数据迁移示例**:
 ```python
 def upgrade():
-    # Schema 变更
-    op.add_column('users', sa.Column('status', sa.String(20)))
-    
-    # 数据迁移
-    op.execute("UPDATE users SET status = 'active'")
+  # Schema 变更
+  op.add_column("users", sa.Column("status", sa.String(20)))
+
+  # 数据迁移
+  op.execute("UPDATE users SET status = 'active'")
 ```
 
 - metadata 来源：`app.schemas.Base`（所有 SQLModel 的基类）

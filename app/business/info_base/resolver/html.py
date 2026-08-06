@@ -3,18 +3,22 @@
 import asyncio
 
 import html2text
+from lxml import html as lxml_html
 
 from .inspection import decode_html_bytes
+from .label import format_label
 from .main import Resolver
 
 
 class HTMLResolver(Resolver[str, str | bytes], rso_type="core.html.v1"):
   @classmethod
   def create_graph(cls, url: str):
-    from app.schemas.info_base.block import BlockModel
-    from app.schemas.info_base.main import SubGraphForm
+    from app.schemas.info_base.block import BlockForm
+    from app.schemas.info_base.main import StarsGraphForm
 
-    return SubGraphForm(block=BlockModel(resolver=cls.__rsotype__, content=url, storage=-1))
+    return StarsGraphForm(
+      block=BlockForm(resolver=cls.__rsotype__, content=url, storage=-1)
+    )
 
   async def _get_solved_content(
     self,
@@ -40,13 +44,19 @@ class HTMLResolver(Resolver[str, str | bytes], rso_type="core.html.v1"):
     )
     return await asyncio.to_thread(html2text.HTML2Text().handle, source)
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str:
-    return await self.get_text(
+  async def get_label(self, *, refresh: bool = False) -> str:
+    source = await self.get_solved_content(
       refresh=refresh,
-      materialize_missing=materialize_missing,
+      materialize_missing=False,
     )
+    identifier = None
+    try:
+      document = lxml_html.fromstring(source)
+      values = document.xpath("//title/text()") or document.xpath(
+        "//h1//text() | //h2//text() | //h3//text() | //h4//text() | "
+        "//h5//text() | //h6//text()"
+      )
+      identifier = next((str(value) for value in values if str(value).strip()), None)
+    except (TypeError, ValueError):
+      pass
+    return format_label("html", identifier)

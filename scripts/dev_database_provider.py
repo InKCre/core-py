@@ -25,7 +25,6 @@ BUILD_CONTEXT_PATHS = (
   Path("README.md"),
   Path("alembic.ini"),
   Path("app"),
-  Path("data/ai/prompts"),
   Path("extensions"),
   Path("libs"),
   Path("migrations"),

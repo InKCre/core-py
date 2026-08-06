@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.database_contract import readiness
 from app.database_contract.readiness import ContractReadiness
 from app.runtime import RUNTIME_STATUS, RuntimePhase
+from app.schemas.peer import PEER_EXECUTION_HEADER
 import run
 
 
@@ -79,3 +80,18 @@ def test_readiness_requires_database_and_runtime(monkeypatch):
 
   assert response.status_code == 200
   assert response.json()["status"] == "ready"
+
+
+def test_application_exposes_peer_execution_header_to_browser_callers():
+  response = TestClient(run.api_app).post(
+    "/semantic-retrieval",
+    headers={"Origin": "https://peer.example"},
+    json={"query": "test"},
+  )
+
+  assert response.status_code == 401
+  exposed = {
+    value.strip().lower()
+    for value in response.headers["access-control-expose-headers"].split(",")
+  }
+  assert PEER_EXECUTION_HEADER.lower() in exposed

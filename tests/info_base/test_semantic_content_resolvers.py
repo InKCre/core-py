@@ -189,6 +189,37 @@ def test_text_and_html_support_inline_and_storage_backed_content(
   assert asyncio.run(resolver.get_solved_content()) == expected
 
 
+def test_core_labels_are_resolver_qualified_and_block_local(monkeypatch):
+  text = ResolverManager.get(
+    BlockModel(
+      resolver="core.text.v1",
+      content="  First   meaningful line  \nsecond line",
+    )
+  )
+  html = ResolverManager.get(
+    BlockModel(
+      resolver="core.html.v1",
+      content=(
+        "<html><head><title>  Useful title </title></head><body><h1>Body</h1></body></html>"
+      ),
+    )
+  )
+  pdf, _ = _storage_backed_resolver(monkeypatch, "core.pdf.v1", "document.pdf")
+
+  assert asyncio.run(text.get_label()) == "text <First meaningful line>"
+  assert asyncio.run(html.get_label()) == "html <Useful title>"
+  assert asyncio.run(pdf.get_label()) == "PDF <InKCre semantic content>"
+
+  epub, _ = _storage_backed_resolver(monkeypatch, "core.epub.v1", "book.epub")
+  assert asyncio.run(epub.get_label()) == "EPUB <InKCre semantic content>"
+
+
+def test_text_label_bounds_long_identifiers():
+  resolver = ResolverManager.get(BlockModel(resolver="core.text.v1", content="x" * 120))
+
+  assert asyncio.run(resolver.get_label()) == f"text <{'x' * 96}…>"
+
+
 @pytest.mark.parametrize(
   "resolver_id",
   (

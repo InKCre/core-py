@@ -1,6 +1,13 @@
-from .main import ExtensionManager, ExtensionBase
+from .main import (
+  EXTENSION_MANAGEMENT_CAPABILITY,
+  ExtensionBase,
+  ExtensionDelegationError,
+  ExtensionManager,
+)
 
 __all__ = [
-  "ExtensionManager",
+  "EXTENSION_MANAGEMENT_CAPABILITY",
   "ExtensionBase",
+  "ExtensionDelegationError",
+  "ExtensionManager",
 ]

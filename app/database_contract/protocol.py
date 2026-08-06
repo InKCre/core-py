@@ -46,6 +46,25 @@ PROTOCOL_FUNCTIONS: dict[str, dict[str, object]] = {
     "volatility": "stable",
     "response_media_type": "application/octet-stream",
   },
+  "renew_peer_lease": {
+    "arguments": [
+      {
+        "name": "peer",
+        "type": {"kind": "string", "format": "uuid"},
+      },
+      {
+        "name": "ttl_seconds",
+        "type": {"kind": "number", "format": "integer"},
+      },
+    ],
+    "returns": {
+      "kind": "string",
+      "format": "date-time",
+      "database_type": "timestamp with time zone",
+    },
+    "returns_set": False,
+    "volatility": "volatile",
+  },
 }
 
 

@@ -15,14 +15,17 @@ FastAPI 路由注册层，将业务逻辑暴露为 REST API 端点。
 | [block.py](block.py) | `/blocks` | BlockManager | GET, POST, PUT, DELETE |
 | [relation.py](relation.py) | `/relations` | RelationManager | GET, POST, PUT, DELETE |
 | [source.py](source.py) | `/sources` | SourceManager | GET, POST, PUT, DELETE |
-| [extension.py](extension.py) | `/extensions` | ExtensionManager | GET, POST, PUT, DELETE, /install |
+| [extension.py](extension.py) | `/extensions`, `/extension-management` | ExtensionManager | list/install, fixed management command |
+| [deployment_config.py](deployment_config.py) | `/configs` | DeploymentConfigManager | GET, PUT, PATCH |
+| [info_base.py](info_base.py) | `/graph` | InfoBaseManager | PUT |
+| [semantic_retrieval.py](semantic_retrieval.py) | `/semantic-retrieval` | SemanticRetrievalManager | POST + Peer inbound |
+| [organization.py](organization.py) | `/organization/ruminate` | OrganizationManager | POST → 204 + Peer inbound |
 
 ### 其他路由
 
 定义在 [run.py](../../run.py) 中：
 - `/heartbeat` - 健康检查
-- `PUT /graph` - 插入子图（`InfoBaseManager.insert_subgrpah`）
-- `GET /sink/rag` - RAG 端点（`SinkManager.rag`）
+- `PUT /graph` - 提交 GraphForm（`InfoBaseManager.submit_graph`）
 
 ### 路由结构
 
@@ -30,17 +33,20 @@ FastAPI 路由注册层，将业务逻辑暴露为 REST API 端点。
 ```python
 ROUTER = fastapi.APIRouter(prefix="/resources", tags=["resource"])
 
+
 @ROUTER.get("/")
 async def list_resources() -> list[ResourceModel]:
-    return ResourceManager.list_all()
+  return ResourceManager.list_all()
+
 
 @ROUTER.post("/")
 async def create_resource(data: ResourceForm) -> ResourceModel:
-    return ResourceManager.create(data)
+  return ResourceManager.create(data)
+
 
 @ROUTER.get("/{resource_id}")
 async def get_resource(resource_id: ResourceID) -> ResourceModel:
-    return ResourceManager.get(resource_id)
+  return ResourceManager.get(resource_id)
 ```
 
 ### 编码指引
@@ -55,7 +61,7 @@ async def get_resource(resource_id: ResourceID) -> ResourceModel:
 
 在 [run.py](../../run.py) 中的注册顺序：
 1. Middleware（CORS, Logging, JWT）
-2. Core routes（block, relation, source, extension, sink）
+2. Core routes（block, relation, source, extension, configs, graph, organization, semantic retrieval）
 3. Extension routes（动态注册）
 
 ### API 文档

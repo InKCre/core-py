@@ -7,8 +7,8 @@ from io import BytesIO
 
 import av
 
-from app.schemas.info_base.block import BlockModel
-from app.schemas.info_base.main import SubGraphForm
+from app.schemas.info_base.block import BlockForm
+from app.schemas.info_base.main import StarsGraphForm
 
 from .audio import _container_name, _duration_ms, _primary_stream
 from .contracts import ResolverContentError, UnsupportedResolverCapability
@@ -60,8 +60,10 @@ class VideoResolver(
   rso_type="core.video.v1",
 ):
   @classmethod
-  def create_graph(cls, url: str) -> SubGraphForm:
-    return SubGraphForm(block=BlockModel(resolver=cls.__rsotype__, content=url, storage=-1))
+  def create_graph(cls, url: str) -> StarsGraphForm:
+    return StarsGraphForm(
+      block=BlockForm(resolver=cls.__rsotype__, content=url, storage=-1)
+    )
 
   async def _get_solved_content(
     self,
@@ -85,11 +87,6 @@ class VideoResolver(
     del refresh, materialize_missing
     raise UnsupportedResolverCapability(self.__rsotype__, "text")
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> None:
-    del refresh, materialize_missing
-    raise UnsupportedResolverCapability(self.__rsotype__, "embedding text")
+  async def get_label(self, *, refresh: bool = False) -> str:
+    del refresh
+    return "video"

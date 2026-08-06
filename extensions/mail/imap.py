@@ -13,7 +13,7 @@ import sqlmodel
 from app.business.source import SourceBase
 from app.engine import SessionLocal
 from app.business.info_base.main import InfoBaseManager
-from app.schemas.info_base.main import SubGraphForm
+from app.schemas.info_base.main import StarsGraphForm
 from app.schemas.info_base.block import BlockID
 from app.schemas.source import SourceCollectJobModel
 from extensions.mail.resolver import EmailResolver
@@ -196,7 +196,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       )
       raise e
 
-    collected: list[SubGraphForm] = []
+    collected: list[StarsGraphForm] = []
     try:
       # Login
       try:
@@ -366,7 +366,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     try:
       with SessionLocal() as db:
         for graph in collected:
-          await InfoBaseManager.add_subgraph_to_session(graph, db)
+          await InfoBaseManager.add_stars_graph_to_session(graph, db)
         db.commit()
       logger.info(
         "Email collection completed",

@@ -6,9 +6,9 @@ from io import BytesIO
 
 from PIL import Image, UnidentifiedImageError
 
-from app.schemas.info_base.block import BlockModel
-from app.schemas.info_base.main import OutArcForm, SubGraphForm
-from app.schemas.info_base.relation import RelationModel
+from app.schemas.info_base.block import BlockForm
+from app.schemas.info_base.main import OutArcForm, StarsGraphForm
+from app.schemas.info_base.relation import RelationForm
 
 from .contracts import ResolverContentError, UnsupportedResolverCapability
 from .inspection import ByteContentFacts, detect_media_type, require_bytes
@@ -48,15 +48,15 @@ class ImageResolver(
   rso_type="core.image.v1",
 ):
   @classmethod
-  def create_graph(cls, url: str, alt_text: str | None = None) -> SubGraphForm:
+  def create_graph(cls, url: str, alt_text: str | None = None) -> StarsGraphForm:
     from .text import TextResolver
 
-    return SubGraphForm(
-      block=BlockModel(resolver=cls.__rsotype__, content=url, storage=-1),
+    return StarsGraphForm(
+      block=BlockForm(resolver=cls.__rsotype__, content=url, storage=-1),
       out_arcs=(
         OutArcForm(
-          relation=RelationModel(content="alt:text"),
-          to_subgraph=TextResolver.create_graph(alt_text),
+          relation=RelationForm(content="alt:text"),
+          to_graph=TextResolver.create_graph(alt_text),
         ),
       )
       if alt_text
@@ -85,11 +85,6 @@ class ImageResolver(
     del refresh, materialize_missing
     raise UnsupportedResolverCapability(self.__rsotype__, "text")
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> None:
-    del refresh, materialize_missing
-    raise UnsupportedResolverCapability(self.__rsotype__, "embedding text")
+  async def get_label(self, *, refresh: bool = False) -> str:
+    del refresh
+    return "image"

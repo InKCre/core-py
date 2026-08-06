@@ -11,12 +11,13 @@ from .constants import (
   APPLICATION_TABLES,
   CONTRACT_REVISION,
   DATABASE_ENVIRONMENTS,
-  DEVELOPMENT_CLIENT_ID,
-  DEVELOPMENT_CLIENT_NAME,
+  DEVELOPMENT_PEER_ID,
+  DEVELOPMENT_PEER_NAME,
   INTERNAL_SCHEMA,
   PROTOCOL_SCHEMA,
 )
 from .profile import (
+  BUILTIN_AI_DIALECTS,
   BUILTIN_EXTENSIONS,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
@@ -85,6 +86,20 @@ def reconcile_builtins(database_url: str | None = None) -> None:
           (extension.id, extension.version, extension.nickname),
         )
 
+      for dialect in BUILTIN_AI_DIALECTS:
+        cursor.execute(
+          sql.SQL(
+            """
+            INSERT INTO {}.ai_dialects (id, description, config_schema)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (id) DO UPDATE
+            SET description = EXCLUDED.description,
+                config_schema = EXCLUDED.config_schema
+            """
+          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+          (dialect.id, dialect.description, Jsonb(dialect.config_schema)),
+        )
+
       for storage_type in BUILTIN_STORAGE_TYPES:
         cursor.execute(
           sql.SQL(
@@ -149,41 +164,44 @@ def _require_development(cursor) -> None:
 
 
 def seed_development(database_url: str | None = None) -> None:
-  """Upsert the minimum stable development/E2E client baseline."""
+  """Upsert the minimum stable development/E2E Peer baseline."""
   with database_connection(database_url) as connection:
     with connection.cursor() as cursor:
       _require_development(cursor)
       cursor.execute(
         sql.SQL(
           """
-          INSERT INTO {}.clients (
+          INSERT INTO {}.peers (
             id,
             name,
             labels,
-            rest_api_url,
             config,
             config_schema,
+            capabilities,
+            lease_expires_at,
             created_at
           )
           VALUES (
             %s,
             %s,
             ARRAY['development', 'canonical-seed']::text[],
+            jsonb_build_object(),
+            jsonb_build_object(),
+            '[]'::jsonb,
             NULL,
-            jsonb_build_object(),
-            jsonb_build_object(),
             '2000-01-01T00:00:00Z'::timestamptz
           )
           ON CONFLICT (id) DO UPDATE
           SET name = EXCLUDED.name,
               labels = EXCLUDED.labels,
-              rest_api_url = EXCLUDED.rest_api_url,
               config = EXCLUDED.config,
               config_schema = EXCLUDED.config_schema,
+              capabilities = EXCLUDED.capabilities,
+              lease_expires_at = EXCLUDED.lease_expires_at,
               created_at = EXCLUDED.created_at
           """
         ).format(sql.Identifier(PROTOCOL_SCHEMA)),
-        (DEVELOPMENT_CLIENT_ID, DEVELOPMENT_CLIENT_NAME),
+        (DEVELOPMENT_PEER_ID, DEVELOPMENT_PEER_NAME),
       )
 
 
@@ -214,6 +232,12 @@ def development_baseline_fingerprint(
       document: dict[str, object] = {}
       for key, query in (
         (
+          "ai_dialects",
+          sql.SQL(
+            "SELECT id, description, config_schema FROM {}.ai_dialects ORDER BY id"
+          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+        ),
+        (
           "extensions",
           sql.SQL("SELECT id, version, nickname FROM {}.extensions ORDER BY id").format(
             sql.Identifier(PROTOCOL_SCHEMA)
@@ -238,16 +262,16 @@ def development_baseline_fingerprint(
           ),
         ),
         (
-          "development_client",
+          "development_peer",
           sql.SQL(
-            "SELECT id::text, name, labels, rest_api_url, config, "
-            "config_schema, created_at::text "
-            "FROM {}.clients WHERE id = %s"
+            "SELECT id::text, name, labels, config, config_schema, capabilities, "
+            "lease_expires_at::text, created_at::text "
+            "FROM {}.peers WHERE id = %s"
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
         ),
       ):
-        if key == "development_client":
-          cursor.execute(query, (DEVELOPMENT_CLIENT_ID,))
+        if key == "development_peer":
+          cursor.execute(query, (DEVELOPMENT_PEER_ID,))
         else:
           cursor.execute(query)
         document[key] = cursor.fetchall()

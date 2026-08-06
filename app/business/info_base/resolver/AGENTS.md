@@ -17,6 +17,7 @@
 - `contracts.py`：九个 core IDs 与 typed failures；
 - `bootstrap.py`：core decoder registration；
 - `inspection.py`：bounded byte inspection helpers；
+- `label.py`：shared whitespace normalization and 96-code-point identifier bound；
 - `{text,html,image,audio,video,pdf,epub,zip,file}.py`：exact core contract versions。
 
 ## Construction And Registration
@@ -27,6 +28,8 @@
 - `Resolver.__init_subclass__()` exact-register decoder；同 class 重复 idempotent，不同 class 抢同 ID 失败。
 - `register_core_resolvers()` 独立于 extension sync/start；extension disabled 不能让 core decoder 消失。
 - Resolver ID 必须 namespaced + versioned。共享 semantic IDs 固定为九个 `core.<kind>.v1`；不保留 bare alias。
+- Agent graph drafting 是 opt-in capability：subclass 同时声明 `draft_description`、`draft_input_model` 并实现
+  `create_graph(input) -> StarsGraphForm`。普通 decode-capable Resolver 不会因此自动成为 draft-capable。
 
 ## Hydrated And Solved Content
 
@@ -42,13 +45,22 @@
 Concrete resolver 必须实现：
 
 - `get_text(refresh=False, materialize_missing=True) -> str | None`
-- `get_str_for_embedding(...) -> str | None`
+- `get_label(refresh=False) -> str`
 
 `UnsupportedResolverCapability` 表示 exact contract 没有该能力；`None` 表示能力存在但当前 block 没有有意义的
 result；empty string 只能来自真实 authored/derived empty。`UnknownResolverError` 是另一类 registry failure。
 
-九个 core semantic resolvers 中，text/HTML 提供 text/embedding；image/audio/video/PDF/EPUB/ZIP/file 在没有
-真实 OCR/STT/extraction 能力前显式 unsupported，不用 metadata 伪装正文。
+九个 core semantic resolvers 中，text/HTML 提供 text；image/audio/video/PDF/EPUB/ZIP/file 在没有真实
+OCR/STT/extraction 能力前显式 unsupported，不用 metadata 伪装正文。Embedding/retrieval owner 只消费这个
+通用 projection，不要求 resolver 理解 AI model/profile。
+
+`get_label()` 是 required、concise、Block-local 的 resolver-qualified reference。它不得遍历 Relation、调用 AI 或
+materialize graph；identifier 缺失时返回 resolver 自己的 readable kind。Exact resolver ID 不能进入 label。
+RelationManager 用两端 label + exact relation content 投影 directed dynamic property，因此 retained label format 的
+不兼容变化必须推进 resolver contract version。
+
+`draft_input_model` 是 Resolver-owned authoring contract，不是 persisted `block.content` schema。Agent runtime 对 selected
+Resolver input 做 Pydantic validation；Resolver method 接收 ordinary typed input，不接收 `validated_*` wrapper。
 
 ## Effect And Relation Vocabulary
 

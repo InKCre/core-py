@@ -17,28 +17,11 @@ ResolverTV = typing.TypeVar("ResolverTV", bound="ResolverType")
 """Resolver type variable"""
 
 
-class BlockModel(sqlmodel.SQLModel, table=True):
-  __tablename__ = "blocks"  # type: ignore
+class BlockForm(sqlmodel.SQLModel):
+  """Producer-owned values for creating one Block."""
 
-  id: Opt[BlockID] = sqlmodel.Field(
-    sa_column=sqlmodel.Column(sqlmodel.Integer, primary_key=True, autoincrement=True),
-    default=None,
-  )
-  created_at: datetime.datetime = sqlmodel.Field(
-    default_factory=datetime.datetime.now,
-    sa_column=sqlalchemy.Column(
-      sqlalchemy.TIMESTAMP(timezone=True),
-      server_default=sqlalchemy.text("CURRENT_TIMESTAMP"),
-    ),
-  )
-  updated_at: datetime.datetime = sqlmodel.Field(
-    default_factory=datetime.datetime.now,
-    sa_column=sqlalchemy.Column(
-      sqlalchemy.TIMESTAMP(timezone=True),
-      server_default=sqlalchemy.text("CURRENT_TIMESTAMP"),
-      onupdate=datetime.datetime.now,
-    ),
-  )
+  model_config = {"extra": "forbid"}
+
   storage: Opt[StorageID] = sqlmodel.Field(
     default=None,
     sa_column=sqlalchemy.Column(
@@ -58,6 +41,29 @@ class BlockModel(sqlmodel.SQLModel, table=True):
   Block content stored as text in database.
   For runtime usage, use storage to get the raw content.
   """
+
+
+class BlockModel(BlockForm, table=True):
+  __tablename__ = "blocks"  # type: ignore
+
+  id: Opt[BlockID] = sqlmodel.Field(
+    sa_column=sqlmodel.Column(sqlmodel.Integer, primary_key=True, autoincrement=True),
+    default=None,
+  )
+  created_at: datetime.datetime = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.TIMESTAMP(timezone=True),
+      server_default=sqlalchemy.text("CURRENT_TIMESTAMP"),
+    ),
+  )
+  updated_at: datetime.datetime = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.TIMESTAMP(timezone=True),
+      server_default=sqlalchemy.text("CURRENT_TIMESTAMP"),
+    ),
+  )
 
   _hydrated_content: HydratedContent | None = PrivateAttr(default=None)
   _hydrated_content_source: tuple[StorageID | None, str] | None = PrivateAttr(default=None)
