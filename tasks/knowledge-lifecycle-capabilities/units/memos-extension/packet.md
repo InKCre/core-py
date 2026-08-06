@@ -102,13 +102,13 @@ gate，而不是在 Execute 中临时决定。
 
 ## Confirmed Decision References
 
-- Program/graph boundary: [D-001–D-007](../../decisions.md#confirmed)。
+- Program/graph boundary: [D-001–D-007](../../decisions/D001-D010.md)。
 - Memo role and graph mapping: D-008–D-013、D-017。
 - Canonical/resolver boundary: D-019–D-028、D-032。
 - Unit identity, current delivery, deployment, PATCH, auth、hot lifecycle、canonical/storage/relation、
   failure/delete、fixtures and extensibility boundary: D-029–D-048。
 
-`decisions.md` 是本任务唯一决定登记册。本文件只描述这些决定如何约束当前 implementable
+`decisions/` 是本任务唯一决定登记册。本文件只描述这些决定如何约束当前 implementable
 unit，不复制完整 rationale。
 
 ## Supporting Material

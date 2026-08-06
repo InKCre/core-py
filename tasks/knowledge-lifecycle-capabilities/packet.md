@@ -9,8 +9,8 @@
   Handshake 与验证结果；D-049 要求结构性验证优先交给 static mechanisms，runtime acceptance
   black-box-first。Program 完成还要求所有获批 durable truth 回到唯一 owner。
 - **Current Truth**: program 拆分和术语基线已经形成；当前产品不建立 terminal-user、tenant
-  或 per-user ownership/ACL，deployment 是单一 owner context，多个 `client` 只是 runtime
-  peers（D-033）。[Memos extension](units/memos-extension/packet.md) backend MVP 的 Product、Technical、
+  或 per-user ownership/ACL，deployment 是单一 owner context，其中的 InKCre runtime nodes 统一称为
+  peers（D-033/D-109）。[Memos extension](units/memos-extension/packet.md) backend MVP 的 Product、Technical、
   Acceptance、Implementation、official APK E2E 均已完成，core-py commit 是 `304a5c8`，独立
   client-web config-path fix 是 `f2ab107`；该 implementation unit 已完成。
   [RSS extension hardening](units/rss-extension-hardening/packet.md) 的 B0–B8 implementation/verification 与 durable
@@ -55,7 +55,10 @@
   `full` 因混合多种 effect 不被提升为通用合同。D-075 固定九个
   `core.<kind>.v1` exact semantic content resolver IDs，abstract text/embedding capability methods，resolver-
   instance invocation，metadata block → semantic content block 命名，以及裸 `text/html/image/video` hard cut-off。
-- **Next Step**: 从 program queue 选择下一个 implementable unit；没有默认自动启动项。
+  [Semantic retrieval](units/semantic-retrieval/packet.md) 已获 Sir 选为下一个 implementable unit；现有
+  embedding/query/resolver-to-embedding 实现只作为 evidence 与 failure sample，不构成设计约束。
+- **Next Step**: 按 semantic-retrieval closure queue 先关闭 exact producer command 与 rumination invocation/
+  repetition contract，再设计真实 corpus 驱动的 Acceptance；Peer delegation topology 已关闭，不再作为当前问题。
 
 ## Program Boundary
 
@@ -71,8 +74,12 @@
 
 ## Active Implementable Unit
 
-当前没有 active implementable unit。[RSS extension hardening](units/rss-extension-hardening/packet.md) 已完成；
-下一单元从 program queue 重新选择，不因表格顺序自动启动。
+当前 active implementable unit 是 [Semantic retrieval](units/semantic-retrieval/packet.md)，处于 Design
+consolidation。Product boundary 与主要 Technical topology 已确认；exact producer/rumination edge、Acceptance、
+implementation plan 和 preflight 仍未关闭。已有实现不获得 grandfathered authority。
+
+[RSS extension hardening](units/rss-extension-hardening/packet.md) 已完成，不因 semantic retrieval 消费其
+resolver/hydration contract 而重新打开。
 
 [Memos extension](units/memos-extension/packet.md) 已关闭；future collector/product generations 不继承其
 backend MVP approval。
@@ -109,9 +116,10 @@ Product contract
 ## Program Navigation
 
 - Capability topology and queued work: [capability-map.md](capability-map.md)
-- Single decision authority: [decisions.md](decisions.md)
+- Single decision authority: [decision register](decisions/index.md)
 - Cross-cutting pressures: [pressure-ledger.md](pressure-ledger.md)
 - Terminology and repository evidence: [terminology-audit.md](terminology-audit.md)
+- Peer terminology migration evidence: [peer-terminology-migration.md](peer-terminology-migration.md)
 - Durable-doc promotion queue: [documentation-promotion.md](documentation-promotion.md)
 - Track maps: [collection](tracks/collection.md), [organization](tracks/organization.md),
   [application](tracks/application.md)
@@ -119,7 +127,7 @@ Product contract
 ## Retention and Promotion
 
 - Task files are working memory, not durable truth owners。
-- 获批决定只在 `decisions.md` 陈述一次；unit/design/evidence 通过 decision ID 或链接引用。
+- 获批决定只在 `decisions/` register 陈述一次；unit/design/evidence 通过 decision ID 或链接引用。
 - 讨论中尚未稳定的 durable-doc pressure 只进入 `documentation-promotion.md`；design 冻结且 implementation
   提供证据后，按 PRD、Product TDD、Unit TDD 等 owner 形成内聚批次并随 unit closure 应用。Commit/push、
   Hub publication 与 shared-ref bump 仍按 owner 独立授权。

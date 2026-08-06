@@ -75,8 +75,8 @@ local relations ────────────┘
 | 2 | [RSS extension hardening](units/rss-extension-hardening/packet.md) | **Complete；human-accepted 2026-08-03** | 已用 RSS/Atom vertical 建立 source instance → collect job → graph → resolver → state 的可信 collection baseline |
 | 3 | Other existing source hardening | Queued | 只在具体 source 或 RSS 暴露的重复压力证明后选择；不把所有旧 sources 当成一个横切 cleanup unit |
 | 4 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
-| 5 | Organization units | Queued | 以改善 use 为目标，分别讨论 breakdown/merge/linking 及后续发现的能力；现有实现不构成设计约束 |
-| 6 | Application units | Queued | 分别建立 feature/semantic/graph-navigation 的产品与质量合同，再决定 indexing/projection 支撑 |
+| 5 | [Semantic retrieval](units/semantic-retrieval/packet.md) | **Active — Design consolidation** | Product boundary 与主要 Technical topology 已确认；正在关闭 producer/rumination edge，随后进入 Acceptance 与 implementation plan |
+| 6 | Other organization/application units | Queued | 以 semantic retrieval 的真实 use/failure evidence 帮助排序；feature、graph-navigation、breakdown、merge、linking 仍各自建立合同 |
 
 这不是永久开发顺序。active unit 结束时，应根据用户价值、已暴露依赖和不确定性重新选择下一个
 unit；不得仅因为表格编号自动启动。
@@ -131,7 +131,7 @@ gate，但不能把“已经写成草案”误当作“已经获批”或“可�
 - client-web 有 source/extension 管理与 browser-extension loading，但不能据现状推导完整
   registry 或 retrieval product contract。
 - 详细三仓术语/实现证据在 [terminology-audit.md](terminology-audit.md)；讨论结果只在
-  [decisions.md](decisions.md) 登记一次。
+  [decision register](decisions/index.md) 登记一次。
 
 ## 7. Withdrawn Frames
 

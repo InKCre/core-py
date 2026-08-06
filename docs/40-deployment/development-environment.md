@@ -41,6 +41,36 @@ Peers must consume that exact profile/descriptor. Sharing only an SSH alias, dae
 or contract version does not prove that core-py and client-web use the same database.
 Only core-py owns Compose startup, reset, volume deletion, credentials, and tunnel cleanup.
 
+## Shared Runtime Boundary Diagnostics
+
+An attached peer proves the selected database runtime by matching the owner descriptor and
+readiness evidence for:
+
+- runtime instance and owner repository;
+- Compose project and Docker daemon ID;
+- source fingerprint, database contract revision, and migration head;
+- core-py and PostgREST loopback endpoints.
+
+This is a contract-compatible attachment, not proof that the peer's pinned core-py image and
+the running owner image are byte-for-byte identical. A different source revision or image is
+valid while the contract revision and migration head remain compatible. When diagnosing
+implementation-specific behavior, compare `source_revision` and `core_image` in
+`runtime.json` with the peer's pinned image digest before assuming artifact equality.
+
+The Compose network and PostgreSQL endpoint are currently derived from the exact Compose
+project, source fingerprint, checked-in service wiring, and recorded local/remote ports; they
+are not published as independent profile identity fields. If a future issue suggests that two
+peers reached different databases, compare `runtime.json`, `profile.json`, and
+`readiness.json` from the owner before inspecting provider state. Do not accept matching
+daemon IDs, ports, or contract revisions alone. If owner, project, fingerprint, endpoints,
+or readiness do not converge, stop reuse and let core-py re-establish the runtime.
+
+External peers must not reset or tear down a core-py-owned runtime. The command path rejects
+both operations; current dedicated external-attachment regression coverage proves teardown
+rejection but does not separately exercise reset rejection. Treat that missing negative case,
+and first-class network/database endpoint identity, as the first places to strengthen if a
+shared-runtime boundary failure is observed.
+
 For Python-only iteration against an already initialized database:
 
 ```bash

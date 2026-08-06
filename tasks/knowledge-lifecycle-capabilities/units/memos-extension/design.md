@@ -1,7 +1,7 @@
 # Memos Extension — Backend MVP Design
 
 本文把已经确认的产品边界与待审查的技术合同放在同一条端到端链路上。决定 authority 仍是
-[decisions.md](../../decisions.md)；协议和代码事实见 [evidence.md](evidence.md)。
+[decision register](../../decisions/index.md)；协议和代码事实见 [evidence.md](evidence.md)。
 
 ## 1. Product Shape
 

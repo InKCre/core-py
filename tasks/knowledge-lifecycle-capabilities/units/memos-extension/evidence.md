@@ -2,7 +2,7 @@
 
 本文只记录 backend MVP 可复核的版本锚点、MoeMemos 实际最小调用、core fit 证据和已知的
 `updateMask` 偏差。产品/技术草案见 [design.md](design.md)，控制状态见
-[unit packet](packet.md)，决定 authority 仍是 [decision register](../../decisions.md)。
+[unit packet](packet.md)，决定 authority 仍是 [decision register](../../decisions/index.md)。
 
 ## Version anchors
 

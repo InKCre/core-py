@@ -28,3 +28,10 @@
 - point lookup、storage raw fetch 与产品检索不能混称。
 - indexing 是 application / retrieval 的实现支撑，不是 organization。
 - sink 或 client 不接管 info-base 的 graph authority。
+
+## Active Slice
+
+[Semantic retrieval](../units/semantic-retrieval/packet.md) 处于 Design consolidation。Product boundary、retrieval/
+embedding/AI/Peer/Agent 主 topology 已确认；现有 pgvector、maintenance、similarity query、RAG 与
+`get_str_for_embedding()` 仍只作为 failure evidence。当前先关闭 producer/rumination edge，再从真实 corpus 固定
+quality Acceptance，之后才进入 implementation plan/preflight。

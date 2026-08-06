@@ -4,8 +4,9 @@
 
 `上游需求 → 被打破的假设 → 候选 owner → 影响 → evidence → status`
 
-active unit 是 [Memos extension](units/memos-extension/packet.md)，当前 delivery scope 是 backend
-MVP。future-scope pressures 可以保留为 program memory，但不得阻塞或扩张当前交付。
+active unit 是 [Semantic retrieval](units/semantic-retrieval/packet.md)，当前处于 Design consolidation。下列 Memos
+pressures 保留为已完成单元的 provenance，不自动成为 semantic retrieval 的设计前提；新 unit 的横切压力应从
+其 user journey 与 acceptance evidence 重新建立。
 
 ## Active-unit pressures
 
