@@ -135,7 +135,7 @@ def test_email_address_resolver_get_text_with_name():
   email_block_data = EmailAddress(email="test@example.com", name="Test User")
 
   block = BlockModel(
-    resolver="email_address",
+    resolver=EmailAddressResolver.__rsotype__,
     content=email_block_data.model_dump_json(),
   )
 
@@ -144,6 +144,9 @@ def test_email_address_resolver_get_text_with_name():
   # Should return name and email in angle brackets format
   text = asyncio.run(resolver.get_text())
   assert text == "Test User <test@example.com>"
+  assert asyncio.run(resolver.get_label()) == (
+    "email address <Test User / test@example.com>"
+  )
 
 
 def test_email_address_resolver_get_text_without_name():
@@ -154,7 +157,7 @@ def test_email_address_resolver_get_text_without_name():
   email_block_data = EmailAddress(email="test@example.com", name=None)
 
   block = BlockModel(
-    resolver="email_address",
+    resolver=EmailAddressResolver.__rsotype__,
     content=email_block_data.model_dump_json(),
   )
 
@@ -163,22 +166,3 @@ def test_email_address_resolver_get_text_without_name():
   # Should return just the email
   text = asyncio.run(resolver.get_text())
   assert text == "test@example.com"
-
-
-def test_email_address_resolver_embedding_string():
-  """Test EmailAddressResolver.get_str_for_embedding()."""
-  from extensions.mail.resolver import EmailAddressResolver
-  from app.schemas.info_base.block import BlockModel
-
-  email_block_data = EmailAddress(email="test@example.com", name="Test User")
-
-  block = BlockModel(
-    resolver="email_address",
-    content=email_block_data.model_dump_json(),
-  )
-
-  resolver = EmailAddressResolver(block)
-
-  # Should return name and email for embedding
-  embedding_str = asyncio.run(resolver.get_str_for_embedding())
-  assert embedding_str == "Test User test@example.com"

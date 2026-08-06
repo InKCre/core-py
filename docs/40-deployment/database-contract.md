@@ -50,7 +50,7 @@ storage type、block kind 或 MIME authority。
 
 ## PostgreSQL Binary Storage Protocol
 
-`peer-database-runtime-v2` admits bytes-only operations required by equivalent peers：
+`peer-database-runtime-v3` retains the bytes-only operations required by equivalent peers：
 
 - `create_storage_blob(bytea) -> uuid`：raw `application/octet-stream` request；
 - `read_storage_blob(uuid) -> inkcre."application/octet-stream"`：raw bytes response；
@@ -59,12 +59,23 @@ storage type、block kind 或 MIME authority。
 PostgREST 14 对 raw byte response 需要 explicit response media-type domain；raw request 只依赖 single unnamed
 `bytea` argument。Readiness separately proves both signatures。
 
-Storage pointer JSON belongs to the `postgresql_binary` handler。Client/application只持有 opaque pointer string；
+Storage pointer JSON belongs to the `postgresql_binary` handler。Peer/application只持有 opaque pointer string；
 bytes、MIME、filename 与 resolver semantics不复制到 pointer。Core native commands通过 caller-owned session进行
 C/R/U/D；browser peer通过 raw RPC + exact relation update/delete获得等价 capability。
 
 Deleting a referenced `storages` catalog row is `RESTRICT`。Changing/deleting a blob does not query or rewrite blocks，
 所以 block timestamps、embedding 与其他 peer cache 不自动代表 storage bytes freshness。
+
+## Peer Discovery Protocol
+
+`peers` 持有 deployment Peer identity、owner config/schema、完整 capability/inbound snapshot 与
+`lease_expires_at`。Capability snapshot 是 runtime-owned derived projection；`labels` 不参与 routing，readiness
+不进入 advertisement。HTTP inbound 的 absolute URL 只由当前 Peer 的 `config.http_public_base_url` 与固定业务 path
+组合，Peer row 不再持有通用 `rest_api_url`。
+
+`renew_peer_lease(peer uuid, ttl_seconds integer) -> timestamptz` 是 `SECURITY INVOKER`、database-time helper。
+调用者提供正 TTL；不存在的 Peer 或非正 TTL 明确失败。普通 Peer row update 不续租，graceful shutdown 清空 expiry，
+abrupt loss 等待 lease 自然过期。
 
 ## Readiness
 
@@ -86,7 +97,7 @@ database URLs or provider exceptions。FastAPI `/readyz` 使用同一 unprivileg
 ```text
 algorithm: HS256
 role: authenticated
-issuer: inkcre-client
+issuer: inkcre-peer
 audience: inkcre-api
 required: role, iss, aud, iat, exp
 maximum lifetime: 24 hours
@@ -99,7 +110,7 @@ PostgREST exposes only `inkcre`，connects as `authenticator`，uses denied `ano
 ## Canonical Production Profile
 
 [`deploy/profiles/production.json`](../../deploy/profiles/production.json) 是 checked-in non-secret discovery surface。
-它发布 environment URLs、client IDs、contract revision、currently delivered migration head、protocol schema、
+它发布 environment URLs、Peer IDs、contract revision、currently delivered migration head、protocol schema、
 anonymous policy 与 JWT claims；不包含 credential、database URL 或 mutable image tag。
 
 Profile 的 migration head 是 delivery truth，不自动等于当前 dirty worktree/newest local migration。RSS/Memos
@@ -107,7 +118,7 @@ implementation 或 migration verification 不授权修改 production profile 或
 
 ## Versioning
 
-`db contract --json` 当前报告 `peer-database-runtime-v2` 与 artifact source revision。Published core images使用：
+`db contract --json` 当前报告 `peer-database-runtime-v3` 与 artifact source revision。Published core images使用：
 
 ```text
 ghcr.io/inkcre/core-py:<40-character-commit>

@@ -22,8 +22,9 @@ def test_production_profile_projects_the_executable_contract():
 
   assert profile["format"] == 1
   assert profile["environment"] == "production"
+  assert contract["migration_heads"] == ["c0d1e2f3a4b5"]
   assert profile["database_contract"] == {
-    "migration_head": "d0e3f4a5b6c7",
+    "migration_head": "c0d1e2f3a4b5",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }
@@ -39,10 +40,16 @@ def test_contract_publishes_the_complete_protocol_projection():
   assert protocol["format"] == 1
   assert protocol["schema"] == PROTOCOL_SCHEMA
   assert set(protocol["relations"]) == {
+    "agents",
+    "ai_dialects",
+    "ai_models",
+    "ai_providers",
     "block_embeddings",
     "blocks",
-    "clients",
+    "peers",
+    "configs",
     "extensions",
+    "embedding_profiles",
     "logs",
     "relation_embeddings",
     "relations",
@@ -82,8 +89,27 @@ def test_contract_publishes_the_complete_protocol_projection():
       "volatility": "stable",
       "response_media_type": "application/octet-stream",
     },
+    "renew_peer_lease": {
+      "arguments": [
+        {
+          "name": "peer",
+          "type": {"kind": "string", "format": "uuid"},
+        },
+        {
+          "name": "ttl_seconds",
+          "type": {"kind": "number", "format": "integer"},
+        },
+      ],
+      "returns": {
+        "kind": "string",
+        "format": "date-time",
+        "database_type": "timestamp with time zone",
+      },
+      "returns_set": False,
+      "volatility": "volatile",
+    },
   }
-  assert protocol["relations"]["clients"]["columns"]["id"] == {
+  assert protocol["relations"]["peers"]["columns"]["id"] == {
     "type": {"kind": "string", "format": "uuid"},
     "nullable": False,
     "generated": False,
@@ -106,8 +132,8 @@ def test_contract_publishes_the_complete_protocol_projection():
 def test_production_profile_has_stable_ids_and_https_endpoints():
   profile = json.loads(PRODUCTION_PROFILE.read_text())
 
-  assert uuid.UUID(profile["client"]["id"]).version == 4
-  assert uuid.UUID(profile["core"]["client_id"]).version == 5
+  assert uuid.UUID(profile["peer"]["id"]).version == 4
+  assert uuid.UUID(profile["core"]["peer_id"]).version == 5
   for peer in ("core", "postgrest"):
     endpoint = urlparse(profile[peer]["url"])
     assert endpoint.scheme == "https"

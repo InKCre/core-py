@@ -9,6 +9,7 @@ from pypdf.errors import PdfReadError
 
 from .contracts import ResolverContentError, UnsupportedResolverCapability
 from .inspection import ByteContentFacts, detect_media_type, require_bytes
+from .label import format_label
 from .main import Resolver
 
 
@@ -75,11 +76,9 @@ class PDFResolver(
     del refresh, materialize_missing
     raise UnsupportedResolverCapability(self.__rsotype__, "text")
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> None:
-    del refresh, materialize_missing
-    raise UnsupportedResolverCapability(self.__rsotype__, "embedding text")
+  async def get_label(self, *, refresh: bool = False) -> str:
+    solved = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=False,
+    )
+    return format_label("PDF", solved.title)

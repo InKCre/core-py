@@ -7,7 +7,7 @@ import sqlmodel
 
 from app.business.info_base.block import BlockManager
 from app.business.info_base.relation import RelationManager
-from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.relation import RelationModel
 from .schema import CanonicalMemo, MemoCursor
 
@@ -79,7 +79,7 @@ class MemoGraphRepository:
     db_session: sqlmodel.Session,
   ) -> BlockModel:
     return BlockManager.create(
-      BlockModel(
+      BlockForm(
         resolver=MEMO_RESOLVER,
         content=canonical.to_block_content(),
       ),

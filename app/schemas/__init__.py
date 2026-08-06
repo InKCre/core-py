@@ -8,9 +8,15 @@ __all__ = [
   "SourceModel",
   "SourceCollectJobModel",
   "ExtensionModel",
+  "AIDialectModel",
+  "AIProviderModel",
+  "AIModelModel",
+  "EmbeddingProfileModel",
   "RelationEmbeddingModel",
   "BlockEmbeddingModel",
-  "ClientModel",
+  "AgentDefinitionModel",
+  "PeerModel",
+  "DeploymentConfigModel",
 ]
 
 import sqlalchemy.orm
@@ -27,5 +33,14 @@ from .info_base.storage import StorageBlobModel, StorageModel, StorageTypesModel
 from .info_base.relation import RelationModel
 from .source import SourceModel, SourceCollectJobModel
 from .extension.main import ExtensionModel
-from .sink import RelationEmbeddingModel, BlockEmbeddingModel
-from .client.main import ClientModel
+from .ai import (
+  AIDialectModel,
+  AIModelModel,
+  AIProviderModel,
+  BlockEmbeddingModel,
+  EmbeddingProfileModel,
+  RelationEmbeddingModel,
+)
+from .agent import AgentDefinitionModel
+from .peer import PeerModel
+from .deployment_config import DeploymentConfigModel

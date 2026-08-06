@@ -138,7 +138,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     # Save collected messages to database
     with SessionLocal() as db:
       for graph in collected:
-        await InfoBaseManager.add_subgraph_to_session(graph, db)
+        await InfoBaseManager.add_stars_graph_to_session(graph, db)
       db.commit()
 
   async def record(self, data: typing.Any) -> None:
@@ -167,7 +167,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
     # Save to database
     with SessionLocal() as db:
-      await InfoBaseManager.add_subgraph_to_session(graph, db)
+      await InfoBaseManager.add_stars_graph_to_session(graph, db)
       db.commit()
 
   async def _organize(self, block_id: BlockID) -> None:

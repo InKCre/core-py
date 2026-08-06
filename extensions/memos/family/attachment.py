@@ -10,7 +10,7 @@ from app.business.info_base.resolver import ResolverManager
 from app.business.info_base.storage import StorageManager, WritableStorage
 from app.business.info_base.storage.postgresql import StorageBlobNotFoundError
 from app.engine import SessionLocal
-from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.relation import RelationModel
 
 from .graph import (
@@ -88,7 +88,7 @@ class AttachmentGraphRepository:
       created_at=created_at,
     )
     metadata_block = BlockManager.create(
-      BlockModel(
+      BlockForm(
         resolver=ATTACHMENT_RESOLVER,
         content=canonical.to_block_content(),
       ),
@@ -96,7 +96,7 @@ class AttachmentGraphRepository:
     )
     semantic_resolver = ResolverManager.match_media_type(media_type) or "core.file.v1"
     content_block = BlockManager.create(
-      BlockModel(
+      BlockForm(
         resolver=semantic_resolver,
         storage=DATABASE_BINARY_STORAGE_ID,
         content=block_pointer,

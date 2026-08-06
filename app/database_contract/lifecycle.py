@@ -18,7 +18,7 @@ from .constants import (
   JWT_ROLE,
   RESET_CONFIRMATION,
 )
-from .migration import migrate
+from .migration import get_repository_heads, migrate
 from .protocol import protocol_document
 from .roles import RoleSecrets, provision_roles
 
@@ -71,6 +71,7 @@ def contract_document() -> dict[str, object]:
   return {
     "format": CONTRACT_FORMAT,
     "revision": CONTRACT_REVISION,
+    "migration_heads": list(get_repository_heads()),
     "source_revision": source_revision,
     "jwt": {
       "algorithm": JWT_ALGORITHM,

@@ -89,7 +89,7 @@ owning repository/application service。
 Resolvers interpret a block's hydrated content plus required direct relations。IDs are exact、namespaced and versioned，
 for example `extensions.example.item.v1`。
 
-Concrete resolvers must implement async `get_text()` and `get_str_for_embedding()`。Unsupported capability raises
+Concrete resolvers must implement async `get_text()`。Unsupported capability raises
 `UnsupportedResolverCapability`；supported-but-no-result returns `None`；unknown exact ID fails。`refresh` replaces a
 local snapshot，while `materialize_missing` only permits an absent derivation。
 

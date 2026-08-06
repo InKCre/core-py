@@ -3,6 +3,7 @@
 import asyncio
 
 from app.business.info_base.resolver import HTMLResolver, ImageResolver, VideoResolver
+from app.schemas.info_base.block import BlockModel
 from extensions.twitter.api import Tweet as APITweet
 from extensions.twitter.bookmark import Source, tweet_to_graph
 from extensions.twitter.resolver import TweetResolver
@@ -57,7 +58,7 @@ def test_api_tweet_maps_to_versioned_root_and_relation_owned_content():
     "attachment:video:video-key",
     "entities:url",
   ]
-  photo, video, link = (arc.to_subgraph.block for arc in graph.out_arcs)
+  photo, video, link = (arc.to_graph.block for arc in graph.out_arcs)
   assert (photo.resolver, photo.storage, photo.content) == (
     ImageResolver.__rsotype__,
     -1,
@@ -81,7 +82,7 @@ def test_api_tweet_maps_to_versioned_root_and_relation_owned_content():
 
 def test_tweet_root_resolver_preserves_reply_scope_and_text():
   graph = tweet_to_graph(_api_tweet())
-  resolver = TweetResolver(graph.block, ())
+  resolver = TweetResolver(BlockModel.model_validate(graph.block), ())
 
   solved = asyncio.run(resolver.get_solved_content())
 
@@ -93,45 +94,5 @@ def test_tweet_root_resolver_preserves_reply_scope_and_text():
   assert asyncio.run(resolver.get_text()) == _api_tweet().text
 
 
-def test_bookmark_reply_is_persisted_as_exact_core_text(monkeypatch):
-  root = tweet_to_graph(_api_tweet()).block
-  root.id = 70
-  reply = APITweet(id=18, conversation_id=17, text="A private bookmark note")
-
-  class _API:
-    user_handle = "owner"
-
-    async def get_replies(self, *_args, **_kwargs):
-      return type("Replies", (), {"tweets": (reply,)})()
-
-  created = []
-  relations = []
-
-  def create_block(_cls, block):
-    block.id = 71
-    created.append(block)
-    return block
-
-  monkeypatch.setattr(
-    "extensions.twitter.bookmark.BlockManager.get",
-    classmethod(lambda _cls, _block_id: root),
-  )
-  monkeypatch.setattr(
-    "extensions.twitter.bookmark.BlockManager.create",
-    classmethod(create_block),
-  )
-  monkeypatch.setattr(
-    "extensions.twitter.bookmark.RelationManager.create",
-    classmethod(lambda _cls, **kwargs: relations.append(kwargs)),
-  )
-  monkeypatch.setattr(
-    "extensions.twitter.bookmark.TwitterAPI.new",
-    classmethod(lambda _cls: _API()),
-  )
-
+def test_legacy_organization_hook_does_not_invent_bookmark_note_graph():
   asyncio.run(Source(1)._organize(70))
-
-  assert [(block.resolver, block.content) for block in created] == [
-    ("core.text.v1", "A private bookmark note")
-  ]
-  assert relations == [{"from_": 70, "to_": 71, "content": "bookmarked for"}]

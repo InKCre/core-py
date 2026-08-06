@@ -1,11 +1,8 @@
 """Machine-readable, read-only verification of the peer database contract."""
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from psycopg import sql
 
 from .connection import database_connection
@@ -17,21 +14,22 @@ from .constants import (
   CONTRACT_FORMAT,
   CONTRACT_REVISION,
   CORE_RUNTIME_ROLE,
-  DEVELOPMENT_CLIENT_ID,
-  DEVELOPMENT_CLIENT_NAME,
+  DEVELOPMENT_PEER_ID,
+  DEVELOPMENT_PEER_NAME,
   INTERNAL_SCHEMA,
   PROTOCOL_SCHEMA,
 )
 from .profile import (
+  BUILTIN_AI_DIALECTS,
   BUILTIN_EXTENSIONS,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
 )
+from .migration import get_repository_heads
 from .protocol import PROTOCOL_FUNCTIONS, protocol_database_function_signatures
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TABLE_PRIVILEGES = {
   "DELETE",
   "INSERT",
@@ -78,12 +76,6 @@ class ContractReadiness:
       },
       **self.components,
     }
-
-
-def get_repository_heads() -> tuple[str, ...]:
-  """Return the immutable migration heads recorded by this artifact."""
-  config = Config(PROJECT_ROOT / "alembic.ini")
-  return tuple(sorted(ScriptDirectory.from_config(config).get_heads()))
 
 
 def _role_component(cursor) -> dict[str, Any]:
@@ -412,6 +404,7 @@ def _catalog_component(cursor) -> dict[str, Any]:
       problems.append(f"extension:{extension.id}")
 
   for table_name, profiles in (
+    ("ai_dialects", BUILTIN_AI_DIALECTS),
     ("storage_types", BUILTIN_STORAGE_TYPES),
     ("sources_types", BUILTIN_SOURCE_TYPES),
   ):
@@ -447,23 +440,29 @@ def _seed_component(cursor, profile: str) -> dict[str, Any]:
     return {"status": "not_required"}
   cursor.execute(
     sql.SQL(
-      "SELECT name, labels, rest_api_url, config, config_schema, created_at::text "
-      "FROM {}.clients WHERE id = %s"
+      "SELECT name, labels, config, config_schema, capabilities, "
+      "lease_expires_at::text, created_at::text, updated_at::text "
+      "FROM {}.peers WHERE id = %s"
     ).format(sql.Identifier(PROTOCOL_SCHEMA)),
-    (DEVELOPMENT_CLIENT_ID,),
+    (DEVELOPMENT_PEER_ID,),
   )
   row = cursor.fetchone()
   expected = (
-    DEVELOPMENT_CLIENT_NAME,
+    DEVELOPMENT_PEER_NAME,
     ["development", "canonical-seed"],
+    {},
+    {},
+    [],
     None,
-    {},
-    {},
     "2000-01-01 00:00:00+00",
   )
+  stable_row = row[:-1] if row is not None else None
+  updated_at = row[-1] if row is not None else None
   return {
-    "status": "ok" if row == expected else "error",
-    "problems": [] if row == expected else ["development_client"],
+    "status": "ok" if stable_row == expected and updated_at is not None else "error",
+    "problems": (
+      [] if stable_row == expected and updated_at is not None else ["development_peer"]
+    ),
   }
 
 

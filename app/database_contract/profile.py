@@ -72,6 +72,37 @@ HTTP_STORAGE_SCHEMA = _object_schema(
   },
 )
 
+OPENAI_COMPATIBLE_DIALECT_SCHEMA = {
+  "additionalProperties": False,
+  "description": "Connection values for one OpenAI-compatible provider instance.",
+  "properties": {
+    "api_key": {
+      "minLength": 1,
+      "title": "Api Key",
+      "type": "string",
+    },
+    "base_url": {
+      "anyOf": [
+        {"minLength": 1, "type": "string"},
+        {"type": "null"},
+      ],
+      "default": None,
+      "title": "Base Url",
+    },
+  },
+  "required": ["api_key"],
+  "title": "OpenAICompatibleConfig",
+  "type": "object",
+}
+
+BUILTIN_AI_DIALECTS = (
+  TypeProfile(
+    "core.openai-compatible.v1",
+    "OpenAI-compatible embedding and chat protocol.",
+    OPENAI_COMPATIBLE_DIALECT_SCHEMA,
+  ),
+)
+
 BUILTIN_EXTENSIONS = (
   ExtensionProfile("github", "0.1.0", "GitHub"),
   ExtensionProfile("learn_english", "0.1.0", "Learn English"),
@@ -229,5 +260,6 @@ BUILTIN_STORAGES = (
 )
 
 BUILTIN_EXTENSIONS_BY_ID = {item.id: item for item in BUILTIN_EXTENSIONS}
+BUILTIN_AI_DIALECTS_BY_ID = {item.id: item for item in BUILTIN_AI_DIALECTS}
 BUILTIN_STORAGE_TYPES_BY_ID = {item.id: item for item in BUILTIN_STORAGE_TYPES}
 BUILTIN_SOURCE_TYPES_BY_ID = {item.id: item for item in BUILTIN_SOURCE_TYPES}

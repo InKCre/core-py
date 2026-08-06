@@ -39,7 +39,7 @@ from scripts.dev_database_provider import (
 STATE_FORMAT = 1
 PROFILE_FORMAT = 1
 OWNER_REPOSITORY = "InKCre/core-py"
-DEVELOPMENT_CLIENT_ID = "00000000-0000-4000-8000-000000000002"
+DEVELOPMENT_PEER_ID = "00000000-0000-4000-8000-000000000002"
 INSTANCE_PATTERN = re.compile(r"^[a-f0-9]{16}$")
 
 
@@ -88,6 +88,16 @@ def _source_fingerprint() -> str:
   return digest.hexdigest()
 
 
+def _refresh_artifact_state(state: dict[str, Any]) -> None:
+  """Project the current worktree artifact identity into reusable runtime state."""
+  source_revision = _source_revision()
+  state["contract_revision"] = CONTRACT_REVISION
+  state["migration_head"] = get_repository_heads()[0]
+  state["source_revision"] = source_revision
+  state["source_fingerprint"] = _source_fingerprint()
+  state["core_image"] = f"inkcre-core-py-development:{source_revision[:12]}"
+
+
 def _provider_from_state(state: Mapping[str, Any]) -> DatabaseProvider:
   provider = state.get("provider")
   if not isinstance(provider, dict):
@@ -124,7 +134,7 @@ def _write_runtime_files(
       "source_fingerprint": state["source_fingerprint"],
     },
     "core": {
-      "client_id": DEVELOPMENT_CLIENT_ID,
+      "peer_id": DEVELOPMENT_PEER_ID,
       "url": state["urls"]["core"],
     },
     "postgrest": {
@@ -135,7 +145,7 @@ def _write_runtime_files(
     "jwt": {
       "algorithm": "HS256",
       "role": "authenticated",
-      "issuer": "inkcre-client",
+      "issuer": "inkcre-peer",
       "audience": "inkcre-api",
       "required_claims": ["role", "iss", "aud", "iat", "exp"],
       "maximum_lifetime_seconds": 86400,
@@ -157,7 +167,6 @@ def _write_runtime_files(
     "POSTGRES_PORT": str(published_ports["postgres"]),
     "CORE_PORT": str(published_ports["core"]),
     "POSTGREST_PORT": str(published_ports["postgrest"]),
-    "CORE_PUBLIC_URL": state["urls"]["core"],
     **{name: str(value) for name, value in credentials.items() if name != "format"},
   }
 
@@ -341,9 +350,7 @@ def ensure(instance: str) -> dict[str, Any]:
       )
     credentials = _read_json(directory / "credential.json")
     state["docker"] = diagnose_database_provider(configured_provider).as_dict()
-    state["source_revision"] = _source_revision()
-    state["source_fingerprint"] = _source_fingerprint()
-    state["core_image"] = f"inkcre-core-py-development:{state['source_revision'][:12]}"
+    _refresh_artifact_state(state)
   else:
     diagnostics = diagnose_database_provider(configured_provider)
     state, credentials = _new_state(instance, configured_provider, diagnostics)

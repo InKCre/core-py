@@ -33,7 +33,6 @@ RUN groupadd --gid 10001 inkcre \
 
 COPY --from=builder --chown=inkcre:inkcre /app/.venv /app/.venv
 COPY --chown=inkcre:inkcre app/ app/
-COPY --chown=inkcre:inkcre data/ai/prompts/ data/ai/prompts/
 COPY --chown=inkcre:inkcre extensions/ extensions/
 COPY --chown=inkcre:inkcre libs/ libs/
 COPY --chown=inkcre:inkcre migrations/ migrations/

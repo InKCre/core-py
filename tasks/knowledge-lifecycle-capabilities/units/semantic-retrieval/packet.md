@@ -1,12 +1,19 @@
 # Semantic Retrieval
 
 - **Unit ID**: `semantic-retrieval`。
-- **State**: **Implementation authorized；baseline commit pending**。Product/Technical contracts，including Peer routing/capability landings
-  and HTTP inbound address authority，are approved through D-196；corpus judgments and quality thresholds are approved
-  through D-188。
-  Freshness/maintenance and Peer runtime Acceptance are approved through D-190。Implementation plan、preflight and Impact
-  Handshake were approved for execution。Sir then requested one clean task-state commit before I0 begins；no code/schema
-  mutation has occurred yet。
+- **State**: **Implementation in progress；I0–I6 closed**。The requested clean baseline is commit `5df3a0f`。I0 now provides
+  ConfigContract、deployment-scoped `configs`、honest PUT/PATCH routes、Extension config reuse and no-op-aware database-owned
+  timestamps for Blocks/Relations/Configs。I1 hard-cuts producer Forms from database Models，preserves recursive
+  `StarsGraphForm` authoring and adds signed-ID flat `GraphForm` normalization/submission。I2 adds shared AI facts、one
+  graph-blind AIManager and a real OpenAI-compatible embedding/chat/tool adapter while removing legacy sink/RAG coupling。
+  I3 adds persisted Agent definitions and the replaceable in-memory Thread/Turn/Tool runtime。I4 hard-cuts exact Resolver
+  IDs/labels，adds directed Relation projection，profile-scoped maintenance/rebuild and exact globally ranked local
+  Block/Relation retrieval。I5 adds explicit focal-Block rumination，Resolver-owned on-demand draft contracts，three bounded
+  Agent Tools and additive GraphForm submission while removing the obsolete implicit Block organize hook。I6 hard-cuts
+  technical Client→Peer，adds structured capability snapshots、database-time leases、opaque exact-capability routing、the
+  normalized Peer HTTP/JWT protocol and three fixed business inbounds。The full repository check is green at 370 passed /
+  31 environment-gated skipped；12 real PostgreSQL Config、Graph、AI、Agent、retrieval、organization and Peer integration
+  cases pass together。
 - **Objective**: let a deployment owner submit a natural-language intent and receive ranked existing Block/Relation
   matches，while a minimum organization rumination path can improve an info-base whose collected roots are too coarse for
   useful retrieval。
@@ -15,9 +22,11 @@
   derived support。Existing embedding/query/RAG code is evidence and failure material，not a compatibility surface。
 - **Primary evidence**: real Memos and RSS graphs，exact resolver/hydration/storage contracts，current pgvector and AI
   split-brain implementation，and the relation-producer audit。
-- **Active mode**: Baseline commit。Commit the reviewed task packet/local diagnostic-doc state，confirm a clean worktree，
-  then begin I0 without reopening the approved design。
-- **Next step**: create the explicitly requested baseline commit，then implement I0 ConfigContract/configs/timestamps。
+- **Active mode**: I7 client-web Peer consumers。Port the admitted v3 protocol projection，then replace technical Client
+  identity/request shortcuts with typed Peer discovery/outbound delegation and migrate Extension、organization and semantic
+  retrieval consumers without changing user-facing “client” copy indiscriminately。
+- **Next step**: inspect client-web's package/runtime contract、Client Active Record/request users、selected-client config UI
+  and BlockDetailsPanel graph-refresh ownership，then handshake the exact cross-repo state diff before editing that repository。
 
 ## Control Gates
 
@@ -34,6 +43,20 @@
 
 Only this packet owns unit phase、gate and next step。Topic files own current task-state contracts；the
 [decision register](../../decisions/index.md) alone owns decision history。
+
+## Implementation Progress
+
+| Increment | State | Evidence / next boundary |
+| --- | --- | --- |
+| I0 config + timestamps | Closed | full repository check；real PostgreSQL config resource + timestamp tests；migration downgrade→upgrade；dev runtime metadata regression fixed |
+| I1 producer forms + graph commands | Closed | full repository check；real PostgreSQL arbitrary/cyclic GraphForm、fresh negative-ID creation and recursive StarsGraph reconciliation/direction tests |
+| I2 AI domain | Closed | full repository check；real PostgreSQL AI catalog/profile invariants；real OpenAI SDK protocol-double embedding/chat/tool wire proof；legacy split-brain/static remnants absent |
+| I3 Agent runtime | Closed | deterministic completion/budget/concurrency/failure/cancellation/recovery checks；real PostgreSQL Agent definition、timestamp、constraint and active Thread snapshot proof |
+| I4 semantic records/retrieval | Closed | exact resolver ID/label structural proof；real PostgreSQL unavailable scan、atomic batch、freshness、dimension、global ranking/default and route evidence；local DB reset removed unreleased legacy IDs |
+| I5 organization rumination | Closed | full check；real PostgreSQL context + draft/submit and complete Organization→Agent→Tools repeated-additive journeys；route/no-op/config/budget/cancel proofs |
+| I6 core Peer delivery | Closed | full check；migration downgrade→upgrade + roles/readiness；real PostgreSQL snapshot/lease/discovery；JWT/envelope/failover/target/CORS and three fixed inbound proofs |
+| I7 client-web Peer consumers | Active | inspect generated DB contract、technical Client/request consumers and BlockDetailsPanel ownership before the hard cut |
+| I8 vertical Acceptance | Pending | closes runtime、corpus、shared docs and promotion evidence |
 
 ## Design Discussion Taste（guidelines，not contracts）
 
@@ -130,14 +153,13 @@ Block/Resolver + RelationManager projection
 The dependency-ordered implementation decomposition is tracked separately in the
 [delivery map](delivery-map.md)；it is a design probe，not an execution baseline。
 
-## Active Review Queue
+## Active Execution Queue
 
-Discuss one question at a time in this order。
+Execute the approved dependency order，keeping each increment independently reviewable and evidenced。
 
-1. **Implementation plan review**: inspect the exact increments、migration sequence、cross-repo handoff and remaining
-   preflight list。
-2. **Final preflight / Impact Handshake**: close provider、runtime database、artifact/corpus and production-read branches，
-   then present the complete bounded state diff before requesting explicit start。
+1. **I7 client-web delivery**: sync the v3 database protocol，hard-cut technical Client→Peer and migrate exact business
+   capability consumers onto PeerManager + PeerHTTPOutbound。
+2. **I8 Acceptance/promotion**: execute the authoritative corpus/runtime journeys，then reconcile durable owners。
 
 Producer grammar is closed through D-179。Base Forms omit database-managed state；flat GraphForm uses signed IDs for one-
 command creation/reference；StarsGraphForm remains the recursive Resolver/extension authoring representation；the current

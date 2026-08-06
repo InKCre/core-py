@@ -116,9 +116,11 @@ Lifecycle execution additionally requires:
 
 Commonly needed:
 
-- `CLIENT_ID`
-- `CLIENT_NAME`
-- `CLIENT_BASE_URL`
+- `PEER_ID`
+- `PEER_NAME`
+- `PEER_LEASE_TTL_SECONDS`
+- `PEER_LEASE_RENEW_INTERVAL_SECONDS`
+- `PEER_HTTP_TIMEOUT_SECONDS`
 - `LLM_SP_AK`
 - `LLM_SP_BASE_URL`
 - `OBSRV__*`

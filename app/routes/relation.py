@@ -6,7 +6,7 @@ __all__ = ["ROUTER"]
 import fastapi
 
 from app.business.info_base.relation import RelationManager
-from app.schemas.info_base.relation import RelationModel
+from app.schemas.info_base.relation import RelationCreateForm, RelationModel
 
 
 ROUTER = fastapi.APIRouter(
@@ -16,7 +16,7 @@ ROUTER = fastapi.APIRouter(
 
 
 @ROUTER.post("")
-def create_relation(body: RelationModel) -> RelationModel:
+def create_relation(body: RelationCreateForm) -> RelationModel:
   return RelationManager.create(
     from_=body.from_,
     to_=body.to_,

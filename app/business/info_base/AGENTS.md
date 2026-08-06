@@ -1,7 +1,7 @@
 # info_base/ Local Guide
 
 本文件只描述 `app/business/info_base/` 的局部事实、术语和编辑边界。跨
-`extension/source/info_base/sink` 的结构先读
+`extension/source/info_base/application` 的结构先读
 [business-pipeline-and-authority.md](../../../docs/30-unit-tdd/business-pipeline-and-authority.md)。
 
 ## 何时阅读
@@ -13,9 +13,9 @@
 
 ## 关键文件
 
-- `main.py`：`InfoBaseManager`，递归插入 subgraph；
-- `block.py`：block CRUD/fetchsert 与 embedding trigger；
-- `relation.py`：relation CRUD/fetchsert 与 direct direction query；
+- `main.py`：`InfoBaseManager`，StarsGraphForm normalization 与 GraphForm persistence；
+- `block.py`：block CRUD/fetchsert；
+- `relation.py`：relation CRUD/fetchsert、direct direction query 与 endpoint-label dynamic-property projection；
 - `resolver/`：exact decoder registry 与 use projection；
 - `storage/`：opaque pointer → actual bytes；
 - `app/schemas/info_base/block.py`：persisted block 与 instance-local hydration cache。
@@ -34,8 +34,10 @@
 
 ## Persistence And Graph Facts
 
-- Source/extension 可以提出 `SubGraphForm` 或使用 caller-owned session 协调 graph command；info-base manager
-  拥有实际 block/relation persistence。
+- Source/extension 可以提出 `StarsGraphForm` 或使用 caller-owned session 协调 graph command；info-base manager
+  拥有 normalization 与实际 block/relation persistence。
+- Draft-capable Resolver 仍只产生 rooted `StarsGraphForm`；Agent-facing `draft_graph` 是 Resolver create +
+  `InfoBaseManager.normalize_graph` 的 thin wrapper，`submit_graph` 才进入 persistence。
 - `InfoBaseManager` 先落 block 再落 relations；relation identity 当前是 `from_ + to_ + content`。
 - Caller 传入 session 时，manager/helper 不得擅自 commit。
 - Helper transaction boundary 不自动成为产品级 complete-graph guarantee；owning command 声明 partial effects。
@@ -55,10 +57,15 @@
 - `ResolverManager` 只按 exact ID select/register；unknown ID 明确失败，不存在 default decoder fallback。
 - Core bootstrap 独立于 extension loading，注册九个 `core.<kind>.v1` semantic resolver。
 - Duplicate registration：同 class 重复注册 idempotent，不同 class 抢同 ID 抛错。
-- `get_text()` / `get_str_for_embedding()` 的 unsupported、supported-null 与 authored-empty 必须保持可区分。
+- `get_text()` 的 unsupported、supported-null 与 authored-empty 必须保持可区分；不要添加 use-specific
+  `get_*_for_embedding()` projection。
+- `get_label()` 必须 concise、Block-local、resolver-qualified；RelationManager 使用
+  `subject/from label + exact content/property + value/to label`，不增加 RelationResolver。
 - Resolver 可显式使用 `materialize_missing` 触发 absent derivation；读时写 graph 不是天然错误，但必须由 exact
   capability contract 声明。
 - `include_in/include_out` 相对 subject block，且只筛 direct relations。
+- `ResolverManager.get_draft_capabilities()` 只枚举显式声明 draft input model + description 的 Resolver；不要把所有
+  persisted/source-native content schema 自动视为 Agent 可创作 schema。
 
 ## Storage Boundary
 
@@ -69,8 +76,9 @@
 
 ## Embedding Ownership
 
-- Block create/update 可以触发 embedding upsert/invalidation，但 embedding 仍是 application/sink derived support。
-- Canonical block content 变化时必须移除 stale embedding；storage bytes 原地变化不会自动触发该机制。
+- Block create/update 不生成、删除或更新 embedding record；profile-scoped records 是 use-owned derived support。
+- Freshness 由 Profile、Block/Relation 及 endpoint timestamps 在消费时判断；storage bytes 原地变化仍不更新
+  Block row，因此也不会自动改变该 freshness watermark。
 
 ## 编辑指引
 

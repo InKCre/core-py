@@ -1,19 +1,32 @@
 import abc
+from dataclasses import dataclass
 import typing
 from typing import Optional as Opt
 
+import pydantic
 import sqlmodel
 
 from app.business.info_base.relation import RelationManager
-from app.schemas.info_base.main import SubGraphForm
-from app.schemas.info_base.block import BlockID, ResolverType, BlockModel
+from app.schemas.info_base.main import StarsGraphForm
+from app.schemas.info_base.block import BlockForm, BlockID, ResolverType, BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageID
 
 from .contracts import (
   DuplicateResolverRegistrationError,
+  UnknownDraftResolverError,
   UnknownResolverError,
 )
+
+
+@dataclass(frozen=True)
+class ResolverDraftCapability:
+  """One code-owned Resolver graph-drafting contract."""
+
+  resolver: ResolverType
+  description: str
+  input_model: type[pydantic.BaseModel]
+  resolver_cls: type["Resolver"]
 
 
 class ResolverManager:
@@ -44,6 +57,33 @@ class ResolverManager:
     except KeyError as error:
       raise UnknownResolverError(block.resolver) from error
     return resolver_cls(block)
+
+  @classmethod
+  def get_draft_capabilities(cls) -> tuple[ResolverDraftCapability, ...]:
+    """Snapshot currently registered Resolvers that can draft rooted graphs."""
+    capabilities = (
+      ResolverDraftCapability(
+        resolver=resolver_id,
+        description=resolver_cls.draft_description,
+        input_model=resolver_cls.draft_input_model,
+        resolver_cls=resolver_cls,
+      )
+      for resolver_id, resolver_cls in cls.RESOLVER_CLS.items()
+      if resolver_cls.draft_description is not None
+      and resolver_cls.draft_input_model is not None
+    )
+    return tuple(sorted(capabilities, key=lambda capability: capability.resolver))
+
+  @classmethod
+  def get_draft_capability(
+    cls,
+    resolver: ResolverType,
+  ) -> ResolverDraftCapability:
+    """Select one exact graph-drafting contract without fallback."""
+    for capability in cls.get_draft_capabilities():
+      if capability.resolver == resolver:
+        return capability
+    raise UnknownDraftResolverError(resolver)
 
   @classmethod
   def match_media_type(cls, media_type: str | None) -> ResolverType | None:
@@ -83,7 +123,6 @@ class ResolverManager:
 
 SolvedContentTV = typing.TypeVar("SolvedContentTV")
 RawContentTV = typing.TypeVar("RawContentTV")
-BreakdownItem: typing.TypeAlias = BlockModel | RelationModel
 _UNSET = object()
 
 
@@ -100,6 +139,9 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   Extension resolvers should be namespaced and versioned, e.g.,
   `extensions.twitter.tweet.v1`.
   """
+
+  draft_description: typing.ClassVar[str | None] = None
+  draft_input_model: typing.ClassVar[type[pydantic.BaseModel] | None] = None
 
   def __init_subclass__(cls, rso_type: str, **kwargs) -> None:
     cls.__rsotype__ = rso_type
@@ -220,18 +262,11 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
 
   @classmethod
   # @abc.abstractmethod TODO
-  def create_block(cls, content, storage: Opt[StorageID] = None) -> BlockModel: ...
+  def create_block(cls, content, storage: Opt[StorageID] = None) -> BlockForm: ...
 
   @classmethod
   # @abc.abstractmethod TODO
-  def create_graph(cls, *args, **kwargs) -> SubGraphForm: ...
-
-  async def breakdown(
-    self,
-  ) -> typing.AsyncGenerator[BreakdownItem, BreakdownItem]:
-    """Yield no derived graph items unless a resolver defines decomposition."""
-    for item in ():
-      yield typing.cast(BreakdownItem, item)
+  def create_graph(cls, *args, **kwargs) -> StarsGraphForm: ...
 
   @abc.abstractmethod
   async def get_text(
@@ -244,13 +279,8 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     ...
 
   @abc.abstractmethod
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str | None:
-    """Get string representation for embedding generation."""
+  async def get_label(self, *, refresh: bool = False) -> str:
+    """Return one concise, stable, Block-local resolver-qualified label."""
     ...
 
   def get_existing(self, db_session: sqlmodel.Session) -> Opt[BlockModel]:

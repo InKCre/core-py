@@ -1,6 +1,17 @@
-from .main import ExtensionModel, ExtensionID
+from .main import (
+  DisableExtensionCommand,
+  EnableExtensionCommand,
+  ExtensionID,
+  ExtensionManagementCommand,
+  ExtensionModel,
+  PatchExtensionConfigCommand,
+)
 
 __all__ = [
-  "ExtensionModel",
+  "DisableExtensionCommand",
+  "EnableExtensionCommand",
   "ExtensionID",
+  "ExtensionManagementCommand",
+  "ExtensionModel",
+  "PatchExtensionConfigCommand",
 ]

@@ -6,8 +6,9 @@ from lxml import html as lxml_html
 
 from app.business.info_base.block import BlockManager
 from app.business.info_base.resolver import Resolver, ResolverManager
-from app.schemas.info_base.block import BlockModel
-from app.schemas.info_base.main import SubGraphForm
+from app.business.info_base.resolver.label import format_label
+from app.schemas.info_base.block import BlockForm
+from app.schemas.info_base.main import StarsGraphForm
 
 from .repository import (
   CONTENT_RELATION,
@@ -60,16 +61,16 @@ class FeedResolver(Resolver[CanonicalFeed, str], rso_type=FEED_RESOLVER_ID):
     return CanonicalFeed.model_validate_json(await self.get_raw_content(refresh=refresh))
 
   @classmethod
-  def create_block(cls, content: CanonicalFeed, storage=None) -> BlockModel:
-    return BlockModel(
+  def create_block(cls, content: CanonicalFeed, storage=None) -> BlockForm:
+    return BlockForm(
       resolver=cls.__rsotype__,
       content=content.model_dump_json(),
       storage=storage,
     )
 
   @classmethod
-  def create_graph(cls, content: CanonicalFeed) -> SubGraphForm:
-    return SubGraphForm(block=cls.create_block(content))
+  def create_graph(cls, content: CanonicalFeed) -> StarsGraphForm:
+    return StarsGraphForm(block=cls.create_block(content))
 
   async def get_text(
     self,
@@ -84,16 +85,12 @@ class FeedResolver(Resolver[CanonicalFeed, str], rso_type=FEED_RESOLVER_ID):
     parts = [part for part in (feed.title, feed.description) if part]
     return "\n\n".join(parts) or None
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str | None:
-    return await self.get_text(
+  async def get_label(self, *, refresh: bool = False) -> str:
+    feed = await self.get_solved_content(
       refresh=refresh,
-      materialize_missing=materialize_missing,
+      materialize_missing=False,
     )
+    return format_label("feed", feed.title or feed.configured_url)
 
 
 class FeedItemResolver(
@@ -140,16 +137,16 @@ class FeedItemResolver(
     )
 
   @classmethod
-  def create_block(cls, content: CanonicalFeedItem, storage=None) -> BlockModel:
-    return BlockModel(
+  def create_block(cls, content: CanonicalFeedItem, storage=None) -> BlockForm:
+    return BlockForm(
       resolver=cls.__rsotype__,
       content=content.model_dump_json(),
       storage=storage,
     )
 
   @classmethod
-  def create_graph(cls, content: CanonicalFeedItem) -> SubGraphForm:
-    return SubGraphForm(block=cls.create_block(content))
+  def create_graph(cls, content: CanonicalFeedItem) -> StarsGraphForm:
+    return StarsGraphForm(block=cls.create_block(content))
 
   async def _full_text(
     self,
@@ -185,28 +182,6 @@ class FeedItemResolver(
       refresh=refresh,
       materialize_missing=materialize_missing,
     )
-    return (
-      full_text
-      or _plain_text(solved.root.authored_content, solved.root.authored_content_type)
-      or _plain_text(solved.root.summary, "text/html")
-      or _plain_text(solved.root.title)
-    )
-
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str | None:
-    solved = await self.get_solved_content(
-      refresh=refresh,
-      materialize_missing=materialize_missing,
-    )
-    full_text = await self._full_text(
-      solved,
-      refresh=refresh,
-      materialize_missing=materialize_missing,
-    )
     parts = [
       _plain_text(solved.root.title),
       _plain_text(solved.root.summary, "text/html"),
@@ -214,6 +189,18 @@ class FeedItemResolver(
       or _plain_text(solved.root.authored_content, solved.root.authored_content_type),
     ]
     return "\n\n".join(part for part in parts if part) or None
+
+  async def get_label(self, *, refresh: bool = False) -> str:
+    root = CanonicalFeedItem.model_validate_json(
+      await self.get_raw_content(refresh=refresh)
+    )
+    identifier = (
+      root.title
+      or root.source_native_id
+      or root.alternate_url
+      or _plain_text(root.authored_content, root.authored_content_type)
+    )
+    return format_label("feed item", identifier, first_line=True)
 
 
 class EnclosureResolver(
@@ -250,16 +237,16 @@ class EnclosureResolver(
     )
 
   @classmethod
-  def create_block(cls, content: CanonicalEnclosure, storage=None) -> BlockModel:
-    return BlockModel(
+  def create_block(cls, content: CanonicalEnclosure, storage=None) -> BlockForm:
+    return BlockForm(
       resolver=cls.__rsotype__,
       content=content.model_dump_json(),
       storage=storage,
     )
 
   @classmethod
-  def create_graph(cls, content: CanonicalEnclosure) -> SubGraphForm:
-    return SubGraphForm(block=cls.create_block(content))
+  def create_graph(cls, content: CanonicalEnclosure) -> StarsGraphForm:
+    return StarsGraphForm(block=cls.create_block(content))
 
   async def get_text(
     self,
@@ -273,16 +260,11 @@ class EnclosureResolver(
     )
     return solved.root.title
 
-  async def get_str_for_embedding(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str | None:
-    return await self.get_text(
-      refresh=refresh,
-      materialize_missing=materialize_missing,
+  async def get_label(self, *, refresh: bool = False) -> str:
+    root = CanonicalEnclosure.model_validate_json(
+      await self.get_raw_content(refresh=refresh)
     )
+    return format_label("feed enclosure", root.title or root.url)
 
   async def materialize_content(self, *, target_storage_id: int):
     """Execute the enclosure-specific lazy materialization command."""
