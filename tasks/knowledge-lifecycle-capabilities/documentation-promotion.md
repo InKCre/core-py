@@ -2,10 +2,9 @@
 
 ## Control
 
-- **Mode**: Memos/RSS promotion projected and committed by owner；semantic-retrieval implementation、real-provider
-  Acceptance、local projection and Hub source projection complete，publication pending authorization。Memos/RSS/common contracts 已投影到 Hub source、core-py
-  Unit/deployment docs 与 client-web local architecture，并分别提交为 Hub `48b069f`、core-py `835f89a`、
-  client-web `765b22f`；尚未 push、Hub publication 或 bump either Spoke `docs/_shared`。
+- **Mode**: Memos/RSS/semantic-retrieval shared promotion published。Hub `95c4023` contains the shared batch；core-py
+  `cc8f90a` and client-web `8324293` consume that exact published head through pure shared-ref commits。Spoke-local
+  implementation/docs commits remain on their local main branches until separately authorized for push。
 - **Apply gate**: unresolved discussion pressure remains here；stable design + verified implementation triggers
   durable projection during unit completion。Commit、push、Hub publication、shared-ref bump 与 production mutation
   remain separately authorized operations。
@@ -291,8 +290,9 @@ core-py local Unit TDD promotion 已应用，只记录本仓内部 implementatio
 ## Apply Checklist
 
 1. **Memos/RSS implementation done** — confirmed decisions、exclusions 与 acceptance evidence 已冻结。
-2. **Hub source projected and committed** — PRD claims/workflows、knowledge capability contract、authority/topology
-   与 claim matrix 已吸收 Memos、RSS 及 common patterns；commit `48b069f` 尚未 push。
+2. **Hub source projected and published** — PRD claims/workflows、knowledge capability contract、authority/topology
+   与 claim matrix 已吸收 Memos、RSS 及 common patterns；`48b069f` 已作为 published `95c4023` 的 ancestor 到达
+   Hub main。
 3. **Core-py local projected and committed** — Memos/RSS Unit TDD、business pipeline、database runtime v2 与最近
    local guides 已和 implementation reconcile；commit `835f89a` 未编辑 `docs/_shared`。
 4. **Client-web local projected and committed** — peer hydration、exact semantic resolvers、PostgreSQL CRUD 与
@@ -300,11 +300,11 @@ core-py local Unit TDD promotion 已应用，只记录本仓内部 implementatio
 5. **Verification complete** — Hub `git diff --check` + SVC noop；45 relative links resolved；core-py owner docs
    Ruff-format/repository-lint green；client-web complete `pnpm check` green。Core-py full formatter only retains four
    unrelated pre-existing guide drifts。
-6. **Pending authorization** — Hub push/publication 必须先完成；随后才可单独 bump/commit Spoke shared refs。
-   Production migration 仍是独立 operation。
+6. **Owner-separated publication complete** — Hub 先发布 `95c4023`；core-py `cc8f90a` 与 client-web `8324293`
+   随后各自只提交 `docs/_shared` gitlink。Spoke push 与 production migration 仍是独立 operation。
 7. **Tactical guides repaired** — retired semantic HTTP IDs、raw-content domain terminology、scheduler dual-path、
    Memos attachment v1 与 client-web pointer-rendering docs 已修正。
 8. **Semantic retrieval projected and verified** — core-py `semantic-retrieval.md`、business-pipeline and runtime/
    development docs，client-web Peer/runtime architecture，and the Hub source PRD/Product TDD match I0–I8 implementation。
-   Credentialed DashScope Acceptance is 6/6；Hub links/diff/SVC noop are green。Hub commit/push and subsequent Spoke
-   shared-ref bumps remain separate authorization-gated owner operations。
+   Credentialed DashScope Acceptance is 6/6；Hub links/diff/SVC noop are green。Hub publication and both exact Spoke
+   shared-ref commits are complete without mixing owners。

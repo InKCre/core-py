@@ -1,6 +1,6 @@
 # Semantic Retrieval Implementation Plan
 
-- **Status**: closed；I0–I8 implementation and credentialed Acceptance complete，publication operations pending authorization。
+- **Status**: closed；I0–I8 implementation、credentialed Acceptance and owner-separated shared-truth promotion complete。
 - **Inputs**: approved Product/Technical/Acceptance decisions through D-196，current core-py/client-web code and delivered
   core-py migration head `c0d1e2f3a4b5`。
 - **Delivery rule**: one product unit，multiple coherent increments。Each increment must leave its repository internally
@@ -342,8 +342,8 @@ graph entities and rebuild vectors only after an explicit/default Profile is con
   capability advertisements。This repairs stale `CLIENT_*`/`LLM_SP_*` deployment inputs discovered by the I8 runtime
   rehearsal；
 - core-py local Unit TDD and runtime/development docs now project the implemented topology。Hub source PRD/Product TDD
-  projection is prepared and passes relative-link、diff and SVC-noop checks；commit/push and Spoke ref bumps remain
-  separately authorized owner operations；
+  passes relative-link、diff and SVC-noop checks and is published as `95c4023`；core-py `cc8f90a` and client-web `8324293`
+  consume that exact commit through owner-separated pure shared-ref changes；
 - the first restored-key run exposed a malformed `qwen-plus` ToolCall and plaintext provider-key representation in the
   traceback。The adapter continued to reject malformed JSON；runtime config now models the credential with Pydantic's
   secret type and unwraps it only at SDK construction。No adapter-specific test repeats the library's `repr` behavior，and
