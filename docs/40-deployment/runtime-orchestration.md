@@ -44,6 +44,11 @@ This is a hybrid runtime model. Any future simplification must be deliberate bec
 The interval、success bound、batch size and scan page size are peer-local runtime settings。Collection and Block writes do
 not invoke embedding implicitly；all non-default Profiles require an explicit maintain/rebuild call。
 
+Deployment tooling, not a second environment setting, owns the public HTTP URL projection. It writes
+`config.http_public_base_url` on the exact registered Peer and waits until the running process republishes all three fixed
+inbounds plus a live lease. Preview/production delivery uses `scripts/configure_peer_runtime.py`; local development uses the
+same database-owned config semantics through its runtime owner.
+
 ### 4. Shutdown must close long-lived runtime resources
 
 - the APScheduler instance is shut down in application lifespan shutdown

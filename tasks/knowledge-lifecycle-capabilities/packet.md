@@ -55,10 +55,13 @@
   `full` 因混合多种 effect 不被提升为通用合同。D-075 固定九个
   `core.<kind>.v1` exact semantic content resolver IDs，abstract text/embedding capability methods，resolver-
   instance invocation，metadata block → semantic content block 命名，以及裸 `text/html/image/video` hard cut-off。
-  [Semantic retrieval](units/semantic-retrieval/packet.md) 已获 Sir 选为下一个 implementable unit；现有
-  embedding/query/resolver-to-embedding 实现只作为 evidence 与 failure sample，不构成设计约束。
-- **Next Step**: 按 semantic-retrieval closure queue 先关闭 exact producer command 与 rumination invocation/
-  repetition contract，再设计真实 corpus 驱动的 Acceptance；Peer delegation topology 已关闭，不再作为当前问题。
+  [Semantic retrieval](units/semantic-retrieval/packet.md) 的 I0–I8 均已实现，core-py checkpoint 为 `f1b2116`，
+  client-web checkpoint 为 `66d083d`；pinned corpus、真实 producer/storage/runtime vertical、deterministic
+  rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
+  Acceptance 均已通过。Hub source projection 已准备并验证；剩余只是明确授权后的 owner-separated commit/push 与
+  shared-ref bumps。
+- **Next Step**: 经 Sir 明确授权后整理 core-py、client-web 与 Hub 各自的 commit；先 push Hub，再让两个 Spoke 各自
+  bump/commit `docs/_shared`，随后把 semantic-retrieval 标记为完整发布并选择下一个 implementable unit。
 
 ## Program Boundary
 
@@ -74,9 +77,10 @@
 
 ## Active Implementable Unit
 
-当前 active implementable unit 是 [Semantic retrieval](units/semantic-retrieval/packet.md)，处于 Design
-consolidation。Product boundary 与主要 Technical topology 已确认；exact producer/rumination edge、Acceptance、
-implementation plan 和 preflight 仍未关闭。已有实现不获得 grandfathered authority。
+当前 active implementable unit 是 [Semantic retrieval](units/semantic-retrieval/packet.md)，其 I0–I8
+implementation 与 real-provider Acceptance 已关闭。Product、Technical、Acceptance、Implementation Plan、Preflight、
+Impact Handshake 与 Explicit Start 均已关闭；当前只等待授权后的 owner-separated publication operations，不重新
+打开已获批 topology。
 
 [RSS extension hardening](units/rss-extension-hardening/packet.md) 已完成，不因 semantic retrieval 消费其
 resolver/hydration contract 而重新打开。

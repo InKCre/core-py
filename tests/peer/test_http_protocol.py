@@ -6,7 +6,7 @@ import asyncio
 import typing
 import uuid
 
-import httpx2
+import httpx
 import jwt
 import pytest
 
@@ -21,7 +21,7 @@ def _peer() -> PeerModel:
 
 
 class _AsyncClient:
-  response: httpx2.Response | Exception
+  response: httpx.Response | Exception
   request_arguments: dict = {}
 
   def __init__(self, **_kwargs):
@@ -41,14 +41,14 @@ class _AsyncClient:
 
 
 def test_http_outbound_preserves_query_body_and_peer_auth(monkeypatch):
-  request = httpx2.Request("POST", "https://provider.example/semantic-retrieval")
-  _AsyncClient.response = httpx2.Response(
+  request = httpx.Request("POST", "https://provider.example/semantic-retrieval")
+  _AsyncClient.response = httpx.Response(
     200,
     request=request,
     headers=[("X-Trace", "one"), ("X-Trace", "two")],
     json={"matches": []},
   )
-  monkeypatch.setattr(peer_http.httpx2, "AsyncClient", _AsyncClient)
+  monkeypatch.setattr(peer_http.httpx, "AsyncClient", _AsyncClient)
   outbound = PeerHTTPOutbound(
     _peer(),
     {"method": "post", "url": str(request.url)},
@@ -89,9 +89,9 @@ def test_http_outbound_preserves_query_body_and_peer_auth(monkeypatch):
 
 
 def test_http_outbound_preserves_empty_204(monkeypatch):
-  request = httpx2.Request("POST", "https://provider.example/organization/ruminate")
-  _AsyncClient.response = httpx2.Response(204, request=request)
-  monkeypatch.setattr(peer_http.httpx2, "AsyncClient", _AsyncClient)
+  request = httpx.Request("POST", "https://provider.example/organization/ruminate")
+  _AsyncClient.response = httpx.Response(204, request=request)
+  monkeypatch.setattr(peer_http.httpx, "AsyncClient", _AsyncClient)
 
   result = asyncio.run(
     PeerHTTPOutbound(
@@ -104,13 +104,13 @@ def test_http_outbound_preserves_empty_204(monkeypatch):
 
 
 def test_http_outbound_uses_exact_non_execution_proof(monkeypatch):
-  request = httpx2.Request("POST", "https://provider.example/organization/ruminate")
-  _AsyncClient.response = httpx2.Response(
+  request = httpx.Request("POST", "https://provider.example/organization/ruminate")
+  _AsyncClient.response = httpx.Response(
     503,
     request=request,
     headers={"InkCre-Peer-Execution": "not-executed"},
   )
-  monkeypatch.setattr(peer_http.httpx2, "AsyncClient", _AsyncClient)
+  monkeypatch.setattr(peer_http.httpx, "AsyncClient", _AsyncClient)
 
   with pytest.raises(PeerRequestNotExecuted):
     asyncio.run(
@@ -125,16 +125,16 @@ def test_http_outbound_uses_exact_non_execution_proof(monkeypatch):
   ("failure", "expected"),
   [
     (
-      httpx2.ConnectError(
+      httpx.ConnectError(
         "connect failed",
-        request=httpx2.Request("POST", "https://provider.example"),
+        request=httpx.Request("POST", "https://provider.example"),
       ),
       PeerRequestNotExecuted,
     ),
     (
-      httpx2.ReadTimeout(
+      httpx.ReadTimeout(
         "response unknown",
-        request=httpx2.Request("POST", "https://provider.example"),
+        request=httpx.Request("POST", "https://provider.example"),
       ),
       PeerOutcomeUnknown,
     ),
@@ -146,7 +146,7 @@ def test_http_outbound_separates_pre_and_post_dispatch_failures(
   expected,
 ):
   _AsyncClient.response = failure
-  monkeypatch.setattr(peer_http.httpx2, "AsyncClient", _AsyncClient)
+  monkeypatch.setattr(peer_http.httpx, "AsyncClient", _AsyncClient)
 
   with pytest.raises(expected):
     asyncio.run(

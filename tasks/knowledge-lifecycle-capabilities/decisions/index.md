@@ -42,7 +42,7 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-196](D191-D200.md)。
+- Latest confirmed decision: [D-197](D191-D200.md)。
 - Active unit: [Semantic Retrieval](../units/semantic-retrieval/packet.md)。
 - Active technical surface: [Peer delegation](../units/semantic-retrieval/technical-design/peer-delegation.md) and
   [delivery map](../units/semantic-retrieval/delivery-map.md)。

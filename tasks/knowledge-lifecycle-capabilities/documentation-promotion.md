@@ -2,7 +2,8 @@
 
 ## Control
 
-- **Mode**: promotion projected and committed by owner。Memos/RSS/common contracts 已投影到 Hub source、core-py
+- **Mode**: Memos/RSS promotion projected and committed by owner；semantic-retrieval implementation、real-provider
+  Acceptance、local projection and Hub source projection complete，publication pending authorization。Memos/RSS/common contracts 已投影到 Hub source、core-py
   Unit/deployment docs 与 client-web local architecture，并分别提交为 Hub `48b069f`、core-py `835f89a`、
   client-web `765b22f`；尚未 push、Hub publication 或 bump either Spoke `docs/_shared`。
 - **Apply gate**: unresolved discussion pressure remains here；stable design + verified implementation triggers
@@ -80,7 +81,24 @@
 
 - 当前 backend MVP 没有剩余 Product blocker；其余未决项属于 Technical/Acceptance gates。
 - 其他 collection units 的用户可见 partial success、delay、delete 与 compatibility semantics。
-- organization 和三类 retrieval 的完整可观察行为与质量门槛。
+- feature retrieval 与 graph-navigation retrieval 的完整可观察行为与质量门槛。Semantic retrieval MVP 已形成
+  稳定合同、real-provider 实现证据和 Hub source projection，不再与另外两类 retrieval 捆绑。
+
+### Semantic retrieval batch projected to Hub source
+
+- semantic retrieval 返回按相似度排序的现有 Blocks/Relations 与 score metadata，不生成 answer、transient chunk
+  或 Chat/RAG product behavior；
+- organization 保持为改善 use 的 graph mutation；本 MVP 的 explicit rumination 围绕一个 focal Block 反刍，
+  可以 additive no-op/增图，但不替代或删除原 Block；
+- embedding records 是 profile-scoped、可重建的 use support，information authority 仍是 graph；candidate maintenance
+  与 retrieval 分离，stale records 在显式 maintenance 前不可用；
+- exact capability discovery 与 invocation 分离；Peer advertisement 只陈述 capability/inbound/lease，业务 facade
+  通过 PeerManager 做 opaque delegation，provider inbound 必须进入 non-delegating local path；
+- generic capability invoke endpoint、delegation job、readiness advertisement、persistent Agent Thread/checkpoint、ANN/
+  HNSW、pagination 和 transient segment layer 均不属于本 MVP；
+- Acceptance authority 是经过真实 Memos/RSS/Atom/HTML/storage/rumination 边界形成的 pinned corpus graph；可读 alias
+  只属于测试 harness，不进入 production model/API。Deterministic vectors 证明 control flow，不替代 credentialed
+  provider semantic-quality authority。
 
 ## Candidate Hub Product TDD Batch
 
@@ -286,3 +304,7 @@ core-py local Unit TDD promotion 已应用，只记录本仓内部 implementatio
    Production migration 仍是独立 operation。
 7. **Tactical guides repaired** — retired semantic HTTP IDs、raw-content domain terminology、scheduler dual-path、
    Memos attachment v1 与 client-web pointer-rendering docs 已修正。
+8. **Semantic retrieval projected and verified** — core-py `semantic-retrieval.md`、business-pipeline and runtime/
+   development docs，client-web Peer/runtime architecture，and the Hub source PRD/Product TDD match I0–I8 implementation。
+   Credentialed DashScope Acceptance is 6/6；Hub links/diff/SVC noop are green。Hub commit/push and subsequent Spoke
+   shared-ref bumps remain separate authorization-gated owner operations。

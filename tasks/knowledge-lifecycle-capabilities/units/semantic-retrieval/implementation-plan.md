@@ -1,6 +1,6 @@
 # Semantic Retrieval Implementation Plan
 
-- **Status**: approved and executing；I0–I6 closed，I7 active。
+- **Status**: closed；I0–I8 implementation and credentialed Acceptance complete，publication operations pending authorization。
 - **Inputs**: approved Product/Technical/Acceptance decisions through D-196，current core-py/client-web code and delivered
   core-py migration head `c0d1e2f3a4b5`。
 - **Delivery rule**: one product unit，multiple coherent increments。Each increment must leave its repository internally
@@ -325,6 +325,34 @@ graph entities and rebuild vectors only after an explicit/default Profile is con
 - update client-web local architecture and shared-ref only through its own repository workflow；
 - no Hub edit、shared-ref bump and Spoke code are combined in one commit。
 
+### Execution evidence
+
+- the manifest pins the official SQLite Architecture HTML by digest and keeps all readable aliases inside the Acceptance
+  harness；a structural check rejects those aliases from production modules、schemas and migrations；
+- the real producer vertical exercises Memos memo/comment/attachment、RSS and Atom collection、full-text hydration、RSS
+  enclosure download and PostgreSQL binary storage，then removes every produced graph/config/catalog row；
+- the deterministic AI control vertical exercises the real Resolver draft Tools、Agent Tool-call loop、GraphForm submit、
+  embedding maintenance and global Block/Relation ranking without replacing any producer、graph or retrieval boundary；
+- the disposable PostgreSQL integration selection passes 31 tests with three intentional environment/protocol skips；the
+  complete Acceptance suite passes six tests with real DashScope `qwen3.6-plus` tool calls and `text-embedding-v4`
+  vectors，including all four quality judgments；
+- the full core-py check passes 377 tests with 34 intentional skips；client-web's built browser artifact passes all four
+  real database/Core Peer journeys；
+- deployment delivery now writes Peer-local public-base config into the database and waits for the exact three live
+  capability advertisements。This repairs stale `CLIENT_*`/`LLM_SP_*` deployment inputs discovered by the I8 runtime
+  rehearsal；
+- core-py local Unit TDD and runtime/development docs now project the implemented topology。Hub source PRD/Product TDD
+  projection is prepared and passes relative-link、diff and SVC-noop checks；commit/push and Spoke ref bumps remain
+  separately authorized owner operations；
+- the first restored-key run exposed a malformed `qwen-plus` ToolCall and plaintext provider-key representation in the
+  traceback。The adapter continued to reject malformed JSON；runtime config now models the credential with Pydantic's
+  secret type and unwraps it only at SDK construction。No adapter-specific test repeats the library's `repr` behavior，and
+  this local correction does not pretend to supply a repository-wide observability redaction boundary。The accepted run
+  uses the provider's current function-calling model rather than adding retry/fallback behavior；
+- bounded ranking treats an omitted distractor as below the returned bound only after independently proving every judged
+  Block owns a fresh compatible embedding。This closes the harness error without enlarging the product result limit or
+  shaping production retrieval for the fixture。
+
 ## Migration And Cross-Repository Sequence
 
 1. Append a config/timestamp revision。
@@ -344,7 +372,7 @@ graph entities and rebuild vectors only after an explicit/default Profile is con
 The migrations may be regrouped if Alembic/autogenerate evidence shows one split would create an invalid intermediate
 metadata state，but the three ownership boundaries above must remain visible in review and verification。
 
-## Preflight Findings And Remaining Checks
+## Preflight Findings And Execution Resolution
 
 ### Already established
 
@@ -382,10 +410,12 @@ metadata state，but the three ownership boundaries above must remain visible in
   integrity checker is presently built around one linked hard cut。D-195 therefore chooses a clean shared-database rebuild
   without squashing the chain into a risky monolith or expanding migration-history protocol solely for aesthetics。
 
-### Before execution handshake
+### Closed during execution
 
-- inspect the generated Alembic candidate DDL、protocol grants/sequences and schema-qualified PostgREST exposure after
-  schema implementation exists；
-- record every resolver's `get_text()`/`get_label()`/create-graph obligations in the execution checklist；
-- fix the exact Resolver text/label/create-graph execution checklist using D-194 identities；
-- prepare the repository/cross-repository Impact Handshake after the exact file/migration candidates exist。
+- generated Alembic DDL、protocol grants/sequences、schema-qualified PostgREST exposure and a clean disposable runtime were
+  verified before I7/I8；
+- the Resolver execution checklist records exact `get_text()`/`get_label()`/create-graph obligations and the implemented
+  code uses D-194 identities；
+- the repository/cross-repository Impact Handshake bounded core-py、client-web、runtime and durable-owner mutations；
+- remaining work is evidence/promotion only：run the credentialed provider journey，then apply Hub/shared operations under
+  their own workflow and authorization boundaries。

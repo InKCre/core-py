@@ -30,7 +30,7 @@ class OpenAICompatibleConfig(pydantic.BaseModel):
 
   model_config = pydantic.ConfigDict(extra="forbid")
 
-  api_key: str = pydantic.Field(min_length=1)
+  api_key: pydantic.SecretStr
   base_url: str | None = pydantic.Field(default=None, min_length=1)
 
 
@@ -52,7 +52,10 @@ class OpenAICompatibleDialect(AIDialectAdapter):
 
   @staticmethod
   def _create_client(config: OpenAICompatibleConfig) -> AsyncOpenAI:
-    return AsyncOpenAI(api_key=config.api_key, base_url=config.base_url)
+    return AsyncOpenAI(
+      api_key=config.api_key.get_secret_value(),
+      base_url=config.base_url,
+    )
 
   @staticmethod
   def _config(config: pydantic.BaseModel) -> OpenAICompatibleConfig:

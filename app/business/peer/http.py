@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import json
 import typing
 
-import httpx2
+import httpx
 import pydantic
 
 from app.middleware import create_peer_jwt
@@ -133,13 +133,13 @@ class PeerHTTPOutbound:
       kwargs["json"] = request.body
 
     try:
-      async with httpx2.AsyncClient(
+      async with httpx.AsyncClient(
         timeout=settings.peer_http_timeout_seconds,
       ) as client:
         response = await client.request(**kwargs)
-    except (httpx2.ConnectError, httpx2.ConnectTimeout, httpx2.PoolTimeout) as error:
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as error:
       raise PeerRequestNotExecuted(f"Could not dispatch to Peer {self.peer.id}") from error
-    except httpx2.RequestError as error:
+    except httpx.RequestError as error:
       raise PeerOutcomeUnknown(
         f"Peer {self.peer.id} dispatch outcome is unknown"
       ) from error
