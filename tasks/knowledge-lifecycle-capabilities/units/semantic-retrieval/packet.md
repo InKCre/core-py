@@ -1,8 +1,9 @@
 # Semantic Retrieval
 
 - **Unit ID**: `semantic-retrieval`。
-- **State**: **Implementation and Acceptance complete；I0–I8 closed，owner-separated publication pending**。The requested implementation checkpoint is core-py commit
-  `f1b2116` plus client-web commit `66d083d`。I0 now provides
+- **State**: **Closed；I0–I8、Acceptance and shared-truth promotion complete**。The implementation closure is core-py
+  `b80e5fd` plus client-web `ca4899c`；Hub `95c4023` is published，then core-py `cc8f90a` and client-web `8324293`
+  consume it through pure shared-ref commits。I0 provides
   ConfigContract、deployment-scoped `configs`、honest PUT/PATCH routes、Extension config reuse and no-op-aware database-owned
   timestamps for Blocks/Relations/Configs。I1 hard-cuts producer Forms from database Models，preserves recursive
   `StarsGraphForm` authoring and adds signed-ID flat `GraphForm` normalization/submission。I2 adds shared AI facts、one
@@ -19,7 +20,7 @@
   producer/storage/rumination/retrieval vertical、deployment Peer convergence and local durable projections。The complete
   credentialed journey passes with DashScope `qwen3.6-plus` + `text-embedding-v4`，including real Agent tool calls、graph
   submission and all four semantic judgments。The run also exposed and closed API-key repr disclosure plus one bounded-
-  ranking harness error；Hub PRD/Product-TDD projection is prepared in its source worktree but remains uncommitted/unpushed。
+  ranking harness error；Hub PRD/Product-TDD truth and both Spoke references now match the verified implementation。
 - **Objective**: let a deployment owner submit a natural-language intent and receive ranked existing Block/Relation
   matches，while a minimum organization rumination path can improve an info-base whose collected roots are too coarse for
   useful retrieval。
@@ -28,11 +29,9 @@
   derived support。Existing embedding/query/RAG code is evidence and failure material，not a compatibility surface。
 - **Primary evidence**: real Memos and RSS graphs，exact resolver/hydration/storage contracts，current pgvector and AI
   split-brain implementation，and the relation-producer audit。
-- **Active mode**: closure publication。Implementation、real-provider Acceptance、local durable projection and Hub source
-  draft are closed。Commit/push and shared-ref bumps remain distinct authorization-gated owner operations。
-- **Next step**: after Sir authorizes the owner-separated commits，commit core-py and client-web implementation/local docs；
-  commit then push the Hub source projection；only after that pushed Hub hash exists，bump each Spoke `docs/_shared` ref in
-  its own commit and mark the unit fully published。
+- **Active mode**: closed。No product、technical、implementation、verification or promotion work remains in this unit。
+- **Next step**: return to the program packet and select another implementable unit。Spoke branch push and production
+  mutation remain separately authorized delivery operations，not semantic-retrieval design work。
 
 ## Control Gates
 
@@ -45,7 +44,7 @@
 | Preflight | Closed for start | topology、SDK、Resolver、production、artifact、corpus and reset branches inspected；generated DDL is an execution-time evidence gate |
 | Impact Handshake | Approved | [bounded cross-repo/runtime state diff](impact-handshake.md) names objects、blast radius、invariants、verification and uncertainty |
 | Explicit Start / Execute | Granted | Sir said “开始”；execution resumes immediately after the requested clean baseline commit |
-| Verify / Promote | Acceptance closed；publication pending | latest core check and six-test credentialed Acceptance pass；Hub source projection validates，but commit/push/ref bumps require separate authorization |
+| Verify / Promote | Closed | core 377-test check and six-test credentialed Acceptance pass；Hub `95c4023` published first，then exact pure ref commits landed in both Spokes |
 
 Only this packet owns unit phase、gate and next step。Topic files own current task-state contracts；the
 [decision register](../../decisions/index.md) alone owns decision history。
@@ -169,8 +168,8 @@ The dependency-ordered implementation decomposition is tracked separately in the
 
 Execute the approved dependency order，keeping each increment independently reviewable and evidenced。
 
-1. **Closure publication**: preserve repository ownership while committing/publishing Hub first and bumping Spoke shared
-   refs only to the pushed Hub hash。No further product/technical implementation increment remains in this unit。
+1. **Closed**: repository ownership was preserved：Hub `95c4023` was published first，then each Spoke committed only its
+   gitlink to that exact pushed hash。No further product/technical implementation increment remains in this unit。
 
 Producer grammar is closed through D-179。Base Forms omit database-managed state；flat GraphForm uses signed IDs for one-
 command creation/reference；StarsGraphForm remains the recursive Resolver/extension authoring representation；the current

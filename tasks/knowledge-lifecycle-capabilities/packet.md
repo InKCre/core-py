@@ -16,8 +16,9 @@
   [RSS extension hardening](units/rss-extension-hardening/packet.md) 的 B0–B8 implementation/verification 与 durable
   reconciliation 也已完成，并于 2026-08-03 通过 Sir 的最终验收复审；
   Hub PRD/Product TDD、core-py Unit/deployment docs 与 client-web info-base architecture 已跟随已验证实现投影并
-  分别提交为 Hub `48b069f`、core-py `835f89a`、client-web `765b22f`。Push、Hub publication、Spoke
-  shared-ref bump 与 production migration 仍是独立授权操作。
+  分别提交为 Hub `48b069f`、core-py `835f89a`、client-web `765b22f`。Hub commit 已随
+  semantic-retrieval shared batch 发布，两个 Spoke 也已在各自本地 main 上消费该 published Hub head；Spoke push
+  与 production migration 仍是独立授权操作。
   RSS hardening 方向与
   black-box-first acceptance strategy 已获 Sir 接受；D-050 固定 feed-authored content / independent
   full-text enrichment authority，D-051 固定保留 extension identity 的 behavior rewrite 与成熟第三方库
@@ -55,13 +56,13 @@
   `full` 因混合多种 effect 不被提升为通用合同。D-075 固定九个
   `core.<kind>.v1` exact semantic content resolver IDs，abstract text/embedding capability methods，resolver-
   instance invocation，metadata block → semantic content block 命名，以及裸 `text/html/image/video` hard cut-off。
-  [Semantic retrieval](units/semantic-retrieval/packet.md) 的 I0–I8 均已实现，core-py checkpoint 为 `f1b2116`，
-  client-web checkpoint 为 `66d083d`；pinned corpus、真实 producer/storage/runtime vertical、deterministic
+  [Semantic retrieval](units/semantic-retrieval/packet.md) 的 I0–I8 均已实现，core-py closure commit 为 `b80e5fd`，
+  client-web closure commit 为 `ca4899c`；pinned corpus、真实 producer/storage/runtime vertical、deterministic
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
-  Acceptance 均已通过。Hub source projection 已准备并验证；剩余只是明确授权后的 owner-separated commit/push 与
-  shared-ref bumps。
-- **Next Step**: 经 Sir 明确授权后整理 core-py、client-web 与 Hub 各自的 commit；先 push Hub，再让两个 Spoke 各自
-  bump/commit `docs/_shared`，随后把 semantic-retrieval 标记为完整发布并选择下一个 implementable unit。
+  Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
+  消费该 exact shared truth。该 implementable unit 已关闭。
+- **Next Step**: 选择下一个 implementable unit。两个 Spoke main 的 push 与任何 production mutation 仍需独立授权，
+  不重新打开 semantic-retrieval implementation unit。
 
 ## Program Boundary
 
@@ -77,10 +78,9 @@
 
 ## Active Implementable Unit
 
-当前 active implementable unit 是 [Semantic retrieval](units/semantic-retrieval/packet.md)，其 I0–I8
-implementation 与 real-provider Acceptance 已关闭。Product、Technical、Acceptance、Implementation Plan、Preflight、
-Impact Handshake 与 Explicit Start 均已关闭；当前只等待授权后的 owner-separated publication operations，不重新
-打开已获批 topology。
+当前没有 active implementable unit。[Semantic retrieval](units/semantic-retrieval/packet.md) 的 Product、Technical、
+Acceptance、Implementation Plan、Preflight、Impact Handshake、Execute、Verify 与 shared-truth promotion 均已关闭；
+下一单元尚未选择。
 
 [RSS extension hardening](units/rss-extension-hardening/packet.md) 已完成，不因 semantic retrieval 消费其
 resolver/hydration contract 而重新打开。
