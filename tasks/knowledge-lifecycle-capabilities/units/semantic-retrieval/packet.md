@@ -1,7 +1,8 @@
 # Semantic Retrieval
 
 - **Unit ID**: `semantic-retrieval`。
-- **State**: **Implementation in progress；I0–I6 closed**。The requested clean baseline is commit `5df3a0f`。I0 now provides
+- **State**: **Implementation and Acceptance complete；I0–I8 closed，owner-separated publication pending**。The requested implementation checkpoint is core-py commit
+  `f1b2116` plus client-web commit `66d083d`。I0 now provides
   ConfigContract、deployment-scoped `configs`、honest PUT/PATCH routes、Extension config reuse and no-op-aware database-owned
   timestamps for Blocks/Relations/Configs。I1 hard-cuts producer Forms from database Models，preserves recursive
   `StarsGraphForm` authoring and adds signed-ID flat `GraphForm` normalization/submission。I2 adds shared AI facts、one
@@ -11,9 +12,14 @@
   Block/Relation retrieval。I5 adds explicit focal-Block rumination，Resolver-owned on-demand draft contracts，three bounded
   Agent Tools and additive GraphForm submission while removing the obsolete implicit Block organize hook。I6 hard-cuts
   technical Client→Peer，adds structured capability snapshots、database-time leases、opaque exact-capability routing、the
-  normalized Peer HTTP/JWT protocol and three fixed business inbounds。The full repository check is green at 370 passed /
-  31 environment-gated skipped；12 real PostgreSQL Config、Graph、AI、Agent、retrieval、organization and Peer integration
-  cases pass together。
+  normalized Peer HTTP/JWT protocol and three fixed business inbounds。I7 syncs the v3 contract into client-web，removes
+  technical Client request shortcuts，adds typed Peer HTTP/delegation、Extension exact-target commands and explicit
+  BlockDetailsPanel rumination。The client-web full check is green at 68 tests，the real browser/database/Core Peer journey
+  passes 4/4，and the built Chromium extension smoke passes 1/1。I8 now adds the pinned authoritative corpus、real
+  producer/storage/rumination/retrieval vertical、deployment Peer convergence and local durable projections。The complete
+  credentialed journey passes with DashScope `qwen3.6-plus` + `text-embedding-v4`，including real Agent tool calls、graph
+  submission and all four semantic judgments。The run also exposed and closed API-key repr disclosure plus one bounded-
+  ranking harness error；Hub PRD/Product-TDD projection is prepared in its source worktree but remains uncommitted/unpushed。
 - **Objective**: let a deployment owner submit a natural-language intent and receive ranked existing Block/Relation
   matches，while a minimum organization rumination path can improve an info-base whose collected roots are too coarse for
   useful retrieval。
@@ -22,11 +28,11 @@
   derived support。Existing embedding/query/RAG code is evidence and failure material，not a compatibility surface。
 - **Primary evidence**: real Memos and RSS graphs，exact resolver/hydration/storage contracts，current pgvector and AI
   split-brain implementation，and the relation-producer audit。
-- **Active mode**: I7 client-web Peer consumers。Port the admitted v3 protocol projection，then replace technical Client
-  identity/request shortcuts with typed Peer discovery/outbound delegation and migrate Extension、organization and semantic
-  retrieval consumers without changing user-facing “client” copy indiscriminately。
-- **Next step**: inspect client-web's package/runtime contract、Client Active Record/request users、selected-client config UI
-  and BlockDetailsPanel graph-refresh ownership，then handshake the exact cross-repo state diff before editing that repository。
+- **Active mode**: closure publication。Implementation、real-provider Acceptance、local durable projection and Hub source
+  draft are closed。Commit/push and shared-ref bumps remain distinct authorization-gated owner operations。
+- **Next step**: after Sir authorizes the owner-separated commits，commit core-py and client-web implementation/local docs；
+  commit then push the Hub source projection；only after that pushed Hub hash exists，bump each Spoke `docs/_shared` ref in
+  its own commit and mark the unit fully published。
 
 ## Control Gates
 
@@ -39,7 +45,7 @@
 | Preflight | Closed for start | topology、SDK、Resolver、production、artifact、corpus and reset branches inspected；generated DDL is an execution-time evidence gate |
 | Impact Handshake | Approved | [bounded cross-repo/runtime state diff](impact-handshake.md) names objects、blast radius、invariants、verification and uncertainty |
 | Explicit Start / Execute | Granted | Sir said “开始”；execution resumes immediately after the requested clean baseline commit |
-| Verify / Promote | Pending | pass Acceptance，then reconcile code、Hub/shared docs、local TDD and deployment owners |
+| Verify / Promote | Acceptance closed；publication pending | latest core check and six-test credentialed Acceptance pass；Hub source projection validates，but commit/push/ref bumps require separate authorization |
 
 Only this packet owns unit phase、gate and next step。Topic files own current task-state contracts；the
 [decision register](../../decisions/index.md) alone owns decision history。
@@ -55,8 +61,8 @@ Only this packet owns unit phase、gate and next step。Topic files own current 
 | I4 semantic records/retrieval | Closed | exact resolver ID/label structural proof；real PostgreSQL unavailable scan、atomic batch、freshness、dimension、global ranking/default and route evidence；local DB reset removed unreleased legacy IDs |
 | I5 organization rumination | Closed | full check；real PostgreSQL context + draft/submit and complete Organization→Agent→Tools repeated-additive journeys；route/no-op/config/budget/cancel proofs |
 | I6 core Peer delivery | Closed | full check；migration downgrade→upgrade + roles/readiness；real PostgreSQL snapshot/lease/discovery；JWT/envelope/failover/target/CORS and three fixed inbound proofs |
-| I7 client-web Peer consumers | Active | inspect generated DB contract、technical Client/request consumers and BlockDetailsPanel ownership before the hard cut |
-| I8 vertical Acceptance | Pending | closes runtime、corpus、shared docs and promotion evidence |
+| I7 client-web Peer consumers | Closed | v3 contract sync；technical Peer hard cut；68-test full check；real Web Peer 4/4 and Chromium extension 1/1 E2E |
+| I8 vertical Acceptance | Closed | pinned corpus + alias isolation；real Memos/RSS/Atom/HTML/PostgreSQL producer vertical；real DashScope Agent/GraphForm/embedding quality 6/6；377-test full check；31-test real-DB suite；real Peer Web E2E 4/4；Chromium 1/1；Hub source projection validates |
 
 ## Design Discussion Taste（guidelines，not contracts）
 
@@ -74,6 +80,12 @@ evidence、an approved contract or a concrete requirement。
 - **Do not strengthen invariants without value/evidence**: input constraints should match the actual authority and useful
   product invariant。A referenced bigint Agent identity is `int` here；do not invent `PositiveInt` when neither the
   database contract nor behavior requires that stronger rule。Existence remains a use-time reference check。
+- **Decide proof ownership before adding a test**: do not turn every incident into a regression test。Test behavior owned
+  by InKCre when a legitimate implementation change could violate a valuable contract；prefer black-box evidence for that
+  boundary。When an incident came from bypassing or misusing a mature library/abstraction and the corrected type、module
+  boundary or static mechanism already makes the rule structural，repair that baseline instead of retesting the dependency。
+  If the missing owner is shared infrastructure such as observability redaction，record that pressure and eventually test
+  the shared boundary once，not each secret field or adapter。
 
 ## Unit-local Anti-patterns
 
@@ -157,9 +169,8 @@ The dependency-ordered implementation decomposition is tracked separately in the
 
 Execute the approved dependency order，keeping each increment independently reviewable and evidenced。
 
-1. **I7 client-web delivery**: sync the v3 database protocol，hard-cut technical Client→Peer and migrate exact business
-   capability consumers onto PeerManager + PeerHTTPOutbound。
-2. **I8 Acceptance/promotion**: execute the authoritative corpus/runtime journeys，then reconcile durable owners。
+1. **Closure publication**: preserve repository ownership while committing/publishing Hub first and bumping Spoke shared
+   refs only to the pushed Hub hash。No further product/technical implementation increment remains in this unit。
 
 Producer grammar is closed through D-179。Base Forms omit database-managed state；flat GraphForm uses signed IDs for one-
 command creation/reference；StarsGraphForm remains the recursive Resolver/extension authoring representation；the current

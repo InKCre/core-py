@@ -41,6 +41,11 @@ Peers must consume that exact profile/descriptor. Sharing only an SSH alias, dae
 or contract version does not prove that core-py and client-web use the same database.
 Only core-py owns Compose startup, reset, volume deletion, credentials, and tunnel cleanup.
 
+After core and PostgREST are reachable, the owner projects the dynamic core loopback URL into the core Peer's
+database-owned `config.http_public_base_url`. It then waits for that exact Peer to publish the three built-in HTTP
+capabilities and a live database-time lease before writing a converged descriptor. Attached client-web runtimes only verify
+that snapshot; they do not rewrite the owner Peer, reset the database, or stop the owner runtime.
+
 ## Shared Runtime Boundary Diagnostics
 
 An attached peer proves the selected database runtime by matching the owner descriptor and
@@ -121,9 +126,19 @@ Commonly needed:
 - `PEER_LEASE_TTL_SECONDS`
 - `PEER_LEASE_RENEW_INTERVAL_SECONDS`
 - `PEER_HTTP_TIMEOUT_SECONDS`
-- `LLM_SP_AK`
-- `LLM_SP_BASE_URL`
+- `SEMANTIC_RETRIEVAL_MAINTENANCE_INTERVAL_SECONDS`
+- `SEMANTIC_RETRIEVAL_MAINTENANCE_MAX_EMBEDDINGS`
+- `SEMANTIC_RETRIEVAL_MAINTENANCE_BATCH_SIZE`
+- `SEMANTIC_RETRIEVAL_MAINTENANCE_SCAN_PAGE_SIZE`
 - `OBSRV__*`
+
+AI Provider credentials and base URLs are shared deployment facts stored in `ai_providers.config`; they are not runtime
+environment variables. The OpenAI-compatible adapter validates that database config at use time.
+
+Credentialed semantic-quality acceptance is explicit and separate from the ordinary repository check. It requires
+`INKCRE_ACCEPTANCE_AI_API_KEY`, optional `INKCRE_ACCEPTANCE_AI_BASE_URL`, exact embedding/chat model IDs and an explicitly
+selected migrated `INKCRE_TEST_DATABASE_URL`; see the local Semantic Retrieval Unit TDD for the command and pass/fail
+authority.
 
 ## Database Branch Workflow In CI
 

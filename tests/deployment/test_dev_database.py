@@ -1,7 +1,9 @@
 """Tests for development runtime ownership and instance provenance."""
 
 from pathlib import Path
+import datetime
 
+import jwt
 import pytest
 
 from scripts import dev_database
@@ -150,3 +152,47 @@ def test_reused_runtime_refreshes_complete_artifact_contract(monkeypatch):
   assert state["source_revision"] == "c" * 40
   assert state["source_fingerprint"] == "d" * 64
   assert state["core_image"] == f"inkcre-core-py-development:{'c' * 12}"
+
+
+def test_development_peer_token_uses_canonical_contract():
+  key_material = "development-peer-token-secret-at-least-32-bytes"
+
+  authorization = dev_database._peer_authorization({"JWT_SECRET": key_material})
+
+  assert authorization.startswith("Bearer ")
+  claims = jwt.decode(
+    authorization.removeprefix("Bearer "),
+    key_material,
+    algorithms=["HS256"],
+    audience="inkcre-api",
+    issuer="inkcre-peer",
+  )
+  assert claims["role"] == "authenticated"
+  assert claims["exp"] - claims["iat"] == 60
+
+
+def test_development_peer_snapshot_requires_exact_live_capabilities():
+  core_url = "http://127.0.0.1:51002/"
+  peer = {
+    "lease_expires_at": (
+      datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=60)
+    ).isoformat(),
+    "capabilities": [
+      {
+        "id": capability,
+        "inbound": {
+          "protocol": "core.peer.protocol.http.v1",
+          "parameters": {
+            "method": "POST",
+            "url": f"{core_url.rstrip('/')}{path}",
+          },
+        },
+      }
+      for capability, path in dev_database.DEVELOPMENT_CAPABILITIES.items()
+    ],
+  }
+
+  assert dev_database._peer_snapshot_ready(peer, core_url)
+
+  peer["capabilities"] = peer["capabilities"][:-1]
+  assert not dev_database._peer_snapshot_ready(peer, core_url)

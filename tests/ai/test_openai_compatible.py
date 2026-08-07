@@ -21,7 +21,7 @@ from app.schemas.ai import (
 def _factory(handler):
   def create(config: OpenAICompatibleConfig) -> AsyncOpenAI:
     return AsyncOpenAI(
-      api_key=config.api_key,
+      api_key=config.api_key.get_secret_value(),
       base_url=config.base_url,
       http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )

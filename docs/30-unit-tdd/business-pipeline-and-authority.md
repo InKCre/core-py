@@ -156,3 +156,5 @@
 这些要么属于 local `AGENTS.md`，要么属于 `docs/40-deployment/`。
 Memos 的已验证实现合同由 [memos-extension.md](memos-extension.md) 负责。
 RSS/Atom source vertical 由 [rss-extension.md](rss-extension.md) 负责。
+Semantic retrieval、embedding records 与 rumination 的内部合同由
+[semantic-retrieval.md](semantic-retrieval.md) 负责。

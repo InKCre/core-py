@@ -50,6 +50,7 @@ services:
         condition: service_completed_successfully
     environment:
       PEER_ID: 00000000-0000-4000-8000-000000000002
+      PEER_LEASE_RENEW_INTERVAL_SECONDS: ${PEER_LEASE_RENEW_INTERVAL_SECONDS:-1}
       PEER_NAME: core-py-development
       DATABASE_URL: "postgresql+psycopg://inkcre_core:${CORE_DATABASE_PASSWORD:-local-core-database-password-at-least-32-bytes}@postgres:5432/${POSTGRES_DB:-inkcre}"
       INKCRE_ENV_FILE: ""

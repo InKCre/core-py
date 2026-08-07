@@ -10,6 +10,20 @@ pressures 保留为已完成单元的 provenance，不自动成为 semantic retr
 
 ## Active-unit pressures
 
+### P-017 — Secret-safe observability is a shared boundary，not an adapter-by-adapter assertion
+
+- **Upstream**: a real AI provider failure rendered dialect configuration in an exception path and exposed a plaintext
+  credential。
+- **Broken assumption**: marking one runtime field secret or testing its `repr` proves that logs、tracebacks、structured
+  events and diagnostics cannot disclose secrets。
+- **Candidate owner**: future shared observability/error-reporting infrastructure should define sanitization at its
+  ingestion/rendering boundary；typed secret config remains the local producer-side baseline。
+- **Impact**: AI、Source、Storage、Extension and deployment diagnostics can all carry database-owned credentials。
+- **Evidence**: Pydantic `SecretStr` repairs ordinary model representation for the AI dialect，but an adapter-level test
+  would only repeat Pydantic behavior and would not exercise any repository-wide observability path。
+- **Status**: D-197 removes the false local proof and records the cross-cutting pressure。No observability subsystem is
+  introduced by the semantic-retrieval unit。
+
 ### P-001 — Canonical content requires a decoder-generation contract
 
 - **Upstream**: CanonicalMemo 直接持久化为 `block.content`，而 shape 未来可能演化。
