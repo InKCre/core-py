@@ -3,8 +3,9 @@
 ## Control
 
 - **Mode**: Memos/RSS/semantic-retrieval shared promotion published。Hub `95c4023` contains the shared batch；core-py
-  `cc8f90a` and client-web `8324293` consume that exact published head through pure shared-ref commits。Spoke-local
-  implementation/docs commits remain on their local main branches until separately authorized for push。
+  `cc8f90a` and client-web `8324293` consume that exact published head through pure shared-ref commits。Final verification
+  found client-web remote main already at `8324293` through an external/automatic push not issued by this workflow；
+  core-py implementation/docs/ref commits remain local until separately authorized for push。
 - **Apply gate**: unresolved discussion pressure remains here；stable design + verified implementation triggers
   durable projection during unit completion。Commit、push、Hub publication、shared-ref bump 与 production mutation
   remain separately authorized operations。
@@ -301,7 +302,8 @@ core-py local Unit TDD promotion 已应用，只记录本仓内部 implementatio
    Ruff-format/repository-lint green；client-web complete `pnpm check` green。Core-py full formatter only retains four
    unrelated pre-existing guide drifts。
 6. **Owner-separated publication complete** — Hub 先发布 `95c4023`；core-py `cc8f90a` 与 client-web `8324293`
-   随后各自只提交 `docs/_shared` gitlink。Spoke push 与 production migration 仍是独立 operation。
+   随后各自只提交 `docs/_shared` gitlink。client-web remote 后续被观察为已同步；core-py push 与 production
+   migration 仍是独立 operation。
 7. **Tactical guides repaired** — retired semantic HTTP IDs、raw-content domain terminology、scheduler dual-path、
    Memos attachment v1 与 client-web pointer-rendering docs 已修正。
 8. **Semantic retrieval projected and verified** — core-py `semantic-retrieval.md`、business-pipeline and runtime/

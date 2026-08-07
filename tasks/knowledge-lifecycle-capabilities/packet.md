@@ -17,8 +17,9 @@
   reconciliation 也已完成，并于 2026-08-03 通过 Sir 的最终验收复审；
   Hub PRD/Product TDD、core-py Unit/deployment docs 与 client-web info-base architecture 已跟随已验证实现投影并
   分别提交为 Hub `48b069f`、core-py `835f89a`、client-web `765b22f`。Hub commit 已随
-  semantic-retrieval shared batch 发布，两个 Spoke 也已在各自本地 main 上消费该 published Hub head；Spoke push
-  与 production migration 仍是独立授权操作。
+  semantic-retrieval shared batch 发布，两个 Spoke 也已消费该 published Hub head；final verification 显示 client-web
+  remote main 已由外部/自动 push 到 `8324293`，而 core-py main 仍仅本地。core-py push 与 production migration
+  仍是独立授权操作。
   RSS hardening 方向与
   black-box-first acceptance strategy 已获 Sir 接受；D-050 固定 feed-authored content / independent
   full-text enrichment authority，D-051 固定保留 extension identity 的 behavior rewrite 与成熟第三方库
@@ -61,8 +62,8 @@
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
   Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
   消费该 exact shared truth。该 implementable unit 已关闭。
-- **Next Step**: 选择下一个 implementable unit。两个 Spoke main 的 push 与任何 production mutation 仍需独立授权，
-  不重新打开 semantic-retrieval implementation unit。
+- **Next Step**: 选择下一个 implementable unit。core-py main push 与任何 production mutation 仍需独立授权，
+  不重新打开 semantic-retrieval implementation unit；client-web remote 已在本轮最终核对时匹配 `8324293`。
 
 ## Program Boundary
 

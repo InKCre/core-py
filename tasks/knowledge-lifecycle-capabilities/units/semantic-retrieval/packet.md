@@ -30,8 +30,9 @@
 - **Primary evidence**: real Memos and RSS graphs，exact resolver/hydration/storage contracts，current pgvector and AI
   split-brain implementation，and the relation-producer audit。
 - **Active mode**: closed。No product、technical、implementation、verification or promotion work remains in this unit。
-- **Next step**: return to the program packet and select another implementable unit。Spoke branch push and production
-  mutation remain separately authorized delivery operations，not semantic-retrieval design work。
+- **Next step**: return to the program packet and select another implementable unit。core-py branch push and production
+  mutation remain separately authorized delivery operations，not semantic-retrieval design work；client-web remote was
+  observed at `8324293` during final verification without a push issued by this workflow。
 
 ## Control Gates
 
