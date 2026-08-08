@@ -111,7 +111,9 @@ resolved from the same exact guarded branch during each delivery.
 
 Every production mutation also requires a fresh no-TTL recovery branch whose parent is the
 exact live production branch. Delivery refuses a missing, expiring, incorrectly parented,
-or unexpectedly named recovery branch.
+or unexpectedly named recovery branch. A storage-only recovery branch may be either ready
+or provider-archived; Neon restores archived branches on access, and production delivery does
+not require a running compute endpoint on the checkpoint.
 
 The current Neon plan cannot protect this branch. GitHub environment isolation, exact
 branch-ID/parent guards, serialized release execution, the durable checkpoint, and the

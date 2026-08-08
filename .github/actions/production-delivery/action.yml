@@ -68,17 +68,32 @@ runs:
         NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
         NEON_RECOVERY_BRANCH_ID: ${{ inputs.neon_recovery_branch_id }}
       run: |
+        require_equal() {
+          actual="$1"
+          expected="$2"
+          label="$3"
+          if [ "$actual" != "$expected" ]; then
+            echo "$label mismatch: expected '$expected', received '$actual'" >&2
+            exit 1
+          fi
+        }
+
         branch_json="$(
           npx --yes neonctl@2.36.0 branches get "$NEON_BRANCH_ID" \
             --project-id "$NEON_PROJECT_ID" \
             --output json \
             --no-color
         )"
-        test "$(jq -r '.id' <<<"$branch_json")" = "$NEON_BRANCH_ID"
-        test "$(jq -r '.name' <<<"$branch_json")" = "production"
-        test "$(jq -r '.parent_id' <<<"$branch_json")" = "$NEON_PARENT_BRANCH_ID"
-        test "$(jq -r '.expires_at // ""' <<<"$branch_json")" = ""
-        test "$(jq -r '.current_state' <<<"$branch_json")" = "ready"
+        require_equal "$(jq -r '.id' <<<"$branch_json")" \
+          "$NEON_BRANCH_ID" "production branch id"
+        require_equal "$(jq -r '.name' <<<"$branch_json")" \
+          "production" "production branch name"
+        require_equal "$(jq -r '.parent_id' <<<"$branch_json")" \
+          "$NEON_PARENT_BRANCH_ID" "production branch parent"
+        require_equal "$(jq -r '.expires_at // ""' <<<"$branch_json")" \
+          "" "production branch expiration"
+        require_equal "$(jq -r '.current_state' <<<"$branch_json")" \
+          "ready" "production branch state"
 
         recovery_json="$(
           npx --yes neonctl@2.36.0 branches get "$NEON_RECOVERY_BRANCH_ID" \
@@ -86,10 +101,19 @@ runs:
             --output json \
             --no-color
         )"
-        test "$(jq -r '.id' <<<"$recovery_json")" = "$NEON_RECOVERY_BRANCH_ID"
-        test "$(jq -r '.parent_id' <<<"$recovery_json")" = "$NEON_BRANCH_ID"
-        test "$(jq -r '.expires_at // ""' <<<"$recovery_json")" = ""
-        test "$(jq -r '.current_state' <<<"$recovery_json")" = "ready"
+        require_equal "$(jq -r '.id' <<<"$recovery_json")" \
+          "$NEON_RECOVERY_BRANCH_ID" "recovery branch id"
+        require_equal "$(jq -r '.parent_id' <<<"$recovery_json")" \
+          "$NEON_BRANCH_ID" "recovery branch parent"
+        require_equal "$(jq -r '.expires_at // ""' <<<"$recovery_json")" \
+          "" "recovery branch expiration"
+        case "$(jq -r '.current_state' <<<"$recovery_json")" in
+          ready|archived) ;;
+          *)
+            echo "Recovery branch is neither ready nor archived" >&2
+            exit 1
+            ;;
+        esac
         case "$(jq -r '.name' <<<"$recovery_json")" in
           backup/peer-contract-*) ;;
           *)
