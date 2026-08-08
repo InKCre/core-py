@@ -85,6 +85,12 @@ observed mailbox and do not create pressure to merge conflicting observations ac
 - [MIME RFC 2046 §5.1.4](https://www.rfc-editor.org/rfc/rfc2046.html#section-5.1.4) defines multipart/alternative parts as
   representations ordered by increasing faithfulness/preference。Plain text and HTML can therefore be retained together as
   authored alternatives rather than collapsing one into the other during collection。
+- [MIME RFC 2046 §5.1](https://www.rfc-editor.org/rfc/rfc2046.html#section-5.1) defines a multipart body as one or more body
+  parts，each with its own header area and body area；`multipart/mixed` ordering is significant while
+  `multipart/alternative` means interchangeable representations whose order conveys preference。
+- [Content-Disposition RFC 2183 §2](https://www.rfc-editor.org/rfc/rfc2183.html#section-2) makes disposition optional and
+  defines `inline` / `attachment` as presentation semantics for a MIME entity/body part。Attachment is therefore not a
+  standalone media type；filename and disposition remain source-authored metadata about separately typed content。
 
 ### Current implementation evidence
 

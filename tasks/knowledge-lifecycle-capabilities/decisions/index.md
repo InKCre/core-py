@@ -33,7 +33,7 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-211–D-220](D211-D220.md) | Mail collect-job freshness → multi-Peer direction |
 | [D-221–D-230](D221-D230.md) | Resolver behavior/content layers → SolvedContentRenderer and BlockInspector |
 | [D-231–D-240](D231-D240.md) | InfoBase web route projection → Source Block provenance |
-| [D-241–D-250](D241-D250.md) | Relation predicate normalization → current scope |
+| [D-241–D-250](D241-D250.md) | Relation predicate normalization → Mail source-native graph decomposition |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -47,6 +47,6 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-249](D241-D250.md)。
+- Latest confirmed decision: [D-250](D241-D250.md)。
 - Active unit: [Mail Extension](../units/mail-extension/packet.md)。
-- Active surface: Canonical Email root-content versus graph-owned facts；Acceptance and implementation remain pending。
+- Active surface: exact Email body/MIME-part graph grammar；Acceptance and implementation remain pending。

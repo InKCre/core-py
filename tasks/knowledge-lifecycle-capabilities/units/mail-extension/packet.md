@@ -58,8 +58,11 @@
   并同步当前 projection，不另加 refresh flag。D-248 已将 Mailbox 永久定义为 Source-scoped observed Block；不同
   Sources 不合并 Mailboxes，只让 exact occurrence / Message-ID reconciliation 复用有实际收益的 Email Block。
   D-249 已冻结 `extensions.mail.mailbox.v1` canonical content：`name/delimiter/attributes/scoped mailbox_id`；不复制
-  SourceRef、occurrence、counts 或 namespace facts。下一步冻结 Canonical Email root content 与 graph-owned facts；
-  unresolved references、内部 checkpoint/failure 与 exact remaining Resolver/graph vocabulary 随后讨论。
+  SourceRef、occurrence、counts 或 namespace facts。D-250 将 Canonical Email root 收窄为
+  `{message_id,subject,authored_at}`，text/HTML body 变为 semantic content Blocks，attachment/inline MIME parts 变为
+  metadata Blocks 并在 materialize 后指向 semantic content；同时冻结 source-native decomposition / “collect graph，
+  not just Block” common pattern。下一步冻结 exact body/MIME-part relation grammar 与有价值的 MIME ordering/grouping；
+  unresolved references、内部 checkpoint/failure 与其余 graph vocabulary 随后讨论。
 
 ## Confirmed Product Foundation
 
@@ -238,5 +241,5 @@
 | Impact Handshake + Start | Pending | durable/code state diff 获批且 Sir 明确开始 |
 | Execute / Verify / Promote | Pending | 实现、证据与 owner-specific durable projection 完成 |
 
-完整决定由 [program decision authority](../../decisions/index.md) 的 D-198–D-249 拥有；本 packet 只保留
+完整决定由 [program decision authority](../../decisions/index.md) 的 D-198–D-250 拥有；本 packet 只保留
 unit control 与 approved implications。
