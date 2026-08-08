@@ -123,7 +123,14 @@ def _set_role_attributes(
     False,
     False,
   )
-  if _role_attributes(cursor, role_name) == expected and password is None:
+  if _role_attributes(cursor, role_name) == expected:
+    if password is not None:
+      cursor.execute(
+        sql.SQL("ALTER ROLE {} WITH PASSWORD {}").format(
+          sql.Identifier(role_name),
+          sql.Literal(password),
+        )
+      )
     return
   statement = sql.SQL("ALTER ROLE {} WITH {}").format(
     sql.Identifier(role_name),
