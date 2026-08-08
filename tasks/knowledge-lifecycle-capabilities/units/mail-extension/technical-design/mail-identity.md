@@ -1,8 +1,8 @@
 # Mail Identity and Remote Occurrence
 
-- **Status**: Core occurrence semantics、MVP MAILBOXID support、Source Block provenance placement、canonical Mail relation
-  direction/content、Source deletion survival and distinct Source/Block identities/content frozen by D-239–D-244；atomic
-  cross-peer creation remains open。
+- **Status**: Core occurrence semantics、MVP MAILBOXID support、Source anchor provenance placement、canonical Mail relation
+  direction/content、Source deletion survival、distinct Source/Block identities、complete lazy-anchor command and permanent
+  source-scoped Mailbox identity frozen by D-239–D-248；Mailbox canonical content remains open。
 - **Protocol evidence**: [Message Identity Facts](../evidence.md#message-identity-facts)。
 - **Correction pressure**: 不把 local Email identity、跨 occurrence reconciliation 与 IMAP remote occurrence
   locator 误认为同一种 identity；但 collection 可以把后两者组织成有明确 scope 的 reconciliation ladder。
@@ -26,9 +26,9 @@ representation；它不是 Base IMAP 的普遍事实。
   可以看到 personal、other-user 与 shared namespaces；不同凭据暴露的 mailbox 集合可能重叠。因此撤回“一 Source
   必然对应一个协议可识别账号”的承诺。
 - Source instance 只能代表这个 local access context。它不会证明两个 Sources 指向不同 remote account，也不支持
-  用 address/password 推导 account identity；credentials 不是 identity。每个 Source instance 在 info-base 中恰好有
-  一个 Source Block projection，Mailbox 通过 graph relation 连接该 Block，而不是在 Mailbox content 中嵌入
-  `SourceRef` 作为唯一 provenance。
+  用 address/password 推导 account identity；credentials 不是 identity。一个 Source instance 在首次需要 graph
+  provenance 时拥有至多一个 lazy Source Block anchor；Mailbox 通过 graph relation 连接该 Block，而不是在 Mailbox
+  content 中嵌入 `SourceRef` 作为唯一 provenance。
 - 即使获得 authenticated-user identity，一个 connection 仍可能暴露 delegated/shared mailbox；这类 mailbox 的
   identity 属于 mailbox/store，而不属于当前登录账号。因而 `account + mailbox name` 不能普遍解决跨 Source merge。
 - 当前仍没有足够价值引入 `MailAccount` Block。支持 `OBJECTID` 的服务器可提供更稳定的 `MAILBOXID` / `EMAILID`，
@@ -71,27 +71,70 @@ Mailbox Block --contains { UIDVALIDITY, UID }--> Email Block
 ```
 
 - Mailbox content 不保存 `source`；每个 Source instance 由 `SourceModel.block` 唯一映射到一个 Source Block。
-- `manages` 表示当前 Source access context 管理/同步该 Mailbox；可证明为同一 remote mailbox 的 Mailbox Block
-  可以连接多个 Source Blocks。
+- `manages` 表示当前 Source access context 管理/同步该 Source-scoped Mailbox；每个 Mailbox Block 恰有一个
+  Source Block provenance path。即使另一 Source 暴露相同 remote mailbox，也保留另一个 Mailbox Block。
 - `contains` 是当前已知 membership fact，其 structured content 同时保存 occurrence-local UID epoch/UID。远端
   membership 消失时删除 relation，不创建历史 tombstone。
 - `manages` / `contains` 使用 normalized active direction。反向遍历可以描述为 `managed by` / `contained in`，但
   不为此重复持久化 inverse relations；这是 producer common pattern，不是 Relation validation rule。
 - 删除 operational SourceModel 不删除 Source Block、`manages`/`collects` relations 或 collected graph。Relation
   表达 provenance/binding，不证明 live credentials 或 executor；远端操作必须另外解析仍存在的 operational Source。
-- `sources.id` 继续拥有 Source identity；`sources.block` 是无独立 sequence/default 的 `NOT NULL UNIQUE` Block FK。
+- Mailbox Block 永久保持 Source-scoped：每个 Mailbox 只有一个 `manages` 来源；不同 Sources 即便暴露同一个 remote
+  mailbox 也保留不同 Blocks。Exact occurrence/Message-ID evidence 可以让它们的 `contains` relations 指向同一个
+  Email Block，但不触发 Mailbox merge。MAILBOXID 在一个 Source 内支持 rename continuity。
+- `sources.id` 继续拥有 Source identity；`sources.block` 是无独立 sequence/default 的 nullable `UNIQUE` Block FK。
   Relation 始终只是 Block-to-Block；Source producer 读取自己的 `source.block` 并用该 BlockRef 写入 provenance。
 
-## Source Block Contract
+## Source Anchor Contract
 
 - exact resolver ID：`core.source.v1`。
 - canonical content：`{ "id": SourceRef, "type": exact Source type, "nickname": string | null }`。
-- `nickname` 由 Source Block content 单独拥有，`sources.nickname` 删除；config、state、collect_at 仍只属于 SourceModel。
+- `sources.block` 是 nullable unique Block FK。Source 可以在尚未需要 provenance endpoint 时没有 anchor；首次
+  producer 写入 `collects`/`manages` 前由 SourceManager 并发安全地创建并绑定，之后不替换。
+- SourceModel 始终拥有 id、type、nickname、config、state、collect_at；Block content 中的 id/type/nickname 只是为
+  resolver `get_label/get_text` 与 Source 删除后的历史可读性服务的 projection，不接管 authority。
 - Source Block 是否 operationally active 由 unique `sources.block` binding 是否存在派生，不进入 canonical content。
 - Source Block 与 SourceModel 的 identity/lifecycle 不同；Source 删除后 content 中的 SourceRef 作为历史 descriptor
   保留，不被新 Source 根据相似 config 自动复用。
+- `SourceManager.ensure_block(source, session)` 锁定 Source row，在同一 caller transaction 内创建或复用 anchor，
+  并让 `{id,type,nickname}` projection 与本次观察到的 SourceModel 一致。该 postcondition 不另加 `refresh` 参数；
+  Resolver label/text 只读 Block content。
+
+## Canonical Mailbox Content
+
+- exact resolver ID：`extensions.mail.mailbox.v1`。
+- exact content：
+
+  ```json
+  {
+    "name": "INBOX",
+    "delimiter": "/",
+    "attributes": ["\\HasNoChildren", "\\Inbox", "\\Subscribed"],
+    "mailbox_id": {
+      "value": "F123456",
+      "access_scope": {
+        "host": "imap.example.com",
+        "port": 993,
+        "username": "alice@example.com"
+      }
+    }
+  }
+  ```
+
+- `delimiter` 与整个 `mailbox_id` 均可为 null。`name` 使用 IMAP 的 mailbox-name 语义而非伪造 filesystem path。
+- `mailbox_id.value` 与其 non-secret access comparison evidence 绑定，避免调用者脱离 scope 比较 bare
+  `MAILBOXID`。`host` 规范化；`username` 保留配置/认证输入，不宣称它是协议提供的 account identity。该 scope
+  只提供 best-effort exact comparison；不确定时不跨 Source 合并 occurrence。
+- `attributes` 是去重、稳定排序后的有语义 LIST attributes；忽略仅作为短暂同步提示的 `\\Marked` /
+  `\\Unmarked`，避免无使用价值的 Block churn。selectability、subscription、hierarchy 与 special-use facts 不再
+  重复展开成 booleans。
+- 不包含 SourceRef（由 `manages` relation 表达）、UIDVALIDITY（属于 `contains` occurrence）、message counts、
+  namespace classification 或派生 path。后四者当前没有足够独立使用价值，且会制造易过期/重复 authority。
+- `get_label()` 返回当前 mailbox name；`get_text()` 只投影 name 与有语义 attributes，不泄露 access-scope
+  credentials-like descriptor 到 semantic retrieval。
+- **Status**: frozen by D-249。
 
 ## Active Question
 
-冻结兼容 core-py 与 client-web/PostgREST peers 的 atomic Source + Source Block creation command；不得给
-`sources.block` 增加独立 sequence，也不得允许 committed Source 缺少 projection。
+冻结 Canonical Email 的 root content 与 graph-owned facts 边界；先确定哪些 message-authored/header facts 属于 Email
+本身，哪些 participants、reply/reference、mailbox occurrence、flags 与 attachment facts 只存在于 Relations/Blocks。
