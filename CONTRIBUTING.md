@@ -1,5 +1,10 @@
 # Contributing
 
+The organization-wide Git and pull-request policy lives in
+[InKCre Git and GitHub Governance](https://github.com/InKCre/.github/blob/main/GOVERNANCE.md).
+This guide adds the `core-py` setup, validation, migration, and delivery details required by that
+policy; it does not weaken the organization baseline.
+
 ## Development Setup
 
 ```bash
