@@ -73,10 +73,11 @@ local relations ────────────┘
 | --- | --- | --- | --- |
 | 1 | [Memos extension](units/memos-extension/packet.md) | **Complete；backend MVP implemented** | Sir 的直接产品需求；released client E2E 已证明 memo canonical/graph/read contract；durable owner projections committed |
 | 2 | [RSS extension hardening](units/rss-extension-hardening/packet.md) | **Complete；human-accepted 2026-08-03** | 已用 RSS/Atom vertical 建立 source instance → collect job → graph → resolver → state 的可信 collection baseline |
-| 3 | Other existing source hardening | Queued | 只在具体 source 或 RSS 暴露的重复压力证明后选择；不把所有旧 sources 当成一个横切 cleanup unit |
-| 4 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
-| 5 | [Semantic retrieval](units/semantic-retrieval/packet.md) | **Active — Design consolidation** | Product boundary 与主要 Technical topology 已确认；正在关闭 producer/rumination edge，随后进入 Acceptance 与 implementation plan |
-| 6 | Other organization/application units | Queued | 以 semantic retrieval 的真实 use/failure evidence 帮助排序；feature、graph-navigation、breakdown、merge、linking 仍各自建立合同 |
+| 3 | [Mail extension](units/mail-extension/packet.md) | **Active — Product discussion** | 高价值真实邮箱 corpus；先建立可信 collection baseline，再让邮件需求纵向推动 organization、query 与 client-web |
+| 4 | Other existing source hardening | Queued | 只按 Twitter、GitHub、Telegram 等具体 source 选择；不建立笼统横切 cleanup unit |
+| 5 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
+| 6 | [Semantic retrieval](units/semantic-retrieval/packet.md) | **Complete** | real-provider、local/delegated Peer、rumination 与 shared-truth projection 均已验收关闭 |
+| 7 | Other organization/application units | Queued | 由 Mail 等真实 use/failure evidence 帮助排序；feature、graph-navigation、breakdown、merge、linking 仍各自建立合同 |
 
 这不是永久开发顺序。active unit 结束时，应根据用户价值、已暴露依赖和不确定性重新选择下一个
 unit；不得仅因为表格编号自动启动。

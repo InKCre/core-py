@@ -270,5 +270,5 @@ core-py 的 Python artifact 与 client-web 的 Module Federation remote 使用�
   由具体 implementable unit 证明，而不能从现有代码命名直接推导。
 
 program 拆分与讨论顺序现在由 [capability-map.md](capability-map.md) 统一维护；当前 active unit 是
-[RSS extension hardening](units/rss-extension-hardening/packet.md)。Memos backend MVP 已完成，后续 collector
-与 product generations 不继承其实现批准。
+[Mail extension](units/mail-extension/packet.md)。Memos backend MVP、RSS hardening 与 semantic retrieval 已完成；
+后续 scope 不继承其实现批准。

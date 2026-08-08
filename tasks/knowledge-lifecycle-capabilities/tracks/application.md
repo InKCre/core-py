@@ -31,7 +31,6 @@
 
 ## Active Slice
 
-[Semantic retrieval](../units/semantic-retrieval/packet.md) 处于 Design consolidation。Product boundary、retrieval/
-embedding/AI/Peer/Agent 主 topology 已确认；现有 pgvector、maintenance、similarity query、RAG 与
-`get_str_for_embedding()` 仍只作为 failure evidence。当前先关闭 producer/rumination edge，再从真实 corpus 固定
-quality Acceptance，之后才进入 implementation plan/preflight。
+当前没有 active application ownership unit。[Semantic retrieval](../units/semantic-retrieval/packet.md) 已完成。
+[Mail extension](../units/mail-extension/packet.md) 可以因真实邮件 journey 推动必要的 basic use/query、semantic
+retrieval 或 graph navigation 改进，但这些横向结果不自动关闭 feature/graph-navigation ownership units。

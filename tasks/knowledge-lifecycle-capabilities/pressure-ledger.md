@@ -4,11 +4,205 @@
 
 `上游需求 → 被打破的假设 → 候选 owner → 影响 → evidence → status`
 
-active unit 是 [Semantic retrieval](units/semantic-retrieval/packet.md)，当前处于 Design consolidation。下列 Memos
-pressures 保留为已完成单元的 provenance，不自动成为 semantic retrieval 的设计前提；新 unit 的横切压力应从
-其 user journey 与 acceptance evidence 重新建立。
+active unit 是 [Mail extension](units/mail-extension/packet.md)，当前处于 Product discussion。Mail 的横切压力
+必须从其 user journey 与 acceptance evidence 重新建立；不能把协议 feature checklist 或旧实现缺口直接升级
+为 MVP blocker。下列既有 pressures 保留为已完成 units 的 provenance，不自动成为 Mail 的设计前提。
 
 ## Active-unit pressures
+
+### P-018 — Mail cannot be permanently modeled as a read-only collection adapter
+
+- **Upstream**: Mail should retain a practically complete communication record and ultimately make InKCre a complete email
+  client/agent。
+- **Broken assumption**: a Mail extension can finish at IMAP ingestion，or any write to the remote mailbox is an accidental
+  source-side effect。
+- **Candidate owner**: Mail extension owns the product vertical；exact collection、remote-action、Agent、Peer and client-web
+  boundaries must be earned by successive delivery scopes rather than forced into SourceBase。
+- **Impact**: mailbox coverage、state synchronization、outbound commands、authorization/approval、graph/query semantics and
+  client-web interaction can all become relevant。The terminal direction does not approve them all for this iteration。
+- **Evidence**: current `mark_as_seen` is already an intentional configurable write-back；Sir selected complete
+  communication records and a complete email client/agent as the terminal product direction。
+- **Status**: D-200 confirms the terminal pressure；D-201 fixes the current communication-record foundation、configurable
+  `mark_as_seen` and compose/reply/send deferral；D-202 fixes one-account-per-Source coverage and extension-owned default
+  exclusions；D-203 adds Source override；D-204 fixes ordinary post-setup collection and explicit bounded history。
+  Continuous-update semantics remain an open Product question。
+
+### P-019 — Source history needs specialized `backfill` collect semantics rather than overloaded `full`
+
+- **Upstream**: a Mail account may contain years of history，but Source creation should begin cheap forward collection and
+  must not silently trigger an unbounded import。
+- **Broken assumption**: one boolean `full` can express history range、reconciliation、replacement and source-specific
+  traversal effects。
+- **Candidate owner**: the Source domain may own collect as the umbrella ingress action and backfill as a specialized collect
+  intent，while each Source/extension owns whether history exists and the shape of its ordinary/history boundaries。
+- **Impact**: legacy Mail、RSS、GitHub and Twitter job configs use or expose `full` with non-identical behavior。A hard cut
+  requires per-source audit and cannot be inferred from Mail alone。
+- **Evidence**: D-074 already refused to promote `full`；D-204 establishes exact Mail product semantics。Files/calendar-like
+  current-state Sources demonstrate why “created before setup” is not universally historical data。
+- **Status**: D-205 confirms the common mental model；cross-source interface remains a pressure for Technical audit，not a
+  program-wide code change authorized by this Product decision。
+
+### P-020 — Reserve `enrichment` for Organization rather than source acquisition
+
+- **Upstream**: Mail can expand a URL from an already collected email into a useful connected graph；RSS currently obtains
+  linked full text while collecting feed information。
+- **Broken assumption**: every additive fetch is “enrichment”，or the mechanical act of network fetching determines the
+  domain owner。
+- **Candidate owner**: enrichment classifies additive Organization behavior but does not own its implementation。The domain
+  Resolver may own a deep materialization capability；Source/extension owns collection-time or delegated remote acquisition，
+  while Storage/InfoBase retain bytes/graph mechanisms。
+- **Impact**: RSS task/durable docs and code vocabulary currently use `full-text enrichment` for a source-owned behavior。
+  Rename pressure must preserve behavior and authority rather than silently redesigning RSS。
+- **Evidence**: D-206 fixes post-collection Mail URL expansion as the canonical enrichment example and retains RSS linked
+  full-text work as source-owned acquisition。
+- **Status**: D-206 reserves additive Organization meaning；D-207 removes redundant `source-owned collection` wording；D-215
+  corrects classification versus implementation ownership。Apply owner-specific durable/code naming corrections with an
+  implementation unit after blast-radius audit，not by rewriting completed-unit history during discussion。
+
+### P-021 — Mailbox deletion is a scoped external fact，not default info-base deletion
+
+- **Upstream**: a collected email can later disappear from one remote mailbox while remaining valuable in the info-base or
+  present through another folder/label。
+- **Broken assumption**: Mail must mirror remote deletion，or one missing listing proves global message deletion。
+- **Candidate owner**: Mail Source collection records mailbox-scoped presence/deletion facts and decides whether to issue
+  graph deletion；InfoBase persists the submitted graph commands without understanding Mail policy。
+- **Impact**: incremental sync capabilities、folder/label identity、move detection、optional graph deletion and Source config。
+- **Evidence**: D-208 fixes default retention and permits opt-in synchronized deletion only with trustworthy protocol-native
+  incremental evidence，not full traversal/diff emulation。
+- **Status**: D-209 fixes relation removal/no tombstone and corrects the owner；D-210 fixes Mailbox/Flag Block pressure。
+  Protocol feasibility and exact predicates/state representation remain preflight/Technical questions。
+
+### P-022 — Scheduled collection is job creation；Mail execution must not remain core-py-only
+
+- **Upstream**: current core-py can run Mail collection，while a future background-capable native InKCre Peer may act as a
+  higher-frequency mail client and browser Peers may remain incapable。
+- **Broken assumption**: scheduled collection is a second execution path，or Source/Extension runtime permanently belongs to
+  the Python server because it is implemented there first。
+- **Candidate owner**: Source job contract owns collection commands/results；scheduling creates jobs。Extension/Peer runtime
+  capability determines who can execute，without requiring every Peer to be symmetric。
+- **Impact**: scheduler placement、job claiming、future Peer capability advertisement/routing、cadence configuration and
+  duplicate creation may eventually interact。
+- **Evidence**: D-211 confirms one collect-job semantic、current core-py execution and future multi-Peer direction。
+- **Status**: Product/topology direction confirmed；no distributed scheduler or native-Peer implementation is authorized in
+  the current scope without Technical evidence。
+
+### P-023 — Collect jobs must not absorb Source-internal work-unit semantics
+
+- **Upstream**: one Mail collection invocation can visit multiple mailboxes and persist useful messages despite a local
+  mailbox/item failure。
+- **Broken assumption**: generic job success means every source-native sub-scope was synchronized，or jobs must own each
+  mailbox cursor、transaction and partial outcome。
+- **Candidate owner**: collect job owns invocation/runtime status；Source owns its deep collection algorithm、state、partial
+  progress and public completion semantics。
+- **Impact**: Mail、RSS、GitHub、Twitter and future Sources must not shape generic job statuses around their private traversal
+  units。Observability may carry detail without turning it into job-domain completeness。
+- **Evidence**: D-212 fixes the CronJob analogy and withdraws the proposed mailbox-failure → job-failure rule。
+- **Status**: D-212 confirms the shallow invocation boundary；D-213 fixes one-shot/no-retry lifecycle。Technical audit must
+  check current job/source boundaries without assuming a broad job schema expansion。
+
+### P-024 — Mail attachment bytes become Organization enrichment after metadata-only collection
+
+- **Upstream**: Mail collection can preserve attachment identity/metadata without eagerly downloading every MIME part；later
+  use may justify durable local content。
+- **Broken assumption**: a complete communication record or credible email client must persist all attachment bytes during
+  collection，or every later attachment fetch still belongs to Source collection。
+- **Candidate owner**: Mail collection owns attachment metadata/remote reference；Mail Resolver owns the materialization
+  capability and may delegate remote acquisition to Source/extension；the resulting additive graph change can be classified
+  as Organization enrichment。Use may perform transient fetch/stream without persistence。
+- **Impact**: Mail canonical graph、authenticated part access、Storage、semantic content Resolver、Organization tools and
+  client-web attachment behavior。
+- **Evidence**: IMAP4rev2 selective fetch plus official Apple/Gmail configurable/lazy behavior；D-214 owns the product
+  inference and the unit evidence file retains links。
+- **Status**: D-215 corrects the owner topology；D-216 fixes textual body versus lazy non-text inline parts。Exact technical
+  interfaces remain open。
+
+### P-025 — Native Mail references and inferred linking have different owners
+
+- **Upstream**: reply/reference headers can identify directed Email relationships，while missing targets or incomplete
+  headers may tempt subject/time heuristics。
+- **Broken assumption**: collection should create a generic Thread entity or infer every plausible conversation edge to make
+  the graph useful。
+- **Candidate owner**: Mail collection owns source-native reply/reference facts；Organization linking owns additive inferred
+  relations over the existing graph。Use derives thread views from graph structure。
+- **Impact**: Email canonical content、relation vocabulary、unresolved external references、later reconciliation、query and
+  client-web thread navigation。
+- **Evidence**: D-217 fixes native directed relations、no generic Thread Block and no collection-time inference。
+- **Status**: Product boundary confirmed；unresolved-reference representation and exact relation grammar remain Technical。
+
+### P-026 — Extension-specific Block rendering must not become an extension-specific browsing product
+
+- **Upstream**: client-web must render rich Email content，but InKCre's Mail value is not yet expressed as a traditional
+  inbox/folder/list workflow。
+- **Broken assumption**: a rich source type requires a dedicated page and source-specific query UI，or a complete email
+  client/agent direction implies copying ordinary email client information architecture。
+- **Candidate owner**: Mail client-web extension owns Email Resolver/renderer；GraphSurface owns Block placement、selection
+  and cross-Block navigation。Generic query owns any future cross-type query behavior。
+- **Impact**: extension Module Federation artifact、Resolver registration、BlockContent/detail/graph surfaces and query UI。
+- **Evidence**: D-218 plus current Twitter `TweetResolver.contentComp` → generic `BlockContent` implementation path。
+- **Status**: Product boundary confirmed；D-219 closes the predefined-query edge，while exact Email renderer remains a
+  Technical design question。
+
+### P-027 — `contentComp` obscures solved-content presentation
+
+- **Upstream**: an Email requires root content plus participants、mailbox/flag/reply Relations and attachment metadata to
+  render；Tweet already loads attachment Relations and Blocks before rendering。
+- **Broken assumption**: a Resolver component only renders the literal `Block.content` column，or UI components should query
+  and reconstruct graph semantics themselves。
+- **Candidate owner**: client-web Resolver owns focal-Block solved projection and registers its `SolvedContentRenderer`；a
+  generic controller owns Resolver/view lifecycle。GraphSurface alone owns target transitions；`BlockInspector` owns only
+  persistence facts and current-Block commands such as view content/rumination。
+- **Impact**: `ResolverClass.contentComp`、`ContentCompProps`、`BlockContent`、`BlockDetailsPanel`/unused `relations` prop、
+  Tweet solved type、future Email renderer、loading/error/refresh and navigation context。
+- **Evidence**: D-220 and current Twitter resolver/component/BlockContent code path。
+- **Status**: `SolvedContentRenderer`、`BlockInspectorPopup`、view-solved-content meaning and GraphSurface route realization
+  confirmed；generic render context withdrawn。First-class `SolvedContentPopup`/InfoBaseRouter and complete
+  Resolver + typed solved-content props are confirmed。D-226 corrects GraphSurface to current realizer rather than route；
+  `overview` is accepted，while focal route shape/operations and Vue Router adapter remain Technical。
+
+### P-028 — Mail does not justify generic query work without a reachability blocker
+
+- **Upstream**: Mail needs generic rendering/use but its distinct query workflow is not yet understood。
+- **Broken assumption**: every rich source unit must add source-specific browsing/filters or opportunistically expand generic
+  query APIs。
+- **Candidate owner**: preflight proves reachability through current generic surfaces；only a real blocker can pressure generic
+  info-base query ownership。
+- **Impact**: client-web graph/start surfaces、feature retrieval、query APIs and unit scope。
+- **Evidence**: D-219 explicitly accepts no preplanned increment and a minimal blocker-driven exception。
+- **Status**: confirmed scope guardrail；no query implementation is currently approved。
+
+### P-029 — Resolver identity selects Block behavior；hydration and solving are different layers
+
+- **Upstream**: Mail/Tweet rendering requires a focal Block's own payload plus local graph context，while the current
+  `contentComp` interface suggests literal column rendering and current solved models inconsistently call the canonical
+  focal value `canonical`、`root` or a repeated domain noun。
+- **Broken assumption**: `block.resolver` is only a decoder/display type，hydrated content and solved content are synonyms，
+  or a graph-derived projection may silently mutate/impersonate canonical root content。
+- **Candidate owner**: shared PRD glossary owns product meaning；Product TDD owns exact Block → Resolver behavior selection
+  and content-layer topology；client-web local architecture owns `BlockRenderer` and its host navigation contract。
+- **Impact**: Python/TypeScript Resolver contracts、solved models、Tweet/Mail renderers、generic BlockContent/details/graph
+  surfaces、refresh caching and durable documentation vocabulary。
+- **Evidence**: D-221 plus current `TweetResolver` graph lookup、`MemoResolver`/RSS graph-aware solved projections and the
+  existing shared hydration/Resolver contract。
+- **Status**: behavior/content boundary、`SolvedContentRenderer`、`BlockInspectorPopup`、`.root` and surface-independent
+  InfoBase view/router topology confirmed；exact focal route/adapter mechanics remain Technical。
+
+### P-030 — Container ownership changes when its lifecycle becomes route-destination behavior
+
+- **Upstream**: GraphSurface/ListSurface must host addressable Block-inspection and solved-content destinations without
+  duplicating close/back logic or teaching presentation-neutral resolver content about client navigation。
+- **Broken assumption**: every container must be assembled by the parent regardless of behavior，or any component may wrap
+  itself merely because it currently appears in one Popup。
+- **Candidate owner**: shared Product TDD owns the general container/content rule and exact exception criterion；client-web
+  local architecture owns `InfoBaseView` navigation host、route destination outlet、`BlockInspectorPopup` and
+  `SolvedContentPopup` composition。
+- **Impact**: GraphSurface/ListSurface responsibilities、Popup ownership、route/back semantics、component naming、Resolver
+  renderer portability and later UI implementation guidance。
+- **Evidence**: D-235 establishes popup/back behavior；D-236 identifies presentation-neutral content、navigation host and
+  route destination outlet as the stable explanatory model。
+- **Status**: Technical vocabulary and ownership confirmed for implementation。Promote to Product TDD after evidence；a UI
+  agent skill should later derive from durable truth，but its build/delivery infrastructure is explicitly outside this unit。
+
+## Carried cross-unit pressures
 
 ### P-017 — Secret-safe observability is a shared boundary，not an adapter-by-adapter assertion
 
