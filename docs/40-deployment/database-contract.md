@@ -18,7 +18,8 @@ The fixed principals are:
 Migrations connect through `MIGRATION_DATABASE_URL`. The two login passwords are supplied
 at execution time as `CORE_DATABASE_PASSWORD` and `POSTGREST_DATABASE_PASSWORD`; they never
 live in a migration or image. Application and PostgREST runtimes never receive the migration
-owner URL.
+owner URL. Initialization always reconciles those two password-bearing roles, including after
+restoring the password-free role definitions from a release artifact.
 
 ## Lifecycle
 
@@ -34,6 +35,7 @@ db seed-dev
 db ready --profile runtime|development --json
 db reset-dev --confirm reset-development-data
 db contract --json
+db schema --json
 ```
 
 `init` is the only command consumers need to know for a fresh database. Every command is
@@ -93,6 +95,20 @@ create a circular artifact identity.
 ## Versioning
 
 `db contract --json` reports `peer-database-runtime-v1` plus the image source revision.
+Every production candidate also contains `/app/database-contract/`:
+
+- `database-roles.sql` recreates the password-free global principals required by policies;
+- `database-schema.sql` is a PostgreSQL 17 whole-database schema dump plus only the Alembic and
+  contract-state rows needed to resume the lifecycle from the neutral `runtime` identity;
+- `runtime-contract.json` records the executable contract that produced the dump;
+- `manifest.json` binds both SQL files and the complete runtime contract to the opaque contract
+  revision and source SHA.
+
+The dump comes from a separate fresh database initialized with the runtime profile; it contains
+no application row. `db schema --json` verifies the embedded files against that manifest.
+Core-py publishes SQL, not client-specific generated types; consumers restore the role and schema
+files, then use their own mature language tooling.
+
 Published core images are addressed as:
 
 ```text
@@ -100,5 +116,6 @@ ghcr.io/inkcre/core-py:<40-character-commit>
 ghcr.io/inkcre/core-py@sha256:<digest>
 ```
 
-The digest is the consumption boundary. The commit tag is a discovery aid, while `main` is
-mutable and must not be used as a reproducibility pin.
+The digest is the consumption boundary. The commit tag identifies a published candidate and
+`main` discovers the newest published main candidate. `stable` moves only after the exact image
+content passes Heroku production smoke; consumers resolve it once to a digest before use.

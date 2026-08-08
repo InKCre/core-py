@@ -8,6 +8,7 @@ on:
       - completed
 
 permissions:
+  actions: read
   contents: read
   packages: write
 
@@ -39,6 +40,26 @@ jobs:
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "$HEAD_SHA"
 
+      - name: Download checked database schema evidence
+        uses: actions/download-artifact@v5
+        with:
+          name: core-database-contract
+          path: release/database-contract
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Verify exact schema evidence
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python scripts/package_database_schema.py \
+            --schema release/database-contract/database-schema.sql \
+            --roles release/database-contract/database-roles.sql \
+            --runtime-contract release/database-contract/runtime-contract.json \
+            --output "$RUNNER_TEMP/manifest.json" \
+            --source-revision "$HEAD_SHA"
+          cmp "$RUNNER_TEMP/manifest.json" release/database-contract/manifest.json
+
       - name: Build and publish immutable runtime
         env:
           GHCR_TOKEN: ${{ github.token }}
@@ -51,10 +72,17 @@ jobs:
           printf '%s' "$GHCR_TOKEN" |
             docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker build \
+            --platform linux/amd64 \
+            --provenance=false \
             --build-arg "SOURCE_REVISION=$HEAD_SHA" \
-            --target artifact \
+            --target service \
             --tag "$commit_ref" \
             .
+          test "$(docker inspect --format='{{json .Config.Entrypoint}}' "$commit_ref")" = "null"
+          docker inspect --format='{{json .Config.Cmd}}' "$commit_ref" |
+            jq -e '. == ["python", "scripts/container.py", "web"]' >/dev/null
+          docker run --rm "$commit_ref" \
+            python scripts/container.py db schema --json >/dev/null
           docker push "$commit_ref"
           docker tag "$commit_ref" "$image:main"
           docker push "$image:main"
@@ -71,5 +99,6 @@ jobs:
             echo
             echo "- Commit: \`$HEAD_SHA\`"
             echo "- Immutable reference: \`$digest_ref\`"
-            echo "- Contract command: \`db contract --json\`"
+            echo "- Contract command: \`python scripts/container.py db contract --json\`"
+            echo "- Schema command: \`python scripts/container.py db schema --json\`"
           } >> "$GITHUB_STEP_SUMMARY"

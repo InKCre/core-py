@@ -2,10 +2,10 @@
 
 ## Artifact And Authority Model
 
-Heroku consumes the same provider-neutral OCI source proved in CI:
+Heroku consumes the same canonical provider-neutral OCI image published to GHCR:
 
-- `heroku-web` starts core-py;
-- `heroku-release` is a no-op release guard;
+- the exact GHCR digest is tagged and pushed as the Heroku `web` image without rebuilding core;
+- `heroku-release` is a lightweight no-op guard containing no core code;
 - `Dockerfile.postgrest` adds only a `$PORT` adapter, using a digest-pinned static BusyBox
   interpreter because the digest-pinned PostgREST runtime contains no shell.
 
@@ -67,9 +67,10 @@ Peers discover their non-secret connection contract through
 [`deploy/profiles/production.json`](../../deploy/profiles/production.json); credentials never
 enter that profile.
 
-`.github/workflows/production-deploy.yml` runs only after repository/runtime checks pass for
-the exact current `main` SHA, or by a main-only recovery dispatch. It builds core and
-PostgREST before receiving deployment inputs.
+`.github/workflows/production-deploy.yml` runs only after `artifact-publish.yml` succeeds for
+the exact current `main` SHA, or by a main-only recovery dispatch. It pulls the SHA-addressed
+GHCR service image, verifies its embedded schema evidence, and builds only the no-op release
+guard and separate PostgREST adapter before receiving deployment inputs.
 
 Production delivery guards:
 
@@ -84,6 +85,10 @@ roles and moving the protocol schema. Later deliveries simply converge the idemp
 contract. Images and config releases are polled to a terminal state; registry login and
 transfer alone receive bounded retries.
 
+The production probe records the GHCR digest, transferred local image ID, and Heroku release
+identities. Registry manifest digests may differ after transfer, so the guarantee is one local
+config/layer lineage and source SHA, not textual equality between registry digest strings.
+
 The acceptance probe requires:
 
 - core liveness and full database readiness;
@@ -97,6 +102,10 @@ A failed probe rolls back both images when the database contract was already est
 During the one-time schema hard cut, an old core image is incompatible; failure therefore
 leaves core stopped instead of performing a false rollback. No workflow runs an Alembic
 downgrade.
+
+The mutable GHCR `stable` tag advances only after this probe succeeds. Publication without
+production admission leaves `stable` unchanged; an automatic failed-probe rollback therefore
+continues to resolve to the previous production image.
 
 ## PostgREST Runtime Contract
 

@@ -8,6 +8,9 @@ inputs:
   core_database_password:
     description: Production native runtime role password
     required: true
+  core_image_digest:
+    description: Immutable GHCR reference for the canonical core service image
+    required: true
   head_sha:
     description: Exact main commit to deploy
     required: true
@@ -244,7 +247,7 @@ runs:
           docker run --rm \
             --env MIGRATION_DATABASE_URL \
             --entrypoint python \
-            "inkcre-production-release:$HEAD_SHA" \
+            "inkcre-production-web:$HEAD_SHA" \
             scripts/database_environment.py
         )"
 
@@ -283,26 +286,26 @@ runs:
         docker run --rm \
           --env DATABASE_URL="$MIGRATION_DATABASE_URL" \
           --entrypoint python \
-          "inkcre-production-release:$HEAD_SHA" \
+          "inkcre-production-web:$HEAD_SHA" \
           scripts/database_manifest.py > "$RUNNER_TEMP/production-before.json"
 
         docker run --rm \
           --env CORE_DATABASE_PASSWORD \
           --env MIGRATION_DATABASE_URL \
           --env POSTGREST_DATABASE_PASSWORD \
-          "inkcre-production-release:$HEAD_SHA" \
+          "inkcre-production-web:$HEAD_SHA" \
           python scripts/container.py \
           db init --profile runtime --environment production
         docker run --rm \
           --env MIGRATION_DATABASE_URL \
-          "inkcre-production-release:$HEAD_SHA" \
+          "inkcre-production-web:$HEAD_SHA" \
           python scripts/container.py \
           db ready --profile runtime --json
 
         docker run --rm \
           --env DATABASE_URL="$MIGRATION_DATABASE_URL" \
           --entrypoint python \
-          "inkcre-production-release:$HEAD_SHA" \
+          "inkcre-production-web:$HEAD_SHA" \
           scripts/database_manifest.py > "$RUNNER_TEMP/production-after.json"
         python scripts/verify_database_manifest_transition.py \
           "$RUNNER_TEMP/production-before.json" \
@@ -314,7 +317,7 @@ runs:
             --env TARGET_DATABASE_PASSWORD="$CORE_DATABASE_PASSWORD" \
             --env TARGET_DATABASE_ROLE=inkcre_core \
             --entrypoint python \
-            "inkcre-production-release:$HEAD_SHA" \
+            "inkcre-production-web:$HEAD_SHA" \
             scripts/rebind_database_url.py \
             --scheme postgresql+psycopg
         )"
@@ -324,7 +327,7 @@ runs:
             --env TARGET_DATABASE_PASSWORD="$POSTGREST_DATABASE_PASSWORD" \
             --env TARGET_DATABASE_ROLE=authenticator \
             --entrypoint python \
-            "inkcre-production-release:$HEAD_SHA" \
+            "inkcre-production-web:$HEAD_SHA" \
             scripts/rebind_database_url.py \
             --scheme postgresql
         )"
@@ -558,6 +561,14 @@ runs:
         heroku ps:scale web=1:eco --app "$APP_NAME"
         heroku ps:scale web=1:eco --app "$POSTGREST_APP_NAME"
 
+        core_local_image_id="$(
+          docker image inspect \
+            --format='{{.Id}}' \
+            "inkcre-production-web:$HEAD_SHA"
+        )"
+        echo "core_local_image_id=$core_local_image_id" >> "$GITHUB_OUTPUT"
+        echo "web_release=$web_release" >> "$GITHUB_OUTPUT"
+        echo "postgrest_release=$postgrest_release" >> "$GITHUB_OUTPUT"
         echo "previous_release=$previous_release" >> "$GITHUB_OUTPUT"
         echo "previous_postgrest_release=$previous_postgrest_release" \
           >> "$GITHUB_OUTPUT"
@@ -566,6 +577,7 @@ runs:
       shell: bash
       env:
         APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        BOOTSTRAP_PERFORMED: ${{ steps.database.outputs.bootstrap_performed }}
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         JWT_SECRET: ${{ inputs.jwt_secret }}
@@ -581,7 +593,7 @@ runs:
             curl --fail --silent "${WEB_URL}readyz" >/dev/null &&
             docker run --rm \
               --entrypoint python \
-              "inkcre-production-release:$HEAD_SHA" \
+              "inkcre-production-web:$HEAD_SHA" \
               scripts/verify_postgrest_contract.py \
               --base-url "$POSTGREST_URL" \
               --jwt-secret "$JWT_SECRET" \
@@ -594,6 +606,10 @@ runs:
               echo "- PostgREST app: \`$POSTGREST_APP_NAME\`"
               echo "- PostgREST URL: $POSTGREST_URL"
               echo "- Commit: \`$HEAD_SHA\`"
+              echo "- GHCR candidate: \`${{ inputs.core_image_digest }}\`"
+              echo "- Transferred local image ID: \`${{ steps.release.outputs.core_local_image_id }}\`"
+              echo "- Heroku core release: \`v${{ steps.release.outputs.web_release }}\`"
+              echo "- Heroku PostgREST release: \`v${{ steps.release.outputs.postgrest_release }}\`"
               echo "- Core liveness/readiness: ready"
               echo "- PostgREST JWT read/write/deny contract: ready"
               echo "- Formation: Eco"

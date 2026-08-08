@@ -21,6 +21,7 @@ from app.database_contract.lifecycle import (
 from app.database_contract.migration import migrate
 from app.database_contract.readiness import check_database_contract
 from app.database_contract.roles import RoleSecrets, provision_roles
+from app.database_contract.schema_artifact import read_schema_manifest
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,6 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
 
   contract_parser = subcommands.add_parser("contract")
   contract_parser.add_argument("--json", action="store_true")
+  schema_parser = subcommands.add_parser("schema")
+  schema_parser.add_argument("--json", action="store_true")
   return parser
 
 
@@ -102,6 +105,16 @@ def main(argv: list[str] | None = None) -> int:
       print(
         json.dumps(
           document,
+          indent=None if args.json else 2,
+          sort_keys=True,
+        )
+      )
+      return 0
+    if args.command == "schema":
+      manifest = read_schema_manifest()
+      print(
+        json.dumps(
+          manifest,
           indent=None if args.json else 2,
           sort_keys=True,
         )
