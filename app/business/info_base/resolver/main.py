@@ -1,16 +1,32 @@
 import abc
+from dataclasses import dataclass
 import typing
 from typing import Optional as Opt
 
+import pydantic
 import sqlmodel
 
 from app.business.info_base.relation import RelationManager
-from app.business.info_base.storage.main import StorageManager
-
-from app.schemas.info_base.main import SubGraphForm
-from app.schemas.info_base.block import BlockID, ResolverType, BlockModel
+from app.schemas.info_base.main import StarsGraphForm
+from app.schemas.info_base.block import BlockForm, BlockID, ResolverType, BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageID
+
+from .contracts import (
+  DuplicateResolverRegistrationError,
+  UnknownDraftResolverError,
+  UnknownResolverError,
+)
+
+
+@dataclass(frozen=True)
+class ResolverDraftCapability:
+  """One code-owned Resolver graph-drafting contract."""
+
+  resolver: ResolverType
+  description: str
+  input_model: type[pydantic.BaseModel]
+  resolver_cls: type["Resolver"]
 
 
 class ResolverManager:
@@ -21,7 +37,16 @@ class ResolverManager:
   """
 
   @classmethod
-  def register_resolver(cls, resolver_cls: type["Resolver"]):
+  def register_resolver(cls, resolver_cls: type["Resolver"]) -> None:
+    existing = cls.RESOLVER_CLS.get(resolver_cls.__rsotype__)
+    if existing is resolver_cls:
+      return
+    if existing is not None:
+      raise DuplicateResolverRegistrationError(
+        resolver_cls.__rsotype__,
+        existing,
+        resolver_cls,
+      )
     cls.RESOLVER_CLS[resolver_cls.__rsotype__] = resolver_cls
 
   @classmethod
@@ -29,14 +54,76 @@ class ResolverManager:
     """Create resolver instance from block."""
     try:
       resolver_cls = cls.RESOLVER_CLS[block.resolver]
-    except KeyError:
-      raise NotImplementedError(f"Resolver {block.resolver} not implemented/registered.")
+    except KeyError as error:
+      raise UnknownResolverError(block.resolver) from error
     return resolver_cls(block)
+
+  @classmethod
+  def get_draft_capabilities(cls) -> tuple[ResolverDraftCapability, ...]:
+    """Snapshot currently registered Resolvers that can draft rooted graphs."""
+    capabilities = (
+      ResolverDraftCapability(
+        resolver=resolver_id,
+        description=resolver_cls.draft_description,
+        input_model=resolver_cls.draft_input_model,
+        resolver_cls=resolver_cls,
+      )
+      for resolver_id, resolver_cls in cls.RESOLVER_CLS.items()
+      if resolver_cls.draft_description is not None
+      and resolver_cls.draft_input_model is not None
+    )
+    return tuple(sorted(capabilities, key=lambda capability: capability.resolver))
+
+  @classmethod
+  def get_draft_capability(
+    cls,
+    resolver: ResolverType,
+  ) -> ResolverDraftCapability:
+    """Select one exact graph-drafting contract without fallback."""
+    for capability in cls.get_draft_capabilities():
+      if capability.resolver == resolver:
+        return capability
+    raise UnknownDraftResolverError(resolver)
+
+  @classmethod
+  def match_media_type(cls, media_type: str | None) -> ResolverType | None:
+    """Map one specific media type to an installed exact core resolver ID.
+
+    Evidence precedence and generic/file fallback remain extension-owned.
+    """
+    if media_type is None:
+      return None
+    normalized = media_type.partition(";")[0].strip().lower()
+    if not normalized or normalized in {
+      "application/octet-stream",
+      "binary/octet-stream",
+      "application/binary",
+    }:
+      return None
+
+    exact = {
+      "text/plain": "core.text.v1",
+      "text/html": "core.html.v1",
+      "application/xhtml+xml": "core.html.v1",
+      "application/pdf": "core.pdf.v1",
+      "application/epub+zip": "core.epub.v1",
+      "application/zip": "core.zip.v1",
+      "application/x-zip-compressed": "core.zip.v1",
+    }
+    resolver_id = exact.get(normalized)
+    if resolver_id is None:
+      family = normalized.partition("/")[0]
+      resolver_id = {
+        "image": "core.image.v1",
+        "audio": "core.audio.v1",
+        "video": "core.video.v1",
+      }.get(family)
+    return resolver_id if resolver_id in cls.RESOLVER_CLS else None
 
 
 SolvedContentTV = typing.TypeVar("SolvedContentTV")
 RawContentTV = typing.TypeVar("RawContentTV")
-BreakdownItem: typing.TypeAlias = BlockModel | RelationModel
+_UNSET = object()
 
 
 class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
@@ -49,8 +136,12 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   __rsotype__: ResolverType
   """Resolver type
   
-  Extension resolvers should be namespaced, e.g., `extensions.twitter.tweet`.
+  Extension resolvers should be namespaced and versioned, e.g.,
+  `extensions.twitter.tweet.v1`.
   """
+
+  draft_description: typing.ClassVar[str | None] = None
+  draft_input_model: typing.ClassVar[type[pydantic.BaseModel] | None] = None
 
   def __init_subclass__(cls, rso_type: str, **kwargs) -> None:
     cls.__rsotype__ = rso_type
@@ -64,18 +155,19 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     :param relations: Relations of the block.
     """
     self._block = block
-    self.__relations = relations or None
-    self.__raw_content: RawContentTV | None = None
-    """The (real) content of the block, commonly fetched from storage. 
-    If storage is None, uses block.content
-    """
-    if self._block.storage is None:
-      self.__raw_content = typing.cast(RawContentTV, self._block.content)
-    self.__solved_content: SolvedContentTV | None = None
+    self.__relations: dict[tuple[bool, bool], tuple[RelationModel, ...]] = {}
+    if relations is not None:
+      self.__relations[(True, True)] = relations
+    self.__solved_content: SolvedContentTV | object = _UNSET
     """Solved content is the content the resolver really works with,
     commonly from raw content.
     """
-    self.__post_init__(self.__raw_content)
+    inline_content = (
+      typing.cast(RawContentTV, self._block.content)
+      if self._block.storage is None
+      else None
+    )
+    self.__post_init__(inline_content)
 
   def __post_init__(self, raw_content: Opt[RawContentTV] = None) -> None:
     """Subclass post-initialization hook.
@@ -95,26 +187,33 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     """Get the block ID."""
     return typing.cast(BlockID, self._block.id)
 
-  async def get_raw_content(self) -> RawContentTV:
-    """Get the raw content of the block."""
-    if self.__raw_content is None:
-      if self._block.storage is None:
-        self.__raw_content = typing.cast(RawContentTV, self._block.content)
-      else:
-        storage = StorageManager.get_storage(self._block.storage)
-        self.__raw_content = typing.cast(
-          RawContentTV, await storage.get_raw_content(self._block.content)
-        )
+  async def get_raw_content(self, *, refresh: bool = False) -> RawContentTV:
+    """Delegate hydrated-content mechanics and caching to the block instance."""
+    return typing.cast(
+      RawContentTV,
+      await self._block.get_hydrated_content(refresh=refresh),
+    )
 
-    return self.__raw_content
+  async def get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> SolvedContentTV:
+    """Return the local solved snapshot, resolving it when absent or refreshed."""
+    if refresh or self.__solved_content is _UNSET:
+      self.__solved_content = await self._get_solved_content(
+        refresh=refresh,
+        materialize_missing=materialize_missing,
+      )
+    return typing.cast(SolvedContentTV, self.__solved_content)
 
-  async def get_solved_content(self) -> SolvedContentTV:
-    """Get solved content (cached)."""
-    if self.__solved_content is None:
-      self.__solved_content = await self._get_solved_content()
-    return self.__solved_content
-
-  async def _get_solved_content(self) -> SolvedContentTV:
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> SolvedContentTV:
     """Get the solved content (non-cache).
 
     Description:
@@ -122,50 +221,66 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
       it means you acquire the resolver of the relation's other side block,
       and use its solved content.
     """
-    raise NotImplementedError(
-      f"{self.__class__.__name__} cannot resolve deferred raw content"
+    del materialize_missing
+    return typing.cast(
+      SolvedContentTV,
+      await self.get_raw_content(refresh=refresh),
     )
 
   def set_solved_content(self, content: SolvedContentTV) -> None:
     self.__solved_content = content
 
   async def get_relations(
-    self, include_in: bool = True, include_out: bool = True
+    self,
+    *,
+    include_in: bool = True,
+    include_out: bool = True,
+    refresh: bool = False,
   ) -> tuple[RelationModel, ...]:
     """Get relations of the block.
 
     :param include_in: bool, whether to get incoming relations. Default True.
     :param include_out: bool, whether to get outgoing relations. Default True.
     """
-    if self.__relations is None:
-      self.__relations = RelationManager.get(
-        block_id=self.block_id, include_in=include_in, include_out=include_out
-      )
-    return self.__relations
+    key = (include_in, include_out)
+    if refresh or key not in self.__relations:
+      all_relations = None if refresh else self.__relations.get((True, True))
+      if all_relations is not None:
+        self.__relations[key] = tuple(
+          relation
+          for relation in all_relations
+          if (include_in and relation.to_ == self.block_id)
+          or (include_out and relation.from_ == self.block_id)
+        )
+      else:
+        self.__relations[key] = RelationManager.get(
+          block_id=self.block_id,
+          include_in=include_in,
+          include_out=include_out,
+        )
+    return self.__relations[key]
 
   @classmethod
   # @abc.abstractmethod TODO
-  def create_block(cls, content, storage: Opt[StorageID] = None) -> BlockModel: ...
+  def create_block(cls, content, storage: Opt[StorageID] = None) -> BlockForm: ...
 
   @classmethod
   # @abc.abstractmethod TODO
-  def create_graph(cls, *args, **kwargs) -> SubGraphForm: ...
-
-  async def breakdown(
-    self,
-  ) -> typing.AsyncGenerator[BreakdownItem, BreakdownItem]:
-    """Yield no derived graph items unless a resolver defines decomposition."""
-    for item in ():
-      yield typing.cast(BreakdownItem, item)
+  def create_graph(cls, *args, **kwargs) -> StarsGraphForm: ...
 
   @abc.abstractmethod
-  async def get_text(self) -> str:
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str | None:
     """Get block content in text format."""
     ...
 
   @abc.abstractmethod
-  async def get_str_for_embedding(self) -> str:
-    """Get string representation for embedding generation."""
+  async def get_label(self, *, refresh: bool = False) -> str:
+    """Return one concise, stable, Block-local resolver-qualified label."""
     ...
 
   def get_existing(self, db_session: sqlmodel.Session) -> Opt[BlockModel]:

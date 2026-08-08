@@ -280,6 +280,12 @@ def _reconcile_object_privileges(cursor) -> None:
       sql.Identifier(AUTHENTICATED_ROLE),
     )
   )
+  cursor.execute(
+    sql.SQL("GRANT EXECUTE ON FUNCTION {}.update_updated_at_column() TO {}").format(
+      sql.Identifier(INTERNAL_SCHEMA),
+      sql.Identifier(AUTHENTICATED_ROLE),
+    )
+  )
 
   cursor.execute(
     sql.SQL("REVOKE CREATE ON SCHEMA public FROM PUBLIC, {}, {}, {}").format(

@@ -2,16 +2,16 @@
   "format": 1,
   "environment": "production",
   "database_contract": {
-    "revision": "peer-database-runtime-v1",
-    "migration_head": "d9f4e2a1b7c3",
+    "revision": "peer-database-runtime-v3",
+    "migration_head": "c0d1e2f3a4b5",
     "protocol_schema": "inkcre"
   },
-  "client": {
+  "peer": {
     "id": "1eaaadc6-2c1d-4515-ad06-22905dc890a9",
     "name": "client-web"
   },
   "core": {
-    "client_id": "063cd1df-c495-5006-a119-67aa633b26be",
+    "peer_id": "063cd1df-c495-5006-a119-67aa633b26be",
     "url": "https://inkcre-core-production-b26009ded782.herokuapp.com/"
   },
   "postgrest": {
@@ -22,7 +22,7 @@
   "jwt": {
     "algorithm": "HS256",
     "role": "authenticated",
-    "issuer": "inkcre-client",
+    "issuer": "inkcre-peer",
     "audience": "inkcre-api",
     "required_claims": [
       "role",

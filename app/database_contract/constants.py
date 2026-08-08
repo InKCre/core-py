@@ -4,7 +4,7 @@ import uuid
 
 
 CONTRACT_FORMAT = 1
-CONTRACT_REVISION = "peer-database-runtime-v1"
+CONTRACT_REVISION = "peer-database-runtime-v3"
 
 PROTOCOL_SCHEMA = "inkcre"
 INTERNAL_SCHEMA = "inkcre_internal"
@@ -16,22 +16,28 @@ CORE_RUNTIME_ROLE = "inkcre_core"
 
 JWT_ALGORITHM = "HS256"
 JWT_ROLE = AUTHENTICATED_ROLE
-JWT_ISSUER = "inkcre-client"
+JWT_ISSUER = "inkcre-peer"
 JWT_AUDIENCE = "inkcre-api"
 JWT_MAX_LIFETIME_SECONDS = 24 * 60 * 60
 JWT_MINIMUM_SECRET_BYTES = 32
 
-DEVELOPMENT_CLIENT_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
-DEVELOPMENT_CLIENT_NAME = "client-web-development"
+DEVELOPMENT_PEER_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+DEVELOPMENT_PEER_NAME = "client-web-development"
 
 DATABASE_ENVIRONMENTS = frozenset({"runtime", "development", "preview", "production"})
 RESET_CONFIRMATION = "reset-development-data"
 
 APPLICATION_TABLES = (
+  "agents",
+  "ai_dialects",
+  "ai_models",
+  "ai_providers",
   "block_embeddings",
   "blocks",
-  "clients",
+  "peers",
+  "configs",
   "extensions",
+  "embedding_profiles",
   "logs",
   "relation_embeddings",
   "relations",
@@ -39,5 +45,6 @@ APPLICATION_TABLES = (
   "sources_collect_jobs",
   "sources_types",
   "storage_types",
+  "storage_blobs",
   "storages",
 )

@@ -1,0 +1,12 @@
+{
+  "name": "memos/18",
+  "state": "NORMAL",
+  "creator": "users/inkcre",
+  "createTime": "2026-08-01T08:00:00Z",
+  "updateTime": "2026-08-01T08:00:00Z",
+  "content": "A reply",
+  "visibility": "PRIVATE",
+  "pinned": false,
+  "attachments": [],
+  "parent": "memos/17"
+}

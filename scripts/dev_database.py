@@ -1,13 +1,15 @@
 """Own one worktree-scoped development database runtime and its access descriptor."""
 
 from collections.abc import Mapping
+import datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 import argparse
 import json
+import jwt
 import re
 import shutil
 import subprocess
@@ -18,7 +20,13 @@ import time
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.database_contract.constants import CONTRACT_REVISION
+from app.database_contract.constants import (
+  CONTRACT_REVISION,
+  JWT_ALGORITHM,
+  JWT_AUDIENCE,
+  JWT_ISSUER,
+  JWT_ROLE,
+)
 from app.database_contract.readiness import get_repository_heads
 from scripts.dev_database_provider import (
   DatabaseProvider,
@@ -39,7 +47,12 @@ from scripts.dev_database_provider import (
 STATE_FORMAT = 1
 PROFILE_FORMAT = 1
 OWNER_REPOSITORY = "InKCre/core-py"
-DEVELOPMENT_CLIENT_ID = "00000000-0000-4000-8000-000000000002"
+DEVELOPMENT_PEER_ID = "00000000-0000-4000-8000-000000000002"
+DEVELOPMENT_CAPABILITIES = {
+  "core.extension.management.v1": "/extension-management",
+  "core.organization.rumination.v1": "/organization/ruminate",
+  "core.semantic_retrieval.v1": "/semantic-retrieval",
+}
 INSTANCE_PATTERN = re.compile(r"^[a-f0-9]{16}$")
 
 
@@ -88,6 +101,16 @@ def _source_fingerprint() -> str:
   return digest.hexdigest()
 
 
+def _refresh_artifact_state(state: dict[str, Any]) -> None:
+  """Project the current worktree artifact identity into reusable runtime state."""
+  source_revision = _source_revision()
+  state["contract_revision"] = CONTRACT_REVISION
+  state["migration_head"] = get_repository_heads()[0]
+  state["source_revision"] = source_revision
+  state["source_fingerprint"] = _source_fingerprint()
+  state["core_image"] = f"inkcre-core-py-development:{source_revision[:12]}"
+
+
 def _provider_from_state(state: Mapping[str, Any]) -> DatabaseProvider:
   provider = state.get("provider")
   if not isinstance(provider, dict):
@@ -124,7 +147,7 @@ def _write_runtime_files(
       "source_fingerprint": state["source_fingerprint"],
     },
     "core": {
-      "client_id": DEVELOPMENT_CLIENT_ID,
+      "peer_id": DEVELOPMENT_PEER_ID,
       "url": state["urls"]["core"],
     },
     "postgrest": {
@@ -135,7 +158,7 @@ def _write_runtime_files(
     "jwt": {
       "algorithm": "HS256",
       "role": "authenticated",
-      "issuer": "inkcre-client",
+      "issuer": "inkcre-peer",
       "audience": "inkcre-api",
       "required_claims": ["role", "iss", "aud", "iat", "exp"],
       "maximum_lifetime_seconds": 86400,
@@ -157,7 +180,6 @@ def _write_runtime_files(
     "POSTGRES_PORT": str(published_ports["postgres"]),
     "CORE_PORT": str(published_ports["core"]),
     "POSTGREST_PORT": str(published_ports["postgrest"]),
-    "CORE_PUBLIC_URL": state["urls"]["core"],
     **{name: str(value) for name, value in credentials.items() if name != "format"},
   }
 
@@ -291,6 +313,108 @@ def _wait_for_runtime(state: Mapping[str, Any], timeout: int = 180) -> None:
   raise TimeoutError(f"database runtime {state['identity']} did not become ready")
 
 
+def _peer_authorization(credentials: Mapping[str, Any]) -> str:
+  now = int(time.time())
+  token = jwt.encode(
+    {
+      "role": JWT_ROLE,
+      "iss": JWT_ISSUER,
+      "aud": JWT_AUDIENCE,
+      "iat": now,
+      "exp": now + 60,
+    },
+    str(credentials["JWT_SECRET"]),
+    algorithm=JWT_ALGORITHM,
+  )
+  return f"Bearer {token}"
+
+
+def _peer_snapshot_ready(peer: Mapping[str, Any], core_url: str) -> bool:
+  lease_expires_at = peer.get("lease_expires_at")
+  capabilities = peer.get("capabilities")
+  if not isinstance(lease_expires_at, str) or not isinstance(capabilities, list):
+    return False
+  try:
+    lease = datetime.datetime.fromisoformat(lease_expires_at.replace("Z", "+00:00"))
+  except ValueError:
+    return False
+  if lease <= datetime.datetime.now(datetime.UTC):
+    return False
+
+  base_url = core_url.rstrip("/")
+  advertisements = {
+    capability.get("id"): capability
+    for capability in capabilities
+    if isinstance(capability, dict)
+  }
+  if set(advertisements) != set(DEVELOPMENT_CAPABILITIES):
+    return False
+  for capability, path in DEVELOPMENT_CAPABILITIES.items():
+    inbound = advertisements[capability].get("inbound")
+    if (
+      not isinstance(inbound, dict)
+      or inbound.get("protocol") != "core.peer.protocol.http.v1"
+    ):
+      return False
+    parameters = inbound.get("parameters")
+    if not isinstance(parameters, dict) or parameters != {
+      "method": "POST",
+      "url": f"{base_url}{path}",
+    }:
+      return False
+  return True
+
+
+def _configure_peer_advertisement(
+  state: Mapping[str, Any],
+  credentials: Mapping[str, Any],
+  timeout: int = 40,
+) -> None:
+  authorization = _peer_authorization(credentials)
+  headers = {
+    "Authorization": authorization,
+    "Content-Profile": "inkcre",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation",
+  }
+  peer_url = f"{state['urls']['postgrest']}peers?id=eq.{DEVELOPMENT_PEER_ID}"
+  request = Request(
+    peer_url,
+    method="PATCH",
+    headers=headers,
+    data=json.dumps(
+      {
+        "config": {
+          "http_public_base_url": str(state["urls"]["core"]).rstrip("/"),
+        }
+      }
+    ).encode(),
+  )
+  with urlopen(request, timeout=5) as response:
+    updated = json.load(response)
+  if not isinstance(updated, list) or len(updated) != 1:
+    raise RuntimeError("core Peer registration was not available for runtime configuration")
+
+  query_url = (
+    f"{state['urls']['postgrest']}peers?select=capabilities,lease_expires_at"
+    f"&id=eq.{DEVELOPMENT_PEER_ID}"
+  )
+  deadline = time.monotonic() + timeout
+  query_headers = {"Authorization": authorization}
+  while time.monotonic() < deadline:
+    with urlopen(Request(query_url, headers=query_headers), timeout=5) as response:
+      peers = json.load(response)
+    if (
+      isinstance(peers, list)
+      and len(peers) == 1
+      and isinstance(peers[0], dict)
+      and _peer_snapshot_ready(peers[0], str(state["urls"]["core"]))
+    ):
+      return
+    time.sleep(0.25)
+  raise TimeoutError("core Peer did not publish the expected development capabilities")
+
+
 def _readiness(state: Mapping[str, Any]) -> dict[str, Any]:
   result = json.loads(
     _compose(
@@ -341,9 +465,7 @@ def ensure(instance: str) -> dict[str, Any]:
       )
     credentials = _read_json(directory / "credential.json")
     state["docker"] = diagnose_database_provider(configured_provider).as_dict()
-    state["source_revision"] = _source_revision()
-    state["source_fingerprint"] = _source_fingerprint()
-    state["core_image"] = f"inkcre-core-py-development:{state['source_revision'][:12]}"
+    _refresh_artifact_state(state)
   else:
     diagnostics = diagnose_database_provider(configured_provider)
     state, credentials = _new_state(instance, configured_provider, diagnostics)
@@ -388,6 +510,7 @@ def ensure(instance: str) -> dict[str, Any]:
   )
   _write_runtime_files(state, credentials)
   _wait_for_runtime(state)
+  _configure_peer_advertisement(state, credentials)
   readiness = _readiness(state)
   if readiness.get("status") != "ok":
     raise RuntimeError("development database contract readiness failed")

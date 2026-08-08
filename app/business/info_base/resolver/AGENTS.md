@@ -1,59 +1,84 @@
 # resolver/ Local Guide
 
-本文件只描述 `app/business/info_base/resolver/` 的局部事实与高风险边界。更上层的 ingestion mechanics 看 [app/business/info_base/AGENTS.md](../AGENTS.md)；跨模块结构看 [docs/30-unit-tdd/business-pipeline-and-authority.md](../../../../docs/30-unit-tdd/business-pipeline-and-authority.md)。
+本文件只描述 `app/business/info_base/resolver/` 的局部事实与高风险边界。上层 contract 看
+[info_base guide](../AGENTS.md) 与
+[business-pipeline-and-authority.md](../../../../docs/30-unit-tdd/business-pipeline-and-authority.md)。
 
 ## 何时阅读
 
-在以下情况进入本目录前先读这里：
-
-- 修改 `ResolverManager` 或 `Resolver`
-- 新增 / 删除 resolver
-- 修改 raw-content / solved-content 路径
-- 修改 block 去重与 resolver identity 规则
-
-## 局部执行规则
-
-- 不要 override `Resolver.__init__()`；resolver 子类应使用 `__post_init__()` 和 `_get_solved_content()`。
-- 不要在 module level import `app.business.info_base.block` / `BlockManager`；这里和 `block.py` 存在循环依赖风险，必要时 lazy import。
-- 如果改动会改变 `get_existing()` 的 identity 语义，先把影响面当成 info-base 级别变更处理，不要只在本目录悄悄改掉。
+- 修改 `ResolverManager` / `Resolver`；
+- 新增、删除或 version 一个 resolver；
+- 修改 hydration、relations、solved snapshot 或 capability effect；
+- 修改 resolver identity/dedup。
 
 ## 关键文件
 
-- `app/business/info_base/resolver/main.py`: `ResolverManager`、`Resolver` 基类
-- `app/business/info_base/resolver/text.py`: text resolver
-- `app/business/info_base/resolver/image.py`: image resolver
-- `app/business/info_base/resolver/html.py`: html resolver
-- `app/business/info_base/resolver/video.py`: video resolver
+- `main.py`：exact registry、resolver instance、relation/solved caches；
+- `contracts.py`：九个 core IDs 与 typed failures；
+- `bootstrap.py`：core decoder registration；
+- `inspection.py`：bounded byte inspection helpers；
+- `label.py`：shared whitespace normalization and 96-code-point identifier bound；
+- `{text,html,image,audio,video,pdf,epub,zip,file}.py`：exact core contract versions。
 
-## 当前稳定事实
+## Construction And Registration
 
-### Registry Side Effect
+- 不 override `Resolver.__init__()`；subclass 使用 `__post_init__()` 和 `_get_solved_content()`。
+- 避免 module-level import `BlockManager`；resolver 与 `block.py` 有循环依赖风险，graph mutation dependency 按需
+  lazy import。
+- `Resolver.__init_subclass__()` exact-register decoder；同 class 重复 idempotent，不同 class 抢同 ID 失败。
+- `register_core_resolvers()` 独立于 extension sync/start；extension disabled 不能让 core decoder 消失。
+- Resolver ID 必须 namespaced + versioned。共享 semantic IDs 固定为九个 `core.<kind>.v1`；不保留 bare alias。
+- Agent graph drafting 是 opt-in capability：subclass 同时声明 `draft_description`、`draft_input_model` 并实现
+  `create_graph(input) -> StarsGraphForm`。普通 decode-capable Resolver 不会因此自动成为 draft-capable。
 
-- `Resolver.__init_subclass__()` 会把 resolver 注册到 `ResolverManager.RESOLVER_CLS`。
-- 所以 resolver 可用性依赖 import-time side effect；模块没被 import，就不会被注册。
-- 对 extension resolvers 来说，真正的注册触发点通常在 extension startup 的 `_init_resolvers()`。
+## Hydrated And Solved Content
 
-### Raw vs Solved Content
+- Resolver 的 content read 委托 `BlockModel.get_hydrated_content(refresh=...)`；不要自行解析 storage pointer。
+- Inline content 是 `str`；configured storage 必须 hydrate 为 `bytes`。
+- Solved content 是 resolver-instance snapshot，不是 durable authority。`refresh` bypass 并替换 hydration、relation
+  和 solved caches 中被请求的 snapshot。
+- 现存 `get_raw_content()` 只是 resolver→block hydration 的低层兼容入口；新 contract/prose 使用
+  `hydrated content`。
 
-- `raw content` 是 resolver 真正取到的原始内容。
-- 当 `block.storage is None` 时，raw content 默认直接来自 `block.content`。
-- 当 `block.storage` 存在时，resolver 会通过 `StorageManager.get_storage(...).get_raw_content(...)` 取数。
-- `solved content` 是 resolver 解释后的内部表示，不等于原始存储内容。
+## Capability Outcomes
 
-### Identity and Dedup
+Concrete resolver 必须实现：
 
-- 默认 `Resolver.get_existing()` 以 `block.resolver + block.content` 查重。
-- 这不是普适真理，而是当前默认实现。
-- 一旦改变它，影响的是 block identity / dedup，不只是某个 resolver 的局部行为。
+- `get_text(refresh=False, materialize_missing=True) -> str | None`
+- `get_label(refresh=False) -> str`
 
-## 局部风险
+`UnsupportedResolverCapability` 表示 exact contract 没有该能力；`None` 表示能力存在但当前 block 没有有意义的
+result；empty string 只能来自真实 authored/derived empty。`UnknownResolverError` 是另一类 registry failure。
 
-- 在 resolver 里硬编码 storage 实现细节，通常会把 `resolver` 和 `storage` 的边界污染掉。
-- 若 resolver 需要特殊 raw-content 预处理，优先先判断那是不是应该落在 storage 层。
-- 若为了图省事在 module level 引入 `BlockManager`，大概率会重新引入循环 import。
+九个 core semantic resolvers 中，text/HTML 提供 text；image/audio/video/PDF/EPUB/ZIP/file 在没有真实
+OCR/STT/extraction 能力前显式 unsupported，不用 metadata 伪装正文。Embedding/retrieval owner 只消费这个
+通用 projection，不要求 resolver 理解 AI model/profile。
 
-## 编辑指引
+`get_label()` 是 required、concise、Block-local 的 resolver-qualified reference。它不得遍历 Relation、调用 AI 或
+materialize graph；identifier 缺失时返回 resolver 自己的 readable kind。Exact resolver ID 不能进入 label。
+RelationManager 用两端 label + exact relation content 投影 directed dynamic property，因此 retained label format 的
+不兼容变化必须推进 resolver contract version。
 
-- 新增 resolver 时，先确认模块 import 路径会在 runtime 被触发，否则注册不会发生。
-- 需要缓存初始化结果时，用 `__post_init__()` 和 `set_solved_content()`，不要重写构造路径。
-- 若改动只影响单个 resolver 的解释逻辑，尽量留在对应文件或这里；若改动上升到 dedup / ownership contract，再回到 `info_base/` guide 或 unit-tdd。
+`draft_input_model` 是 Resolver-owned authoring contract，不是 persisted `block.content` schema。Agent runtime 对 selected
+Resolver input 做 Pydantic validation；Resolver method 接收 ordinary typed input，不接收 `validated_*` wrapper。
+
+## Effect And Relation Vocabulary
+
+- `refresh`：替换 local snapshot；
+- `materialize_missing`：允许创建 absent derivation；
+- `recompute`：未来 organization command 的 existing derivation regeneration；
+- `invalidate`：只丢 cache。
+
+不要增加 `force` / `reload` 同义参数。Direct relation query 的 `include_in/include_out` 相对 subject block；
+不是 traversal mode。
+
+## Media Matching
+
+`ResolverManager.match_media_type()` 只把一个具体 MIME 匹配到已经注册的 exact core ID，并拒绝 generic
+octet-stream。Protocol/source extension 自己拥有 declared MIME、HTTP MIME、filename、byte signature 的顺序和
+`core.file.v1` fallback。
+
+## Identity Risk
+
+默认 `get_existing()` 仍按 `resolver + content` 查重。改变它会改变 block identity，不是 resolver-local cleanup；
+必须回到 owning source/unit 的 exact identity contract，禁止用 fuzzy content/time match 偷换。

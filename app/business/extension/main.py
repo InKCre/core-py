@@ -1,6 +1,7 @@
 import abc
 import typing
 import fastapi
+import pydantic
 import sqlmodel
 import importlib
 import os
@@ -8,12 +9,29 @@ import tomllib
 import json
 from typing import Optional as Opt
 from app.engine import SessionLocal
+from app.configuration import ConfigContract
 from app.database_contract.profile import BUILTIN_EXTENSIONS_BY_ID
-from app.schemas.extension.main import ExtensionModel, ExtensionID
+from app.schemas.ai import JSONValue
+from app.schemas.extension.main import (
+  DisableExtensionCommand,
+  EnableExtensionCommand,
+  ExtensionID,
+  ExtensionManagementCommand,
+  ExtensionModel,
+  PatchExtensionConfigCommand,
+)
+from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
+from app.middleware import require_peer_jwt
+from .routing import ExtensionRouteMount
 from libs.obsrv.main import get_logger
 
 
 LOGGER = get_logger().getChild(__name__)
+EXTENSION_MANAGEMENT_CAPABILITY = "core.extension.management.v1"
+
+
+class ExtensionDelegationError(RuntimeError):
+  pass
 
 
 class EmptyConfig(sqlmodel.SQLModel): ...
@@ -26,6 +44,7 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
   """InKCre Extension base class."""
 
   config: ConfigTV
+  __configcontract__: ConfigContract[ConfigTV]
 
   def __init_subclass__(
     cls,
@@ -36,26 +55,34 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     cls.__extid__ = ext_id
     # ConfigTV is bound by each concrete extension subclass; Python's type model
     # cannot represent a class attribute specialized by that subclass binding.
-    cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
-    cls.__configschema__ = config_cls.model_json_schema()
+    cls.__configcontract__ = ConfigContract(config_cls)  # pyrefly: ignore[no-access]
     return super().__init_subclass__(**kwargs)
 
   @classmethod
-  def on_start(cls, app: fastapi.FastAPI, extension: ExtensionModel):
-    cls.config = cls.__configcls__(**(extension.config or {}))  # pyrefly: ignore[no-access]
-    with SessionLocal() as db:
-      extension.config_schema = cls.__configschema__
-      db.add(extension)
-      db.commit()
+  def on_start(cls, extension: ExtensionModel) -> fastapi.APIRouter:
+    cls.config = cls.validate_config(extension.config or {})  # pyrefly: ignore[no-access]
 
-    router = fastapi.APIRouter(prefix=f"/{cls.__extid__}")
+    router = fastapi.APIRouter(
+      prefix=f"/{cls.__extid__}",
+      tags=["extension", cls.__extid__],
+      dependencies=cls.api_dependencies(),
+    )
     cls._register_apis(router)
-    app.include_router(router, tags=["extension", cls.__extid__])
 
     cls._init_sources()
-    cls._init_resolvers()
 
     LOGGER.info(f"Extension {cls.__extid__} started.")
+    return router
+
+  @classmethod
+  def api_dependencies(cls) -> list[typing.Any]:
+    """Return root API dependencies; override with [] to compose extension auth."""
+    return [fastapi.Depends(require_peer_jwt)]
+
+  @classmethod
+  def load_decoders(cls) -> None:
+    """Load persisted-content decoders independently of live API/source state."""
+    cls._init_resolvers()
 
   @classmethod
   def _init_resolvers(cls): ...
@@ -65,10 +92,6 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
 
   @classmethod
   async def on_close(cls):
-    ExtensionManager.save_config(
-      ext_id=cls.__extid__,
-      config=cls.config,  # pyrefly: ignore[missing-attribute]
-    )
     LOGGER.info(f"Extension {cls.__extid__} closed.")
 
   @classmethod
@@ -86,21 +109,47 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     :param new_config:
     """
     if isinstance(new_config, dict):
-      cls.config = cls.__configcls__(**new_config)  # pyrefly: ignore[no-access]
+      cls.config = cls.__configcontract__.validate(new_config)  # pyrefly: ignore[no-access]
     else:
       cls.config = new_config  # pyrefly: ignore[no-access]
+
+  @classmethod
+  def validate_config(cls, config: dict) -> ConfigTV:
+    """Validate and normalize persisted configuration for this extension."""
+    return cls.__configcontract__.validate(config)  # pyrefly: ignore[missing-attribute, bad-return]
+
+  @classmethod
+  def prepare_config_patch(
+    cls,
+    current: dict[str, typing.Any],
+    patch: dict[str, typing.Any],
+  ) -> ConfigTV:
+    """Validate a shallow patch through the shared config mechanics."""
+    return cls.__configcontract__.prepare_patch(current, patch)  # pyrefly: ignore[missing-attribute, bad-return]
+
+  @classmethod
+  def config_schema(cls) -> dict:
+    """Return optional UI metadata derived from the authoritative config model."""
+    return cls.__configcontract__.json_schema()  # pyrefly: ignore[missing-attribute]
 
 
 class ExtensionManager:
   RUNNING_EXTENSIONS: dict[ExtensionID, type[ExtensionBase]] = dict()
-  FASTAPI_APP: fastapi.FastAPI
+  ROUTE_MOUNTS: dict[ExtensionID, ExtensionRouteMount] = dict()
+  FASTAPI_APP: fastapi.FastAPI | None = None
 
   @classmethod
   def start_enabled(cls, app: fastapi.FastAPI):
-    """Start all extensions enabled for the current client."""
+    """Start all extensions enabled for the current Peer."""
     cls.FASTAPI_APP = app
     for extension in cls.get_installed(enabled_only=True):
       cls.start(extension=extension)
+
+  @classmethod
+  def load_installed_decoders(cls) -> None:
+    """Make decoders for installed artifacts available even while disabled."""
+    for extension in cls.get_installed():
+      cls._load_extension_class(extension.id).load_decoders()
 
   @classmethod
   async def close_running(cls):
@@ -108,10 +157,9 @@ class ExtensionManager:
 
     It could involves closes of connections, so asynchronous.
     """
-    to_close = tuple(cls.RUNNING_EXTENSIONS.values())
-    for extension_class in to_close:
-      await extension_class.on_close()
-      cls.RUNNING_EXTENSIONS.pop(extension_class.__extid__, None)
+    to_close = tuple(cls.RUNNING_EXTENSIONS)
+    for extid in to_close:
+      await cls.close(extid)
 
   @classmethod
   def start(
@@ -123,34 +171,60 @@ class ExtensionManager:
     """Start a specific extension."""
     if app is None:
       app = cls.FASTAPI_APP
+    else:
+      cls.FASTAPI_APP = app
     if app is None:
       raise ValueError("FastAPI app instance is required to start extension.")
     if extension is None and extid is not None:
       extension = cls.get(extid)
     if not extension:
       raise ValueError(f"Extension not provided or not found: {extid}")
-    extension_module = importlib.import_module(f"extensions.{extension.id}")
-    extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
+    extension_class = cls._load_extension_class(extension.id)
 
-    if extension_class in cls.RUNNING_EXTENSIONS:
+    if extension.id in cls.RUNNING_EXTENSIONS:
       LOGGER.warning(f"Extension {extension.id} is already running.")
     else:
-      extension_class.on_start(
-        app=app,
-        extension=extension,
-      )
+      extension_class.load_decoders()
+      cls._save_config_schema(extension.id, extension_class.config_schema())
+      router = extension_class.on_start(extension=extension)
+      mount = ExtensionRouteMount(app=app, router=router)
+      mount.publish()
+      cls.ROUTE_MOUNTS[extension.id] = mount
       cls.RUNNING_EXTENSIONS[extension_class.__extid__] = extension_class
 
   @classmethod
   async def close(cls, extid: ExtensionID):
     """Close a specific extension."""
-    extension_module = importlib.import_module(f"extensions.{extid}")
-    extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
-    if extension_class in cls.RUNNING_EXTENSIONS:
-      await extension_class.on_close()
-      cls.RUNNING_EXTENSIONS.pop(extension_class.__extid__, None)
-    else:
+    extension_class = cls.RUNNING_EXTENSIONS.get(extid)
+    if extension_class is None:
       LOGGER.warning(f"Extension {extid} is not running.")
+      return
+
+    mount = cls.ROUTE_MOUNTS.get(extid)
+    if mount is not None:
+      mount.unpublish()
+
+    # Keep the runtime entry after a close failure so a later disable/close can retry.
+    await extension_class.on_close()
+    cls.ROUTE_MOUNTS.pop(extid, None)
+    cls.RUNNING_EXTENSIONS.pop(extid, None)
+
+  @classmethod
+  def _load_extension_class(cls, extid: ExtensionID) -> type[ExtensionBase]:
+    extension_module = importlib.import_module(f"extensions.{extid}")
+    return typing.cast(type[ExtensionBase], extension_module.Extension)
+
+  @classmethod
+  def _save_config_schema(cls, extid: ExtensionID, config_schema: dict) -> None:
+    with SessionLocal() as db:
+      extension = db.exec(
+        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
+      ).first()
+      if extension is None or extension.config_schema == config_schema:
+        return
+      extension.config_schema = config_schema
+      db.add(extension)
+      db.commit()
 
   @classmethod
   def _read_metadata(cls, ext_path: str) -> tuple[Opt[str], Opt[str]]:
@@ -240,13 +314,13 @@ class ExtensionManager:
 
   @classmethod
   async def enable(cls, extid: ExtensionID) -> ExtensionModel:
-    """Enable an extension for the current client.
+    """Enable an extension for the current Peer.
 
-    Adds the current client ID to the extension's enabled list and starts it.
+    Adds the current Peer ID to the extension's enabled list and starts it.
     """
-    from app.business.client import ClientManager
+    from app.business.peer import PeerManager
 
-    client_id = ClientManager.get_current_client_id()
+    peer = PeerManager.get_current_peer_ref()
 
     with SessionLocal() as db:
       extension = db.exec(
@@ -256,10 +330,9 @@ class ExtensionManager:
       if not extension:
         raise ValueError(f"Extension with id {extid} not found.")
 
-      # Add client to enabled list if not already present
       current_enabled = set(extension.enabled)
-      if client_id not in current_enabled:
-        current_enabled.add(client_id)
+      if peer not in current_enabled:
+        current_enabled.add(peer)
         extension.enabled = list(current_enabled)
         db.add(extension)
         db.commit()
@@ -273,13 +346,13 @@ class ExtensionManager:
 
   @classmethod
   async def disable(cls, extid: ExtensionID) -> ExtensionModel:
-    """Disable an extension for the current client.
+    """Disable an extension for the current Peer.
 
-    Removes the current client ID from the extension's enabled list and stops it.
+    Removes the current Peer ID from the extension's enabled list and stops it.
     """
-    from app.business.client import ClientManager
+    from app.business.peer import PeerManager
 
-    client_id = ClientManager.get_current_client_id()
+    peer = PeerManager.get_current_peer_ref()
 
     with SessionLocal() as db:
       extension = db.exec(
@@ -289,10 +362,9 @@ class ExtensionManager:
       if not extension:
         raise ValueError(f"Extension with id {extid} not found.")
 
-      # Remove client from enabled list
       current_enabled = set(extension.enabled)
-      if client_id in current_enabled:
-        current_enabled.discard(client_id)
+      if peer in current_enabled:
+        current_enabled.discard(peer)
         extension.enabled = list(current_enabled)
         db.add(extension)
         db.commit()
@@ -305,24 +377,76 @@ class ExtensionManager:
       return extension
 
   @classmethod
+  async def manage(
+    cls,
+    command: ExtensionManagementCommand,
+    *,
+    route_to_peer: PeerRef,
+  ) -> ExtensionModel:
+    """Execute one Extension command on one exact Peer."""
+    from app.business.peer import PeerManager
+
+    if route_to_peer == PeerManager.get_current_peer_ref():
+      return await cls.manage_local(command)
+
+    payload = PeerProtocolRequest(
+      body=typing.cast(
+        JSONValue,
+        command.model_dump(mode="json"),
+      )
+    )
+    result = await PeerManager.delegate(
+      EXTENSION_MANAGEMENT_CAPABILITY,
+      typing.cast(JSONValue, payload.model_dump(mode="json", exclude_unset=True)),
+      route_to_peer=route_to_peer,
+    )
+    try:
+      response = PeerProtocolResponse.model_validate(result)
+      if response.status != 200 or "body" not in response.model_fields_set:
+        raise ExtensionDelegationError(
+          f"Extension management Peer returned HTTP {response.status}"
+        )
+      return ExtensionModel.model_validate(response.body)
+    except pydantic.ValidationError as error:
+      raise ExtensionDelegationError(
+        "Extension management Peer returned an invalid response"
+      ) from error
+
+  @classmethod
+  async def manage_local(
+    cls,
+    command: ExtensionManagementCommand,
+  ) -> ExtensionModel:
+    """Execute one already-validated command without entering delegation."""
+    if isinstance(command, EnableExtensionCommand):
+      return await cls.enable(command.extension)
+    if isinstance(command, DisableExtensionCommand):
+      return await cls.disable(command.extension)
+    if isinstance(command, PatchExtensionConfigCommand):
+      updated = cls.update_config(command.extension, command.patch)
+      if updated is None:
+        raise ValueError(f"Extension with id {command.extension} not found.")
+      return updated
+    typing.assert_never(command)
+
+  @classmethod
   def get_installed(
     cls,
     enabled_only: bool = False,
   ) -> tuple[ExtensionModel, ...]:
     """Get installed extensions.
 
-    :param enabled_only: If True, only return extensions enabled for the current client.
+    :param enabled_only: If True, only return extensions enabled for the current Peer.
     """
-    from app.business.client import ClientManager
+    from app.business.peer import PeerManager
 
     with SessionLocal() as db:
       query = sqlmodel.select(ExtensionModel)
 
       if enabled_only:
-        client_id = ClientManager.get_current_client_id()
-        # Filter: client_id must be in the enabled array
+        peer = PeerManager.get_current_peer_ref()
         enabled_column = typing.cast(typing.Any, ExtensionModel.enabled)
-        query = query.where(enabled_column.any(client_id))
+        query = query.where(enabled_column.any(peer))
 
       return tuple(db.exec(query).all())
 
@@ -335,32 +459,35 @@ class ExtensionManager:
       ).first()
 
   @classmethod
-  def save_config(
+  def update_config(
     cls,
-    ext_id: ExtensionID,
-    config: sqlmodel.SQLModel | dict,
-  ) -> ExtensionModel:
-    """Save extension config to database.
-
-    Args:
-        ext_id (ExtensionID):
-        config (sqlmodel.SQLModel | dict):
-
-    Returns:
-        ExtensionModel: updated extension
-    """
+    extid: ExtensionID,
+    patch: dict[str, typing.Any],
+  ) -> ExtensionModel | None:
+    """Validate a shallow config patch, persist it, then apply it live."""
     with SessionLocal() as db:
       extension_model = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == ext_id)
-      ).one()
-      extension_model.config = (
-        config.model_dump() if isinstance(config, sqlmodel.SQLModel) else config
+        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
+      ).first()
+      if extension_model is None:
+        return None
+
+      extension_class = cls._load_extension_class(extid)
+      validated = extension_class.prepare_config_patch(
+        extension_model.config or {},
+        patch,
       )
+      extension_model.config = validated.model_dump(mode="json")
+      extension_model.config_schema = extension_class.config_schema()
       db.add(extension_model)
       db.commit()
       db.refresh(extension_model)
 
-      return extension_model
+    running_class = cls.RUNNING_EXTENSIONS.get(extid)
+    if running_class is not None:
+      running_class.update_config(validated)
+
+    return extension_model
 
   @classmethod
   def sync(cls):

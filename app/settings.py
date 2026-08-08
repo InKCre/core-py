@@ -6,7 +6,6 @@ defaults, and type safety for environment variables.
 
 import os
 import uuid
-from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -53,28 +52,27 @@ class Settings(BaseSettings):
     description="Secret key for JWT token signing and verification",
   )
 
-  # LLM/AI settings
-  llm_sp_ak: str = Field(default="", description="LLM service provider API key")
-  llm_sp_base_url: str = Field(default="", description="LLM service provider base URL")
-
   # Observability settings
   obsrv: ObsrvSetting = Field(default_factory=ObsrvSetting)
 
-  # Client settings
-  client_id: uuid.UUID = Field(
+  # Peer settings
+  peer_id: uuid.UUID = Field(
     default_factory=uuid.uuid4,
-    description="Unique identifier for this client instance (UUID v4)",
+    description="Unique identifier for this Peer instance (UUID v4)",
   )
-  client_name: str = Field(
+  peer_name: str = Field(
     default="core-py",
-    description="Human-readable name for this client instance",
+    description="Human-readable name for this Peer instance",
   )
-  client_base_url: Optional[str] = Field(
-    default=None,
-    description=(
-      "Base URL where this client's REST API is accessible; null for non-reachable clients"
-    ),
-  )
+  peer_lease_ttl_seconds: int = Field(default=90, gt=0)
+  peer_lease_renew_interval_seconds: int = Field(default=30, gt=0)
+  peer_http_timeout_seconds: float = Field(default=30, gt=0)
+
+  # Peer-local semantic retrieval maintenance settings
+  semantic_retrieval_maintenance_interval_seconds: int = Field(default=60, gt=0)
+  semantic_retrieval_maintenance_max_embeddings: int = Field(default=100, gt=0)
+  semantic_retrieval_maintenance_batch_size: int = Field(default=20, gt=0)
+  semantic_retrieval_maintenance_scan_page_size: int = Field(default=100, gt=0)
 
   @field_validator("database_url")
   @classmethod

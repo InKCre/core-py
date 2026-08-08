@@ -1,5 +1,11 @@
 # Contributing
 
+## Security Reports
+
+Do not disclose suspected vulnerabilities in a public issue or pull request. Follow
+[SECURITY.md](SECURITY.md) to report them privately. Use ordinary issues for functional
+bugs that do not cross a security boundary.
+
 ## Development Setup
 
 ```bash

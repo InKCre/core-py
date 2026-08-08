@@ -1,0 +1,1 @@
+"""Memos-compatible product adapters."""

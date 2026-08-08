@@ -54,6 +54,10 @@ def _integer(default: int) -> JsonObject:
   return {"default": default, "type": "integer"}
 
 
+def _positive_integer(default: int) -> JsonObject:
+  return {"default": default, "exclusiveMinimum": 0, "type": "integer"}
+
+
 def _boolean(default: bool) -> JsonObject:
   return {"default": default, "type": "boolean"}
 
@@ -63,45 +67,96 @@ HTTP_STORAGE_SCHEMA = _object_schema(
   "Configuration for HTTP storage.",
   {
     "follow_redirects": _boolean(True),
-    "timeout": _integer(30),
+    "max_response_bytes": _positive_integer(64 * 1024 * 1024),
+    "timeout": _positive_integer(30),
   },
+)
+
+OPENAI_COMPATIBLE_DIALECT_SCHEMA = {
+  "additionalProperties": False,
+  "description": "Connection values for one OpenAI-compatible provider instance.",
+  "properties": {
+    "api_key": {
+      "minLength": 1,
+      "title": "Api Key",
+      "type": "string",
+    },
+    "base_url": {
+      "anyOf": [
+        {"minLength": 1, "type": "string"},
+        {"type": "null"},
+      ],
+      "default": None,
+      "title": "Base Url",
+    },
+  },
+  "required": ["api_key"],
+  "title": "OpenAICompatibleConfig",
+  "type": "object",
+}
+
+BUILTIN_AI_DIALECTS = (
+  TypeProfile(
+    "core.openai-compatible.v1",
+    "OpenAI-compatible embedding and chat protocol.",
+    OPENAI_COMPATIBLE_DIALECT_SCHEMA,
+  ),
 )
 
 BUILTIN_EXTENSIONS = (
   ExtensionProfile("github", "0.1.0", "GitHub"),
   ExtensionProfile("learn_english", "0.1.0", "Learn English"),
   ExtensionProfile("mail", "0.1.0", "Mail"),
+  ExtensionProfile("memos", "0.1.0", "Memos"),
   ExtensionProfile("rss", "0.1.0", "RSS/Atom Feeds"),
   ExtensionProfile("telegram", "0.1.0", "Telegram"),
   ExtensionProfile("twitter", "0.1.0", "Twitter"),
 )
 
-BUILTIN_STORAGE_TYPES = tuple(
-  TypeProfile(id_, description, HTTP_STORAGE_SCHEMA)
-  for id_, description in (
-    (
-      "http",
-      "Base HTTP storage for fetching content from remote URLs.",
+BUILTIN_STORAGE_TYPES = (
+  TypeProfile(
+    "http",
+    "HTTP storage for bounded retrieval of opaque response bytes.",
+    HTTP_STORAGE_SCHEMA,
+  ),
+)
+
+BUILTIN_STORAGE_TYPES += (
+  TypeProfile(
+    "postgresql_binary",
+    "PostgreSQL storage for deployment-owned binary content.",
+    _object_schema(
+      "PostgreSQLBinaryStorageConfig",
+      "Configuration for PostgreSQL binary storage.",
+      {},
     ),
-    ("http_binary", "HTTP storage for binary content."),
-    ("http_html", "HTTP storage for HTML content."),
-    ("http_image", "HTTP storage for image content."),
-    ("http_json", "HTTP storage for JSON content."),
-    ("http_text", "HTTP storage for plain text content."),
-    ("http_video", "HTTP storage for video content."),
-  )
+  ),
 )
 
 _FEED_PROPERTIES = {
-  "feed_url": _string(),
-  "fetch_timeout": _integer(30),
-  "min_description_length": _integer(500),
-  "user_agent": _string(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Safari/537.36"
-  ),
+  "feed_url": {"type": "string"},
+  "request_timeout_seconds": _positive_integer(30),
+  "max_feed_bytes": _positive_integer(8 * 1024 * 1024),
+  "fetch_full_text": _boolean(True),
+  "max_article_bytes": _positive_integer(8 * 1024 * 1024),
+  "download_enclosures": _boolean(False),
+  "max_enclosure_bytes": _positive_integer(64 * 1024 * 1024),
+  "target_storage_id": _integer(-4),
+  "unidentified_item_behavior": {
+    "default": "create",
+    "enum": ["create", "discard"],
+    "type": "string",
+  },
+  "user_agent": _string("InKCre RSS/0.1"),
 }
+
+
+def _feed_source_schema(title: str, description: str) -> JsonObject:
+  schema = _object_schema(title, description, _FEED_PROPERTIES)
+  schema["additionalProperties"] = False
+  schema["required"] = ["feed_url"]
+  return schema
+
 
 BUILTIN_SOURCE_TYPES = (
   TypeProfile(
@@ -159,19 +214,17 @@ BUILTIN_SOURCE_TYPES = (
   TypeProfile(
     "extensions.rss.atom.Source",
     "Atom Feed Source.",
-    _object_schema(
+    _feed_source_schema(
       "AtomSourceConfig",
       "Configuration for Atom feed source.",
-      _FEED_PROPERTIES,
     ),
   ),
   TypeProfile(
     "extensions.rss.rss.Source",
     "RSS 2.0 Feed Source.",
-    _object_schema(
+    _feed_source_schema(
       "RssSourceConfig",
       "Configuration for RSS 2.0 source.",
-      _FEED_PROPERTIES,
     ),
   ),
   TypeProfile(
@@ -202,11 +255,11 @@ BUILTIN_SOURCE_TYPES = (
 )
 
 BUILTIN_STORAGES = (
-  StorageProfile(-1, "http_image", "HTTP Image", {}),
-  StorageProfile(-2, "http_video", "HTTP Video", {}),
-  StorageProfile(-3, "http_html", "HTTP HTML", {}),
+  StorageProfile(-1, "http", "HTTP", {}),
+  StorageProfile(-4, "postgresql_binary", "PostgreSQL Binary", {}),
 )
 
 BUILTIN_EXTENSIONS_BY_ID = {item.id: item for item in BUILTIN_EXTENSIONS}
+BUILTIN_AI_DIALECTS_BY_ID = {item.id: item for item in BUILTIN_AI_DIALECTS}
 BUILTIN_STORAGE_TYPES_BY_ID = {item.id: item for item in BUILTIN_STORAGE_TYPES}
 BUILTIN_SOURCE_TYPES_BY_ID = {item.id: item for item in BUILTIN_SOURCE_TYPES}

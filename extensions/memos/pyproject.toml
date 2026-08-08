@@ -1,0 +1,8 @@
+[project]
+name = "inkcre-extension-memos"
+version = "0.1.0"
+description = "Memo-family collection extension for InKCre"
+requires-python = ">=3.12,<3.13"
+
+[tool.inkcre-ext]
+nickname = "Memos"

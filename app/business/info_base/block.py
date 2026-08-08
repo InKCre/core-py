@@ -1,36 +1,31 @@
 __all__ = ["BlockManager"]
 
-import json
 import typing
 import sqlmodel
 from typing import Optional as Opt
-from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver.main import ResolverManager
 from libs.obsrv.main import get_logger
 from utils.types_ import Undefined, _undefined
 from app.engine import SessionLocal
-from libs.ai import (
-  CSVMessageContent,
-  Chat,
-  Embedding,
-  Message,
-  MessageContent,
-  Prompt,
-  one_chat,
-)
 from app.schemas.info_base.block import (
+  BlockForm,
   BlockID,
   BlockModel,
   ResolverType,
 )
-from app.schemas.info_base.relation import RelationID, RelationModel
-from app.schemas.info_base.main import Vector
+from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageID
 
 if typing.TYPE_CHECKING:
   from app.business.info_base.resolver import Resolver
 
 logger = get_logger()
+
+
+def _new_block(form: BlockForm) -> BlockModel:
+  """Project only base producer fields across the persistence boundary."""
+  values = form.model_dump(include=set(BlockForm.model_fields))
+  return BlockModel.model_validate(values)
 
 
 class BlockManager:
@@ -56,12 +51,17 @@ class BlockManager:
     return tuple(blocks)
 
   @classmethod
-  def get(cls, block_id: BlockID) -> Opt[BlockModel]:
-    with SessionLocal() as db_session:
-      block = db_session.exec(
-        sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
-      ).one_or_none()
-    return block
+  def get(
+    cls,
+    block_id: BlockID,
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> Opt[BlockModel]:
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get(block_id, owned_session)
+    return db_session.exec(
+      sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
+    ).one_or_none()
 
   @classmethod
   def get_resolver(cls, block_id: BlockID) -> Opt["Resolver"]:
@@ -74,9 +74,8 @@ class BlockManager:
     return ResolverManager.get(block)
 
   @classmethod
-  def create(
-    cls, block: BlockModel, db_session: Opt[sqlmodel.Session] = None
-  ) -> BlockModel:
+  def create(cls, form: BlockForm, db_session: Opt[sqlmodel.Session] = None) -> BlockModel:
+    block = _new_block(form)
     logger.info(
       "Creating block",
       extra={
@@ -99,28 +98,15 @@ class BlockManager:
       "Block created successfully",
       extra={"block_id": block.id, "resolver": block.resolver},
     )
-    logger.debug(
-      "Embedding will be created asynchronously by interval job",
-      extra={"block_id": block.id},
-    )
-
     return block
 
   @classmethod
-  async def refresh_embeddings(cls):
-    """Rebuild all blocks' embeddings - delegates to sink embedding service"""
-    from app.business.sink.embedding import EmbeddingManager
-
-    await EmbeddingManager.refresh_all_block_embeddings()
-
-  @classmethod
-  async def fetchsert(cls, block: BlockModel, db_session: sqlmodel.Session) -> BlockModel:
+  async def fetchsert(cls, form: BlockForm, db_session: sqlmodel.Session) -> BlockModel:
     """Create if not exists, else return the existing one.
 
     Will NOT commit the session.
     """
-    from app.business.sink.embedding import EmbeddingManager
-
+    block = _new_block(form)
     resolver = ResolverManager.get(block)
     existing = resolver.get_existing(db_session)
     if existing is not None:
@@ -137,56 +123,7 @@ class BlockManager:
     db_session.add(block)
     db_session.flush()
     db_session.refresh(block)
-    # and embedding - use sink service
-    await EmbeddingManager.upsert_block_embedding(block=block, db_session=db_session)
-
     return block
-
-  @classmethod
-  async def organize(cls, block: BlockModel):
-    """整理块
-
-    FIXME
-    """
-    with SessionLocal() as db_session:
-      resolver = ResolverManager.get(block)
-      generator = resolver.breakdown()
-      try:
-        item = await anext(generator)
-        while True:
-          db_session.add(item)
-          db_session.flush()
-          db_session.refresh(item)
-          item = await generator.asend(item)
-      except StopAsyncIteration:
-        pass
-
-      db_session.commit()
-
-  @classmethod
-  def query_by_embedding(
-    cls,
-    block_id: Opt[int] = None,
-    embedding: Opt[Vector] = None,
-    resolver: Opt[ResolverType] = None,
-    num: int = 10,
-    max_distance: float = 0.3,
-  ) -> tuple[BlockModel, ...]:
-    """Query blocks by cosine similarity - delegates to sink embedding service
-
-    :param block_id: Use existing block's embedding for query
-    :param embedding: Use given embedding for query
-    :param resolver: Filter by resolver type, None means no filter
-    """
-    from app.business.sink.embedding import EmbeddingManager
-
-    return EmbeddingManager.query_blocks_by_embedding(
-      block_id=block_id,
-      embedding=embedding,
-      resolver=resolver,
-      num=num,
-      max_distance=max_distance,
-    )
 
   @classmethod
   async def iterate_from_block(
@@ -232,144 +169,6 @@ class BlockManager:
 
     return {"relations": r_relations, "blocks": r_blocks}
 
-  class PickBaRBody(sqlmodel.SQLModel):
-    blocks: set[int]
-    relations: set[int]
-    requirements: list[str] | None = None
-
-  @classmethod
-  def pick_blocks(
-    cls,
-    body: PickBaRBody,
-    method: typing.Literal["llm"] = "llm",
-  ):
-    if method == "llm":
-      with SessionLocal() as db_session:
-        blocks = db_session.exec(
-          sqlmodel.select(BlockModel).where(BlockModel.id in body.blocks)
-        ).all()
-
-        relations = db_session.exec(
-          sqlmodel.select(RelationModel).where(RelationModel.id in body.relations)
-        ).all()
-
-      prompt = "下面有一组块和一组关系，根据关系对块的注释，选出最满足要求的几个块。"
-      prompt += "块的内容即信息。关系描述块和块之间的联系，是块的动态属性。"
-      prompt += "关系可以解读为：<to.content>是<from.content>的<relation.content>。"
-      prompt += "务必只返回JSON，格式为整数数组。"
-
-      prompt += "## 块\n```csv\n"
-      prompt += "id,content\n"
-      for block in blocks:
-        prompt += f"{block.id},{block.content}\n"
-
-      prompt += "```\n## 关系\n```csv\n"
-      prompt += "id,from,to,content\n"
-      for relation in relations:
-        prompt += f"{relation.id},{relation.from_},{relation.to_},{relation.content}\n"
-
-      prompt += "```\n## 要求"
-      if body.requirements:
-        prompt += "\n- ".join(body.requirements)
-      else:
-        raise ValueError
-
-      llm_res = one_chat(prompt)
-
-      return json.loads(llm_res.strip("```")[4:])
-    else:
-      raise NotImplementedError
-
-  @classmethod
-  async def query_by_reasoning(
-    cls,
-    query: str = "",
-    scope: int = 1,  # 视野范围
-  ) -> tuple[BlockModel, ...]:
-    """推理检索
-
-    :param query: 在找什么
-    """
-    query_embedding = Embedding("", "text-embedding-v3").embed(query)
-    start_blocks = cls.query_by_embedding(embedding=query_embedding, num=3)
-    prompt = Prompt("block_reasoning_query")
-    prompt.format(query=query)
-    chat = Chat("", "qwen-plus")
-    chat.add_messages(prompt.to_message("system"))
-    res = []
-
-    async def iterate_chat(*block_ids: Opt[BlockID]) -> None:
-      blocks = tuple(cls.get(block_id) for block_id in block_ids if block_id is not None)
-      relation2block: dict[RelationID, BlockID] = {}
-
-      graph_tool_res = MessageContent("")
-      for block in blocks:
-        if block is None:
-          continue  # TODO warning log
-        relations = RelationManager.get(
-          typing.cast(BlockID, block.id),
-        )
-        outgoing_relations = []
-        incoming_relations = []
-        for relation in relations:
-          if relation.from_ == block.id:
-            outgoing_relations.append(relation)
-            relation2block[typing.cast(RelationID, relation.id)] = relation.to_
-          elif relation.to_ == block.id:
-            incoming_relations.append(relation)
-            relation2block[typing.cast(RelationID, relation.id)] = relation.from_
-
-        graph_tool_res_i = MessageContent(
-          "## 节点{block_id}\n"
-          "节点内容: {block_content}\n"
-          "### 出边\n{outgoing_relations}\n"
-          "### 入边\n{incoming_relations}\n"
-        )
-        outgoing_relations_csv = CSVMessageContent(
-          header=("ID", "标签"),
-          rows=[(str(r.id), r.content) for r in outgoing_relations],
-        )
-        incoming_relations_csv = CSVMessageContent(
-          header=("ID", "标签"),
-          rows=[(str(r.id), r.content) for r in incoming_relations],
-        )
-        graph_tool_res_i.format(
-          block_id=block.id,
-          block_content=await block.get_context_as_text(),
-          outgoing_relations=str(outgoing_relations_csv),
-          incoming_relations=str(incoming_relations_csv),
-        )
-        graph_tool_res.contact(graph_tool_res_i)
-
-      chat_res = chat.complete(
-        Message(role="user", content=graph_tool_res),
-        add_to_history=False,
-      )
-      command, params = chat_res.content.split(":", 1)
-
-      params = params.split(" ", 1)[0]
-      if command == "FOUND":
-        found_blocks = json.loads(params)
-        res.extend(
-          filter(
-            lambda x: x.id in found_blocks if x is not None else False,
-            blocks,
-          )
-        )
-      elif command == "CONTINUE":
-        # 没有保留历史
-        follow_relations = json.loads(params)
-        follow_blocks = tuple(
-          relation2block.get(relation_id) for relation_id in follow_relations
-        )
-        await iterate_chat(*follow_blocks)
-      else:
-        raise ValueError(f"unknown command from LLM, {command}")
-
-    for start_block in start_blocks:
-      await iterate_chat(start_block.id)
-    return tuple(res)
-
   @classmethod
   def edit_block(
     cls,
@@ -377,32 +176,58 @@ class BlockManager:
     content: Opt[str] = None,
     resolver: Opt[ResolverType] = None,
     storage: Opt[StorageID] | Undefined = _undefined,
+    db_session: Opt[sqlmodel.Session] = None,
   ) -> BlockModel:
     """编辑块"""
     logger.info("Editing block", extra={"block_id": block_id})
-    with SessionLocal() as db_session:
-      block = db_session.exec(
-        sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
-      ).one_or_none()
-      if block is None:
-        logger.warning("Block not found for editing", extra={"block_id": block_id})
-        raise ValueError("Block not found")
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        block = cls.edit_block(
+          block_id,
+          content=content,
+          resolver=resolver,
+          storage=storage,
+          db_session=owned_session,
+        )
+        owned_session.commit()
+        owned_session.refresh(block)
+        return block
 
-      if content is not None:
-        block.content = content
-      if resolver is not None:
-        block.resolver = resolver
-      if storage is not _undefined:
-        block.storage = storage  # type: ignore
+    block = cls.get(block_id, db_session)
+    if block is None:
+      logger.warning("Block not found for editing", extra={"block_id": block_id})
+      raise ValueError("Block not found")
 
-      db_session.add(block)
-      db_session.commit()
-      db_session.refresh(block)
+    if content is not None:
+      block.content = content
+    if resolver is not None:
+      block.resolver = resolver
+    if storage is not _undefined:
+      block.storage = storage  # type: ignore
 
-      logger.info("Block edited successfully", extra={"block_id": block.id})
-      logger.debug(
-        "Embedding will be updated asynchronously by interval job",
-        extra={"block_id": block.id},
-      )
+    db_session.add(block)
+    db_session.flush()
+    db_session.refresh(block)
 
+    logger.info("Block edited successfully", extra={"block_id": block.id})
     return block
+
+  @classmethod
+  def delete(
+    cls,
+    block_id: BlockID,
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> bool:
+    """Delete a block, using the caller's transaction when supplied."""
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        deleted = cls.delete(block_id, owned_session)
+        owned_session.commit()
+        return deleted
+
+    block = cls.get(block_id, db_session)
+    if block is None:
+      return False
+    db_session.delete(block)
+    db_session.flush()
+    return True

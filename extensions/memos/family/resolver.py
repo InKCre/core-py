@@ -1,0 +1,91 @@
+"""Versioned CanonicalMemo decoder and graph resolver."""
+
+from app.business.info_base.resolver import Resolver
+from app.business.info_base.resolver.label import format_label
+from app.schemas.info_base.block import BlockForm
+
+from .graph import MEMO_RESOLVER, solve_memo_links
+from .schema import CanonicalMemo, SolvedMemo
+
+
+class MemoResolver(Resolver[SolvedMemo, str], rso_type=MEMO_RESOLVER):
+  """Resolve CanonicalMemo v1 content together with graph-owned links."""
+
+  def __post_init__(self, raw_content: str | None = None) -> None:
+    if raw_content is None:
+      raise ValueError("CanonicalMemo v1 requires inline JSON content")
+    self._canonical = CanonicalMemo.from_block_content(raw_content)
+
+  @classmethod
+  def create_block(cls, content: CanonicalMemo, storage=None) -> BlockForm:
+    if storage is not None:
+      raise ValueError("CanonicalMemo v1 root content must be inline")
+    return BlockForm(
+      resolver=cls.__rsotype__,
+      content=content.to_block_content(),
+    )
+
+  async def _get_solved_content(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> SolvedMemo:
+    if refresh:
+      self._canonical = CanonicalMemo.from_block_content(
+        await self.get_raw_content(refresh=True)
+      )
+    relations = await self.get_relations(
+      include_in=False,
+      include_out=True,
+      refresh=refresh,
+    )
+    links = solve_memo_links(self.block_id, relations)
+    from .schema import SolvedAttachment
+
+    attachments: list[SolvedAttachment] = []
+    for attachment_id in links.attachment_ids:
+      # Lazy imports preserve the core block/resolver registration boundary.
+      from app.business.info_base.block import BlockManager
+      from app.business.info_base.resolver import ResolverManager
+
+      block = BlockManager.get(attachment_id)
+      if block is None:
+        raise ValueError(f"Attachment block {attachment_id} does not exist")
+      solved = await ResolverManager.get(block).get_solved_content(
+        refresh=refresh,
+        materialize_missing=materialize_missing,
+      )
+      if not isinstance(solved, SolvedAttachment):
+        raise TypeError(f"Block {attachment_id} is not a solved attachment")
+      attachments.append(solved)
+    return SolvedMemo(
+      block_id=self.block_id,
+      canonical=self._canonical,
+      attachments=tuple(attachments),
+      parent_id=links.parent_id,
+      reference_ids=links.reference_ids,
+    )
+
+  async def get_text(
+    self,
+    *,
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    del materialize_missing
+    if refresh:
+      self._canonical = CanonicalMemo.from_block_content(
+        await self.get_raw_content(refresh=True)
+      )
+    return self._canonical.body
+
+  async def get_label(self, *, refresh: bool = False) -> str:
+    if refresh:
+      self._canonical = CanonicalMemo.from_block_content(
+        await self.get_raw_content(refresh=True)
+      )
+    return format_label("memo", self._canonical.body, first_line=True)
+
+
+__all__ = ["MemoResolver"]

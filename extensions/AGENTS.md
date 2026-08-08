@@ -21,6 +21,7 @@ extensions/
 | Extension ID | 功能 | Source | Resolver |
 |--------------|------|--------|----------|
 | [rss](rss/) | RSS/Atom 订阅源采集 | ✅ | ✅ |
+| [memos](memos/) | Memos-compatible memo backend | - | ✅ |
 | [mail](mail/) | IMAP 邮箱采集、Newsletter | ✅ | ✅ |
 | [github](github/) | GitHub Stars/Repos | ✅ | ✅ |
 | [telegram](telegram/) | Telegram 消息采集 | ✅ | - |
@@ -54,13 +55,14 @@ extensions/
 # __init__.py
 from app.business.extension import ExtensionBase
 
+
 class Extension(ExtensionBase, ext_id="my_extension", config_cls=MyConfig):
-    @classmethod
-    def _register_apis(cls, router):
-        pass
+  @classmethod
+  def _register_apis(cls, router):
+    pass
 ```
 3. 实现 Source/Resolver（如需要）
-4. 重启应用自动加载
+4. 通过 extension enable/start lifecycle 发布 runtime capability
 
 ### 扩展安装
 
@@ -78,6 +80,10 @@ class Extension(ExtensionBase, ext_id="my_extension", config_cls=MyConfig):
 - Extension ID 使用 snake_case
 - 避免与核心 API 路由冲突（Extension API 前缀：`/{ext_id}/`）
 - Source/Resolver 注册在 `_init_sources()` / `_init_resolvers()` 中
+- Resolver ID 必须 namespaced + versioned；semantic bytes优先使用 exact `core.<kind>.v1`
+- Source schedule/manual execution必须创建 ordinary collect job，不增加直接 effect path
+- Storage 只拥有 opaque pointer 与 bytes；MIME/semantic interpretation属于 resolver
 - extension 的依赖同时进入根 `pyproject.toml` 固定 profile 和根 lock
 
-参考现有扩展代码了解最佳实践。
+Memos protocol/graph 参考 [memos Unit TDD](../docs/30-unit-tdd/memos-extension.md)；RSS source vertical 参考
+[RSS Unit TDD](../docs/30-unit-tdd/rss-extension.md)。
