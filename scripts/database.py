@@ -120,13 +120,15 @@ def main(argv: list[str] | None = None) -> int:
         )
       )
       return 0
-  except Exception:
+  except Exception as error:
     print(
       json.dumps(
         {
           "status": "error",
           "command": args.command,
           "reason": "database_contract_operation_failed",
+          "error_type": type(error).__name__,
+          "detail": str(error),
         },
         sort_keys=True,
       ),
