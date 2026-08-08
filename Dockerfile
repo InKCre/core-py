@@ -65,15 +65,7 @@ LABEL io.inkcre.database-schema.manifest="/app/database-contract/manifest.json" 
 COPY --chown=inkcre:inkcre release/database-contract/ database-contract/
 
 
-FROM python:${PYTHON_VERSION}-slim AS heroku-release
-
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10001 inkcre \
-    && useradd --uid 10001 --gid inkcre --create-home inkcre
-
-USER inkcre
+FROM service AS heroku-release
 
 CMD ["python", "-c", "print('database lifecycle completed before Heroku release')"]
 
