@@ -42,17 +42,24 @@
   account，只能保证它代表一套 local IMAP access context。collection candidate 改为 exact occurrence locator →
   `Message-ID` reconciliation → create Block；`Block.id` 是 local identity 而不是 reconciliation rung。D-239 已冻结
   MVP `OBJECTID/MAILBOXID` consumption：authentication 后至多一次 CAPABILITY query，MAILBOXID 随既有
-  SELECT/EXAMINE 返回；bare value 不跨无法证明 comparable scope 的 Sources 比较。D-240 已冻结每个 Source instance
-  恰好一个 Source Block、Mailbox identity 在 Mailbox Block、occurrence UIDVALIDITY/UID 在 Email–Mailbox membership、
-  Mailbox 通过 relation 连接 Source Block。Source state 只持有 bounded cursor/validator，不持有 collected-item ledger。
+  SELECT/EXAMINE 返回；bare value 不跨无法证明 comparable scope 的 Sources 比较。D-240 确立了 Source graph anchor、
+  Mailbox identity 在 Mailbox Block、occurrence UIDVALIDITY/UID 在 Email–Mailbox membership 以及 Source state 不持有
+  collected-item ledger；其 mandatory Source Block timing 已由 D-245 放宽为 lazy anchor。
   D-241 已冻结 canonical chain 为 `Source --manages--> Mailbox --contains {UIDVALIDITY, UID}--> Email`；直接采集对象
   使用 `Source --collects--> item`。active direction 是 representational-normalization common pattern，不是 Relation
   validation rule。D-242 已冻结 operational Source 删除后保留 Source Block、provenance relations 与 collected graph；
   relation 不证明 live credentials/readiness。D-244 经 ROI 复审撤回 D-243 的 shared identity：`sources.id` 保留，
-  `sources.block` 是无独立 sequence/default 的 `NOT NULL UNIQUE` Block FK。Source Block contract 冻结为
-  `core.source.v1` + `{id: SourceRef, type, nickname?}`；nickname authority 从 SourceModel 移入 Block content，active
-  由 binding 存在派生。下一步冻结 core-py 与 client-web/PostgREST 共用的 atomic Source + Block creation command；
-  unresolved references、内部 checkpoint/failure 与 exact Resolver/graph vocabulary 随后讨论。
+  Source Block 使用独立 BlockRef。D-245 随后将 `sources.block` 冻结为 nullable unique FK，只有 producer 首次需要
+  provenance endpoint 时才由 SourceManager 并发安全地创建 `core.source.v1` anchor；Source 创建继续是普通单表
+  操作，不引入 `create_source` RPC。D-246 又纠正了 D-244 的 authority inversion：SourceModel 始终拥有
+  id/type/nickname 等 Source facts；Block content 的
+  `{id,type,nickname}` 只是为 `core.source.v1.get_label/get_text` 与历史可读性服务的 projection，不接管 authority。
+  D-247 已冻结 `SourceManager.ensure_block(source, session)`：锁 Source row，在 caller transaction 内创建/复用 anchor
+  并同步当前 projection，不另加 refresh flag。D-248 已将 Mailbox 永久定义为 Source-scoped observed Block；不同
+  Sources 不合并 Mailboxes，只让 exact occurrence / Message-ID reconciliation 复用有实际收益的 Email Block。
+  D-249 已冻结 `extensions.mail.mailbox.v1` canonical content：`name/delimiter/attributes/scoped mailbox_id`；不复制
+  SourceRef、occurrence、counts 或 namespace facts。下一步冻结 Canonical Email root content 与 graph-owned facts；
+  unresolved references、内部 checkpoint/failure 与 exact remaining Resolver/graph vocabulary 随后讨论。
 
 ## Confirmed Product Foundation
 
@@ -231,5 +238,5 @@
 | Impact Handshake + Start | Pending | durable/code state diff 获批且 Sir 明确开始 |
 | Execute / Verify / Promote | Pending | 实现、证据与 owner-specific durable projection 完成 |
 
-完整决定由 [program decision authority](../../decisions/index.md) 的 D-198–D-244 拥有；本 packet 只保留
+完整决定由 [program decision authority](../../decisions/index.md) 的 D-198–D-249 拥有；本 packet 只保留
 unit control 与 approved implications。

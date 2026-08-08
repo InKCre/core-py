@@ -47,6 +47,6 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-244](D241-D250.md)。
+- Latest confirmed decision: [D-249](D241-D250.md)。
 - Active unit: [Mail Extension](../units/mail-extension/packet.md)。
-- Active surface: atomic cross-peer Source + Source Block creation command；Acceptance and implementation remain pending。
+- Active surface: Canonical Email root-content versus graph-owned facts；Acceptance and implementation remain pending。
