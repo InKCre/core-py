@@ -32,7 +32,8 @@ services:
   init:
     <<: *core-image
     build: *core-build
-    command: ["db", "init", "--profile", "development"]
+    command:
+      ["python", "scripts/container.py", "db", "init", "--profile", "development"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,7 +44,7 @@ services:
 
   core:
     <<: *core-image
-    command: ["web"]
+    command: ["python", "scripts/container.py", "web"]
     depends_on:
       init:
         condition: service_completed_successfully

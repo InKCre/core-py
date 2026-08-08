@@ -2,13 +2,13 @@
 
 ## Artifact Contract
 
-The multi-stage `Dockerfile` builds one provider-neutral OCI source with three delivery
-targets:
+The multi-stage `Dockerfile` builds one canonical provider-neutral service image plus two
+operational helpers:
 
-- `artifact`: the default provider-neutral image with the strict container entry point
-- `heroku-web`: a Heroku-adapted image whose full command starts the web process
-- `heroku-release`: a Heroku-adapted no-op release guard; the protected delivery job runs
-  database lifecycle commands without placing owner credentials in Heroku config
+- `service`: the canonical core code image published to GHCR and transferred unchanged to Heroku;
+- `artifact` and `heroku-web`: compatibility aliases of `service` for local and preview builds;
+- `heroku-release`: a lightweight no-op release guard containing no core code;
+- `Dockerfile.postgrest`: the separately pinned PostgREST transport.
 
 - Python and PDM versions are pinned by `.python-version` and the Docker build argument
 - production dependencies come only from the frozen root `pdm.lock`
@@ -17,20 +17,20 @@ targets:
 - extension-local virtual environments and locks are not image inputs
 - the final process runs as the non-root `inkcre` user
 
-The default artifact entry point is `python scripts/container.py`. Supported commands are:
+The service has no entry point and defaults to `python scripts/container.py web`, which keeps
+Heroku's shell-based `CMD` behavior explicit. Call other supported commands with the full prefix:
 
-- `web`: start Uvicorn on `0.0.0.0:$PORT`
-- `db <command>`: run the explicit lifecycle surface documented in
+- `python scripts/container.py web`: start Uvicorn on `0.0.0.0:$PORT`
+- `python scripts/container.py db <command>`: run the explicit lifecycle surface documented in
   [database-contract.md](database-contract.md)
-- `ready`: compatibility entry point for runtime-profile database readiness
+- `python scripts/container.py ready`: compatibility entry point for runtime-profile readiness
 
 The artifact never generates migrations or downloads extension code.
 
-The two Heroku targets contain identical application files and dependencies, plus `curl`.
-They clear the inherited entry point because Heroku executes container commands through its
-runtime wrapper. The release target is deliberately harmless: Heroku config vars are shared
-by every dyno in an app, so putting a migration owner URL there would also expose it to the
-web process.
+The canonical service contains `curl` for Heroku release logging and uses the same full default
+command in Docker and Heroku. The separate release guard is deliberately harmless: Heroku config
+vars are shared by every dyno in an app, so putting a migration owner URL there would also expose
+it to the web process.
 
 `Dockerfile.postgrest` wraps the digest-pinned upstream PostgREST image only to bind its
 server port to Heroku's runtime `$PORT`. The upstream image has no shell, so the wrapper
@@ -81,14 +81,19 @@ secrets.
 
 ## CI Evidence
 
-The artifact job in `.github/workflows/ci.yml` builds both frozen delivery images and proves
+The artifact job in `.github/workflows/ci.yml` builds the source image and PostgREST, then proves
 the full fresh-database chain: duplicate init, JSON readiness, negative drift cases, the
 production PostgREST wrapper binding from `$PORT`, JWT read/write and denial behavior,
 duplicate deterministic reset, Alembic metadata, and web liveness/readiness. It uses no Neon
 or Heroku state.
 
-After that workflow passes on the exact current `main`, `artifact-publish.yml` publishes the
-runtime to GHCR by commit and reports the immutable digest.
+The same job initializes a separate neutral runtime database, exports password-free role SQL and
+a PostgreSQL 17 whole-database schema dump, and appends only its Alembic and contract-state
+lifecycle rows. After the workflow passes on exact current `main`,
+`artifact-publish.yml` embeds that checked evidence, builds the canonical service image once,
+tests its manifest, and publishes its commit tag and immutable digest. Production pulls that
+digest and transfers the same image content to Heroku; it does not rebuild core code. Only a
+successful production probe moves the mutable `stable` discovery channel.
 
 When no local Docker-compatible runtime is installed, `svc.local.json` may select the
 checked-in SSH provider implemented by `scripts/dev_database_provider.py` and

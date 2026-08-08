@@ -51,10 +51,14 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           docker build \
+            --platform linux/amd64 \
+            --provenance=false \
             --target heroku-web \
             --tag "inkcre-preview-web:$HEAD_SHA" \
             "${{ github.workspace }}/source"
           docker build \
+            --platform linux/amd64 \
+            --provenance=false \
             --target heroku-release \
             --tag "inkcre-preview-release:$HEAD_SHA" \
             "${{ github.workspace }}/source"

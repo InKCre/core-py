@@ -91,5 +91,6 @@ def contract_document() -> dict[str, object]:
       "ready",
       "reset-dev",
       "contract",
+      "schema",
     ],
   }

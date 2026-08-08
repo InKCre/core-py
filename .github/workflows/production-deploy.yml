@@ -3,7 +3,7 @@ name: Production application
 on:
   workflow_run:
     workflows:
-      - Repository and artifact checks
+      - Publish runtime artifact
     types:
       - completed
   workflow_dispatch:
@@ -11,6 +11,7 @@ on:
 permissions:
   checks: read
   contents: read
+  packages: write
 
 concurrency:
   group: production-application
@@ -22,7 +23,6 @@ jobs:
     if: >-
       (github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_branch == 'main') ||
       (github.event_name == 'workflow_dispatch' &&
         github.ref == 'refs/heads/main')
@@ -50,21 +50,47 @@ jobs:
           github_token: ${{ github.token }}
           head_sha: ${{ steps.source.outputs.head_sha }}
 
-      - name: Build core and PostgREST images without deployment secrets
+      - name: Pull exact published core service
+        id: core
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.source.outputs.head_sha }}
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          image="ghcr.io/$repository"
+          commit_ref="$image:$HEAD_SHA"
+
+          printf '%s' "$GHCR_TOKEN" |
+            docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker pull "$commit_ref"
+          test "$(
+            docker inspect \
+              --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' \
+              "$commit_ref"
+          )" = "$HEAD_SHA"
+          docker run --rm "$commit_ref" \
+            python scripts/container.py db schema --json >/dev/null
+          digest_ref="$(
+            docker inspect --format='{{index .RepoDigests 0}}' "$commit_ref"
+          )"
+          test "${digest_ref%%@*}" = "$image"
+          docker tag "$digest_ref" "inkcre-production-web:$HEAD_SHA"
+          echo "digest_ref=$digest_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Build release guard and PostgREST without deployment secrets
         env:
           HEAD_SHA: ${{ steps.source.outputs.head_sha }}
         run: |
           docker build \
-            --build-arg "SOURCE_REVISION=$HEAD_SHA" \
-            --target heroku-web \
-            --tag "inkcre-production-web:$HEAD_SHA" \
-            .
-          docker build \
+            --platform linux/amd64 \
+            --provenance=false \
             --build-arg "SOURCE_REVISION=$HEAD_SHA" \
             --target heroku-release \
             --tag "inkcre-production-release:$HEAD_SHA" \
             .
           docker build \
+            --platform linux/amd64 \
+            --provenance=false \
             --build-arg "SOURCE_REVISION=$HEAD_SHA" \
             --file Dockerfile.postgrest \
             --tag "inkcre-production-postgrest:$HEAD_SHA" \
@@ -75,6 +101,7 @@ jobs:
         with:
           bootstrap_revision: ${{ vars.DATABASE_CONTRACT_BOOTSTRAP_REVISION }}
           core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
+          core_image_digest: ${{ steps.core.outputs.digest_ref }}
           head_sha: ${{ steps.source.outputs.head_sha }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ vars.HEROKU_APP_NAME }}
@@ -88,3 +115,23 @@ jobs:
           neon_recovery_branch_id: ${{ vars.NEON_RECOVERY_BRANCH_ID }}
           postgrest_app_name: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
           postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
+
+      - name: Move production-admitted stable channel
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.source.outputs.head_sha }}
+          IMMUTABLE_CORE_IMAGE: ${{ steps.core.outputs.digest_ref }}
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          image="ghcr.io/$repository"
+          printf '%s' "$GHCR_TOKEN" |
+            docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker tag "$IMMUTABLE_CORE_IMAGE" "$image:stable"
+          docker push "$image:stable"
+          {
+            echo "### Production-admitted core service"
+            echo
+            echo "- Commit: \`$HEAD_SHA\`"
+            echo "- Immutable GHCR image: \`$IMMUTABLE_CORE_IMAGE\`"
+            echo "- Discovery channel: \`$image:stable\`"
+          } >> "$GITHUB_STEP_SUMMARY"

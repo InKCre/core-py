@@ -124,6 +124,13 @@ def _set_role_attributes(
     False,
   )
   if _role_attributes(cursor, role_name) == expected:
+    if password is not None:
+      cursor.execute(
+        sql.SQL("ALTER ROLE {} WITH PASSWORD {}").format(
+          sql.Identifier(role_name),
+          sql.Literal(password),
+        )
+      )
     return
   statement = sql.SQL("ALTER ROLE {} WITH {}").format(
     sql.Identifier(role_name),
@@ -324,34 +331,32 @@ def provision_roles(
   """Converge fixed principals and database-local privileges."""
   with database_connection(database_url) as connection:
     with connection.cursor() as cursor:
-      created = {
-        AUTHENTICATED_ROLE: _ensure_role(
-          cursor,
-          AUTHENTICATED_ROLE,
-          login=False,
-          inherit=False,
-        ),
-        ANONYMOUS_ROLE: _ensure_role(
-          cursor,
-          ANONYMOUS_ROLE,
-          login=False,
-          inherit=False,
-        ),
-        AUTHENTICATOR_ROLE: _ensure_role(
-          cursor,
-          AUTHENTICATOR_ROLE,
-          login=True,
-          inherit=False,
-          password=secrets.authenticator_password,
-        ),
-        CORE_RUNTIME_ROLE: _ensure_role(
-          cursor,
-          CORE_RUNTIME_ROLE,
-          login=True,
-          inherit=True,
-          password=secrets.core_runtime_password,
-        ),
-      }
+      _ensure_role(
+        cursor,
+        AUTHENTICATED_ROLE,
+        login=False,
+        inherit=False,
+      )
+      _ensure_role(
+        cursor,
+        ANONYMOUS_ROLE,
+        login=False,
+        inherit=False,
+      )
+      _ensure_role(
+        cursor,
+        AUTHENTICATOR_ROLE,
+        login=True,
+        inherit=False,
+        password=secrets.authenticator_password,
+      )
+      _ensure_role(
+        cursor,
+        CORE_RUNTIME_ROLE,
+        login=True,
+        inherit=True,
+        password=secrets.core_runtime_password,
+      )
 
       _revoke_parent_memberships(cursor, AUTHENTICATED_ROLE)
       _revoke_parent_memberships(cursor, ANONYMOUS_ROLE)
@@ -375,14 +380,14 @@ def provision_roles(
         AUTHENTICATOR_ROLE,
         login=True,
         inherit=False,
-        password=(secrets.authenticator_password if created[AUTHENTICATOR_ROLE] else None),
+        password=secrets.authenticator_password,
       )
       _set_role_attributes(
         cursor,
         CORE_RUNTIME_ROLE,
         login=True,
         inherit=True,
-        password=(secrets.core_runtime_password if created[CORE_RUNTIME_ROLE] else None),
+        password=secrets.core_runtime_password,
       )
       _grant_membership(cursor, AUTHENTICATED_ROLE, AUTHENTICATOR_ROLE)
       _grant_membership(cursor, AUTHENTICATED_ROLE, CORE_RUNTIME_ROLE)

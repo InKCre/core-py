@@ -94,7 +94,7 @@ runs:
           docker run --rm \
             --env MIGRATION_DATABASE_URL \
             --entrypoint python \
-            "inkcre-preview-release:$HEAD_SHA" \
+            "inkcre-preview-web:$HEAD_SHA" \
             scripts/database_environment.py
         )"
         if [ "$environment" = "preview" ]; then
@@ -138,12 +138,12 @@ runs:
           --env CORE_DATABASE_PASSWORD \
           --env MIGRATION_DATABASE_URL \
           --env POSTGREST_DATABASE_PASSWORD \
-          "inkcre-preview-release:$HEAD_SHA" \
+          "inkcre-preview-web:$HEAD_SHA" \
           python scripts/container.py \
           db init --profile runtime --environment preview
         docker run --rm \
           --env MIGRATION_DATABASE_URL \
-          "inkcre-preview-release:$HEAD_SHA" \
+          "inkcre-preview-web:$HEAD_SHA" \
           python scripts/container.py \
           db ready --profile runtime --json
 
@@ -153,7 +153,7 @@ runs:
             --env TARGET_DATABASE_PASSWORD="$CORE_DATABASE_PASSWORD" \
             --env TARGET_DATABASE_ROLE=inkcre_core \
             --entrypoint python \
-            "inkcre-preview-release:$HEAD_SHA" \
+            "inkcre-preview-web:$HEAD_SHA" \
             scripts/rebind_database_url.py \
             --scheme postgresql+psycopg
         )"

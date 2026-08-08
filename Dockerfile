@@ -28,7 +28,10 @@ ENV INKCRE_ENV_FILE="" \
     PYTHONUNBUFFERED=1
 WORKDIR /app
 
-RUN groupadd --gid 10001 inkcre \
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 inkcre \
     && useradd --uid 10001 --gid inkcre --create-home inkcre
 
 COPY --from=builder --chown=inkcre:inkcre /app/.venv /app/.venv
@@ -51,32 +54,23 @@ RUN install -d -o inkcre -g inkcre /app/data/extensions/twitter
 USER inkcre
 
 EXPOSE 8000
-ENTRYPOINT ["python", "scripts/container.py"]
-
-
-FROM runtime AS heroku-runtime
-
-USER root
-
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
-
-USER inkcre
-
 ENTRYPOINT []
+CMD ["python", "scripts/container.py", "web"]
 
 
-FROM heroku-runtime AS heroku-release
+FROM runtime AS service
+
+LABEL io.inkcre.database-schema.manifest="/app/database-contract/manifest.json" \
+    io.inkcre.database-schema.path="/app/database-contract/database-schema.sql"
+COPY --chown=inkcre:inkcre release/database-contract/ database-contract/
+
+
+FROM service AS heroku-release
 
 CMD ["python", "-c", "print('database lifecycle completed before Heroku release')"]
 
 
-FROM heroku-runtime AS heroku-web
-
-CMD ["python", "scripts/container.py", "web"]
+FROM service AS heroku-web
 
 
-FROM runtime AS artifact
-
-CMD ["web"]
+FROM service AS artifact
