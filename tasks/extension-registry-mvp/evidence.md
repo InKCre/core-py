@@ -104,8 +104,10 @@
   `inkcre` user before the immutable image is pushed.
 - Exact-main workflow order is target build, immutable commit image push,
   Registry publication, returned public release/digest/provenance verification,
-  then mutable `main` promotion. Same-digest reruns accept the retained non-empty
-  original build ID; a different digest or publication failure stops promotion.
+  then mutable `main` promotion. Same-digest reruns retain the immutable target's
+  original source revision and build ID while the delivery summary separately
+  records the current image revision; a different digest or publication failure
+  stops promotion.
 - Verification passed: 32 focused target/container tests; Ruff format/lint;
   focused Pyrefly; GitHub Actions pre-commit lint; YAML parsing; patch whitespace;
   public v0.1.2 wheel SHA-256; and a locked `[cli]` manifest/catalog build.
@@ -120,3 +122,18 @@
   or other publisher tooling to the application image.
 - Exact-main CD installs only that group through PDM 2.27.0 with the frozen lock,
   then verifies the installed Registry version and Python 3.12 minor.
+
+## Stage D Production Evidence
+
+- Pull request `InKCre/core-py#47` passed the hermetic repository contract,
+  dependency review, portable database runtime, isolated database provisioning,
+  and real Heroku preview before squash merge as main revision
+  `19632baa5ed1dbd8064387181e557a530a9eec84`.
+- Artifact workflow run `31333702751` published
+  `inkcre/twitter@0.1.0#python-core-v1` with target digest
+  `sha256:70d12049bd31c27e8bf024d26f9df91761a44fe4b58a7110681b171c50d1d679`
+  and promoted immutable image
+  `ghcr.io/inkcre/core-py@sha256:b8f43a7a9a558e6bb4d86e2d31baffe826a250dcdf32c9faf457a279e836ad10`.
+- Production workflow run `31333769383` succeeded. Public `/livez` and `/readyz`
+  both returned `200`; readiness reported runtime `ready`, database environment
+  `production`, and migration head `f2a6c8e4b1d7`.

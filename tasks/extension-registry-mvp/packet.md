@@ -15,17 +15,17 @@
   image publication and production migration/readiness; Registry target digest
   matches the admitted bytes in the image; production install/enable/run/disable/
   uninstall evidence is captured by the parent Registry task.
-- **Current Truth**: Registry Runtime/API `0.1.2` is released as an immutable
-  Python 3.12-compatible wheel with an explicit `client` extra. The Registry API
-  has a published release record containing immutable target records. This branch
-  now has additive Registry installation/binding state, exact admitted ZIP loading,
-  reversible runtime publication, deterministic Twitter target generation, and
-  exact-main target/image delivery while preserving the legacy table and scanner.
-- **Next Step**: commit and publish this branch through required checks, capture
-  the immutable image and Registry target identities, complete production
-  migration/readiness, then hand the released database contract to `client-web`.
+- **Current Truth**: Registry Runtime/API `0.1.2` is released. Core main revision
+  `19632baa` is in production at migration head `f2a6c8e4b1d7`; its immutable
+  image and `python-core-v1` target are digest-pinned, and public liveness and
+  readiness are green. The legacy table and scanner remain intact beside the new
+  Registry installation/binding path.
+- **Next Step**: prove same-digest publication preserves the target's first
+  producer provenance across an unrelated delivery revision, then hand the
+  released image/database contract to `client-web` for its target and binding
+  integration.
 
-## Stage C Delivery Result
+## Delivery Result
 
 - `inkcre/twitter@0.1.0#python-core-v1` now has exact Python, integration, and
   Extension API conditions plus a deterministic checked-in-source bundle build.
@@ -43,6 +43,9 @@
   Integration ran the full repository contract with PDM 2.27.0: 215 tests and
   all foundation, formatting, lint, type, migration, and settings gates passed;
   all pre-commit hooks also passed inside the frozen project environment.
+- Exact-main artifact publication and production delivery succeeded. The public
+  Registry now exposes the Python target, and Core production is ready on the new
+  schema.
 
 ## Supporting Material
 

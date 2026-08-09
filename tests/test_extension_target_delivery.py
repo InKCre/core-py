@@ -100,7 +100,8 @@ def test_registry_publish_uses_only_scoped_secret_and_exact_provenance() -> None
   assert '--build-id "$BUILD_ID"' in PUBLISH_WORKFLOW
   assert '"${{ steps.publisher.outputs.cli }}" show-release' in PUBLISH_WORKFLOW
   assert ".source_repository == $source_repository" in PUBLISH_WORKFLOW
-  assert ".source_revision == $source_revision" in PUBLISH_WORKFLOW
+  assert '.source_revision | type == "string" and length > 0' in PUBLISH_WORKFLOW
+  assert ".source_revision == $source_revision" not in PUBLISH_WORKFLOW
   assert '.build_id | type == "string" and length > 0' in PUBLISH_WORKFLOW
   assert ".build_id == $build_id" not in PUBLISH_WORKFLOW
   assert '--directory "${{ steps.target.outputs.artifact_directory }}"' in PUBLISH_WORKFLOW
@@ -116,7 +117,8 @@ def test_delivery_checks_local_cli_catalog_image_and_published_digest() -> None:
     'cmp "$published_manifest" release/extension-targets/twitter/manifest.json'
     in PUBLISH_WORKFLOW
   )
-  assert "- Source revision:" in PUBLISH_WORKFLOW
+  assert "- Delivery source revision:" in PUBLISH_WORKFLOW
+  assert "- Target source revision:" in PUBLISH_WORKFLOW
   assert "- Immutable image:" in PUBLISH_WORKFLOW
   assert "- Target digest:" in PUBLISH_WORKFLOW
   assert "- Target build ID:" in PUBLISH_WORKFLOW
