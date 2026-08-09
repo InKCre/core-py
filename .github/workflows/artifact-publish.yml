@@ -220,13 +220,11 @@ jobs:
 
           jq --exit-status \
             --arg digest "$LOCAL_TARGET_DIGEST" \
-            --arg source_repository "$SOURCE_REPOSITORY" \
             '.coordinate == "inkcre/twitter" and
              .version == "0.1.0" and
              .state == "published" and
              .target_key == "python-core-v1" and
              .target_digest == $digest and
-             .source_repository == $source_repository and
              (.source_revision | type == "string" and length > 0) and
              (.build_id | type == "string" and length > 0)' \
             "$publish_result"

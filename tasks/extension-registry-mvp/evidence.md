@@ -137,3 +137,9 @@
 - Production workflow run `31333769383` succeeded. Public `/livez` and `/readyz`
   both returned `200`; readiness reported runtime `ready`, database environment
   `production`, and migration head `f2a6c8e4b1d7`.
+- The first later same-digest proof, workflow run `31334256456`, correctly
+  stopped before mutable image promotion because the delivery script expected
+  `source_repository` in the CLI command summary even though that field belongs
+  to the authoritative public release record. The follow-up validates only the
+  CLI-owned summary fields, then verifies repository and retained producer
+  provenance through `show-release`; the failed run did not trigger production.

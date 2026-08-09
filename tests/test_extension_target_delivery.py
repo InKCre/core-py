@@ -99,7 +99,7 @@ def test_registry_publish_uses_only_scoped_secret_and_exact_provenance() -> None
   assert '--source-revision "$HEAD_SHA"' in PUBLISH_WORKFLOW
   assert '--build-id "$BUILD_ID"' in PUBLISH_WORKFLOW
   assert '"${{ steps.publisher.outputs.cli }}" show-release' in PUBLISH_WORKFLOW
-  assert ".source_repository == $source_repository" in PUBLISH_WORKFLOW
+  assert PUBLISH_WORKFLOW.count(".source_repository == $source_repository") == 1
   assert '.source_revision | type == "string" and length > 0' in PUBLISH_WORKFLOW
   assert ".source_revision == $source_revision" not in PUBLISH_WORKFLOW
   assert '.build_id | type == "string" and length > 0' in PUBLISH_WORKFLOW
