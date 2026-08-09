@@ -61,8 +61,13 @@ CMD ["python", "scripts/container.py", "web"]
 FROM runtime AS service
 
 LABEL io.inkcre.database-schema.manifest="/app/database-contract/manifest.json" \
-    io.inkcre.database-schema.path="/app/database-contract/database-schema.sql"
+    io.inkcre.database-schema.path="/app/database-contract/database-schema.sql" \
+    io.inkcre.extension-targets.catalog="/app/extension-targets/catalog.json"
 COPY --chown=inkcre:inkcre release/database-contract/ database-contract/
+COPY --chown=inkcre:inkcre release/extension-targets/ /app/extension-targets/
+
+RUN find /app/extension-targets -type d -exec chmod 0755 {} + \
+    && find /app/extension-targets -type f -exec chmod 0644 {} +
 
 
 FROM service AS heroku-release

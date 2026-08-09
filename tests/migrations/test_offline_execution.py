@@ -25,4 +25,9 @@ def test_offline_upgrade_requires_only_database_url(
 
   command.upgrade(config, "head", sql=True)
 
-  assert "CREATE TABLE" in capsys.readouterr().out
+  offline_sql = capsys.readouterr().out
+  assert "CREATE TABLE" in offline_sql
+  assert "extension_installations" in offline_sql
+  assert "extension_peer_bindings" in offline_sql
+  assert "extension_peer_bindings_installation_fkey" in offline_sql
+  assert "extension_peer_bindings_peer_fkey" in offline_sql

@@ -5,10 +5,34 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/heartbeat": {
+    "/livez": {
       "get": {
-        "summary": "<Lambda>",
-        "operationId": "_lambda__heartbeat_get",
+        "summary": "Liveness",
+        "description": "Report process liveness without checking dependencies.",
+        "operationId": "liveness_livez_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Liveness Livez Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readiness",
+        "description": "Report database and runtime compatibility without mutating either.",
+        "operationId": "readiness_readyz_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -486,7 +510,7 @@
           "extension"
         ],
         "summary": "Install Extension",
-        "description": "安装插件 (Install extension)",
+        "description": "Register an extension that is already included in this artifact.",
         "operationId": "install_extension_extensions__extid__post",
         "parameters": [
           {
@@ -690,6 +714,348 @@
         }
       }
     },
+    "/extension-installations": {
+      "get": {
+        "tags": [
+          "extension-installation"
+        ],
+        "summary": "List Registry Installations",
+        "operationId": "list_registry_installations_extension_installations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionInstallationModel"
+                  },
+                  "type": "array",
+                  "title": "Response List Registry Installations Extension Installations Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extension-installations/{namespace}/{name}": {
+      "get": {
+        "tags": [
+          "extension-installation"
+        ],
+        "summary": "Get Registry Installation",
+        "operationId": "get_registry_installation_extension_installations__namespace___name__get",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionInstallationModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "extension-installation"
+        ],
+        "summary": "Install Registry Extension",
+        "description": "Install one exact published release without enabling any peer.",
+        "operationId": "install_registry_extension_extension_installations__namespace___name__post",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionInstallationModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "extension-installation"
+        ],
+        "summary": "Uninstall Registry Extension",
+        "operationId": "uninstall_registry_extension_extension_installations__namespace___name__delete",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extension-installations/{namespace}/{name}/config": {
+      "put": {
+        "tags": [
+          "extension-installation"
+        ],
+        "summary": "Update Registry Extension Config",
+        "operationId": "update_registry_extension_config_extension_installations__namespace___name__config_put",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionInstallationModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extension-installations/{namespace}/{name}/enable": {
+      "post": {
+        "tags": [
+          "extension-installation"
+        ],
+        "summary": "Enable Registry Extension",
+        "operationId": "enable_registry_extension_extension_installations__namespace___name__enable_post",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionPeerBindingModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extension-installations/{namespace}/{name}/disable": {
+      "post": {
+        "tags": [
+          "extension-installation"
+        ],
+        "summary": "Disable Registry Extension",
+        "operationId": "disable_registry_extension_extension_installations__namespace___name__disable_post",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionInstallationModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sources/{source_id}/collect": {
       "post": {
         "tags": [
@@ -844,8 +1210,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/RetrieveMode",
-              "default": "embedding"
+              "enum": [
+                "feature",
+                "embedding",
+                "reasoning"
+              ],
+              "type": "string",
+              "default": "embedding",
+              "title": "Retrieve Mode"
             }
           },
           {
@@ -956,6 +1328,40 @@
         ],
         "title": "BlockModel"
       },
+      "ExtensionInstallationModel": {
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "title": "Namespace"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "config_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config Schema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "namespace",
+          "name",
+          "version"
+        ],
+        "title": "ExtensionInstallationModel",
+        "description": "One deployment-wide exact Registry Extension Version installation."
+      },
       "ExtensionModel": {
         "properties": {
           "id": {
@@ -1010,6 +1416,46 @@
         ],
         "title": "ExtensionModel",
         "description": "Globally, every extension has a unique ID.\nOnly one instance of each extension on a deployment.\nIf a record presents here, the extension is installed."
+      },
+      "ExtensionPeerBindingModel": {
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "title": "Namespace"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "peer_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Peer Id"
+          },
+          "target_key": {
+            "type": "string",
+            "title": "Target Key"
+          },
+          "target_digest": {
+            "type": "string",
+            "title": "Target Digest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "namespace",
+          "name",
+          "version",
+          "peer_id",
+          "target_key",
+          "target_digest"
+        ],
+        "title": "ExtensionPeerBindingModel",
+        "description": "One exact admitted Registry target enabled for one deployment peer."
       },
       "HTTPValidationError": {
         "properties": {
@@ -1094,14 +1540,6 @@
           "content"
         ],
         "title": "RelationModel"
-      },
-      "RetrieveMode": {
-        "type": "string",
-        "enum": [
-          "feature",
-          "embedding",
-          "reasoning"
-        ]
       },
       "RootV1InsertGraphResBody": {
         "properties": {
@@ -1270,6 +1708,13 @@
           "type": {
             "type": "string",
             "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
           }
         },
         "type": "object",

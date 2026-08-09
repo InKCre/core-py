@@ -23,7 +23,7 @@ def test_production_profile_projects_the_executable_contract():
   assert profile["format"] == 1
   assert profile["environment"] == "production"
   assert profile["database_contract"] == {
-    "migration_head": "d9f4e2a1b7c3",
+    "migration_head": "f2a6c8e4b1d7",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }
@@ -42,6 +42,8 @@ def test_contract_publishes_the_complete_protocol_projection():
     "block_embeddings",
     "blocks",
     "clients",
+    "extension_installations",
+    "extension_peer_bindings",
     "extensions",
     "logs",
     "relation_embeddings",
@@ -66,6 +68,38 @@ def test_contract_publishes_the_complete_protocol_projection():
   assert protocol["relations"]["block_embeddings"]["columns"]["embedding"]["type"] == {
     "kind": "array",
     "items": {"kind": "number"},
+  }
+  assert protocol["relations"]["extension_installations"]["columns"]["version"] == {
+    "type": {"kind": "string"},
+    "nullable": False,
+    "generated": False,
+    "has_default": False,
+  }
+  assert protocol["relations"]["extension_peer_bindings"]["columns"]["version"] == {
+    "type": {"kind": "string"},
+    "nullable": False,
+    "generated": False,
+    "has_default": False,
+  }
+  binding_relationships = {
+    relationship["foreign_key_name"]: relationship
+    for relationship in protocol["relations"]["extension_peer_bindings"]["relationships"]
+  }
+  assert binding_relationships == {
+    "extension_peer_bindings_installation_fkey": {
+      "foreign_key_name": "extension_peer_bindings_installation_fkey",
+      "columns": ["name", "namespace", "version"],
+      "referenced_relation": "extension_installations",
+      "referenced_columns": ["name", "namespace", "version"],
+      "one_to_one": False,
+    },
+    "extension_peer_bindings_peer_fkey": {
+      "foreign_key_name": "extension_peer_bindings_peer_fkey",
+      "columns": ["peer_id"],
+      "referenced_relation": "clients",
+      "referenced_columns": ["id"],
+      "one_to_one": False,
+    },
   }
 
 

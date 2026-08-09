@@ -31,6 +31,8 @@ APPLICATION_TABLES = (
   "block_embeddings",
   "blocks",
   "clients",
+  "extension_installations",
+  "extension_peer_bindings",
   "extensions",
   "logs",
   "relation_embeddings",
@@ -41,3 +43,12 @@ APPLICATION_TABLES = (
   "storage_types",
   "storages",
 )
+
+MANIFEST_ADDITIVE_EMPTY_TABLES = frozenset(
+  {
+    "extension_installations",
+    "extension_peer_bindings",
+  }
+)
+MANIFEST_ADDITIVE_PREVIOUS_HEAD = "d9f4e2a1b7c3"
+MANIFEST_ADDITIVE_CURRENT_HEAD = "f2a6c8e4b1d7"

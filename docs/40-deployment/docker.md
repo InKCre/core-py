@@ -13,7 +13,8 @@ operational helpers:
 - Python and PDM versions are pinned by `.python-version` and the Docker build argument
 - production dependencies come only from the frozen root `pdm.lock`
 - the final image contains core code, shared libraries, checked-in extensions, prompts,
-  Alembic configuration, and every migration revision
+  Alembic configuration, every migration revision, and the generated build-admitted Extension
+  target tree described in [extension-targets.md](extension-targets.md)
 - extension-local virtual environments and locks are not image inputs
 - the final process runs as the non-root `inkcre` user
 
@@ -25,7 +26,9 @@ Heroku's shell-based `CMD` behavior explicit. Call other supported commands with
   [database-contract.md](database-contract.md)
 - `python scripts/container.py ready`: compatibility entry point for runtime-profile readiness
 
-The artifact never generates migrations or downloads extension code.
+The artifact never generates migrations or downloads extension code. Registry-backed Python
+imports use only the deterministic bundle copied under `/app/extension-targets`; the checked-in
+extension directory is not a fallback for an admitted Registry binding.
 
 The canonical service contains `curl` for Heroku release logging and uses the same full default
 command in Docker and Heroku. The separate release guard is deliberately harmless: Heroku config
@@ -91,9 +94,11 @@ The same job initializes a separate neutral runtime database, exports password-f
 a PostgreSQL 17 whole-database schema dump, and appends only its Alembic and contract-state
 lifecycle rows. After the workflow passes on exact current `main`,
 `artifact-publish.yml` embeds that checked evidence, builds the canonical service image once,
-tests its manifest, and publishes its commit tag and immutable digest. Production pulls that
-digest and transfers the same image content to Heroku; it does not rebuild core code. Only a
-successful production probe moves the mutable `stable` discovery channel.
+builds and embeds the exact Python target, tests both manifests, and publishes the image commit
+tag and immutable digest. It publishes the matching Registry target before moving GHCR `main`;
+target publication failure leaves the commit image isolated and prevents automatic production.
+Production pulls that digest and transfers the same image content to Heroku; it does not rebuild
+core code. Only a successful production probe moves the mutable `stable` discovery channel.
 
 When no local Docker-compatible runtime is installed, `svc.local.json` may select the
 checked-in SSH provider implemented by `scripts/dev_database_provider.py` and

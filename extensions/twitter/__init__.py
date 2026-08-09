@@ -3,6 +3,7 @@ import sqlmodel
 from typing import Optional as Opt
 from fastapi import APIRouter
 from app.business.extension.main import ExtensionBase
+from app.business.info_base.resolver import ResolverManager
 from app.business.source import SourceManager
 
 
@@ -26,17 +27,21 @@ class Extension(
 ):
   @classmethod
   def _init_resolvers(cls):
-    from .resolver import TweetResolver  # noqa: F401
+    from .resolver import TweetResolver
+
+    ResolverManager.register_resolver(TweetResolver)
 
   @classmethod
   def _init_sources(cls):
-    from .bookmark import Source as BookmarkSource  # noqa: F401
+    from .bookmark import Source as BookmarkSource
+
+    SourceManager.add_source_type(BookmarkSource)
 
   @classmethod
   async def on_close(cls):
     from .api import TwitterAPI
 
-    await TwitterAPI.new().close()
+    await TwitterAPI.close_singleton()
 
     await super().on_close()
 
