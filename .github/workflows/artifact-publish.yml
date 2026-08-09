@@ -220,13 +220,14 @@ jobs:
 
           jq --exit-status \
             --arg digest "$LOCAL_TARGET_DIGEST" \
-            --arg source_revision "$HEAD_SHA" \
+            --arg source_repository "$SOURCE_REPOSITORY" \
             '.coordinate == "inkcre/twitter" and
              .version == "0.1.0" and
              .state == "published" and
              .target_key == "python-core-v1" and
              .target_digest == $digest and
-             .source_revision == $source_revision and
+             .source_repository == $source_repository and
+             (.source_revision | type == "string" and length > 0) and
              (.build_id | type == "string" and length > 0)' \
             "$publish_result"
           cmp "$published_manifest" release/extension-targets/twitter/manifest.json
@@ -239,7 +240,6 @@ jobs:
           jq --exit-status \
             --arg digest "$LOCAL_TARGET_DIGEST" \
             --arg source_repository "$SOURCE_REPOSITORY" \
-            --arg source_revision "$HEAD_SHA" \
             '.namespace == "inkcre" and
              .name == "twitter" and
              .version == "0.1.0" and
@@ -248,14 +248,20 @@ jobs:
              ([.targets[] | select(.target_key == "python-core-v1")][0] |
                .target_digest == $digest and
                .source_repository == $source_repository and
-               .source_revision == $source_revision and
+               (.source_revision | type == "string" and length > 0) and
                (.build_id | type == "string" and length > 0))' \
             "$release_result"
+          returned_source_revision="$(
+            jq --exit-status --raw-output \
+              '[.targets[] | select(.target_key == "python-core-v1")][0].source_revision' \
+              "$release_result"
+          )"
           returned_build_id="$(
             jq --exit-status --raw-output \
               '[.targets[] | select(.target_key == "python-core-v1")][0].build_id' \
               "$release_result"
           )"
+          echo "source_revision=$returned_source_revision" >> "$GITHUB_OUTPUT"
           echo "build_id=$returned_build_id" >> "$GITHUB_OUTPUT"
           echo "target_digest=$LOCAL_TARGET_DIGEST" >> "$GITHUB_OUTPUT"
 
@@ -284,14 +290,16 @@ jobs:
           TARGET_BUILD_ID: ${{ steps.registry.outputs.build_id }}
           TARGET_DIGEST: ${{ steps.target.outputs.target_digest }}
           TARGET_PUBLICATION: ${{ steps.registry.outcome }}
+          TARGET_SOURCE_REVISION: ${{ steps.registry.outputs.source_revision }}
         run: |
           {
             echo "### core-py runtime and Extension target"
             echo
-            echo "- Source revision: \`$HEAD_SHA\`"
+            echo "- Delivery source revision: \`$HEAD_SHA\`"
             echo "- Immutable image: \`$IMAGE_DIGEST\`"
             echo "- Target: \`inkcre/twitter@0.1.0#python-core-v1\`"
             echo "- Target digest: \`$TARGET_DIGEST\`"
+            echo "- Target source revision: \`$TARGET_SOURCE_REVISION\`"
             echo "- Target build ID: \`$TARGET_BUILD_ID\`"
             echo "- Registry publication: \`$TARGET_PUBLICATION\`"
             echo "- Mutable main promotion: \`$MAIN_PROMOTION\`"

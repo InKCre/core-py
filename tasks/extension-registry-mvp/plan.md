@@ -47,11 +47,13 @@
 - Gate: reproducible target, tamper rejection, image inspection, full `pdm run
   check`, and exact-main target/image publication are green.
 
-## Stage D — Production And Downstream Handoff (current)
+## Stage D — Production And Downstream Handoff (in progress)
 
 - Merge through `core-py` required checks; wait for exact-main migration, image,
-  readiness, and target publication.
-- Record the immutable core image digest and Registry target digest.
+  readiness, and target publication. **Complete.**
+- Record the immutable core image digest and Registry target digest. **Complete.**
+- Verify an idempotent same-digest target publication retains the first producer
+  provenance while a later image delivery records its own revision.
 - Hand the released database contract and Runtime/API `0.1.2` to `client-web`;
   only then regenerate its database types and implement its peer binding path.
 - Final production lifecycle acceptance is owned by the parent Registry task and
