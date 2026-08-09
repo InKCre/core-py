@@ -71,7 +71,11 @@ def test_application_import_and_openapi_are_database_independent(tmp_path):
     [
       sys.executable,
       "-c",
-      "from run import api_app; print(len(api_app.openapi()['paths']))",
+      (
+        "from run import api_app; schema=api_app.openapi(); "
+        "assert '/extension-installations/{namespace}/{name}' in schema['paths']; "
+        "print(len(schema['paths']))"
+      ),
     ],
     cwd=tmp_path,
     env=environment,

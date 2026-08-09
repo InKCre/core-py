@@ -43,6 +43,8 @@
   `sources_types`；import 本身不得连接数据库。
 - source 注册仍依赖 import；如果模块从未被 import，对应 source type 就不会出现。
 - extension 提供 source 时，真正的注册触发点是 extension startup 期间的 import。
+- extension runtime 通过 `snapshot_source_types()` / `restore_source_types()` 撤销本次
+  publication；重复 enable 必须显式重新注册，不能依赖只执行一次的 module import side effect。
 
 ### State Ownership
 

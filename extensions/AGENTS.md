@@ -78,6 +78,9 @@ class Extension(ExtensionBase, ext_id="my_extension", config_cls=MyConfig):
 - Extension ID 使用 snake_case
 - 避免与核心 API 路由冲突（Extension API 前缀：`/{ext_id}/`）
 - Source/Resolver 注册在 `_init_sources()` / `_init_resolvers()` 中
+- `_init_sources()` / `_init_resolvers()` 必须显式调用 manager 注册 API，以支持
+  disable 撤销后在同一进程再次 enable；只写 import side effect 不足够。
+- 持有 singleton 或连接的 extension 必须在成功 close 后重置引用，使 re-enable 创建新实例。
 - extension 的依赖同时进入根 `pyproject.toml` 固定 profile 和根 lock
 
 参考现有扩展代码了解最佳实践。

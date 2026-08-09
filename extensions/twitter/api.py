@@ -53,6 +53,15 @@ class TwitterAPI(abc.ABC):
   SINGLETON: Opt["TwitterAPI"] = None
 
   @classmethod
+  async def close_singleton(cls) -> None:
+    """Close and forget the singleton so a later enable gets a fresh client."""
+    singleton = cls.SINGLETON
+    if singleton is None:
+      return
+    await singleton.close()
+    cls.SINGLETON = None
+
+  @classmethod
   def new(cls, api_router: Opt[fastapi.APIRouter] = None) -> "TwitterAPI":
     """Create an instance of the Twitter API client.
 

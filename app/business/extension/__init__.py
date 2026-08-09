@@ -1,6 +1,16 @@
-from .main import ExtensionManager, ExtensionBase
+from .main import ExtensionBase, ExtensionManager
+from .registry import (
+  AdmittedTarget,
+  AdmittedTargetCatalog,
+  REGISTRY_EXTENSION_MANAGER,
+  RegistryExtensionManager,
+)
 
 __all__ = [
-  "ExtensionManager",
+  "AdmittedTarget",
+  "AdmittedTargetCatalog",
   "ExtensionBase",
+  "ExtensionManager",
+  "REGISTRY_EXTENSION_MANAGER",
+  "RegistryExtensionManager",
 ]

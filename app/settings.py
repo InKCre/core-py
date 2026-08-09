@@ -76,6 +76,22 @@ class Settings(BaseSettings):
     ),
   )
 
+  # Public Extension Registry and build-admitted Python targets
+  extension_registry_url: str = Field(
+    default="https://inkcre-extension-registry.lanzhijiang.workers.dev",
+    description="Public Extension Registry origin used for install and new enable",
+  )
+  extension_registry_timeout_seconds: float = Field(
+    default=5.0,
+    gt=0,
+    le=30,
+    description="Bounded timeout for public Extension Registry requests",
+  )
+  extension_target_catalog_path: str = Field(
+    default="/app/extension-targets/catalog.json",
+    description="Build-generated admitted Python target catalog",
+  )
+
   @field_validator("database_url")
   @classmethod
   def use_psycopg_driver(cls, v: str) -> str:

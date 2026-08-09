@@ -32,6 +32,8 @@
 - `Resolver.__init_subclass__()` 会把 resolver 注册到 `ResolverManager.RESOLVER_CLS`。
 - 所以 resolver 可用性依赖 import-time side effect；模块没被 import，就不会被注册。
 - 对 extension resolvers 来说，真正的注册触发点通常在 extension startup 的 `_init_resolvers()`。
+- extension runtime 通过 `snapshot_resolvers()` / `restore_resolvers()` 撤销本次 publication；
+  重复 enable 必须显式重新注册，不能依赖只执行一次的 module import side effect。
 
 ### Raw vs Solved Content
 

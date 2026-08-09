@@ -221,6 +221,10 @@ data/ai/*
 scratch/
 ipynb
 
+# Exact-main target bundles and digest-bearing admission metadata are generated.
+release/extension-targets/*
+!release/extension-targets/README.md
+
 # extensions scripts
 extensions/**/scripts/*
 .firecrawl/

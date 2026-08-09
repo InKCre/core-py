@@ -29,10 +29,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.settings import settings
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
+from app.routes.extension import REGISTRY_ROUTER as registry_extension_router
 from app.routes.extension import ROUTER as extension_router
 from app.routes.source import ROUTER as source_router
 from app.business.source import SourceManager
-from app.business.extension import ExtensionManager
+from app.business.extension import REGISTRY_EXTENSION_MANAGER, ExtensionManager
 from app.business.client import ClientManager
 from app.business.info_base.main import InfoBaseManager
 from app.business.sink import SinkManager
@@ -45,7 +46,7 @@ from app.runtime import RUNTIME_STATUS, RuntimePhase
 from app.scheduler import scheduler
 
 
-def bootstrap_runtime(app: fastapi.FastAPI) -> None:
+async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   """Initialize database-backed runtime services after migrations are ready."""
   from app.business.source import SourceCollectJobManager
   from app.business.info_base.storage import StorageManager
@@ -60,6 +61,7 @@ def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   if not SKIP_EXTENSIONS_SYNC:
     ExtensionManager.sync()
     ExtensionManager.start_enabled(app)
+    await REGISTRY_EXTENSION_MANAGER.start_enabled(app)
     SourceManager.sync_source_types()
     SourceManager.set_up_collect_jobs()
 
@@ -97,7 +99,7 @@ async def bootstrap_when_database_is_ready(app: fastapi.FastAPI) -> None:
     await asyncio.sleep(retry_seconds)
 
   try:
-    bootstrap_runtime(app)
+    await bootstrap_runtime(app)
   except Exception:
     RUNTIME_STATUS.set(RuntimePhase.FAILED, "runtime_bootstrap_failed")
     logger.exception("Runtime bootstrap failed")
@@ -122,7 +124,19 @@ async def lifespan(app: fastapi.FastAPI):
     await bootstrap_task
   if scheduler.running:
     scheduler.shutdown(wait=True)
-  await ExtensionManager.close_running()
+  shutdown_failures: list[Exception] = []
+  for close_extensions in (
+    REGISTRY_EXTENSION_MANAGER.close_running,
+    ExtensionManager.close_running,
+  ):
+    try:
+      await close_extensions()
+    except Exception as error:
+      shutdown_failures.append(error)
+  if len(shutdown_failures) == 1:
+    raise shutdown_failures[0]
+  if shutdown_failures:
+    raise ExceptionGroup("Extension shutdown failed", shutdown_failures)
 
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
@@ -178,6 +192,7 @@ sink_router.get("/rag")(SinkManager.rag)
 api_app.include_router(block_router)
 api_app.include_router(relation_router)
 api_app.include_router(extension_router)
+api_app.include_router(registry_extension_router)
 api_app.include_router(source_router)
 api_app.include_router(root_router)
 api_app.include_router(sink_router)

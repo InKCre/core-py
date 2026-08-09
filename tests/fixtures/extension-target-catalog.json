@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "targets": [
+    {
+      "namespace": "inkcre",
+      "name": "twitter",
+      "version": "0.1.0",
+      "target_key": "python-core-v1",
+      "target_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "extension_id": "twitter",
+      "bundle_path": "/app/extension-targets/twitter/bundle.zip",
+      "manifest_path": "/app/extension-targets/twitter/manifest.json"
+    }
+  ]
+}

@@ -78,6 +78,12 @@ def test_settings_default_values():
   assert settings.llm_sp_base_url == ""
   assert settings.obsrv.logtail_source_token is None
   assert settings.obsrv.logtail_host is None
+  assert (
+    settings.extension_registry_url
+    == "https://inkcre-extension-registry.lanzhijiang.workers.dev"
+  )
+  assert settings.extension_registry_timeout_seconds == 5.0
+  assert settings.extension_target_catalog_path == "/app/extension-targets/catalog.json"
 
 
 @pytest.mark.parametrize(
@@ -152,6 +158,31 @@ def test_settings_port_invalid_value():
       settings_module.Settings(_env_file=None)
 
   assert [item["loc"] for item in error.value.errors()] == [("port",)]
+
+
+def test_extension_registry_settings_are_overridable_and_timeout_is_bounded():
+  configured = build_settings(
+    {
+      "DATABASE_URL": TEST_DATABASE_URL,
+      "JWT_SECRET": TEST_JWT_SECRET,
+      "EXTENSION_REGISTRY_URL": "https://registry.test",
+      "EXTENSION_REGISTRY_TIMEOUT_SECONDS": "1.5",
+      "EXTENSION_TARGET_CATALOG_PATH": "/tmp/catalog.json",
+    }
+  )
+  assert configured.extension_registry_url == "https://registry.test"
+  assert configured.extension_registry_timeout_seconds == 1.5
+  assert configured.extension_target_catalog_path == "/tmp/catalog.json"
+
+  for timeout in ("0", "31"):
+    with pytest.raises(ValidationError):
+      build_settings(
+        {
+          "DATABASE_URL": TEST_DATABASE_URL,
+          "JWT_SECRET": TEST_JWT_SECRET,
+          "EXTENSION_REGISTRY_TIMEOUT_SECONDS": timeout,
+        }
+      )
 
 
 def test_settings_environment_names_are_case_insensitive():

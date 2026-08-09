@@ -12,6 +12,13 @@ from app.database_contract.profile import BUILTIN_EXTENSIONS_BY_ID
 from app.schemas.extension.main import ExtensionModel, ExtensionID
 from libs.obsrv.main import get_logger
 
+from .runtime import (
+  ExtensionPublication,
+  ExtensionPublicationSnapshot,
+  ExtensionRuntimeClaim,
+  ExtensionRuntimeRecord,
+)
+
 
 LOGGER = get_logger().getChild(__name__)
 
@@ -41,21 +48,46 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     return super().__init_subclass__(**kwargs)
 
   @classmethod
-  def on_start(cls, app: fastapi.FastAPI, extension: ExtensionModel):
-    cls.config = cls.__configcls__(**(extension.config or {}))  # pyrefly: ignore[no-access]
-    with SessionLocal() as db:
-      extension.config_schema = cls.__configschema__
-      db.add(extension)
-      db.commit()
+  def on_start(
+    cls,
+    app: fastapi.FastAPI,
+    extension: ExtensionRuntimeRecord,
+    publication_snapshot: ExtensionPublicationSnapshot | None = None,
+  ) -> None:
+    """Start and atomically publish one locally admitted Extension class."""
+    snapshot = publication_snapshot or ExtensionPublicationSnapshot.capture(app)
+    if cls.runtime_active():
+      snapshot.rollback()
+      raise RuntimeError(f"Extension runtime {cls.__extid__} is already active")
+    if extension.extension_id != cls.__extid__:
+      snapshot.rollback()
+      raise RuntimeError(
+        f"Runtime record {extension.extension_id} does not belong to {cls.__extid__}"
+      )
 
-    router = fastapi.APIRouter(prefix=f"/{cls.__extid__}")
-    cls._register_apis(router)
-    app.include_router(router, tags=["extension", cls.__extid__])
+    publication: ExtensionPublication | None = None
+    setattr(cls, "__runtime_record__", extension)
+    try:
+      cls.config = cls.__configcls__(  # pyrefly: ignore[no-access]
+        **(extension.config or {})
+      )
+      router = fastapi.APIRouter(prefix=f"/{cls.__extid__}")
+      cls._register_apis(router)
+      app.include_router(router, tags=["extension", cls.__extid__])
 
-    cls._init_sources()
-    cls._init_resolvers()
+      cls._init_sources()
+      cls._init_resolvers()
+      publication = snapshot.finish()
+      extension.persist_config_schema(dict(cls.__configschema__))
+    except Exception:
+      if publication is None:
+        snapshot.rollback()
+      else:
+        publication.restore()
+      raise
 
-    LOGGER.info(f"Extension {cls.__extid__} started.")
+    setattr(cls, "__runtime_publication__", publication)
+    LOGGER.info("Extension %s started.", cls.__extid__)
 
   @classmethod
   def _init_resolvers(cls): ...
@@ -65,11 +97,39 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
 
   @classmethod
   async def on_close(cls):
-    ExtensionManager.save_config(
-      ext_id=cls.__extid__,
-      config=cls.config,  # pyrefly: ignore[missing-attribute]
+    record = typing.cast(
+      ExtensionRuntimeRecord | None,
+      cls.__dict__.get("__runtime_record__"),
     )
-    LOGGER.info(f"Extension {cls.__extid__} closed.")
+    if record is None:
+      raise RuntimeError(f"Extension runtime {cls.__extid__} has no state record")
+    config = typing.cast(sqlmodel.SQLModel, getattr(cls, "config"))
+    record.persist_config(config.model_dump())
+    LOGGER.info("Extension %s closed.", cls.__extid__)
+
+  @classmethod
+  def runtime_active(cls) -> bool:
+    publication = typing.cast(
+      ExtensionPublication | None,
+      cls.__dict__.get("__runtime_publication__"),
+    )
+    return publication is not None and not publication.restored
+
+  @classmethod
+  def unpublish(cls) -> None:
+    publication = typing.cast(
+      ExtensionPublication | None,
+      cls.__dict__.get("__runtime_publication__"),
+    )
+    if publication is not None:
+      publication.restore()
+
+  @classmethod
+  def release_runtime(cls) -> None:
+    """Forget class-local runtime state after teardown is fully successful."""
+    for attribute in ("__runtime_publication__", "__runtime_record__"):
+      if attribute in cls.__dict__:
+        delattr(cls, attribute)
 
   @classmethod
   @abc.abstractmethod
@@ -93,7 +153,8 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
 
 class ExtensionManager:
   RUNNING_EXTENSIONS: dict[ExtensionID, type[ExtensionBase]] = dict()
-  FASTAPI_APP: fastapi.FastAPI
+  RUNNING_CLAIMS: dict[ExtensionID, ExtensionRuntimeClaim] = dict()
+  FASTAPI_APP: fastapi.FastAPI | None = None
 
   @classmethod
   def start_enabled(cls, app: fastapi.FastAPI):
@@ -108,10 +169,17 @@ class ExtensionManager:
 
     It could involves closes of connections, so asynchronous.
     """
-    to_close = tuple(cls.RUNNING_EXTENSIONS.values())
-    for extension_class in to_close:
-      await extension_class.on_close()
-      cls.RUNNING_EXTENSIONS.pop(extension_class.__extid__, None)
+    failures: list[Exception] = []
+    to_close = tuple(cls.RUNNING_EXTENSIONS)
+    for extension_id in to_close:
+      try:
+        await cls.close(extension_id)
+      except Exception as error:
+        failures.append(error)
+    if len(failures) == 1:
+      raise failures[0]
+    if failures:
+      raise ExceptionGroup("Legacy Extension shutdown failed", failures)
 
   @classmethod
   def start(
@@ -129,28 +197,72 @@ class ExtensionManager:
       extension = cls.get(extid)
     if not extension:
       raise ValueError(f"Extension not provided or not found: {extid}")
-    extension_module = importlib.import_module(f"extensions.{extension.id}")
-    extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
-
-    if extension_class in cls.RUNNING_EXTENSIONS:
+    if extension.id in cls.RUNNING_EXTENSIONS:
       LOGGER.warning(f"Extension {extension.id} is already running.")
-    else:
+      return
+
+    runtime_claim = ExtensionRuntimeClaim.acquire(extension.id)
+    publication_snapshot = ExtensionPublicationSnapshot.capture(app)
+    try:
+      extension_module = importlib.import_module(f"extensions.{extension.id}")
+    except Exception:
+      try:
+        publication_snapshot.rollback()
+      finally:
+        runtime_claim.release()
+      raise
+    extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
+    if extension_class.runtime_active():
+      try:
+        publication_snapshot.rollback()
+      finally:
+        runtime_claim.release()
+      raise RuntimeError(
+        f"Extension runtime {extension.id} already owns the canonical module"
+      )
+
+    def persist_config(config: dict[str, typing.Any]) -> None:
+      cls.save_config(extension.id, config)
+
+    def persist_config_schema(schema: dict[str, typing.Any]) -> None:
+      cls.save_config_schema(extension.id, schema)
+
+    runtime_record = ExtensionRuntimeRecord(
+      extension_id=extension.id,
+      config=dict(extension.config or {}),
+      persist_config=persist_config,
+      persist_config_schema=persist_config_schema,
+    )
+    try:
       extension_class.on_start(
         app=app,
-        extension=extension,
+        extension=runtime_record,
+        publication_snapshot=publication_snapshot,
       )
-      cls.RUNNING_EXTENSIONS[extension_class.__extid__] = extension_class
+    except Exception:
+      try:
+        extension_class.release_runtime()
+      finally:
+        runtime_claim.release()
+      raise
+    cls.RUNNING_EXTENSIONS[extension.id] = extension_class
+    cls.RUNNING_CLAIMS[extension.id] = runtime_claim
 
   @classmethod
   async def close(cls, extid: ExtensionID):
     """Close a specific extension."""
-    extension_module = importlib.import_module(f"extensions.{extid}")
-    extension_class = typing.cast(type[ExtensionBase], extension_module.Extension)
-    if extension_class in cls.RUNNING_EXTENSIONS:
-      await extension_class.on_close()
-      cls.RUNNING_EXTENSIONS.pop(extension_class.__extid__, None)
-    else:
+    extension_class = cls.RUNNING_EXTENSIONS.get(extid)
+    if extension_class is None:
       LOGGER.warning(f"Extension {extid} is not running.")
+      return
+
+    await extension_class.on_close()
+    extension_class.unpublish()
+    extension_class.release_runtime()
+    cls.RUNNING_EXTENSIONS.pop(extid, None)
+    runtime_claim = cls.RUNNING_CLAIMS.pop(extid, None)
+    if runtime_claim is not None:
+      runtime_claim.release()
 
   @classmethod
   def _read_metadata(cls, ext_path: str) -> tuple[Opt[str], Opt[str]]:
@@ -360,6 +472,23 @@ class ExtensionManager:
       db.commit()
       db.refresh(extension_model)
 
+      return extension_model
+
+  @classmethod
+  def save_config_schema(
+    cls,
+    ext_id: ExtensionID,
+    config_schema: dict[str, typing.Any],
+  ) -> ExtensionModel:
+    """Persist the runtime-owned schema for one legacy extension record."""
+    with SessionLocal() as db:
+      extension_model = db.exec(
+        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == ext_id)
+      ).one()
+      extension_model.config_schema = config_schema
+      db.add(extension_model)
+      db.commit()
+      db.refresh(extension_model)
       return extension_model
 
   @classmethod
