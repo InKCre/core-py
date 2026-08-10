@@ -34,6 +34,13 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-221–D-230](D221-D230.md) | Resolver behavior/content layers → SolvedContentRenderer and BlockInspector |
 | [D-231–D-240](D231-D240.md) | InfoBase web route projection → Source Block provenance |
 | [D-241–D-250](D241-D250.md) | Relation predicate normalization → Mail source-native graph decomposition |
+| [D-251–D-260](D251-D260.md) | Core Email body reuse → exact-occurrence Email identity |
+| [D-261–D-270](D261-D270.md) | Canonical Email restoration → Mail sync checkpoint placement |
+| [D-271–D-280](D271-D280.md) | Remote MIME reconciliation safety → current edge |
+| [D-281–D-290](D281-D290.md) | Mail adapter command ownership → writable Source targets |
+| [D-291–D-300](D291-D300.md) | Singular graph reads without duplicate-policy promotion → current edge |
+| [D-301–D-310](D301-D310.md) | Cron coalescing/activation semantics → current edge |
+| [D-311–D-320](D311-D320.md) | Mail access-context continuity → Mail Acceptance closure |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -47,6 +54,7 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-250](D241-D250.md)。
+- Latest confirmed decision: [D-315](D311-D320.md)。
 - Active unit: [Mail Extension](../units/mail-extension/packet.md)。
-- Active surface: exact Email body/MIME-part graph grammar；Acceptance and implementation remain pending。
+- Active surface: Mail product、technical、Acceptance and R5 implementation planning are closed through D-315；perform the
+  final Impact Handshake and wait for explicit implementation start。

@@ -1,7 +1,7 @@
 # Solved-Content Rendering
 
-- **Status**: Technical discussion；not frozen。
-- **Decision authority**: [D-220–D-232](../../../decisions/index.md)。
+- **Status**: R3 product/technical boundary frozen；exact implementation seams remain plan/preflight-owned。
+- **Decision authority**: [D-220–D-238、D-312](../../../decisions/index.md)。
 - **Problem**: rich focal Blocks require resolver-owned local graph interpretation，while client-web currently calls the
   resolver-selected component `contentComp`、renders it inline under `BlockDetailsPanel` and lets only the graph page own
   cross-Block selection/navigation。
@@ -158,7 +158,74 @@ interface SolvedContentRendererProps<
 Exact generic parameter ordering must follow the final Resolver declaration rather than copying this illustrative snippet
 blindly。
 
-## Active Question
+## Derived Destination Lifecycle（R3 closure candidate）
 
-Settle the exact Resolver/refresh lifecycle inside `SolvedContentPopup` and route changes between focal BlockRefs，without
-leaking controller state into `SolvedContentRenderer` or relying on component remount accidents。
+The existing client confirms that route changes cannot rely on component construction：`BlockContent` creates one Resolver
+from setup-time props，while GraphSurface owns a separate selected-Block object。The accepted Router topology therefore implies
+the following explicit `SolvedContentPopup` lifecycle without another product choice：
+
+1. `block: BlockRef` is watched immediately。Every route-ref change increments a local load generation，clears the previous
+   destination state and best-effort disposes its Resolver before loading the new Block。
+2. The Popup loads the current Block row，constructs the exact registered Resolver and calls solved-content retrieval。Only
+   the latest generation may publish Block、Resolver、solved content or error state；a stale completion disposes any Resolver
+   it created and otherwise has no UI effect。This prevents async route races without requiring every Resolver to implement
+   cancellation。
+3. Explicit refresh keeps the same InfoBase route but reruns the complete destination load from Block persistence，including
+   Resolver selection，with the stable `{refresh:true}` cache-replacement semantic。It does not depend on mutating an old
+   Resolver in place，component remount keys or a new navigation entry。
+4. Popup unmount invalidates the current generation and best-effort disposes the live Resolver。Disposal failure is internal
+   diagnostic residue；it does not block close/back or the next destination，and no retry/checkpoint lifecycle is added。
+5. Loading、missing-Block、solve failure and refresh failure remain Popup states。The presentation-neutral
+   `SolvedContentRenderer` receives only the successful exact Resolver plus typed solved content and owns none of this
+   controller lifecycle。
+
+The same lifecycle shape applies to `BlockInspectorPopup` without Resolver/solve/refresh：watch BlockRef，generation-guard
+`Block.get()`，own loading/missing/error and invalidate stale completions。Whether `Block.get` gains a nullable lookup seam or
+the Popup maps an existing not-found result is implementation-plan detail，not a second route contract。
+
+## Solved Email Projection Direction（R3 closure candidate）
+
+`SolvedEmail` remains a read projection of the accepted graph rather than a second canonical Email DTO。Its structural
+families are：
+
+- `.root`: canonical Email root content；
+- body representations：body Block、MIME `part_id` and the child Resolver's solved content；
+- participant occurrences：EmailAddress Block/content plus role、order and occurrence display name；
+- mailbox memberships：Mailbox Block/content plus UIDVALIDITY/UID locator；
+- mailbox-scoped flags：MailFlag Block/content and its owning Mailbox reference；
+- reply/reference navigation targets：normalized relation role/direction、order and target Email BlockRef；
+- MIME components：Email-relative role/`part_id`、metadata Block and read-only `SolvedMimePart`，whose semantic child remains
+  nullable and does not trigger automatic attachment download。
+
+The Resolver may use narrower exact helper types for these families during implementation。It must not copy graph-owned facts
+back into `.root`，make the renderer parse Relation strings or expose loading/created/existing mechanics。
+
+## Email HTML Presentation and Remote-Resource Boundary
+
+The sender-authored HTML body remains raw collected authority in its body Block。Its transition from passive data into a
+browser-renderable projection is the concrete security boundary；sanitizing during collection or Storage write would damage
+authority while failing to place responsibility where execution capability is introduced。
+
+`SolvedContentRenderer` applies the following frozen behavior：
+
+1. Prefer an available HTML body for faithful Email reading；fall back to the plain-text body。This does not merge or rewrite
+   the independently collected body Blocks。
+2. Pass HTML through a mature maintained sanitizer such as DOMPurify，then render the result in a sandboxed iframe without
+   scripts、forms or same-origin capability。The application does not implement its own parser/filter，and CSP is not the sole
+   XSS defense。
+3. Disable automatic external resource loading by default，including remote images and tracking pixels。Normalize and allow
+   only user-initiated `http`/`https` link opening。
+4. Rewrite CID references only to client-local object URLs backed by an already materialized semantic content child。If the
+   inline MIME part is still remote-only，show metadata/placeholder and an explicit materialization action instead。
+5. Opening an Email never implicitly materializes an attachment。Attachment and unresolved inline-part actions retain the
+   accepted Resolver-owned explicit command boundary。
+
+This is the baseline contract at an identified untrusted-HTML/browser boundary，not an open-ended hardening backlog。Exact
+sanitizer configuration、iframe construction and object-URL cleanup belong to implementation plan/preflight，provided they
+prove these effects and do not invent a second HTML authority。
+
+## R3 Closure
+
+The destination lifecycle、SolvedEmail projection、navigation actions、attachment action boundary and HTML presentation policy
+are now product/technical-design complete through D-312。Repository preflight may select exact helpers and expose a concrete
+blocker，but does not reopen this topology merely because another component factoring is possible。

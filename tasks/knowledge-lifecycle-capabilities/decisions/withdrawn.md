@@ -16,3 +16,14 @@
   content。
 - 为 source-native identity 建立通用 `resource`、opaque `source_key` 或
   `source_block_bindings` 持久模型。
+- 把公开 IMAP/POP3 protocol 建模为 versioned InKCre adapter ID，并为一个当前 closed、one-implementation-
+  per-protocol 的集合引入 `MailManager`、runtime adapter registry 或 persisted adapter catalog。Protocol 是
+  Source 配置的外部标准事实；adapter 是代码实现机制。
+- 在 `MailAdapter` 上暴露 `collect()` / `MailCollectRequest` / `MailCollectBatch`。`collect` 是 Source 将外部信息
+  带入 InfoBase 的领域 command；Adapter 只暴露 canonical Mail 级别的远端读取/变更流与 part fetch。
+- 为防御 Storage catalog 与实现类不一致而增加 `StorageManager.get_writable_storage()`。该一致性属于 Storage
+  registry/bootstrap 系统边界；每次使用时重新发现同一能力既没有独立领域语义，也会泄漏 registry 复杂度。
+- 将“先读 durable completion fact 再重建生产路径”（原候选 U-043）、“共享 matching mechanics 而 evidence
+  precedence 归领域 owner”（原候选 U-045）以及“semantic completion 不由底层副作用拥有”（原候选 U-046）提升为
+  project-wide common patterns。它们在 Mail MIME materialization 内仍是有效设计解释，但 D-292 复审认为其跨单元
+  决策杠杆不足，不值得增加 durable vocabulary。

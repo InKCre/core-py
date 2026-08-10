@@ -1,25 +1,53 @@
 # Mail Extension
 
 - **Unit ID**: `mail-extension`。
-- **State**: **Active — Technical discussion**。
+- **State**: **Active — awaiting Impact Handshake + explicit start**。
 - **Objective**: 保留 Mail extension identity，把现有 PoC 当作需求与失败证据，先建立可信且尽可能完整的
   communication-record baseline，再让真实邮件场景推动 organization、info-base basic use/query 与
   client-web 的必要演进，使用户能以足够低的成本持有和打理来自多个邮箱的信息。长期目标是让 InKCre
   成为完整的 email client/agent；本轮 delivery scope 仍需单独界定，不把终局愿景一次性塞入实现。
 - **Guardrails**: MVP / MLP 由用户 job、所得价值与可接受代价界定，不以邮件协议完整性、字段数量或
-  feature checklist 判定；`Message-ID` reconciliation、reply/reference graph、MIME attachment materialization
+  feature checklist 判定；mail identity reconciliation、reply/reference graph、MIME attachment materialization
   等只是候选 mechanism/pressure，不是预设 gate。InKCre 服务生产与创造，不是只读归档镜像；对 source
   状态的改变可以是有意产品行为，但必须服从清晰、可配置的用户选择。Mail vertical 可以推动
   organization、retrieval 与 client-web，但不借此宣称完成这些 capability trunks。
-- **Verification**: Product/Technical 尚未冻结；Acceptance 必须以真实 IMAP protocol behavior 驱动
+- **Verification**: Product foundation 与主要 Technical topology 已冻结；剩余 closure 由
+  [design-closure ledger](design-closure.md) 控制。Acceptance 必须以真实 IMAP protocol behavior 驱动
   `source → collect job → committed graph → resolver/use` 黑盒纵切，不能继续让 schema/helper tests
   充当 Mail 产品有效性的主要证据。具体服务、corpus、failure horizon 与静态/运行时分工等待 Acceptance gate。
 - **Current Truth**: 现有实现能连接 IMAP、抓取基础邮件并生成 Email/EmailAddress graph，足以作为 PoC；
   它尚无可信的端到端 product acceptance。缺少哪些邮件能力本身不能证明它未达到 MVP，真实 job 是否完成及
   代价是否可接受才是判断 authority。`mark_as_seen` 已是 source config，且其改变邮箱状态是刻意 workflow
   choice，不应先验归类为缺陷。
-- **Next Step**: Product scope 已形成完整 candidate；首个 Technical edge 正在
-  [solved-content rendering](technical-design/block-rendering.md) 中讨论。`BlockInspector` 与 resolver-selected
+- **Next Step**: Product、Technical、四条 Acceptance journeys 与 R5 [implementation plan](implementation-plan.md) /
+  [preflight](implementation-preflight.md) 已关闭到 D-315。Perform the final Impact Handshake，then wait for explicit
+  `开始` before product-code、migration、client-web or durable-doc mutation。
+  Adaptive batching 仅是本 unit 收口阶段的临时协作策略，低风险自然推论不再逐项请求批准。
+- **Decision History**: Product scope 已形成完整 candidate；D-263 已冻结 linear Email ladder，D-264 已冻结每一 rung 的
+  `zero → continue / one → reuse / many → stop-and-create`，D-265 已冻结 null identity completion 与 non-null
+  contradiction rejection，D-266 已据此恢复 Message-ID reference anchor 的 locate/reuse-or-create 与 later
+  completion。Mail identity edge 当前关闭；D-268 已冻结 MailFlag canonical content、description authority、name
+  normalization 与 observed-FLAGS replacement semantics。D-269 又冻结 scheduled sync 为 QRESYNC → CONDSTORE →
+  new-occurrence-only，且禁止用 full UID scan 冒充增量 removal sync。当前澄清 occurrence locator UIDVALIDITY 与空
+  Mailbox 也需要的 sync-checkpoint UIDVALIDITY 已由 D-270 以不同 scope/lifecycle 分别冻结在 Relation 与 Source
+  state。D-271 又冻结 remote MIME reconciliation safety：Message-ID-only match 一旦涉及 attachment/inline metadata
+  就 lazy-duplicate，只有 exact occurrence/scoped EMAILID 或 sparse anchor completion 可以复用；Resolver 不再通过
+  metadata 猜测 UID。D-272/D-273 已冻结单一 Mail Source / protocol-neutral Mail Resolver family 作为
+  同级调用者依赖 Source config 选择的 Mail protocol adapter，Resolver 不调用 operational Source；
+  IMAP 是当前 concrete adapter，未来 POP3 不产生第二套 Source/Resolver domain。D-274 进一步
+  冻结 adapter 解释 typed protocol checkpoint 并提出 next-state，Mail Source 独自拥有持久 state、推进时机
+  与 accepted-effect boundary。D-275 又明确每个 Source instance 对应一个公开标准 protocol；Source 配置
+  不持久内部/versioned adapter ID，当前也不引入 MailManager/adapter registry/catalog。D-276 已冻结
+  `protocol` + typed `parameters` + outer common Mail policy 的 config 形状，并将其与 Peer inbound 的同类经验记为
+  U-038，但不把公开 protocol 强行变成 InKCre ID。D-277 又将当前 exact `MailProtocol` 收窄为
+  `Literal["imap"]`；已知但未实现的 POP3 不进入当前 config validity。D-278 保留极浅的
+  `create_mail_adapter(protocol, parameters)` 共享构造 seam，但不引入 Manager/registry/catalog。D-279 已冻结
+  factory 无 I/O、每个 Source collect / Resolver materialization command 使用一个 fresh async-context adapter，
+  并将语言原生 resource scope 提炼为 U-039。D-280 已冻结 Adapter 对上暴露 canonical Mail
+  remote-access/materialization operations 而不是 IMAP primitives，且不生产 graph 或持久 state。D-281
+  又纠正 Adapter `collect()` 草案：`Source.collect()` 独占 collection 语义，Adapter 只提供 canonical Mail
+  remote read/change/part-fetch operations；exact interface 已委托到 plan/preflight，越过已冻结边界才回讨论。先前的
+  [solved-content rendering](technical-design/block-rendering.md) edge 已完成当前设计讨论：`BlockInspector` 与 resolver-selected
   `SolvedContentRenderer` 的 ownership 已分开；generic render context 已撤回。`SolvedContentPopup`、InfoBaseRouter 与
   surface route realization 以及完整 Resolver + solved-content renderer props 已确认。GraphSurface 只是当前 realizer，
   route 不固化 surface；最小 domain routes 已冻结为 `overview | block | solved-content`。InfoBaseRouter 不建立
@@ -39,8 +67,10 @@
   lifecycle；SolvedContentPopup 还拥有 Resolver/solving/refresh/dispose。下一步冻结 route-ref change lifecycle。
   route-ref change lifecycle。Mail identity 已转入
   [mail identity and remote occurrence](technical-design/mail-identity.md)：协议不能保证一 Source 对应一个独立 remote
-  account，只能保证它代表一套 local IMAP access context。collection candidate 改为 exact occurrence locator →
-  `Message-ID` reconciliation → create Block；`Block.id` 是 local identity 而不是 reconciliation rung。D-239 已冻结
+  account，只能保证它代表一套 local IMAP access context。D-262 已恢复 best-effort canonical Email，同时保留 exact occurrence
+  locator 作为 collection idempotency 与 remote-access authority；未知 locator 可以 best-effort 选择现有 canonical
+  endpoint。D-263 已冻结 local exact locator → comparable cross-Source exact occurrence → scoped EMAILID → Message-ID
+  → create 的线性顺序。`Block.id` 仍是 local identity。D-239 已冻结
   MVP `OBJECTID/MAILBOXID` consumption：authentication 后至多一次 CAPABILITY query，MAILBOXID 随既有
   SELECT/EXAMINE 返回；bare value 不跨无法证明 comparable scope 的 Sources 比较。D-240 确立了 Source graph anchor、
   Mailbox identity 在 Mailbox Block、occurrence UIDVALIDITY/UID 在 Email–Mailbox membership 以及 Source state 不持有
@@ -56,13 +86,27 @@
   `{id,type,nickname}` 只是为 `core.source.v1.get_label/get_text` 与历史可读性服务的 projection，不接管 authority。
   D-247 已冻结 `SourceManager.ensure_block(source, session)`：锁 Source row，在 caller transaction 内创建/复用 anchor
   并同步当前 projection，不另加 refresh flag。D-248 已将 Mailbox 永久定义为 Source-scoped observed Block；不同
-  Sources 不合并 Mailboxes，只让 exact occurrence / Message-ID reconciliation 复用有实际收益的 Email Block。
-  D-249 已冻结 `extensions.mail.mailbox.v1` canonical content：`name/delimiter/attributes/scoped mailbox_id`；不复制
-  SourceRef、occurrence、counts 或 namespace facts。D-250 将 Canonical Email root 收窄为
-  `{message_id,subject,authored_at}`，text/HTML body 变为 semantic content Blocks，attachment/inline MIME parts 变为
+  Sources 不合并 Mailboxes；D-262 允许不同 Mailboxes 的 occurrence locators 复用 canonical Email Block，但同一
+  Mailbox 内的多个 live UIDs 不合并，也不弱化 Mailbox 的 permanent Source scope。
+  D-249 的 Mailbox shape 已由 D-258 按 collection-value audit 收窄：`extensions.mail.mailbox.v1` 只保留
+  `name/special_uses/mailbox_id`，删除 transient delimiter/generic attributes 与由 `manages` 重复表达的 access
+  scope。D-250 将 Email root 收窄为 authored scalars；D-260 加入、D-262 保留 optional server evidence `email_id`，
+  形成 `{message_id,email_id,subject,authored_at}`。text/HTML body 变为 semantic content Blocks，
+  attachment/inline MIME parts 变为
   metadata Blocks 并在 materialize 后指向 semantic content；同时冻结 source-native decomposition / “collect graph，
-  not just Block” common pattern。下一步冻结 exact body/MIME-part relation grammar 与有价值的 MIME ordering/grouping；
-  unresolved references、内部 checkpoint/failure 与其余 graph vocabulary 随后讨论。
+  not just Block” common pattern。D-251 冻结 text/HTML body 直接复用 `core.text.v1` / `core.html.v1`，Email-body 角色
+  只由 Relation 表达；复用只是边界正确性的信号而非拆分理由。D-259 已按 source-order authority 纠正 D-252/D-253：
+  Email → MIME component 统一使用 `{role,part_id}`，MIME tree path 同时拥有结构位置、顺序与 IMAP fetch locator；
+  MIME-part Block content 不再保存 part_id/disposition，只保留
+  `media_type/charset/filename/content_id/description/transfer_encoding/encoded_size/content_location`。HTML body 对
+  Content-ID/Location 的实际引用另建 `{type:"embeds",reference}` Relation。D-254–D-255 冻结纯地址 EmailAddress 与
+  `{role,order,display_name}` participant Relations。D-261 在实证比较后撤回 D-260 的 one-Email-per-locator hard cut；
+  D-262 又以 plain MailFlag Relations 取代 locator-qualified tags：不同 Mailboxes 可以共享 canonical Email，但同一
+  Mailbox/Email pair 至多一个 live `contains`，同-Mailbox duplicate 创建另一个 Email Block。D-263 保留既有 canonical
+  reconciliation ladder 并补入 scoped EMAILID rung；D-264 又冻结 exact-one reuse，D-265 冻结 identity
+  compatibility 并记录 Source-domain ladder utility 的高 ROI 实现压力。D-266 已恢复 D-256 Message-ID-only
+  incomplete Email anchor：zero/many 创建普通 sparse Email，exact-one 复用，later collection 走同一 ladder；不新增
+  placeholder lifecycle。
 
 ## Confirmed Product Foundation
 
@@ -102,10 +146,12 @@
 - 设计可以保留通往完整 email client/agent 的路径，但不得以 future compatibility 为由提前创建泛化 action
   framework。
 
-## Accepted Account and Mailbox Boundary
+## Accepted Access-Context and Mailbox Boundary
 
-- 一个 Mail Source 表示一个邮箱账号，不按 folder 拆成多个 Sources，也不把多个账号隐藏在一个 Source identity
-  后面。
+- 一个 Mail Source 表示一套 configured IMAP access context/credentials，用户界面可以把它呈现为一个邮箱账号；
+  不按 folder 拆成多个 Sources，也不把多套独立配置隐藏在一个 Source identity 后面。但协议不能证明两个
+  Source 看见的 remote account/mailbox namespaces 不重叠，因此 Source identity 不参与跨 Source remote identity
+  证明；D-239 是对早期“一 Source 一 protocol account”措辞的技术纠正。
 - 默认追求完整 communication record：纳入 inbox、sent、archive 与用户创建的 folders；drafts、spam、trash
   是默认排除类别。具体 provider 的 label/folder 映射属于 adapter。
 - Mail extension config 持有 deployment-wide 默认排除规则；Source config 可以配置自己的排除规则，其初始
@@ -126,40 +172,48 @@
 - ordinary collection 持续同步 Email–Mailbox membership 与相关 remote state；同步失败不使已收集 Email content
   失效。
 - Mailbox 是独立 Block；membership 由 Relation 表达。move 删除旧 relation 并增加新 relation。
-- tag-like flags/keywords 是独立 Mail Flag Blocks，通过 Relations 连接 Email，不进入 Email root content。
-- Seen、Answered 与 tag-like flags 是不同 canonical semantics；其 exact graph shape 留到 Technical gate，不照抄
-  provider/protocol wire grouping。
+- `\Seen`、`\Answered`、`\Flagged`、`\Deleted`、`\Draft` 与 observed keywords 都是独立 MailFlag Blocks，通过
+  plain `tags` Relations 连接 canonical Email，不进入 Email root content 或 `contains`。owning Mailbox + unique
+  Mailbox/Email membership derives the exact locator；它们的产品行为不同，
+  但共享 IMAP FLAGS/STORE authority 与 persistence shape；deprecated `\Recent` 不持久化。
+- `\Deleted` 存在时仍有 membership；可靠 EXPUNGE 后才删除 exact `contains` 与同 locator 的 flag Relations，不创建
+  tombstone。
 
 ## Accepted Collection Freshness
 
 - 本轮提供 manual 与 scheduled collection；scheduled collection 通过创建 ordinary collect job 实现，不存在另一个
   scheduler-owned collection semantic。
 - collection frequency 可配置；当前不要求 IMAP IDLE 或 near-real-time long-lived connection。
-- core-py 是当前 executor，不是 Mail extension 的永久 runtime owner。未来有后台能力的 native Peer 可以更高频地
-  创建/执行 collect jobs；browser Peer 可以不具备该能力。
-- 本轮不提前实现 distributed scheduler、Peer cadence negotiation、job routing 或 duplicate-schedule suppression，
-  但 Technical design 不得把 Mail contract 锁死到 core-py-only。
+- global Cron 在 deployment timezone 中按当前 minute 由任意 Cron-capable Peer 检查，并以 Cron row lock、
+  `last_scheduled_for` 与 `last_job` 保证同一 occurrence 最多创建一个 Job 且不堆叠未完成执行。错过 occurrence 即
+  错过，不补跑；run-now 直接创建普通 Job。
+- core-py 与打开中的 client-web 都可作为 Job worker，但只 claim 本地 Handler `can_handle(parameters)` 的 Job；
+  atomic pending-to-running update 决定唯一执行者。Mail contract 不锁死到 core-py-only，也不引入 request-response
+  Peer delegation、generic invoke 或 Job retry。
 
 ## Accepted Collect Job Boundary
 
 - collect job 是 manual/scheduled Source collection 的 CronJob-like execution envelope，不是 mailbox、page、item 或
   remote source completeness contract。
-- Source 内部拥有 traversal、checkpoint、partial effects、failure isolation 与 continuation；generic job 不理解这些
-  source-native units。
-- Source invocation 按其 shallow public completion semantics 正常返回，job 即 completed；只有异常逃逸、abort 或
-  runtime failure 才使 job failed。completed 不承诺同步了多少邮件或完成了哪个 horizon。
+- Source 内部拥有 traversal、partial effects、failure isolation 与 continuation；checkpoint 是建议的 interruption-
+  resilience 行为而非 Source capability 要求。generic Job 不理解这些 source-native units，也不检查 checkpoint。
+- Source invocation 按其 shallow public completion semantics 正常返回，Job 即 `finished`；异常逃逸或 runtime failure
+  为 `failed`；执行预算耗尽为 `timed_out`。这些终态都不承诺同步了多少邮件或完成了哪个 horizon。
 - mailbox 局部失败可以在 Source 内部隔离并继续其他工作；不为此给 generic job 增加 mailbox-scoped transaction
   或 `completed_with_errors` outcome。
-- job 是 one-shot；completed、failed、aborted 都是 terminal，不 retry/reopen。下一次 manual/scheduled run 创建
-  新 job，并由 Source-owned state 决定从哪里继续；不新增 attempt、backoff 或 retry lineage。
+- Job 是 one-shot；`finished`、`failed`、`timed_out`、`aborted` 都是 terminal，不 retry/reopen。下一次
+  manual/scheduled run 创建新 Job；支持 checkpoint 的 Source 可从自己的 state 继续，较弱的 Source 可以重扫并
+  依赖 identity/reconciliation。不新增 attempt、backoff 或 retry lineage。
 
 ## Accepted Attachment Boundary
 
 - collection 创建 attachment metadata graph，但默认不下载实际 bytes，也不写入 Storage。exact metadata/remote
-  reference shape 留到 Technical gate。
+  reference shape 已冻结到 D-259/D-271；不新增 per-part fetch binding，弱 Message-ID reconciliation 通过 lazy
+  duplication 保持 remote access exactness。
 - 对既有 Email/Attachment graph 持久增加 semantic content Block，可以分类为 Organization enrichment；该分类不
-  拥有实现。Mail attachment Resolver 执行/封装 materialization，并可委托 Mail Source/extension 取得远端 bytes，
-  再使用 Storage 与 InfoBase 的通用能力。
+  拥有实现。Mail attachment Resolver 执行/封装 materialization，并与 Mail Source 一样依赖 extension-owned
+  shared protocol adapter 取得远端 bytes，再使用 Storage 与 InfoBase 的通用能力；Resolver 不调用 Source
+  instance。
 - 用户打开/下载时临时读取或 stream attachment 是 use；只有 durable graph augmentation 才是 enrichment。
 - 当前官方协议/客户端 evidence 不支持“可信 mail client 必然默认持久下载全部附件”的前提；详见
   [evidence](evidence.md)。
@@ -179,7 +233,9 @@
 - 不创建 generic Thread Block；thread/conversation view 从 Email relation graph 派生。未来只有 source-native
   thread object 证明独立 information value/identity 时才重新讨论。
 - collection 不通过 subject/participants/time 猜测缺失关系；best-effort inferred links 属于 Organization linking。
-- target Email 尚未收集时的 faithful unresolved reference 与 later reconciliation 属于 Technical open edge。
+- D-262 恢复 best-effort canonical Email 后，“Message-ID-only incomplete Email 之后被 occurrence 补全”的 D-256 mechanism
+  再次可行。D-266 已明确恢复并约束它：In-Reply-To/References 必须采集；exact-one target 复用，zero/many 创建
+  ordinary incomplete Email；later collection 只在 D-263–D-265 允许时原位补全。
 
 ## Accepted Client-Web Boundary
 
@@ -234,12 +290,12 @@
 
 | Gate | State | Exit condition |
 | --- | --- | --- |
-| Product | **In progress** | 用户旅程、collection boundary、纳入/排除、成功与可接受代价获批 |
-| Technical | Pending | authority、graph、sync/change、resolver/storage、extension/client topology 获批 |
-| Acceptance | Draft pressure only | 真实 IMAP 黑盒 authority、corpus、failure/repeat horizon 获批 |
-| Implementation Plan + Preflight | Pending | increments、addresses、dependencies 与 branch simulation 冻结 |
+| Product | **Closed for current delivery** | 新 implementation evidence 或真实 use pressure 才重新打开 |
+| Technical | **Closed for implementation** | 新 evidence 若改变 domain ownership、observable behavior 或 accepted graph/runtime contract 才重新打开 |
+| Acceptance | **Closed** | D-313/D-314：Dovecot real-IMAP hard gate + 四条纵向 journey + optional provider smoke；本 unit 不增加 focused negative-path suite |
+| Implementation Plan + Preflight | **Closed** | D-315：R5 slices、preflight and first extension-owned exact Peer delegation accepted |
 | Impact Handshake + Start | Pending | durable/code state diff 获批且 Sir 明确开始 |
 | Execute / Verify / Promote | Pending | 实现、证据与 owner-specific durable projection 完成 |
 
-完整决定由 [program decision authority](../../decisions/index.md) 的 D-198–D-250 拥有；本 packet 只保留
-unit control 与 approved implications。
+完整决定由 [program decision authority](../../decisions/index.md) 的 D-198–D-315 拥有；本 packet 只保留
+ unit control 与 approved implications。

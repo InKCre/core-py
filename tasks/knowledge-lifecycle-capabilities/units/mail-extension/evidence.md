@@ -1,5 +1,26 @@
 # Mail Extension Evidence
 
+## Client-web Source-runtime baseline
+
+- Current `@inkcre/core` exposes persisted `Source`、`SourceType` and legacy `SourceCollectJob` models plus database helpers，
+  while client-web exposes Source/job management UI。Repository search finds no executable Source manager、handler registry
+  or Source implementation in client-web；the Twitter extension contains Resolver/rendering behavior only。
+- Therefore Mail Acceptance cannot name an existing client-web Source handler。The accepted client-web Job-worker capability
+  must be proven through an acceptance-owned extension implementing the production registration contract，while production
+  browser runtime correctly declines IMAP jobs it cannot transport。This keeps test aliases out of production and does not
+  expand the Mail Source into a browser IMAP implementation。
+
+## Acceptance-server capability coverage
+
+- Dovecot's own 2.0.19 release notes already discuss fixes to `ENABLE CONDSTORE/QRESYNC`，and the Dovecot imaptest
+  compatibility matrix lists both CONDSTORE and QRESYNC support。The blocking Dovecot harness can therefore provide real
+  MODSEQ/flag-delta/VANISHED evidence rather than testing only new-message polling。
+- The same compatibility matrix does not list RFC 8474 OBJECTID support for Dovecot。Adding a second production IMAP server
+  solely for this optional rung has poor MVP return；a focused socket-level scripted protocol scenario may exercise the
+  production Adapter's OBJECTID capability/response branch without replacing Dovecot as the vertical authority。
+- Sources：Dovecot [2.0.19 release notes](https://dovecot.org/list/dovecot-news/2012-March/000218.html) and the
+  Dovecot imaptest [server capability matrix](https://github.com/dovecot/imaptest/wiki/Specs)。
+
 > Read-only product/technical evidence for the active Mail unit。Decisions remain in the program decision register。
 
 ## Attachment Fetch Behavior
@@ -64,10 +85,11 @@ identifier such as OBJECTID，cross-Source equality remains best-effort。
 
 ### Product/technical inference
 
-Canonical Mailbox content should call the protocol field `name`，retain nullable `delimiter` and normalized `attributes`，
-and keep nullable `mailbox_id` with the comparison scope needed to interpret it。It should not persist volatile message
-counts merely because IMAP can report them。Because Mailbox Blocks are permanently Source-scoped，these facts describe one
-observed mailbox and do not create pressure to merge conflicting observations across Sources。
+The later collection-value audit supersedes the earlier inference that every stable LIST fact should persist。Canonical
+Mailbox calls the protocol field `name`、retains only adapter-understood special-use roles with product meaning and keeps a
+nullable bare `mailbox_id` for rename continuity inside its owning Source。LIST delimiter、generic structural/subscription
+attributes、message counts and duplicated access scope remain transient Source evidence。Permanent Source scoping plus the
+`manages` relation already provides the only comparison scope this unit admits。
 
 ## Message Content and Envelope Facts
 
@@ -91,6 +113,26 @@ observed mailbox and do not create pressure to merge conflicting observations ac
 - [Content-Disposition RFC 2183 §2](https://www.rfc-editor.org/rfc/rfc2183.html#section-2) makes disposition optional and
   defines `inline` / `attachment` as presentation semantics for a MIME entity/body part。Attachment is therefore not a
   standalone media type；filename and disposition remain source-authored metadata about separately typed content。
+- [IMAP4rev2 RFC 9051 §7.5.2](https://www.rfc-editor.org/rfc/rfc9051.html#section-7.5.2) defines `BODYSTRUCTURE` as a
+  server-parsed MIME structure。A non-multipart part exposes media type/subtype、parameters、Content-ID、description、
+  transfer encoding and encoded octet size；extension fields can expose disposition、language and content location。
+- The RFC explicitly defines BODYSTRUCTURE body size as transfer-encoded octets。`BINARY.SIZE[section]` is the separate
+  decoded size returned only through the corresponding decoded-fetch capability。A canonical pre-download metadata field
+  must therefore not claim to be actual semantic-content byte size。
+- [IMAP4rev2 RFC 9051 §6.4.5.1](https://www.rfc-editor.org/rfc/rfc9051.html#section-6.4.5.1) defines `section` as positional
+  part specifiers assigned from MIME occurrence order。A canonical `part_id` such as `2.1` therefore has stable structural
+  meaning relative to one exact Email/MIME tree：it identifies、orders and remotely locates that part。It is not global
+  content identity，so its natural owner is the Email → component Relation rather than intrinsic MIME-part Block content。
+- [MIME RFC 2045 §8](https://www.rfc-editor.org/rfc/rfc2045.html#section-8) defines Content-Description specifically as
+  optional descriptive information for a body（for example，a human description of an image）。It is ordinary authored
+  semantic metadata and can support label/text retrieval even before bytes are materialized。
+- RFC 2045 calls a Content-Type value a `media type` and defines it through type/subtype identifiers；IMAP BODYSTRUCTURE
+  returns those as separate `body type` and `body subtype` strings。Canonical `media_type = "type/subtype"` is therefore
+  standards-aligned terminology，though not one literal IMAP response field name。
+- [CID URL RFC 2392 §2](https://www.rfc-editor.org/rfc/rfc2392.html#section-2) defines Content-ID as a body-part identifier used
+  by `cid:` references，while [MHTML RFC 2557 §4.2](https://www.rfc-editor.org/rfc/rfc2557.html#section-4.2) defines
+  Content-Location as another body-part label。The label belongs to the MIME-part metadata；a resolved HTML-body occurrence
+  referring to that label is a distinct contextual graph edge。
 
 ### Current implementation evidence
 
@@ -99,3 +141,53 @@ observed mailbox and do not create pressure to merge conflicting observations ac
   both From and To，and substitutes local `datetime.now()` when Date is absent or invalid。
 - These behaviors are PoC evidence，not accepted contracts：the new collection boundary already places UID in membership、
   attachments in graph metadata and Block timestamps solely in InKCre persistence lifecycle。
+
+## Address Identity and Display-Name Facts
+
+- [Internet Message Format RFC 5322 §3.4](https://www.rfc-editor.org/rfc/rfc5322.html#section-3.4) models a mailbox as an
+  addr-spec optionally accompanied by a display name。The display name is presentation supplied in that address-field
+  occurrence；the same addr-spec may appear without it or with another phrase in another message。
+- [SMTP RFC 5321 §2.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-2.4) requires preserving mailbox local-part case，
+  even while discouraging servers from exploiting case sensitivity；mailbox domains follow case-insensitive DNS rules。
+- [SMTPUTF8 RFC 6531 §3.2](https://www.rfc-editor.org/rfc/rfc6531.html#section-3.2) permits UTF-8 local parts and requires
+  internationalized DNS names to use a Unicode-aware resolver or A-label transformation。Canonical identity must therefore
+  preserve local-part Unicode/case while choosing one domain representation。
+- Provider-specific equivalences such as plus-address removal or dot folding are not protocol identity rules and cannot be
+  applied by a generic Mail adapter without explicit provider authority。
+
+### Current implementation evidence
+
+- `extensions/mail/schema.py` lowercases the complete addr-spec and stores one display name on the EmailAddress Block。
+- `EmailAddressResolver.get_existing()` reconciles solely by that lowercased value，so independent messages can silently
+  compete for a contextual name while protocol-significant local-part case has already been erased。
+
+## Remote Mail State and Flag Facts
+
+- [IMAP4rev2 RFC 9051 §2.3.2](https://www.rfc-editor.org/rfc/rfc9051.html#section-2.3.2) defines flags as a mutable list on a
+  message in IMAP mailbox context。System flags are Seen、Answered、Flagged、Deleted and Draft；Recent is deprecated。
+- The same section distinguishes system flags from server-defined keywords and standard `$...` keywords，but both remain
+  members of the same FLAGS attribute and both may be added/removed。Different display/action semantics do not create a
+  different protocol persistence category。
+- [RFC 9051 §6.4.6](https://www.rfc-editor.org/rfc/rfc9051.html#section-6.4.6) changes flags through STORE against message
+  sequence/UIDs in the selected mailbox。If a local model reconciles several remote occurrences into one Email，global
+  unscoped Email → Flag edges erase the exact operation scope。D-262 instead scopes each MailFlag through its owning
+  Mailbox and permits only one live Mailbox/Email occurrence，so a plain tag edge derives one exact UID locator without
+  copying it into Relation content。
+- The same RFC defines `\Deleted` as “marked for removal by later EXPUNGE”，so it is still a flag while membership exists；
+  actual EXPUNGE is the separate evidence that removes the occurrence。`\Recent` is deprecated and session-derived，so it
+  does not earn durable graph persistence。
+- Base IMAP exposes flag names、current FLAGS and mailbox PERMANENTFLAGS，but no per-flag description field。A persisted
+  MailFlag description can still have the same retrieval/interpretation value as MIME Content-Description，while its
+  authority must be documented as standards/provider/adapter semantic metadata rather than a wire-returned IMAP fact。
+- A FETCH `FLAGS` data item is the message's current complete flag list，while STORE supports replace/add/remove forms。
+  Therefore a collected full FLAGS response is replacement authority for that occurrence's local `tags` set，not merely
+  another append event。Discovering which previously collected occurrences changed is a separate synchronization problem。
+- [CONDSTORE/QRESYNC RFC 7162](https://www.rfc-editor.org/rfc/rfc7162.html) defines HIGHESTMODSEQ as a mailbox sync checkpoint
+  whose validity depends on the mailbox UIDVALIDITY。QRESYNC can return changed FLAGS and VANISHED UIDs；CONDSTORE alone can
+  fetch CHANGEDSINCE metadata but still requires UID FETCH/SEARCH to discover expunges。An empty Mailbox has no occurrence
+  Relation from which a prior synchronization epoch can be recovered，so checkpoint placement cannot be hand-waved as a
+  duplicate occurrence locator。
+- A Relation can own occurrence fields but cannot itself be the endpoint of Mail Flag Relations。This is topology evidence，
+  not proof that an occurrence must become an association Block。A Mailbox-scoped MailFlag plus unique Mailbox/Email
+  membership preserves exact scope without a MailOccurrence Block、locator-qualified tag or global one-Email-per-locator
+  rule。

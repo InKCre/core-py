@@ -62,22 +62,10 @@
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
   Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
   消费该 exact shared truth。该 implementable unit 已关闭。
-- **Next Step**: [Mail extension](units/mail-extension/packet.md) 已进入 Product discussion；当前 scope 固定为
-  communication-record foundation（D-201），account/mailbox coverage 与 extension-owned default exclusions 已固定
-  （D-202/D-203）；ordinary post-setup collect 与 explicit bounded backfill 已固定（D-204），D-205 明确 backfill
-  是 collect 的特殊 intent；D-206/D-207 固定 additive Organization enrichment 与 collection naming；D-208
-  固定 remote deletion 默认保留，D-209/D-210 修正 Mail Source owner，并固定 membership relation 与 independent
-  Mail Flag Blocks；D-211 固定 manual/scheduled collect jobs 与 future multi-Peer runtime direction；D-212 固定
-  collect job 的 CronJob-like shallow semantics；D-213 进一步固定 job one-shot/no-retry。下一步讨论 attachment
-  content scope；D-214 已据官方协议/client evidence 固定 metadata-only collection 与 durable Organization
-  enrichment；D-215 纠正为 enrichment 只分类行为，Mail Resolver 才拥有 materialization 深接口。下一步讨论
-  inline MIME parts；D-216 已固定 textual body collection 与 non-text inline lazy content；D-217 固定 native
-  reply/reference Relations、no generic Thread Block 与 Organization-inferred linking；D-218 排除 Mail browsing page，
-  固定 extension Email Block renderer + generic info-base surfaces；D-219 排除预设 generic query increment；D-220
-  固定 reply navigation action 并暴露 graph-aware focal-Block renderer contract。下一步复审 Product gate，再进入
-  Technical。core-py main push 与任何 production mutation
-  仍需独立授权，不重新打开 semantic-retrieval implementation unit；client-web remote 已在本轮最终核对时
-  匹配 `8324293`。
+- **Next Step**: [Mail extension](units/mail-extension/packet.md) 已关闭 D-198–D-315 的 Product、Technical、Acceptance
+  与 R5 implementation-plan/preflight gates，包含首个 extension-owned exact Peer delegation
+  `extensions.mail.mime_part.materialize.v1`。现在执行最终 Impact Handshake 并等待明确 `开始`；core-py main push、
+  production mutation 和提交仍各自需要相应授权，不重新打开已关闭的 semantic-retrieval unit。
 
 ## Program Boundary
 
@@ -93,7 +81,7 @@
 
 ## Active Implementable Unit
 
-[Mail extension](units/mail-extension/packet.md) 是当前唯一 active implementable unit，处于 Product discussion。
+[Mail extension](units/mail-extension/packet.md) 是当前唯一 active implementable unit，处于 design closure。
 本轮保留 extension identity，把旧实现当作需求与失败证据；先建立可信 collection baseline，再由真实邮件
 场景推动 organization、info-base basic use/query 与 client-web 的必要演进。MVP / MLP 由用户 job、价值与
 可接受代价决定，不以协议完整性或 feature checklist 代替产品判断（D-198/D-199）。
@@ -138,6 +126,7 @@ Product contract
 
 ## Program Navigation
 
+- Active design/discussion filter: [design taste](design-taste.md)
 - Capability topology and queued work: [capability-map.md](capability-map.md)
 - Single decision authority: [decision register](decisions/index.md)
 - Cross-cutting pressures: [pressure-ledger.md](pressure-ledger.md)
