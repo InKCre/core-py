@@ -23,7 +23,7 @@ mail = "extensions.mail:Extension"
 name = "inkcre/mail"
 nickname = "Mail"
 host-sdk = "core-py"
-host-sdk-version = ">=0.1.0,<0.2.0"
+host-sdk-version = ">=0.1.0 <0.2.0"
 
 [tool.setuptools]
 packages = ["extensions.mail"]

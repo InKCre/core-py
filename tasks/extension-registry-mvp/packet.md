@@ -20,10 +20,12 @@
   image and `python-core-v1` target are digest-pinned, and public liveness and
   readiness are green. The legacy table and scanner remain intact beside the new
   Registry installation/binding path.
-- **Next Step**: prove same-digest publication preserves the target's first
-  producer provenance across an unrelated delivery revision, then hand the
-  released image/database contract to `client-web` for its target and binding
-  integration.
+- **Next Step**: production black-box installation found that all six producer
+  documents used the PEP 440 comma conjunction `>=0.1.0,<0.2.0`, while the
+  language-neutral Host SDK contract and Core consumer use npm/SemVer ranges.
+  Publish only the canonical `>=0.1.0 <0.2.0` spelling, enforce it during wheel
+  construction, repair the public-demo associations, and repeat the actual
+  install/enable/disable/uninstall journey.
 
 ## Delivery Result
 

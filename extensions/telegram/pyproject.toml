@@ -24,7 +24,7 @@ telegram = "extensions.telegram:Extension"
 name = "inkcre/telegram"
 nickname = "Telegram"
 host-sdk = "core-py"
-host-sdk-version = ">=0.1.0,<0.2.0"
+host-sdk-version = ">=0.1.0 <0.2.0"
 
 [tool.setuptools]
 packages = ["extensions.telegram"]

@@ -24,7 +24,7 @@ twitter = "extensions.twitter:Extension"
 name = "inkcre/twitter"
 nickname = "Twitter"
 host-sdk = "core-py"
-host-sdk-version = ">=0.1.0,<0.2.0"
+host-sdk-version = ">=0.1.0 <0.2.0"
 
 [tool.setuptools]
 packages = ["extensions.twitter"]

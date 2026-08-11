@@ -84,6 +84,16 @@ def test_core_host_sdk_version_is_checked_against_project_version():
   assert CORE_VERSION == pyproject["project"]["version"]
 
 
+def test_producer_rejects_native_package_range_syntax(tmp_path: Path):
+  project_directory = tmp_path / "github"
+  shutil.copytree(PROJECT_ROOT / "extensions/github", project_directory)
+  pyproject = project_directory / "pyproject.toml"
+  pyproject.write_text(pyproject.read_text().replace(">=0.1.0 <0.2.0", ">=0.1.0,<0.2.0"))
+
+  with pytest.raises(ValueError, match="Host SDK SemVer range"):
+    read_project(project_directory)
+
+
 def test_all_first_party_projects_build_pep420_entry_point_wheels(tmp_path: Path):
   built_wheels: list[Path] = []
   for extension in EXTENSIONS:
