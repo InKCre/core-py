@@ -15,6 +15,7 @@ import zipfile
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import Version
+from semantic_version import NpmSpec
 
 
 ENTRY_POINT_GROUP = "inkcre.core.extensions"
@@ -94,6 +95,10 @@ def read_project(project_directory: Path) -> ProducerProject:
     raise ValueError(f"{pyproject} contains a noncanonical Extension Name")
   if required_strings["host_sdk"] != "core-py":
     raise ValueError(f"{pyproject} targets another Host SDK")
+  try:
+    NpmSpec(typing.cast(str, required_strings["host_sdk_version"]))
+  except ValueError as error:
+    raise ValueError(f"{pyproject} contains an invalid Host SDK SemVer range") from error
   Version(typing.cast(str, required_strings["version"]))
   dependencies = project.get("dependencies", [])
   if not isinstance(dependencies, list) or any(

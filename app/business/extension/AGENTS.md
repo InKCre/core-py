@@ -12,8 +12,9 @@
 - Registry Simple URL 必须与配置的 Registry 同源且路径精确匹配 Project。
 - runtime 只能把普通 wheel 安装到当前 Core interpreter/site-packages；禁止 `pip --target`、
   per-Extension overlay、`sys.path` 或 `extensions.__path__` 改写。
-- dependency preflight 不能替换任何已安装/Core-owned Distribution；version change 时只允许
-  declared Extension Project 自身变化。
+- Core image 持有受支持的 dependency baseline。dependency preflight 只以下载的 Extension
+  wheel 为候选源；缺依赖或版本不满足时 fail closed，HTTP 请求内不得访问 dependency index
+  或变更 Core-owned Distribution。
 - 任意 peer enabled 时拒绝 version change/rollback。已 import 的 Project 被替换后必须重启，
   当前进程不可热加载新 class。
 - 新 install/upgrade 只接受 published；已安装 exact yanked Release 可 enable/cold restore 并告警。

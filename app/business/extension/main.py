@@ -197,7 +197,6 @@ class ExtensionHost:
     )
     self.distribution_consumer = distribution_consumer or PipDistributionConsumer(
       settings.extension_registry_url,
-      settings.extension_dependency_index_url,
     )
     self.running: dict[str, RunningExtension] = {}
     self.fastapi_app: fastapi.FastAPI | None = None

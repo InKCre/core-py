@@ -80,7 +80,6 @@ def test_settings_default_values():
   assert settings.obsrv.logtail_host is None
   assert settings.extension_registry_url == "https://registry.inkcre.dev"
   assert settings.extension_registry_timeout_seconds == 5.0
-  assert settings.extension_dependency_index_url == "https://pypi.org/simple"
 
 
 @pytest.mark.parametrize(
@@ -164,12 +163,10 @@ def test_extension_registry_settings_are_overridable_and_timeout_is_bounded():
       "JWT_SECRET": TEST_JWT_SECRET,
       "EXTENSION_REGISTRY_URL": "https://registry.test",
       "EXTENSION_REGISTRY_TIMEOUT_SECONDS": "1.5",
-      "EXTENSION_DEPENDENCY_INDEX_URL": "https://python.test/simple",
     }
   )
   assert configured.extension_registry_url == "https://registry.test"
   assert configured.extension_registry_timeout_seconds == 1.5
-  assert configured.extension_dependency_index_url == "https://python.test/simple"
 
   for timeout in ("0", "31"):
     with pytest.raises(ValidationError):
