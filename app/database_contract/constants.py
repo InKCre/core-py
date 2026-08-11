@@ -4,7 +4,7 @@ import uuid
 
 
 CONTRACT_FORMAT = 1
-CONTRACT_REVISION = "peer-database-runtime-v3"
+CONTRACT_REVISION = "mail-source-job-runtime-v1"
 
 PROTOCOL_SCHEMA = "inkcre"
 INTERNAL_SCHEMA = "inkcre_internal"
@@ -38,11 +38,13 @@ APPLICATION_TABLES = (
   "configs",
   "extensions",
   "embedding_profiles",
+  "crons",
+  "jobs",
+  "job_types",
   "logs",
   "relation_embeddings",
   "relations",
   "sources",
-  "sources_collect_jobs",
   "sources_types",
   "storage_types",
   "storage_blobs",

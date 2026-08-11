@@ -1,14 +1,14 @@
 """Twitter Bookmark Source"""
 
+import pydantic
 import sqlmodel
 from app.business.info_base.main import InfoBaseManager
 from app.business.info_base.resolver import ImageResolver, VideoResolver, HTMLResolver
 from app.business.source import SourceBase
 from app.engine import SessionLocal
 from app.schemas.info_base.main import OutArcForm, StarsGraphForm
-from app.schemas.info_base.block import BlockID
 from app.schemas.info_base.relation import RelationForm
-from app.schemas.source import SourceCollectJobModel
+from app.schemas.job import JobModel
 from .api import TwitterAPI
 from .resolver import TweetResolver
 from .schema import Tweet
@@ -18,6 +18,13 @@ class SourceConfig(sqlmodel.SQLModel):
   """Configuration for Twitter Bookmark Source."""
 
   ...
+
+
+class CollectConfig(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid")
+
+  full: bool = False
+  result_limit: int = pydantic.Field(default=40, ge=5, le=100)
 
 
 def _video_url(video) -> str | None:
@@ -68,12 +75,16 @@ def tweet_to_graph(tweet) -> StarsGraphForm:
   )
 
 
-class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
+class Source(
+  SourceBase[SourceConfig],
+  config_cls=SourceConfig,
+  collect_config_cls=CollectConfig,
+):
   """Twitter Bookmark as Source"""
 
   API_BASE_URL = "https://api.x.com/2"
 
-  async def collect(self, job: "SourceCollectJobModel") -> None:
+  async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
     """Collect all new bookmarks and its notes.
 
     What is new bookmarks?
@@ -86,9 +97,9 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
     Docs https://docs.x.com/x-api/bookmarks/get-bookmarks
     """
-    config = job.config or {}
-    full = config.get("full", False)
-    result_limit = config.get("result_limit", 40)
+    collect_config = CollectConfig.model_validate(config)
+    full = collect_config.full
+    result_limit = collect_config.result_limit
 
     page = job.state.get("page") if job.state else None
 
@@ -131,7 +142,3 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       with SessionLocal() as db:
         db.add(job)
         db.commit()
-
-  async def _organize(self, block_id: BlockID) -> None:
-    """Legacy organization hook; bookmark collection owns no note grammar."""
-    del block_id

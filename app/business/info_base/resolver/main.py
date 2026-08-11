@@ -200,7 +200,11 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> SolvedContentTV:
-    """Return the local solved snapshot, resolving it when absent or refreshed."""
+    """Return use-facing semantic completion after any permitted lazy work.
+
+    The result does not expose whether internal mechanics created、reused、raced
+    or fetched content unless that fact belongs to the solved domain semantics.
+    """
     if refresh or self.__solved_content is _UNSET:
       self.__solved_content = await self._get_solved_content(
         refresh=refresh,

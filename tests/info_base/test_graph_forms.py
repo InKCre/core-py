@@ -1,7 +1,5 @@
 """Producer grammar, normalization, and corrected relation direction."""
 
-import datetime
-
 import pydantic
 import pytest
 
@@ -16,8 +14,6 @@ from app.schemas.info_base.main import (
   StarsGraphForm,
 )
 from app.schemas.info_base.relation import RelationForm
-from extensions.mail.resolver import EmailResolver
-from extensions.mail.schema import Email, EmailAddress
 
 
 def test_base_creation_forms_exclude_database_managed_fields():
@@ -106,21 +102,3 @@ def test_stars_normalization_preserves_root_and_arc_direction():
     (-7, "outgoing", -8),
     (-9, "incoming", -7),
   ]
-
-
-def test_mail_sender_is_an_outgoing_dynamic_property_of_email():
-  sender = EmailAddress(email="sender@example.test", name="Sender")
-  recipient = EmailAddress(email="recipient@example.test")
-  email = Email(
-    uid=1,
-    message_id="message@example.test",
-    subject="Graph direction",
-    date=datetime.datetime(2026, 8, 7, tzinfo=datetime.UTC),
-    body_text="The email is the subject of its from property.",
-  )
-
-  graph = EmailResolver.create_graph(email, sender, [recipient])
-
-  assert graph.in_arcs == ()
-  assert [arc.relation.content for arc in graph.out_arcs] == ["from", "to"]
-  assert graph.out_arcs[0].to_graph.block.content == sender.model_dump_json()

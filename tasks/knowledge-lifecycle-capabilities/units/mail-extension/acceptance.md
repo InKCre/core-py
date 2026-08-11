@@ -1,8 +1,19 @@
 # Mail Extension Acceptance
 
-- **Status**: Acceptance frozen through D-314。
+- **Status**: Acceptance frozen through D-314 and passed on 2026-08-11。
 - **Purpose**: prove the Mail Extension's observable vertical behavior，not the incidental implementation of schemas、parser
   helpers or Adapter internals。
+
+## Execution Evidence
+
+- J1–J3 pass against a real ephemeral Dovecot 2.4.4 and disposable PostgreSQL database using
+  `tests/extensions/mail/acceptance/test_mail_vertical.py`；the harness owns the `.eml` corpus and provisions source state
+  only through production database/IMAP boundaries。
+- J4 passes in `client-web/tests/e2e/mail-info-base.spec.ts` against the graph produced by J1–J3，built host/remote assets，
+  PostgREST and a live core-py Peer。The journey dynamically locates its collected MIME part and does not depend on fixed
+  production IDs。
+- Core static/unit gate：Ruff clean，Pyrefly 0 diagnostics，`376 passed, 35 skipped`。Client gate：full `pnpm check` passed。
+- No deferred negative-path suite or fake browser Mail Source handler was introduced。
 
 ## Evidence Authority
 

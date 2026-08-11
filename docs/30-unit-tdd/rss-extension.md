@@ -69,12 +69,13 @@ watermark。`304` 可以更新 validators，但不推进 contentful watermark。
 
 ## Collect-Job Lifecycle
 
-Manual command 与 schedule firing 都先创建 ordinary `PENDING` job。`SourceCollectJobManager.run()` 用 conditional
-update 原子 claim `PENDING -> RUNNING`；只有 claimant 执行 source。完成后从仍为 `RUNNING` 的 row 关闭为
+Manual command 与 Cron firing 都创建 `core.source.collect.v1` `PENDING` Job。`JobManager.run()` 先通过本地
+Source Job handler 验证 eligibility，再用 conditional update 原子 claim `PENDING -> RUNNING`；只有 claimant 执行
+Source。完成后从仍为 `RUNNING` 的 row 关闭为
 `FINISHED` 或 `FAILED`，timeout/重复 runner 不会复活已经关闭的 execution。
 
-Schedule 的职责只是调用 `create_scheduled(source_id)`；它不是第二条直接调用 `source.collect()` 的 effect
-path。Pending-job scanner 与 scheduled job 使用同一个 runner 和 diagnostics authority。
+Cron 的职责只是创建 typed Job；它不是第二条直接调用 `source.collect()` 的 effect path。Pending-job scanner、
+manual Job 与 Cron-created Job 使用同一个 runner and diagnostics authority。
 
 ## Canonical Graph And Exact IDs
 

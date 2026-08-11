@@ -32,8 +32,9 @@
 | `RelationManager` | Relation CRUD | [info_base/relation.py](info_base/relation.py) |
 | `StorageManager` | Block 内容存储后端 | [info_base/storage/main.py](info_base/storage/main.py) |
 | `ResolverManager` | Block 内容解析器注册 | [info_base/resolver/main.py](info_base/resolver/main.py) |
-| `SourceManager` | Source 类型注册、采集任务管理 | [source/main.py](source/main.py) |
-| `SourceCollectJobManager` | 采集任务执行调度 | [source/collect_job.py](source/collect_job.py) |
+| `SourceManager` | Source 类型注册、实例状态与 lazy graph anchor | [source/main.py](source/main.py) |
+| `JobManager` | global typed Job registry、claim、execution 与 closure | [job.py](job.py) |
+| `CronManager` | database-owned Cron occurrence materialization | [cron.py](cron.py) |
 | `AIManager` | AI dialect catalog、Provider/Model routing、typed embedding/chat execution | [ai/main.py](ai/main.py) |
 | `AgentManager` | Persisted Agent definition、typed Tool binding、Thread/Turn execution | [agent/main.py](agent/main.py) |
 | `SemanticRetrievalManager` | Semantic projection、EmbeddingRecord maintenance、exact ranking | [semantic_retrieval/main.py](semantic_retrieval/main.py) |

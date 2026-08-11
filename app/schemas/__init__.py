@@ -6,7 +6,9 @@ __all__ = [
   "StorageTypesModel",
   "RelationModel",
   "SourceModel",
-  "SourceCollectJobModel",
+  "JobTypeModel",
+  "JobModel",
+  "CronModel",
   "ExtensionModel",
   "AIDialectModel",
   "AIProviderModel",
@@ -31,7 +33,9 @@ sqlmodel.SQLModel.metadata = Base.metadata
 from .info_base.block import BlockModel
 from .info_base.storage import StorageBlobModel, StorageModel, StorageTypesModel
 from .info_base.relation import RelationModel
-from .source import SourceModel, SourceCollectJobModel
+from .source import SourceModel
+from .job import JobModel, JobTypeModel
+from .cron import CronModel
 from .extension.main import ExtensionModel
 from .ai import (
   AIDialectModel,

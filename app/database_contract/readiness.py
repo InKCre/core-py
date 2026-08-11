@@ -22,6 +22,7 @@ from .constants import (
 from .profile import (
   BUILTIN_AI_DIALECTS,
   BUILTIN_EXTENSIONS,
+  BUILTIN_JOB_TYPES,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
@@ -403,21 +404,60 @@ def _catalog_component(cursor) -> dict[str, Any]:
     if cursor.fetchone() != (extension.version, extension.nickname):
       problems.append(f"extension:{extension.id}")
 
-  for table_name, profiles in (
-    ("ai_dialects", BUILTIN_AI_DIALECTS),
-    ("storage_types", BUILTIN_STORAGE_TYPES),
-    ("sources_types", BUILTIN_SOURCE_TYPES),
-  ):
-    for profile in profiles:
-      cursor.execute(
-        sql.SQL("SELECT description, config_schema FROM {}.{} WHERE id = %s").format(
-          sql.Identifier(PROTOCOL_SCHEMA),
-          sql.Identifier(table_name),
-        ),
-        (profile.id,),
-      )
-      if cursor.fetchone() != (profile.description, profile.config_schema):
-        problems.append(f"{table_name}:{profile.id}")
+  for profile in BUILTIN_AI_DIALECTS:
+    cursor.execute(
+      sql.SQL("SELECT description, config_schema FROM {}.ai_dialects WHERE id = %s").format(
+        sql.Identifier(PROTOCOL_SCHEMA)
+      ),
+      (profile.id,),
+    )
+    if cursor.fetchone() != (profile.description, profile.config_schema):
+      problems.append(f"ai_dialects:{profile.id}")
+
+  for profile in BUILTIN_STORAGE_TYPES:
+    cursor.execute(
+      sql.SQL(
+        "SELECT description, config_schema, writable FROM {}.storage_types WHERE id = %s"
+      ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+      (profile.id,),
+    )
+    if cursor.fetchone() != (
+      profile.description,
+      profile.config_schema,
+      profile.writable,
+    ):
+      problems.append(f"storage_types:{profile.id}")
+
+  for profile in BUILTIN_JOB_TYPES:
+    cursor.execute(
+      sql.SQL(
+        "SELECT description, parameters_schema, default_timeout_seconds "
+        "FROM {}.job_types WHERE id = %s"
+      ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+      (profile.id,),
+    )
+    if cursor.fetchone() != (
+      profile.description,
+      profile.parameters_schema,
+      profile.default_timeout_seconds,
+    ):
+      problems.append(f"job_types:{profile.id}")
+
+  for profile in BUILTIN_SOURCE_TYPES:
+    cursor.execute(
+      sql.SQL(
+        "SELECT description, config_schema, collect_config_schema, "
+        "backfill_config_schema FROM {}.sources_types WHERE id = %s"
+      ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+      (profile.id,),
+    )
+    if cursor.fetchone() != (
+      profile.description,
+      profile.config_schema,
+      profile.collect_config_schema,
+      profile.backfill_config_schema,
+    ):
+      problems.append(f"sources_types:{profile.id}")
 
   for storage in BUILTIN_STORAGES:
     cursor.execute(

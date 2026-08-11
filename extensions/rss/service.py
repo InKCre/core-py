@@ -9,7 +9,7 @@ import pydantic
 
 from app.business.info_base.block import BlockManager
 from app.business.info_base.resolver import ResolverManager
-from app.schemas.source import SourceCollectJobModel
+from app.schemas.job import JobModel
 from utils.datetime_ import get_datetimez
 
 from .adapter import FeedParserContext, parse_feed_snapshot
@@ -82,10 +82,10 @@ class FeedCollectionService:
     self,
     source_config: FeedSourceConfig,
     previous_state: FeedSourceState,
-    job: SourceCollectJobModel,
+    job: JobModel,
+    job_config: FeedCollectJobConfig,
   ) -> FeedSourceState:
     """Collect primary graphs and return state that may advance after success."""
-    job_config = FeedCollectJobConfig.model_validate(job.config or {})
     effective = self._effective_run_config(source_config, job_config)
     request_state = (
       previous_state

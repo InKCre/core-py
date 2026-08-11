@@ -62,10 +62,11 @@
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
   Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
   消费该 exact shared truth。该 implementable unit 已关闭。
-- **Next Step**: [Mail extension](units/mail-extension/packet.md) 已关闭 D-198–D-315 的 Product、Technical、Acceptance
-  与 R5 implementation-plan/preflight gates，包含首个 extension-owned exact Peer delegation
-  `extensions.mail.mime_part.materialize.v1`。现在执行最终 Impact Handshake 并等待明确 `开始`；core-py main push、
-  production mutation 和提交仍各自需要相应授权，不重新打开已关闭的 semantic-retrieval unit。
+- **Next Step**: [Mail extension](units/mail-extension/packet.md) 已实现共用 Source/Job/Cron/Storage、Mail
+  collection/materialization、client-web InfoBase/Mail renderer 纵切，并于 2026-08-11 通过 real Dovecot/PostgreSQL
+  J1–J3 与 built-browser/Peer J4。当前只剩 Hub shared truth、Spoke local implementation/docs、shared-ref 的
+  owner-separated delivery；提交、push 与 ref bump 仍等待相应显式授权，不重新打开已关闭的 semantic-retrieval
+  unit，也不提前选择下一 active unit。
 
 ## Program Boundary
 
@@ -81,7 +82,8 @@
 
 ## Active Implementable Unit
 
-[Mail extension](units/mail-extension/packet.md) 是当前唯一 active implementable unit，处于 design closure。
+[Mail extension](units/mail-extension/packet.md) 是当前唯一 active implementable unit，处于 Verify / Promote；
+implementation 与四条 blocking journeys 已通过，正在关闭 owner-separated durable delivery。
 本轮保留 extension identity，把旧实现当作需求与失败证据；先建立可信 collection baseline，再由真实邮件
 场景推动 organization、info-base basic use/query 与 client-web 的必要演进。MVP / MLP 由用户 job、价值与
 可接受代价决定，不以协议完整性或 feature checklist 代替产品判断（D-198/D-199）。

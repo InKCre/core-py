@@ -22,6 +22,8 @@ from app.schemas.extension.main import (
 )
 from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
 from app.middleware import require_peer_jwt
+from app.settings import settings
+from app.business.peer import PeerManager
 from .routing import ExtensionRouteMount
 from libs.obsrv.main import get_logger
 
@@ -37,7 +39,7 @@ class ExtensionDelegationError(RuntimeError):
 class EmptyConfig(sqlmodel.SQLModel): ...
 
 
-ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
+ConfigTV = typing.TypeVar("ConfigTV", bound=pydantic.BaseModel)
 
 
 class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
@@ -91,6 +93,11 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
   def _init_sources(cls): ...
 
   @classmethod
+  def peer_inbounds(cls) -> tuple[typing.Any, ...]:
+    """Return exact Peer inbounds whose routes exist only while this extension runs."""
+    return ()
+
+  @classmethod
   async def on_close(cls):
     LOGGER.info(f"Extension {cls.__extid__} closed.")
 
@@ -137,6 +144,11 @@ class ExtensionManager:
   RUNNING_EXTENSIONS: dict[ExtensionID, type[ExtensionBase]] = dict()
   ROUTE_MOUNTS: dict[ExtensionID, ExtensionRouteMount] = dict()
   FASTAPI_APP: fastapi.FastAPI | None = None
+
+  @staticmethod
+  def _peer_inbounds(extension_class: type[ExtensionBase]) -> tuple[typing.Any, ...]:
+    provider = getattr(extension_class, "peer_inbounds", None)
+    return () if provider is None else tuple(provider())
 
   @classmethod
   def start_enabled(cls, app: fastapi.FastAPI):
@@ -189,8 +201,13 @@ class ExtensionManager:
       router = extension_class.on_start(extension=extension)
       mount = ExtensionRouteMount(app=app, router=router)
       mount.publish()
+      inbounds = cls._peer_inbounds(extension_class)
+      for inbound in inbounds:
+        PeerManager.register_inbound(inbound)
       cls.ROUTE_MOUNTS[extension.id] = mount
       cls.RUNNING_EXTENSIONS[extension_class.__extid__] = extension_class
+      if inbounds:
+        PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
 
   @classmethod
   async def close(cls, extid: ExtensionID):
@@ -203,6 +220,11 @@ class ExtensionManager:
     mount = cls.ROUTE_MOUNTS.get(extid)
     if mount is not None:
       mount.unpublish()
+    inbounds = cls._peer_inbounds(extension_class)
+    for inbound in inbounds:
+      PeerManager.unregister_inbound(inbound.capability)
+    if inbounds:
+      PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
 
     # Keep the runtime entry after a close failure so a later disable/close can retry.
     await extension_class.on_close()

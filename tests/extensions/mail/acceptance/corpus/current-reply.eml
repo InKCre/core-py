@@ -1,0 +1,70 @@
+From: Barbara Liskov <barbara@example.test>
+To: Systems Notebook <notes@inkcre.test>, Alan Kay <alan@example.test>
+Cc: David Parnas <david@example.test>
+Subject: Re: A deep module is measured by the promise it hides
+Date: Tue, 11 Aug 2026 08:30:00 +0000
+Message-ID: <deep-module-reply@inkcre.acceptance>
+In-Reply-To: <deep-module-parent@inkcre.acceptance>
+References: <deep-module-parent@inkcre.acceptance>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="inkcre-mixed"
+
+--inkcre-mixed
+Content-Type: multipart/alternative; boundary="inkcre-alternative"
+
+--inkcre-alternative
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+The safety property is the shallow interface.  A deep module earns its place
+when it hides the protocol bookkeeping, concurrency mechanics, and recovery
+details needed to preserve that property.
+
+The attached one-page field note is meant to be kept with this discussion.
+
+--inkcre-alternative
+Content-Type: multipart/related; boundary="inkcre-related"
+
+--inkcre-related
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+<!doctype html>
+<html>
+  <body>
+    <h1>Deep modules preserve a small promise</h1>
+    <p>The safety property is the shallow interface. The module should hide
+    the protocol bookkeeping and concurrency mechanics needed to keep it.</p>
+    <img src="cid:architecture-map@inkcre.acceptance" alt="Architecture map" />
+    <img src="https://tracker.invalid/acceptance-pixel.png" alt="remote tracker" />
+    <script>window.parent.__mailAcceptanceScriptExecuted = true</script>
+    <p><a href="https://en.wikipedia.org/wiki/Information_hiding">Read about information hiding</a></p>
+  </body>
+</html>
+
+--inkcre-related
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-Disposition: inline; filename="architecture-map.png"
+Content-ID: <architecture-map@inkcre.acceptance>
+Content-Description: A compact architecture map for the discussion
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk
+YAAAAAYAAjCB0C8AAAAASUVORK5CYII=
+
+--inkcre-related--
+
+--inkcre-alternative--
+
+--inkcre-mixed
+Content-Type: application/pdf; name="deep-module-field-note.pdf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="deep-module-field-note.pdf"
+Content-Description: One-page field note on deep module review
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5k
+b2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVu
+ZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFsw
+IDAgMjAwIDIwMF0+PmVuZG9iagp0cmFpbGVyPDwvUm9vdCAxIDAgUj4+CiUlRU9G
+
+--inkcre-mixed--

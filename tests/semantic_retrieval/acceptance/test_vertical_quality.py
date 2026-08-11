@@ -33,7 +33,8 @@ from app.business.organization import (
   OrganizationManager,
 )
 from app.business.semantic_retrieval import SemanticRetrievalManager
-from app.business.source import SourceCollectJobManager, SourceManager
+from app.business.job import JobManager
+from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
 from app.engine import SessionLocal
 from app.schemas import AgentDefinitionModel
 from app.schemas.ai import (
@@ -56,7 +57,8 @@ from app.schemas.semantic_retrieval import (
   EmbeddingMaintenanceOptions,
   VectorRetrievalOptions,
 )
-from app.schemas.source import SourceCollectJobModel, SourceCollectJobStatus, SourceModel
+from app.schemas.job import JobModel, JobStatus
+from app.schemas.source import SourceModel
 from extensions.memos import Extension as MemosExtension
 from extensions.rss import Extension as RSSExtension
 from extensions.rss.repository import (
@@ -265,13 +267,16 @@ def _create_source(source_type: str, config: FeedSourceConfig) -> int:
 
 
 async def _collect_source(source_id: int) -> None:
-  job = SourceCollectJobManager.create(source_id)
+  job = JobManager.create(
+    SOURCE_COLLECT_JOB_TYPE,
+    {"source": source_id, "config": {}},
+  )
   job_id = _required_id(job.id)
-  assert await SourceCollectJobManager.run(job_id)
+  assert await JobManager.run(job_id)
   with SessionLocal() as db:
-    closed = db.get(SourceCollectJobModel, job_id)
+    closed = db.get(JobModel, job_id)
   assert closed is not None
-  assert closed.status is SourceCollectJobStatus.FINISHED, closed.state
+  assert closed.status is JobStatus.FINISHED, closed.state
 
 
 def _feed_entities(source_id: int, item_title: str) -> tuple[int, int]:

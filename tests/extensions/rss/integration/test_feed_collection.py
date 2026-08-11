@@ -18,16 +18,14 @@ from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import ResolverManager, register_core_resolvers
 from app.business.info_base.storage import StorageManager
 from app.business.info_base.storage.postgresql import PostgreSQLBlobPointer
-from app.business.source import SourceCollectJobManager, SourceManager
+from app.business.job import JobManager
+from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
 from app.engine import SessionLocal
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageBlobModel
-from app.schemas.source import (
-  SourceCollectJobModel,
-  SourceCollectJobStatus,
-  SourceModel,
-)
+from app.schemas.job import JobModel, JobStatus
+from app.schemas.source import SourceModel
 from extensions.rss import Extension
 from extensions.rss.api import register_api
 from extensions.rss.repository import (
@@ -221,17 +219,18 @@ def _create_source(source_type: str, config: FeedSourceConfig) -> int:
     return source.id
 
 
-def _reload_job(job_id: int) -> SourceCollectJobModel:
+def _reload_job(job_id: int) -> JobModel:
   with SessionLocal() as db_session:
-    return db_session.exec(
-      sqlmodel.select(SourceCollectJobModel).where(SourceCollectJobModel.id == job_id)
-    ).one()
+    return db_session.exec(sqlmodel.select(JobModel).where(JobModel.id == job_id)).one()
 
 
-async def _run_job(source_id: int, config: dict | None = None) -> SourceCollectJobModel:
-  job = SourceCollectJobManager.create(source_id, config)
+async def _run_job(source_id: int, config: dict | None = None) -> JobModel:
+  job = JobManager.create(
+    SOURCE_COLLECT_JOB_TYPE,
+    {"source": source_id, "config": config or {}},
+  )
   assert job.id is not None
-  assert await SourceCollectJobManager.run(job.id)
+  assert await JobManager.run(job.id)
   return _reload_job(job.id)
 
 
@@ -337,15 +336,18 @@ async def _exercise_rss() -> None:
     )
     source_ids.add(source_id)
 
-    first_job = SourceCollectJobManager.create(source_id)
+    first_job = JobManager.create(
+      SOURCE_COLLECT_JOB_TYPE,
+      {"source": source_id, "config": {}},
+    )
     assert first_job.id is not None
     claims = await asyncio.gather(
-      SourceCollectJobManager.run(first_job.id),
-      SourceCollectJobManager.run(first_job.id),
+      JobManager.run(first_job.id),
+      JobManager.run(first_job.id),
     )
     assert sorted(claims) == [False, True]
     first_job = _reload_job(first_job.id)
-    assert first_job.status == SourceCollectJobStatus.FINISHED
+    assert first_job.status == JobStatus.FINISHED
     assert first_job.state["items"] == {
       "created": 2,
       "updated": 0,
@@ -376,14 +378,14 @@ async def _exercise_rss() -> None:
     )
 
     not_modified_job = await _run_job(source_id)
-    assert not_modified_job.status == SourceCollectJobStatus.FINISHED
+    assert not_modified_job.status == JobStatus.FINISHED
     assert not_modified_job.state["not_modified"] is True
     assert len(_feed_items(feed_block.id)) == 2
 
     server.rss_revision = 2
     server.rss_etag = '"rss-v2"'
     update_job = await _run_job(source_id)
-    assert update_job.status == SourceCollectJobStatus.FINISHED
+    assert update_job.status == JobStatus.FINISHED
     assert update_job.state["items"] == {
       "created": 1,
       "updated": 1,
@@ -484,7 +486,7 @@ async def _exercise_rss() -> None:
     server.omit_first_rss_item = True
     server.rss_etag = '"rss-v4"'
     missing_old_job = await _run_job(source_id)
-    assert missing_old_job.status == SourceCollectJobStatus.FINISHED
+    assert missing_old_job.status == JobStatus.FINISHED
     assert len(_feed_items(feed_block.id)) == 3
 
     alternate_feed_url = f"{server.base_url}/rss-alt.xml"
@@ -494,7 +496,7 @@ async def _exercise_rss() -> None:
       db_session.add(source)
       db_session.commit()
     changed_url_job = await _run_job(source_id)
-    assert changed_url_job.status == SourceCollectJobStatus.FINISHED
+    assert changed_url_job.status == JobStatus.FINISHED
     assert changed_url_job.state.get("not_modified") is not True
     assert len(_feed_items(feed_block.id)) == 3
     with SessionLocal() as db_session:
@@ -503,7 +505,7 @@ async def _exercise_rss() -> None:
       assert state["snapshot_feed_block_id"] == feed_block.id
 
     before_scheduled = server.feed_requests
-    await SourceCollectJobManager.create_scheduled(source_id)
+    await _run_job(source_id)
     assert server.feed_requests == before_scheduled + 1
 
     no_self_feed_url = f"{server.base_url}/rss-no-self.xml"
@@ -513,7 +515,7 @@ async def _exercise_rss() -> None:
       db_session.add(source)
       db_session.commit()
     new_feed_job = await _run_job(source_id)
-    assert new_feed_job.status == SourceCollectJobStatus.FINISHED
+    assert new_feed_job.status == JobStatus.FINISHED
     roots_after_identity_change = _feed_roots(source_id)
     assert len(roots_after_identity_change) == 2
     with SessionLocal() as db_session:
@@ -563,7 +565,7 @@ async def _exercise_rss() -> None:
       side_effect=fail_second_primary,
     ):
       failed_job = await _run_job(retry_source_id)
-    assert failed_job.status == SourceCollectJobStatus.FAILED
+    assert failed_job.status == JobStatus.FAILED
     assert any(
       diagnostic["code"] == "primary_persistence_failed"
       for diagnostic in failed_job.state["diagnostics"]
@@ -571,7 +573,7 @@ async def _exercise_rss() -> None:
     with SessionLocal() as db_session:
       assert db_session.get_one(SourceModel, retry_source_id).state == {}
     retry_job = await _run_job(retry_source_id)
-    assert retry_job.status == SourceCollectJobStatus.FINISHED
+    assert retry_job.status == JobStatus.FINISHED
     assert retry_job.state["items"] == {
       "created": 1,
       "updated": 0,
@@ -599,14 +601,14 @@ async def _exercise_atom_and_failures() -> None:
     source_ids.add(source_id)
 
     wrong_family_job = await _run_job(source_id)
-    assert wrong_family_job.status == SourceCollectJobStatus.FAILED
+    assert wrong_family_job.status == JobStatus.FAILED
     with SessionLocal() as db_session:
       source = db_session.get_one(SourceModel, source_id)
       assert source.state == {}
 
     server.atom_returns_wrong_family = False
     atom_job = await _run_job(source_id)
-    assert atom_job.status == SourceCollectJobStatus.FINISHED
+    assert atom_job.status == JobStatus.FINISHED
     feed_block, feed = _feed_root(source_id)
     assert feed.family == "atom"
     assert feed_block.id is not None
@@ -641,7 +643,7 @@ async def _exercise_atom_and_failures() -> None:
 
     requests_before_invalid_job = server.feed_requests
     rejected_job = await _run_job(source_id, {"full": True})
-    assert rejected_job.status == SourceCollectJobStatus.FAILED
+    assert rejected_job.status == JobStatus.FAILED
     assert server.feed_requests == requests_before_invalid_job
   finally:
     _cleanup(source_ids)

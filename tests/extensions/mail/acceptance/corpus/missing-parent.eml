@@ -1,0 +1,15 @@
+From: John Ousterhout <john@example.test>
+To: Systems Notebook <notes@inkcre.test>
+Subject: A deep module is measured by the promise it hides
+Date: Tue, 11 Aug 2026 08:20:00 +0000
+Message-ID: <deep-module-parent@inkcre.acceptance>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+The value of a module is not the number of classes behind its boundary.  It is
+the amount of useful behavior made available through a small interface, minus
+the concepts every caller must still understand.
+
+When an interface leaks retries, storage pointers, protocol tokens, and race
+handling, the complexity has moved rather than disappeared.

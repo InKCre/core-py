@@ -1,4 +1,5 @@
 import abc
+import pydantic
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
@@ -7,14 +8,17 @@ from typing import Optional as Opt
 
 from app.engine import SessionLocal
 from app.database_contract.profile import BUILTIN_SOURCE_TYPES_BY_ID
-from app.schemas.info_base.block import BlockID
+from app.business.info_base.block import BlockManager
+from app.schemas.info_base.block import BlockForm, BlockModel
+from app.schemas.job import JobModel
 from app.schemas.source import SourceModel, SourceID, SourceTypesModel
-from app.scheduler import scheduler
+from .resolver import SOURCE_RESOLVER_ID, SourceContent
 
-if typing.TYPE_CHECKING:
-  from .collect_job import SourceCollectJobModel
+ConfigTV = typing.TypeVar("ConfigTV", bound=pydantic.BaseModel)
 
-ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
+
+class EmptySourceCommandConfig(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
@@ -27,11 +31,21 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
   __configschema__: dict
   """Source configuration JSON schema"""
   __configcls__: type[ConfigTV]
+  __collectconfigcls__: type[pydantic.BaseModel]
+  __backfillconfigcls__: type[pydantic.BaseModel] | None
 
-  def __init_subclass__(cls, config_cls: type[ConfigTV], **kwargs) -> None:
+  def __init_subclass__(
+    cls,
+    config_cls: type[ConfigTV],
+    collect_config_cls: type[pydantic.BaseModel] = EmptySourceCommandConfig,
+    backfill_config_cls: type[pydantic.BaseModel] | None = None,
+    **kwargs,
+  ) -> None:
     # ConfigTV is bound by the concrete source subclass.
     cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
     cls.__configschema__ = config_cls.model_json_schema()
+    cls.__collectconfigcls__ = collect_config_cls  # pyrefly: ignore[no-access]
+    cls.__backfillconfigcls__ = backfill_config_cls  # pyrefly: ignore[no-access]
     SourceManager.add_source_type(cls)
     return super().__init_subclass__(**kwargs)
 
@@ -39,7 +53,7 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     self._id = _id
 
   @abc.abstractmethod
-  async def collect(self, job: "SourceCollectJobModel") -> None:
+  async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
     """Collect new data from the source.
 
     :param job: The collect job containing config and state.
@@ -48,12 +62,9 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     - Should not surpress exceptions, raise it.
     """
 
-  @abc.abstractmethod
-  async def _organize(self, block_id: BlockID) -> None:
-    """Organize the collected block.
-
-    Organization to collected blocks are concurrently.
-    """
+  async def backfill(self, job: JobModel, config: pydantic.BaseModel) -> None:
+    del job, config
+    raise NotImplementedError(f"{self.__class__.__name__} does not support backfill")
 
   async def record(self, data: typing.Any) -> None:
     """Record data passively (e.g., from webhook).
@@ -71,6 +82,14 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     with SessionLocal() as db:
       source = db.exec(sqlmodel.select(SourceModel).where(SourceModel.id == self._id)).one()
       return self.__configcls__.model_validate(source.config)
+
+  def validate_collect_config(self, config: dict) -> pydantic.BaseModel:
+    return self.__collectconfigcls__.model_validate(config)
+
+  def validate_backfill_config(self, config: dict) -> pydantic.BaseModel:
+    if self.__backfillconfigcls__ is None:
+      raise NotImplementedError(f"{self.__class__.__name__} does not support backfill")
+    return self.__backfillconfigcls__.model_validate(config)
 
   def get_state(self) -> dict:
     """Get the source state from database."""
@@ -120,37 +139,41 @@ class SourceManager:
           config_schema=(
             builtin.config_schema if builtin is not None else source_cls.__configschema__
           ),
+          collect_config_schema=(
+            builtin.collect_config_schema
+            if builtin is not None
+            else source_cls.__collectconfigcls__.model_json_schema()
+          ),
+          backfill_config_schema=(
+            builtin.backfill_config_schema
+            if builtin is not None
+            else (
+              None
+              if source_cls.__backfillconfigcls__ is None
+              else source_cls.__backfillconfigcls__.model_json_schema()
+            )
+          ),
         )
         stmt = stmt.on_conflict_do_update(
           index_elements=[SourceTypesModel.id],
           set_=dict(
             description=stmt.excluded.description,
             config_schema=stmt.excluded.config_schema,
+            collect_config_schema=stmt.excluded.collect_config_schema,
+            backfill_config_schema=stmt.excluded.backfill_config_schema,
           ),
         )
         db.exec(stmt)  # type: ignore
       db.commit()
 
   @classmethod
-  def set_up_collect_jobs(cls):
-    from .collect_job import SourceCollectJobManager
+  def has_source_type(cls, source_type: str) -> bool:
+    return source_type in cls._SOURCE_CLASSES
 
-    with SessionLocal() as db:
-      sources = db.exec(
-        sqlmodel.select(SourceModel).where(SourceModel.collect_at is not None)
-      ).all()
-
-    for source in sources:
-      if source.collect_at is None:
-        continue
-      scheduler.add_job(
-        func=SourceCollectJobManager.create_scheduled,
-        args=[typing.cast(SourceID, source.id)],
-        trigger=source.collect_at.to_trigger(),
-        id=f"source.{source.id}.collect",
-        replace_existing=True,
-        misfire_grace_time=None,
-      )
+  @classmethod
+  def supports_backfill(cls, source_type: str) -> bool:
+    source_cls = cls._SOURCE_CLASSES.get(source_type)
+    return source_cls is not None and source_cls.__backfillconfigcls__ is not None
 
   @classmethod
   def _get_source_ins(cls, source_id: SourceID, source_type: Opt[str] = None) -> SourceBase:
@@ -178,12 +201,77 @@ class SourceManager:
     return cls._get_source_ins(source_id)
 
   @classmethod
-  def create(cls, type_: str, nickname: Opt[str] = None) -> SourceModel:
+  def create(
+    cls,
+    type_: str,
+    nickname: Opt[str] = None,
+    config: dict | None = None,
+    storage: int | None = None,
+  ) -> SourceModel:
     """Add a new source."""
+    source_class = cls._SOURCE_CLASSES.get(type_)
+    if source_class is None:
+      raise ValueError(f"Source class {type_} not registered.")
+    normalized = source_class.__configcls__.model_validate(config or {}).model_dump(  # pyrefly: ignore[missing-attribute]
+      mode="json"
+    )
     with SessionLocal() as db:
-      source = SourceModel(type=type_, nickname=nickname)
+      source = SourceModel(
+        type=type_,
+        nickname=nickname,
+        config=normalized,
+        storage=storage,
+      )
       db.add(source)
       db.commit()
       db.refresh(source)
 
     return source
+
+  @classmethod
+  def resolve_writable_storage(
+    cls,
+    source: SourceModel,
+    db_session: sqlmodel.Session,
+  ):
+    from .config import resolve_writable_storage
+
+    return resolve_writable_storage(source, db_session)
+
+  @classmethod
+  def ensure_block(
+    cls,
+    source: SourceModel,
+    db_session: sqlmodel.Session,
+  ) -> BlockModel:
+    """Create/reuse and refresh one Source-owned graph anchor projection."""
+    if source.id is None:
+      raise ValueError("Source must be persisted before creating its anchor")
+    locked = db_session.exec(
+      sqlmodel.select(SourceModel).where(SourceModel.id == source.id).with_for_update()
+    ).one()
+    content = SourceContent(
+      id=source.id,
+      type=locked.type,
+      nickname=locked.nickname,
+    ).model_dump_json()
+    if locked.block is None:
+      block = BlockManager.create(
+        BlockForm(resolver=SOURCE_RESOLVER_ID, content=content),
+        db_session,
+      )
+      locked.block = block.id
+      db_session.add(locked)
+      db_session.flush()
+      return block
+
+    block = db_session.get(BlockModel, locked.block)
+    if block is None:  # pragma: no cover - FK invariant
+      raise RuntimeError("Source anchor reference does not resolve")
+    if block.resolver != SOURCE_RESOLVER_ID or block.content != content:
+      block.resolver = SOURCE_RESOLVER_ID
+      block.storage = None
+      block.content = content
+      db_session.add(block)
+      db_session.flush()
+    return block

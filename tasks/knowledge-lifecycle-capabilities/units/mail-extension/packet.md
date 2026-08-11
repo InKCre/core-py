@@ -1,7 +1,7 @@
 # Mail Extension
 
 - **Unit ID**: `mail-extension`。
-- **State**: **Active — awaiting Impact Handshake + explicit start**。
+- **State**: **Active — Verify / Promote；implementation and J1–J4 accepted**。
 - **Objective**: 保留 Mail extension identity，把现有 PoC 当作需求与失败证据，先建立可信且尽可能完整的
   communication-record baseline，再让真实邮件场景推动 organization、info-base basic use/query 与
   client-web 的必要演进，使用户能以足够低的成本持有和打理来自多个邮箱的信息。长期目标是让 InKCre
@@ -11,17 +11,18 @@
   等只是候选 mechanism/pressure，不是预设 gate。InKCre 服务生产与创造，不是只读归档镜像；对 source
   状态的改变可以是有意产品行为，但必须服从清晰、可配置的用户选择。Mail vertical 可以推动
   organization、retrieval 与 client-web，但不借此宣称完成这些 capability trunks。
-- **Verification**: Product foundation 与主要 Technical topology 已冻结；剩余 closure 由
-  [design-closure ledger](design-closure.md) 控制。Acceptance 必须以真实 IMAP protocol behavior 驱动
-  `source → collect job → committed graph → resolver/use` 黑盒纵切，不能继续让 schema/helper tests
-  充当 Mail 产品有效性的主要证据。具体服务、corpus、failure horizon 与静态/运行时分工等待 Acceptance gate。
-- **Current Truth**: 现有实现能连接 IMAP、抓取基础邮件并生成 Email/EmailAddress graph，足以作为 PoC；
-  它尚无可信的端到端 product acceptance。缺少哪些邮件能力本身不能证明它未达到 MVP，真实 job 是否完成及
-  代价是否可接受才是判断 authority。`mark_as_seen` 已是 source config，且其改变邮箱状态是刻意 workflow
-  choice，不应先验归类为缺陷。
-- **Next Step**: Product、Technical、四条 Acceptance journeys 与 R5 [implementation plan](implementation-plan.md) /
-  [preflight](implementation-preflight.md) 已关闭到 D-315。Perform the final Impact Handshake，then wait for explicit
-  `开始` before product-code、migration、client-web or durable-doc mutation。
+- **Verification**: Product、Technical、Acceptance 与 R5 plan/preflight 已冻结。2026-08-11 已用 WorkSSD 上从
+  official source 构建的 Dovecot 2.4.4、disposable PostgreSQL 和 acceptance-owned `.eml` corpus 通过 J1–J3；
+  built client-web + Mail remote + PostgREST + core-py Peer 通过 J4。core-py 通过 Ruff、Pyrefly 与
+  `376 passed, 35 skipped`；client-web 完整 `pnpm check` 通过。core-py aggregate gate 只被已定位的 shared-doc
+  fenced-Python formatting 阻塞，Hub source correction 已纳入本次 owner-separated promotion。
+- **Current Truth**: 旧 PoC Mail behavior 已 hard-cut。当前实现拥有 global typed Job/Cron、Source anchor 与 writable
+  Storage policy、protocol-neutral IMAP Adapter、ordinary/backfill collection、canonical Mail graph、exact MIME
+  materialization Peer capability、五个 Mail Resolvers，以及 client-web generic InfoBase route/popup/Mail solved-content
+  journey。J1–J4 已证明 real protocol → graph → Resolver/Storage → browser，而不是 schema/helper proxy。
+- **Next Step**: 完成 Hub source diff、task packet 和外部验收服务清理，复核 core-py/client-web/Hub 三个 owner 的
+  最终 diff。Hub commit/push、两个 Spoke implementation/local-doc commits 与后续 shared-ref bumps 必须保持分离，
+  并等待 Sir 的显式提交/推送授权；在这些 delivery operations 完成前不选择下一 active unit。
   Adaptive batching 仅是本 unit 收口阶段的临时协作策略，低风险自然推论不再逐项请求批准。
 - **Decision History**: Product scope 已形成完整 candidate；D-263 已冻结 linear Email ladder，D-264 已冻结每一 rung 的
   `zero → continue / one → reuse / many → stop-and-create`，D-265 已冻结 null identity completion 与 non-null

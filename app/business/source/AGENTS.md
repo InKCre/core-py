@@ -5,16 +5,16 @@
 
 ## 何时阅读
 
-- 修改 `SourceBase`、`SourceManager`、`SourceCollectJobManager`；
+- 修改 `SourceBase`、`SourceManager` 或 Source-owned Job handlers；
 - 修改 source registration/config/state；
-- 修改 manual/scheduled job lifecycle、claim 或 timeout；
+- 修改 Source collect/backfill command validation 或 execution；
 - 新增 incremental source。
 
 ## 三层对象
 
 - `source type`：registered class/capability identity；
-- `source instance`：持久 config、long-lived state 与 schedule；
-- `collect job`：一次 command 的 config、status、diagnostics 与 timing。
+- `source instance`：持久 config、long-lived state、optional Storage 与 lazy Block anchor；
+- `Job`：global one-shot command envelope；Source handlers 只拥有 collect/backfill parameters 与 execution。
 
 不要把配置、cursor 或 execution progress 混到同一层。
 
@@ -27,17 +27,18 @@
 ## Config And State
 
 - `SourceModel.config` 是 validated source-instance config；`SourceModel.state` 是 long-lived conditional/cursor
-  state；`SourceCollectJobModel.config/state` 只属于一次 run。
+  state；`JobModel.parameters/state` 只属于一次 execution。
 - Cursor、ETag、Last-Modified、watermark 必须同时声明 authority scope；config/native identity 改变时不可盲目复用。
 - `SourceBase.get_config/get_state/set_state` 每次从 database读取/写入，不缓存另一份 authority。
 
 ## Job-Only Execution Path
 
-- Manual collection 先通过 `SourceCollectJobManager.create()` 持久化 ordinary `PENDING` job。
-- Schedule firing 调用 `create_scheduled(source_id)`，同样先 create job，再调用 common runner。
-- `run(job_id)` 以 conditional update 原子 claim `PENDING -> RUNNING`；无法 claim 返回 `False`。
-- 成功/失败只从仍为 RUNNING 的 row 关闭；异常写入 job diagnostics 并由 manager 标记 FAILED。
-- `check()` 只调度 pending jobs并处理 running timeout，不直接调用 `source.collect()`。
+- Manual collection 创建 exact `core.source.collect.v1` 或 `core.source.backfill.v1` `PENDING` Job。
+- Global Cron 只创建 typed Job；Source row 不拥有 schedule，也不知道调用是否来自 Cron。
+- `JobManager` 在 claim 前通过 registered handler 验证 parameters 与 `can_handle()`，再以 conditional update 原子
+  claim `PENDING -> RUNNING`；无法 claim 返回 `False`。
+- Source Job handler 才解析 Source/type-specific command config 并调用 `collect()` / `backfill()`。
+- 成功/失败只从仍为 RUNNING 的 row 关闭；DB trigger 拥有 lifecycle timestamps；generic manager 不 retry Job。
 
 因此不存在 scheduler 直接执行 source 的第二条路径。修改 schedule 时必须保持“schedule creates command”与
 manual path 一致。
@@ -47,8 +48,7 @@ manual path 一致。
 - Source 负责 native fetch/adapter/policy，可以产生 graph form 或调用 owning repository/application service。
 - Block/relation persistence 仍通过 info-base managers/caller-owned session；source 不复制通用 persistence。
 - `collect()` 不吞异常或假装成功。Unit 自己定义 per-item transaction、accepted partial effects 与 state advance。
-- `SourceBase._organize()` 仍是 legacy abstract hook；它不是 collection 成功后的通用 lifecycle，也不得用来承载
-  新 organization contract。当前 source 可明确 no-op，未来 organization 另行设计 command。
+- Collection 不调用 organization hook。Organization 是独立 lifecycle，不得重新塞回 Source command。
 
 ## Incremental Identity
 

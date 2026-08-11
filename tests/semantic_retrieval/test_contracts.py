@@ -15,7 +15,9 @@ from extensions.learn_english.resolver import LexicalResolver
 from extensions.mail.resolver import (
   EmailAddressResolver,
   EmailResolver,
-  NewsletterResolver,
+  MailboxResolver,
+  MailFlagResolver,
+  MailMimePartResolver,
 )
 from extensions.memos.family.attachment_resolver import AttachmentResolver
 from extensions.memos.family.resolver import MemoResolver
@@ -31,8 +33,10 @@ EXTENSION_RESOLVERS = (
   (FeedItemResolver, "extensions.rss.feed_item.v1"),
   (EnclosureResolver, "extensions.rss.enclosure.v1"),
   (EmailResolver, "extensions.mail.email.v1"),
-  (NewsletterResolver, "extensions.mail.newsletter.v1"),
   (EmailAddressResolver, "extensions.mail.email_address.v1"),
+  (MailboxResolver, "extensions.mail.mailbox.v1"),
+  (MailFlagResolver, "extensions.mail.flag.v1"),
+  (MailMimePartResolver, "extensions.mail.mime_part.v1"),
   (GithubRepoResolver, "extensions.github.repo.v1"),
   (GithubUserResolver, "extensions.github.user.v1"),
   (TelegramMessageResolver, "extensions.telegram.message.v1"),

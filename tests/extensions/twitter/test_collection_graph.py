@@ -5,7 +5,7 @@ import asyncio
 from app.business.info_base.resolver import HTMLResolver, ImageResolver, VideoResolver
 from app.schemas.info_base.block import BlockModel
 from extensions.twitter.api import Tweet as APITweet
-from extensions.twitter.bookmark import Source, tweet_to_graph
+from extensions.twitter.bookmark import tweet_to_graph
 from extensions.twitter.resolver import TweetResolver
 from extensions.twitter.schema import Tweet, TweetPhoto, TweetVideo, VideoVariant
 
@@ -92,7 +92,3 @@ def test_tweet_root_resolver_preserves_reply_scope_and_text():
   assert solved.attachments == []
   assert solved.links == []
   assert asyncio.run(resolver.get_text()) == _api_tweet().text
-
-
-def test_legacy_organization_hook_does_not_invent_bookmark_note_graph():
-  asyncio.run(Source(1)._organize(70))

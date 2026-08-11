@@ -51,6 +51,14 @@ class StorageTypesModel(sqlmodel.SQLModel, table=True):
     ),
     default=dict,
   )
+  writable: bool = sqlmodel.Field(
+    default=False,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.Boolean,
+      nullable=False,
+      server_default=sqlalchemy.false(),
+    ),
+  )
 
 
 class StorageModel(sqlmodel.SQLModel, table=True):

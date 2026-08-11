@@ -39,6 +39,8 @@ from app.routes.organization import ROUTER as organization_router
 from app.routes.semantic_retrieval import PEER_INBOUND as semantic_retrieval_peer_inbound
 from app.routes.semantic_retrieval import ROUTER as semantic_retrieval_router
 from app.business.source import SourceManager
+from app.business.cron import CronManager
+from app.business.job import JobManager
 from app.business.extension import ExtensionManager
 from app.business.peer import PeerManager
 from app.business.ai import AIManager
@@ -56,7 +58,6 @@ from app.scheduler import scheduler
 
 def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   """Initialize database-backed runtime services after migrations are ready."""
-  from app.business.source import SourceCollectJobManager
   from app.business.info_base.resolver import register_core_resolvers
   from app.business.info_base.storage import StorageManager
 
@@ -78,7 +79,8 @@ def bootstrap_runtime(app: fastapi.FastAPI) -> None:
     ExtensionManager.load_installed_decoders()
     ExtensionManager.start_enabled(app)
     SourceManager.sync_source_types()
-    SourceManager.set_up_collect_jobs()
+
+  JobManager.sync_job_types()
 
   AIManager.sync_dialects()
 
@@ -88,7 +90,7 @@ def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   if not scheduler.running:
     scheduler.start()
 
-  # Add periodic job to check pending source collect jobs
+  # Peer-local timers only wake the database-owned Cron and Job lifecycles.
   scheduler.add_job(
     PeerManager.refresh_self,
     "interval",
@@ -98,10 +100,17 @@ def bootstrap_runtime(app: fastapi.FastAPI) -> None:
     replace_existing=True,
   )
   scheduler.add_job(
-    SourceCollectJobManager.check,
+    JobManager.check,
     "interval",
     seconds=30,
-    id="sources.collect_jobs.check_pending",
+    id="jobs.check",
+    replace_existing=True,
+  )
+  scheduler.add_job(
+    CronManager.check,
+    "interval",
+    seconds=30,
+    id="crons.check",
     replace_existing=True,
   )
   scheduler.add_job(

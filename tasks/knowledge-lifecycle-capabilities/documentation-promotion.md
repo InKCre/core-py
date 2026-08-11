@@ -2,10 +2,11 @@
 
 ## Control
 
-- **Mode**: Memos/RSS/semantic-retrieval shared promotion published。Hub `95c4023` contains the shared batch；core-py
-  `cc8f90a` and client-web `8324293` consume that exact published head through pure shared-ref commits。Final verification
-  found client-web remote main already at `8324293` through an external/automatic push not issued by this workflow；
-  core-py implementation/docs/ref commits remain local until separately authorized for push。
+- **Mode**: Memos/RSS/semantic-retrieval shared promotion published。Mail implementation and J1–J4 are accepted；its stable
+  PRD/Product-TDD projection is applied to the Hub source worktree but is not yet committed/published。The active core-py
+  worktree still references published Hub `95c4023`；the active client-web feature branch retains its pre-restack `a0ba0d4`
+  reference because Slice 0 deliberately did not transplant an unrelated shared-ref commit。Neither reference moves until
+  the required Hub-first commit/push and later pure shared-ref bumps receive explicit authorization。
 - **Apply gate**: unresolved discussion pressure remains here；stable design + verified implementation triggers
   durable projection during unit completion。Commit、push、Hub publication、shared-ref bump 与 production mutation
   remain separately authorized operations。

@@ -2,14 +2,14 @@
 
 import typing
 from typing import Literal as Lit
+import pydantic
 import sqlmodel
 from telegram import Update
 from telegram.ext import Application
 from app.business.source import SourceBase
 from app.engine import SessionLocal
 from app.business.info_base.main import InfoBaseManager
-from app.schemas.info_base.block import BlockID
-from app.schemas.source import SourceCollectJobModel
+from app.schemas.job import JobModel
 from extensions.telegram.resolver import TelegramMessageResolver
 from .schema import TelegramMessage
 
@@ -32,7 +32,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
   Note: Telegram message queue can hold up to 100 updates. If collect() is not
   called within 24 hours or queue exceeds 100 messages, message loss may occur.
-  This is controllable by the user via the collect_at schedule configuration.
+  This is controllable by the user through a global Cron + Source Job template.
   """
 
   def _parse_telegram_message(self, message) -> TelegramMessage:
@@ -83,7 +83,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
       media_type=media_type,
     )
 
-  async def collect(self, job: SourceCollectJobModel) -> None:
+  async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
     """Collect messages using getUpdates (default method).
 
     :param job: The collect job containing config and state.
@@ -91,14 +91,15 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     Fetches all pending updates from Telegram using getUpdates API.
     Should be called periodically (at least every 24 hours) to avoid message loss.
     """
-    config = self.get_config()
+    del job, config
+    source_config = self.get_config()
 
-    if not config.bot_token:
+    if not source_config.bot_token:
       # No bot token configured, cannot collect
       return
 
     # Initialize Telegram bot application
-    app = Application.builder().token(config.bot_token).build()
+    app = Application.builder().token(source_config.bot_token).build()
 
     collected = []
     try:
@@ -169,10 +170,3 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     with SessionLocal() as db:
       await InfoBaseManager.add_stars_graph_to_session(graph, db)
       db.commit()
-
-  async def _organize(self, block_id: BlockID) -> None:
-    """Organize collected Telegram message block.
-
-    Currently no additional organization needed for Telegram messages.
-    """
-    pass

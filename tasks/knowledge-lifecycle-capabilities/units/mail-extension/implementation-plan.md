@@ -1,6 +1,23 @@
 # Mail Extension Implementation Plan
 
-- **Status**: Approved R5 execution baseline through D-315；no implementation authorization until the explicit-start gate。
+## Execution Status — 2026-08-11
+
+- Slices 0–6 are implemented and accepted。Global Job/Cron、Source anchor/writable-Storage policy、protocol-neutral IMAP
+  Mail collection/reconciliation、exact MIME materialization Peer capability、generic InfoBase routes/popups and the Mail
+  remote have passed their full static/type/build repositories gates。
+- A disposable PostgreSQL baseline passed fresh head upgrade、head→previous→head and DB-owned Job lifecycle timestamp
+  checks。The published migration digest is
+  `8eda54520a7099c957ee6a1b5e6e48d5ee2b3dbe18b0dea4b6a5246dbef04bd2`。A full downgrade through the oldest historical
+  revision still exposes that revision's pre-existing enum-cleanup defect；the accepted unpublished-schema gate remains fresh
+  baseline plus head↔previous rather than expanding this unit into historical migration repair。
+- The repeatable blocking harness starts a real Dovecot 2.4.4 built under WorkSSD，installs only acceptance-owned `.eml`
+  artifacts through IMAP APPEND and passes J1–J3 through production Source/Job/InfoBase/Resolver/Storage paths。
+- J4 passes with the graph produced by J1–J3 through built client-web、built Mail remote、PostgREST、core-py Peer HTTP and a
+  real browser。It exposed and fixed an iframe browsing-context history bug rather than weakening the literal-back contract。
+- Slice 7 code/local-doc cleanup is complete；Hub shared truth is applied in the Hub source worktree but remains uncommitted
+  and unpublished pending explicit owner-separated authorization。
+
+- **Status**: R5 execution complete；J1–J4 accepted；owner-separated delivery pending。
 - **Authority**: D-201–D-315、the frozen technical-design files in this unit and the four blocking journeys in
   [Acceptance](acceptance.md)。
 - **Delivery shape**: retain the `mail-extension` identity and replace its PoC behavior。This is one implementable unit，not

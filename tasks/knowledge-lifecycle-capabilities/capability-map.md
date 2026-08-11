@@ -73,7 +73,7 @@ local relations ────────────┘
 | --- | --- | --- | --- |
 | 1 | [Memos extension](units/memos-extension/packet.md) | **Complete；backend MVP implemented** | Sir 的直接产品需求；released client E2E 已证明 memo canonical/graph/read contract；durable owner projections committed |
 | 2 | [RSS extension hardening](units/rss-extension-hardening/packet.md) | **Complete；human-accepted 2026-08-03** | 已用 RSS/Atom vertical 建立 source instance → collect job → graph → resolver → state 的可信 collection baseline |
-| 3 | [Mail extension](units/mail-extension/packet.md) | **Active — Design closure** | 高价值真实邮箱 corpus；主体合同已冻结，剩余 materialization/config/client/Acceptance 收口后进入 plan/preflight |
+| 3 | [Mail extension](units/mail-extension/packet.md) | **Active — Verify / Promote；J1–J4 passed** | 高价值真实邮箱 corpus 已证明 protocol → graph → materialization → generic InfoBase browser 纵切；剩余 owner-separated delivery |
 | 4 | Other existing source hardening | Queued | 只按 Twitter、GitHub、Telegram 等具体 source 选择；不建立笼统横切 cleanup unit |
 | 5 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
 | 6 | [Semantic retrieval](units/semantic-retrieval/packet.md) | **Complete** | real-provider、local/delegated Peer、rumination 与 shared-truth projection 均已验收关闭 |

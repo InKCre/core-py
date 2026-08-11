@@ -19,6 +19,7 @@ from .constants import (
 from .profile import (
   BUILTIN_AI_DIALECTS,
   BUILTIN_EXTENSIONS,
+  BUILTIN_JOB_TYPES,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
@@ -104,17 +105,41 @@ def reconcile_builtins(database_url: str | None = None) -> None:
         cursor.execute(
           sql.SQL(
             """
-            INSERT INTO {}.storage_types (id, description, config_schema)
-            VALUES (%s, %s, %s)
+            INSERT INTO {}.storage_types (id, description, config_schema, writable)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE
             SET description = EXCLUDED.description,
-                config_schema = EXCLUDED.config_schema
+                config_schema = EXCLUDED.config_schema,
+                writable = EXCLUDED.writable
             """
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
           (
             storage_type.id,
             storage_type.description,
             Jsonb(storage_type.config_schema),
+            storage_type.writable,
+          ),
+        )
+
+      for job_type in BUILTIN_JOB_TYPES:
+        cursor.execute(
+          sql.SQL(
+            """
+            INSERT INTO {}.job_types (
+              id, description, parameters_schema, default_timeout_seconds
+            )
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE
+            SET description = EXCLUDED.description,
+                parameters_schema = EXCLUDED.parameters_schema,
+                default_timeout_seconds = EXCLUDED.default_timeout_seconds
+            """
+          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+          (
+            job_type.id,
+            job_type.description,
+            Jsonb(job_type.parameters_schema),
+            job_type.default_timeout_seconds,
           ),
         )
 
@@ -122,17 +147,28 @@ def reconcile_builtins(database_url: str | None = None) -> None:
         cursor.execute(
           sql.SQL(
             """
-            INSERT INTO {}.sources_types (id, description, config_schema)
-            VALUES (%s, %s, %s)
+            INSERT INTO {}.sources_types (
+              id, description, config_schema, collect_config_schema,
+              backfill_config_schema
+            )
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE
             SET description = EXCLUDED.description,
-                config_schema = EXCLUDED.config_schema
+                config_schema = EXCLUDED.config_schema,
+                collect_config_schema = EXCLUDED.collect_config_schema,
+                backfill_config_schema = EXCLUDED.backfill_config_schema
             """
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
           (
             source_type.id,
             source_type.description,
             Jsonb(source_type.config_schema),
+            Jsonb(source_type.collect_config_schema),
+            (
+              None
+              if source_type.backfill_config_schema is None
+              else Jsonb(source_type.backfill_config_schema)
+            ),
           ),
         )
 
@@ -244,15 +280,24 @@ def development_baseline_fingerprint(
           ),
         ),
         (
+          "job_types",
+          sql.SQL(
+            "SELECT id, description, parameters_schema, default_timeout_seconds "
+            "FROM {}.job_types ORDER BY id"
+          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+        ),
+        (
           "storage_types",
           sql.SQL(
-            "SELECT id, description, config_schema FROM {}.storage_types ORDER BY id"
+            "SELECT id, description, config_schema, writable "
+            "FROM {}.storage_types ORDER BY id"
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
         ),
         (
           "source_types",
           sql.SQL(
-            "SELECT id, description, config_schema FROM {}.sources_types ORDER BY id"
+            "SELECT id, description, config_schema, collect_config_schema, "
+            "backfill_config_schema FROM {}.sources_types ORDER BY id"
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
         ),
         (

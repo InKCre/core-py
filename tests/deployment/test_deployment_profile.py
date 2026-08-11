@@ -22,9 +22,9 @@ def test_production_profile_projects_the_executable_contract():
 
   assert profile["format"] == 1
   assert profile["environment"] == "production"
-  assert contract["migration_heads"] == ["c0d1e2f3a4b5"]
+  assert contract["migration_heads"] == ["77cd53ad8080"]
   assert profile["database_contract"] == {
-    "migration_head": "c0d1e2f3a4b5",
+    "migration_head": "77cd53ad8080",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }
@@ -50,11 +50,13 @@ def test_contract_publishes_the_complete_protocol_projection():
     "configs",
     "extensions",
     "embedding_profiles",
+    "crons",
+    "jobs",
+    "job_types",
     "logs",
     "relation_embeddings",
     "relations",
     "sources",
-    "sources_collect_jobs",
     "sources_types",
     "storage_types",
     "storage_blobs",
@@ -115,9 +117,9 @@ def test_contract_publishes_the_complete_protocol_projection():
     "generated": False,
     "has_default": True,
   }
-  assert protocol["relations"]["sources_collect_jobs"]["columns"]["status"]["type"] == {
+  assert protocol["relations"]["jobs"]["columns"]["status"]["type"] == {
     "kind": "enum",
-    "values": ["pending", "running", "finished", "failed"],
+    "values": ["pending", "running", "finished", "failed", "timed_out", "aborted"],
   }
   assert protocol["relations"]["block_embeddings"]["columns"]["embedding"]["type"] == {
     "kind": "array",

@@ -53,12 +53,14 @@ class StorageManager:
           config_schema=(
             builtin.config_schema if builtin is not None else storage_cls.__configschema__
           ),
+          writable=issubclass(storage_cls, WritableStorage),
         )
         stmt = stmt.on_conflict_do_update(
           index_elements=[StorageTypesModel.id],
           set_=dict(
             description=stmt.excluded.description,
             config_schema=stmt.excluded.config_schema,
+            writable=stmt.excluded.writable,
           ),
         )
         db.exec(stmt)  # type: ignore
@@ -194,9 +196,17 @@ class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
     return super().__init_subclass__(**kwargs)
 
   def __init__(self, storage_record: StorageModel):
+    if storage_record.id is None:
+      raise ValueError("Storage must be persisted before use")
+    self._id = storage_record.id
     self._config = self.__configcls__.model_validate(storage_record.config)
 
     self.__post_init__()
+
+  @property
+  def storage_id(self) -> StorageID:
+    """Return the persisted Storage reference represented by this instance."""
+    return self._id
 
   def __post_init__(self):
     """Post-initialization hook for subclasses."""

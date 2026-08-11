@@ -21,6 +21,42 @@ class InfoBaseManager:
   """Own graph-form normalization and graph insertion coordination."""
 
   @classmethod
+  def get_related_block(
+    cls,
+    block_id: BlockID,
+    *,
+    content: str,
+    outgoing: bool = True,
+    db_session: sqlmodel.Session | None = None,
+  ) -> BlockModel | None:
+    """Return any one Block connected through the requested exact Relation.
+
+    This singular use-facing read deliberately promises neither uniqueness nor
+    ordering/repeat-read stability. Callers that care about graph multiplicity
+    must query Relations directly.
+    """
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_related_block(
+          block_id,
+          content=content,
+          outgoing=outgoing,
+          db_session=owned_session,
+        )
+    relation = db_session.exec(
+      sqlmodel.select(RelationModel)
+      .where(
+        RelationModel.content == content,
+        (RelationModel.from_ if outgoing else RelationModel.to_) == block_id,
+      )
+      .limit(1)
+    ).first()
+    if relation is None:
+      return None
+    related_id = relation.to_ if outgoing else relation.from_
+    return db_session.get(BlockModel, related_id)
+
+  @classmethod
   def normalize_graph(
     cls,
     stars: StarsGraphForm,
