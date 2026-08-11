@@ -167,7 +167,8 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
     method="DELETE",
     token=valid_token,
   )
-  _expect(checks["enabled_delete_denied"], 409, "enabled Extension delete")
+  # The database guard reports SQLSTATE 23514, which PostgREST maps to HTTP 400.
+  _expect(checks["enabled_delete_denied"], 400, "enabled Extension delete")
   checks["disabled_rpc"], _ = _call(
     base_url,
     "rpc/set_extension_peer_enabled",
