@@ -9,12 +9,14 @@ or cold-restoring an already-installed exact Release may consume a yanked Releas
 blocked bytes fail closed without rewriting `enabled[]`.
 
 Python acquisition uses the Release's same-origin `/simple/<normalized-project>/` association.
-Core downloads one compatible exact wheel, runs `pip install --dry-run --report`, rejects changes
-to every already-installed Distribution except the declared Extension Project, then performs a
-normal `sys.executable -m pip install` into the Core virtual environment. The standard
+Core downloads one compatible exact wheel, then runs `pip install --dry-run --report` with that
+wheel as the only available package source. The Core image owns the supported dependency baseline;
+an Extension whose declared requirements are not already satisfied fails closed instead of
+resolving or mutating dependencies during an HTTP request. Core then performs a normal
+`sys.executable -m pip install` of only the Extension wheel into its virtual environment. The standard
 `inkcre.core.extensions` entry point is discovered globally and every loaded Extension module is
 verified against the installed wheel file record. There is no per-Extension target directory,
-custom ZIP loader, or module search-path rewrite.
+custom ZIP loader, module search-path rewrite, or runtime dependency-index access.
 
 Any version change or rollback is rejected while any peer remains in `enabled[]`. Operators first
 disable every peer, change the shared exact version, then re-enable peers. Replacing a wheel that

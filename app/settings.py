@@ -87,10 +87,6 @@ class Settings(BaseSettings):
     le=30,
     description="Bounded timeout for public Extension Registry requests",
   )
-  extension_dependency_index_url: str = Field(
-    default="https://pypi.org/simple",
-    description="Native Python dependency index used after the Registry wheel is selected",
-  )
 
   @field_validator("database_url")
   @classmethod

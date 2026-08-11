@@ -9,7 +9,6 @@ import importlib.metadata
 import json
 import os
 from pathlib import Path, PurePosixPath
-import shutil
 import stat
 import subprocess
 import sys
@@ -366,11 +365,9 @@ class PipDistributionConsumer:
   def __init__(
     self,
     registry_origin: str,
-    dependency_index_url: str,
     runner: CommandRunner = _run_pip,
   ) -> None:
     self.registry_origin = registry_origin
-    self.dependency_index_url = dependency_index_url
     self._runner = runner
     self._restart_required_reason: str | None = None
 
@@ -444,8 +441,6 @@ class PipDistributionConsumer:
       temporary = Path(temp_directory)
       acquisition = temporary / "acquisition"
       acquisition.mkdir()
-      closure = temporary / "closure"
-      closure.mkdir()
       report_path = temporary / "pip-report.json"
 
       download = self._runner(
@@ -467,25 +462,7 @@ class PipDistributionConsumer:
           "Registry Simple index did not yield exactly one compatible wheel"
         )
       _validate_extension_wheel(wheels[0], release, association)
-      extension_wheel = closure / wheels[0].name
-      shutil.copy2(wheels[0], extension_wheel)
-
-      dependency_download = self._runner(
-        [
-          "download",
-          "--only-binary=:all:",
-          "--dest",
-          str(closure),
-          "--index-url",
-          self.dependency_index_url,
-          str(extension_wheel),
-        ]
-      )
-      _require_success(dependency_download, "dependency closure acquisition")
-      if not extension_wheel.is_file():
-        raise ExtensionAcquisitionError(
-          "pip dependency closure omitted the exact Extension wheel"
-        )
+      extension_wheel = wheels[0]
 
       plan = self._runner(
         [
@@ -496,7 +473,7 @@ class PipDistributionConsumer:
           str(report_path),
           "--no-index",
           "--find-links",
-          str(closure),
+          str(acquisition),
           str(extension_wheel),
         ]
       )
@@ -528,7 +505,7 @@ class PipDistributionConsumer:
           "--only-binary=:all:",
           "--no-index",
           "--find-links",
-          str(closure),
+          str(acquisition),
           str(extension_wheel),
         ]
       )

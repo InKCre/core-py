@@ -17,6 +17,8 @@ import site
 import typing
 import zipfile
 
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 import pytest
 
 from app.business.extension.distribution import (
@@ -82,6 +84,22 @@ def test_core_host_sdk_version_is_checked_against_project_version():
   pyproject = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
 
   assert CORE_VERSION == pyproject["project"]["version"]
+
+
+def test_core_image_baseline_declares_every_first_party_requirement():
+  core_project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())["project"]
+  baseline = {
+    canonicalize_name(Requirement(value).name) for value in core_project["dependencies"]
+  }
+
+  for extension in EXTENSIONS:
+    project = tomllib.loads(
+      (PROJECT_ROOT / "extensions" / extension / "pyproject.toml").read_text()
+    )["project"]
+    required = {
+      canonicalize_name(Requirement(value).name) for value in project["dependencies"]
+    }
+    assert required <= baseline, f"{extension} requires dependencies outside the Core image"
 
 
 def test_producer_rejects_native_package_range_syntax(tmp_path: Path):
@@ -265,7 +283,7 @@ def test_prepare_metadata_keeps_provenance_inside_python_association():
 
 
 def test_dependency_plan_allows_only_declared_extension_project_replacement(monkeypatch):
-  consumer = PipDistributionConsumer("https://registry.test", "https://pypi.test")
+  consumer = PipDistributionConsumer("https://registry.test")
   monkeypatch.setattr(
     consumer,
     "_installed_versions",
@@ -304,7 +322,6 @@ def test_pip_consumer_uses_current_interpreter_without_target_overlay(
 
   consumer = PipDistributionConsumer(
     "https://registry.test",
-    "https://pypi.test/simple",
     runner=runner,
   )
   monkeypatch.setattr(consumer, "_installed_versions", lambda: {})
@@ -326,17 +343,51 @@ def test_pip_consumer_uses_current_interpreter_without_target_overlay(
   assert consumer.acquire(release, association) is sentinel
   assert [command[0] for command in commands] == [
     "download",
-    "download",
     "install",
     "install",
   ]
-  assert "--index-url" in commands[1]
-  assert "--dry-run" in commands[2]
-  assert "--dry-run" not in commands[3]
-  for command in commands[2:]:
+  assert "--index-url" in commands[0]
+  assert "--dry-run" in commands[1]
+  assert "--dry-run" not in commands[2]
+  for command in commands[1:]:
     assert "--no-index" in command
     assert "--find-links" in command
   assert all("--target" not in command for command in commands)
+
+
+def test_pip_consumer_rejects_a_missing_host_dependency_before_mutation(monkeypatch):
+  commands: list[list[str]] = []
+
+  def runner(arguments: list[str]):
+    commands.append(arguments)
+    if arguments[0] == "download":
+      destination = Path(arguments[arguments.index("--dest") + 1])
+      write_fixture_wheel(destination / "inkcre_ext_fixture-1.0.0-py3-none-any.whl")
+      return subprocess.CompletedProcess(arguments, 0, "", "")
+    return subprocess.CompletedProcess(
+      arguments,
+      1,
+      "",
+      "No matching distribution found for host-only-dependency",
+    )
+
+  consumer = PipDistributionConsumer(
+    "https://registry.test",
+    runner=runner,
+  )
+  monkeypatch.setattr(consumer, "_installed_versions", lambda: {})
+  monkeypatch.setattr(
+    "app.business.extension.distribution.AcquiredDistribution.discover",
+    lambda *args: (_ for _ in ()).throw(ExtensionEntryPointError("missing")),
+  )
+  release, association = release_and_association()
+
+  with pytest.raises(ExtensionAcquisitionError, match="dependency preflight failed"):
+    consumer.acquire(release, association)
+
+  assert [command[0] for command in commands] == ["download", "install"]
+  assert "--dry-run" in commands[1]
+  assert "--no-index" in commands[1]
 
 
 @pytest.mark.parametrize(
@@ -387,7 +438,6 @@ def test_entry_point_package_must_match_its_local_name():
   commands: list[list[str]] = []
   consumer = PipDistributionConsumer(
     "https://registry.test",
-    "https://pypi.test/simple",
     runner=lambda arguments: commands.append(arguments),  # type: ignore[arg-type]
   )
   release, association = release_and_association()
@@ -428,7 +478,6 @@ def test_failed_site_packages_mutation_makes_consumer_globally_restart_required(
 
   consumer = PipDistributionConsumer(
     "https://registry.test",
-    "https://pypi.test/simple",
     runner=runner,
   )
   monkeypatch.setattr(consumer, "_installed_versions", lambda: {})
