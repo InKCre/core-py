@@ -483,9 +483,8 @@
         "tags": [
           "extension"
         ],
-        "summary": "Get Extensions",
-        "description": "List all installed extensions",
-        "operationId": "get_extensions_extensions_get",
+        "summary": "List Extensions",
+        "operationId": "list_extensions_extensions_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -493,10 +492,10 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ExtensionModel"
+                    "$ref": "#/components/schemas/ExtensionState"
                   },
                   "type": "array",
-                  "title": "Response Get Extensions Extensions Get"
+                  "title": "Response List Extensions Extensions Get"
                 }
               }
             }
@@ -504,248 +503,13 @@
         }
       }
     },
-    "/extensions/{extid}": {
-      "post": {
-        "tags": [
-          "extension"
-        ],
-        "summary": "Install Extension",
-        "description": "Register an extension that is already included in this artifact.",
-        "operationId": "install_extension_extensions__extid__post",
-        "parameters": [
-          {
-            "name": "extid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Extid"
-            }
-          },
-          {
-            "name": "disabled",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Disabled"
-            }
-          },
-          {
-            "name": "version",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Version"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExtensionModel"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/extensions/{extid}/enable": {
-      "post": {
-        "tags": [
-          "extension"
-        ],
-        "summary": "Enable Extension",
-        "description": "启用插件 (Enable extension for current client)",
-        "operationId": "enable_extension_extensions__extid__enable_post",
-        "parameters": [
-          {
-            "name": "extid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Extid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExtensionModel"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/extensions/{extid}/disable": {
-      "post": {
-        "tags": [
-          "extension"
-        ],
-        "summary": "Disable Extension",
-        "description": "禁用插件 (Disable extension for current client)",
-        "operationId": "disable_extension_extensions__extid__disable_post",
-        "parameters": [
-          {
-            "name": "extid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Extid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExtensionModel"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/extensions/{extid}/config": {
-      "put": {
-        "tags": [
-          "extension"
-        ],
-        "summary": "Update Extension Config",
-        "description": "编辑插件配置 (Edit extension configuration)\n\n编辑成功将会立刻应用到插件中（如果正在运行）",
-        "operationId": "update_extension_config_extensions__extid__config_put",
-        "parameters": [
-          {
-            "name": "extid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Extid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExtensionModel"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/extension-installations": {
+    "/extensions/{namespace}/{name}": {
       "get": {
         "tags": [
-          "extension-installation"
+          "extension"
         ],
-        "summary": "List Registry Installations",
-        "operationId": "list_registry_installations_extension_installations_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ExtensionInstallationModel"
-                  },
-                  "type": "array",
-                  "title": "Response List Registry Installations Extension Installations Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/extension-installations/{namespace}/{name}": {
-      "get": {
-        "tags": [
-          "extension-installation"
-        ],
-        "summary": "Get Registry Installation",
-        "operationId": "get_registry_installation_extension_installations__namespace___name__get",
+        "summary": "Get Extension",
+        "operationId": "get_extension_extensions__namespace___name__get",
         "parameters": [
           {
             "name": "namespace",
@@ -772,7 +536,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionInstallationModel"
+                  "$ref": "#/components/schemas/ExtensionState"
                 }
               }
             }
@@ -791,11 +555,11 @@
       },
       "post": {
         "tags": [
-          "extension-installation"
+          "extension"
         ],
-        "summary": "Install Registry Extension",
-        "description": "Install one exact published release without enabling any peer.",
-        "operationId": "install_registry_extension_extension_installations__namespace___name__post",
+        "summary": "Install Extension",
+        "description": "Install one exact published Extension Release with no enabled peers.",
+        "operationId": "install_extension_extensions__namespace___name__post",
         "parameters": [
           {
             "name": "namespace",
@@ -831,7 +595,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionInstallationModel"
+                  "$ref": "#/components/schemas/ExtensionState"
                 }
               }
             }
@@ -850,10 +614,10 @@
       },
       "delete": {
         "tags": [
-          "extension-installation"
+          "extension"
         ],
-        "summary": "Uninstall Registry Extension",
-        "operationId": "uninstall_registry_extension_extension_installations__namespace___name__delete",
+        "summary": "Uninstall Extension",
+        "operationId": "uninstall_extension_extensions__namespace___name__delete",
         "parameters": [
           {
             "name": "namespace",
@@ -891,13 +655,13 @@
         }
       }
     },
-    "/extension-installations/{namespace}/{name}/config": {
+    "/extensions/{namespace}/{name}/config": {
       "put": {
         "tags": [
-          "extension-installation"
+          "extension"
         ],
-        "summary": "Update Registry Extension Config",
-        "operationId": "update_registry_extension_config_extension_installations__namespace___name__config_put",
+        "summary": "Update Extension Config",
+        "operationId": "update_extension_config_extensions__namespace___name__config_put",
         "parameters": [
           {
             "name": "namespace",
@@ -936,7 +700,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionInstallationModel"
+                  "$ref": "#/components/schemas/ExtensionState"
                 }
               }
             }
@@ -954,13 +718,13 @@
         }
       }
     },
-    "/extension-installations/{namespace}/{name}/enable": {
+    "/extensions/{namespace}/{name}/enable": {
       "post": {
         "tags": [
-          "extension-installation"
+          "extension"
         ],
-        "summary": "Enable Registry Extension",
-        "operationId": "enable_registry_extension_extension_installations__namespace___name__enable_post",
+        "summary": "Enable Extension",
+        "operationId": "enable_extension_extensions__namespace___name__enable_post",
         "parameters": [
           {
             "name": "namespace",
@@ -987,7 +751,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionPeerBindingModel"
+                  "$ref": "#/components/schemas/ExtensionState"
                 }
               }
             }
@@ -1005,13 +769,13 @@
         }
       }
     },
-    "/extension-installations/{namespace}/{name}/disable": {
+    "/extensions/{namespace}/{name}/disable": {
       "post": {
         "tags": [
-          "extension-installation"
+          "extension"
         ],
-        "summary": "Disable Registry Extension",
-        "operationId": "disable_registry_extension_extension_installations__namespace___name__disable_post",
+        "summary": "Disable Extension",
+        "operationId": "disable_extension_extensions__namespace___name__disable_post",
         "parameters": [
           {
             "name": "namespace",
@@ -1038,7 +802,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionInstallationModel"
+                  "$ref": "#/components/schemas/ExtensionState"
                 }
               }
             }
@@ -1328,45 +1092,11 @@
         ],
         "title": "BlockModel"
       },
-      "ExtensionInstallationModel": {
+      "ExtensionState": {
         "properties": {
-          "namespace": {
-            "type": "string",
-            "title": "Namespace"
-          },
           "name": {
             "type": "string",
             "title": "Name"
-          },
-          "version": {
-            "type": "string",
-            "title": "Version"
-          },
-          "config": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Config"
-          },
-          "config_schema": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Config Schema"
-          }
-        },
-        "type": "object",
-        "required": [
-          "namespace",
-          "name",
-          "version"
-        ],
-        "title": "ExtensionInstallationModel",
-        "description": "One deployment-wide exact Registry Extension Version installation."
-      },
-      "ExtensionModel": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
           },
           "version": {
             "type": "string",
@@ -1378,7 +1108,8 @@
               "format": "uuid"
             },
             "type": "array",
-            "title": "Enabled"
+            "title": "Enabled",
+            "default": []
           },
           "nickname": {
             "anyOf": [
@@ -1411,51 +1142,11 @@
         },
         "type": "object",
         "required": [
-          "id",
+          "name",
           "version"
         ],
-        "title": "ExtensionModel",
-        "description": "Globally, every extension has a unique ID.\nOnly one instance of each extension on a deployment.\nIf a record presents here, the extension is installed."
-      },
-      "ExtensionPeerBindingModel": {
-        "properties": {
-          "namespace": {
-            "type": "string",
-            "title": "Namespace"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "version": {
-            "type": "string",
-            "title": "Version"
-          },
-          "peer_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Peer Id"
-          },
-          "target_key": {
-            "type": "string",
-            "title": "Target Key"
-          },
-          "target_digest": {
-            "type": "string",
-            "title": "Target Digest"
-          }
-        },
-        "type": "object",
-        "required": [
-          "namespace",
-          "name",
-          "version",
-          "peer_id",
-          "target_key",
-          "target_digest"
-        ],
-        "title": "ExtensionPeerBindingModel",
-        "description": "One exact admitted Registry target enabled for one deployment peer."
+        "title": "ExtensionState",
+        "description": "Stable Host-facing projection; SQLModel and table details remain private."
       },
       "HTTPValidationError": {
         "properties": {
@@ -1484,7 +1175,8 @@
           "relation",
           "from_subgraph"
         ],
-        "title": "InArcForm"
+        "title": "InArcForm",
+        "description": "A form for creating an incoming arc"
       },
       "OutArcForm": {
         "properties": {
@@ -1500,7 +1192,8 @@
           "relation",
           "to_subgraph"
         ],
-        "title": "OutArcForm"
+        "title": "OutArcForm",
+        "description": "A form for creating an outgoing arc"
       },
       "RelationModel": {
         "properties": {

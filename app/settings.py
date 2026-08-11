@@ -76,9 +76,9 @@ class Settings(BaseSettings):
     ),
   )
 
-  # Public Extension Registry and build-admitted Python targets
+  # Public Extension Registry and native Python Distribution consumer
   extension_registry_url: str = Field(
-    default="https://inkcre-extension-registry.lanzhijiang.workers.dev",
+    default="https://registry.inkcre.dev",
     description="Public Extension Registry origin used for install and new enable",
   )
   extension_registry_timeout_seconds: float = Field(
@@ -87,9 +87,9 @@ class Settings(BaseSettings):
     le=30,
     description="Bounded timeout for public Extension Registry requests",
   )
-  extension_target_catalog_path: str = Field(
-    default="/app/extension-targets/catalog.json",
-    description="Build-generated admitted Python target catalog",
+  extension_dependency_index_url: str = Field(
+    default="https://pypi.org/simple",
+    description="Native Python dependency index used after the Registry wheel is selected",
   )
 
   @field_validator("database_url")

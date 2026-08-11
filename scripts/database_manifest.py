@@ -15,9 +15,9 @@ from sqlalchemy.pool import NullPool
 from migrations.metadata import get_target_metadata
 from migrations.settings import MigrationSettings
 from app.database_contract.constants import (
-  MANIFEST_ADDITIVE_CURRENT_HEAD,
-  MANIFEST_ADDITIVE_EMPTY_TABLES,
-  MANIFEST_ADDITIVE_PREVIOUS_HEAD,
+  EXTENSION_CUTOVER_CURRENT_HEAD,
+  EXTENSION_CUTOVER_PREVIOUS_HEAD,
+  EXTENSION_CUTOVER_RELATIONS,
   PROTOCOL_SCHEMA,
 )
 from scripts.sanitize_preview_base import LINEAGE_TABLE
@@ -28,10 +28,10 @@ def validate_manifest_application_tables(
   expected_tables: set[str],
   alembic_heads: set[str],
 ) -> None:
-  """Bind the one permitted pre-migration table set to its exact lineage."""
-  if alembic_heads == {MANIFEST_ADDITIVE_PREVIOUS_HEAD}:
-    required_tables = expected_tables - MANIFEST_ADDITIVE_EMPTY_TABLES
-  elif alembic_heads == {MANIFEST_ADDITIVE_CURRENT_HEAD}:
+  """Bind the hard-cut predecessor and current table sets to exact lineage."""
+  if alembic_heads == {EXTENSION_CUTOVER_PREVIOUS_HEAD}:
+    required_tables = expected_tables | (EXTENSION_CUTOVER_RELATIONS - {"extensions"})
+  elif alembic_heads == {EXTENSION_CUTOVER_CURRENT_HEAD}:
     required_tables = expected_tables
   else:
     raise ValueError(f"unsupported database manifest lineage: {sorted(alembic_heads)}")

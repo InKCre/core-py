@@ -41,9 +41,19 @@ class Extension(
   async def on_close(cls):
     from .api import TwitterAPI
 
-    await TwitterAPI.close_singleton()
-
-    await super().on_close()
+    failures: list[Exception] = []
+    try:
+      await TwitterAPI.close_singleton()
+    except Exception as error:
+      failures.append(error)
+    try:
+      await super().on_close()
+    except Exception as error:
+      failures.append(error)
+    if len(failures) == 1:
+      raise failures[0]
+    if failures:
+      raise ExceptionGroup("Twitter Extension close failed", failures)
 
   @classmethod
   def _register_apis(cls, router: APIRouter):
@@ -52,6 +62,6 @@ class Extension(
     TwitterAPI.new(api_router=router)
     router.post("/bookmark")(
       lambda nickname: SourceManager.create(
-        f"extensions.{cls.__extid__}.bookmark", nickname
+        f"extensions.{cls.__extid__}.bookmark.Source", nickname
       )
     )

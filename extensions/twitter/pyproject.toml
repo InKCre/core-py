@@ -1,19 +1,33 @@
+[build-system]
+requires = ["setuptools>=80,<81"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inkcre-ext-twitter"
-version = "0.1.0"
-description = "InKCre extension of Twitter"
-authors = [
-    {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"},
+version = "0.1.1"
+description = "Twitter extension for InKCre"
+authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
+dependencies = [
+  "aiohttp>=3.14.1,<4.0.0",
+  "datadot>=1.0.0,<2.0.0",
+  "fastapi>=0.139.2,<0.140.0",
+  "sqlmodel>=0.0.24,<0.0.25",
+  "twikit>=2.3.3,<3.0.0",
 ]
-dependencies = ["twikit>=2.3.3"]
-requires-python = "==3.12.*"
-readme = "README.md"
-license = {text = "MIT"}
+requires-python = ">=3.12,<3.13"
+license = "MIT"
 
+[project.entry-points."inkcre.core.extensions"]
+twitter = "extensions.twitter:Extension"
 
-[tool.pdm]
-distribution = false
-
-[tool.inkcre-ext]
-id = "twitter"
+[tool.inkcre-extension]
+name = "inkcre/twitter"
 nickname = "Twitter"
+host-sdk = "core-py"
+host-sdk-version = ">=0.1.0,<0.2.0"
+
+[tool.setuptools]
+packages = ["extensions.twitter"]
+
+[tool.setuptools.package-dir]
+"extensions.twitter" = "."

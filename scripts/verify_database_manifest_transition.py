@@ -13,14 +13,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.database_contract.constants import (
   APPLICATION_TABLES,
-  MANIFEST_ADDITIVE_CURRENT_HEAD,
-  MANIFEST_ADDITIVE_EMPTY_TABLES,
-  MANIFEST_ADDITIVE_PREVIOUS_HEAD,
+  EXTENSION_CUTOVER_CURRENT_HEAD,
+  EXTENSION_CUTOVER_PREVIOUS_HEAD,
+  EXTENSION_CUTOVER_RELATIONS,
 )
 
 CATALOG_TABLES_ALLOWING_ADDITIONS = frozenset(
   {
-    "extensions",
     "sources_types",
     "storage_types",
   }
@@ -72,41 +71,35 @@ def verify_manifest_transition(
   before_heads = _alembic_heads(before)
   after_heads = _alembic_heads(after)
   expected_tables = set(APPLICATION_TABLES)
-  pre_migration_tables = expected_tables - MANIFEST_ADDITIVE_EMPTY_TABLES
+  previous_tables = expected_tables | (EXTENSION_CUTOVER_RELATIONS - {"extensions"})
   before_tables = set(before_counts)
   after_tables = set(after_counts)
   expected_before_tables = (
-    pre_migration_tables
-    if before_heads == (MANIFEST_ADDITIVE_PREVIOUS_HEAD,)
+    previous_tables
+    if before_heads == (EXTENSION_CUTOVER_PREVIOUS_HEAD,)
     else expected_tables
   )
-  missing_expected = sorted(MANIFEST_ADDITIVE_EMPTY_TABLES - after_tables)
   missing = sorted(expected_tables - after_tables)
   unexpected = sorted((before_tables | after_tables) - expected_tables)
   before_missing = sorted(expected_before_tables - before_tables)
   valid_before_head = before_heads in {
-    (MANIFEST_ADDITIVE_PREVIOUS_HEAD,),
-    (MANIFEST_ADDITIVE_CURRENT_HEAD,),
+    (EXTENSION_CUTOVER_PREVIOUS_HEAD,),
+    (EXTENSION_CUTOVER_CURRENT_HEAD,),
   }
-  valid_after_head = after_heads == (MANIFEST_ADDITIVE_CURRENT_HEAD,)
+  valid_after_head = after_heads == (EXTENSION_CUTOVER_CURRENT_HEAD,)
   valid_before = valid_before_head and before_tables == expected_before_tables
   valid_after = valid_after_head and after_tables == expected_tables
-  added_tables = sorted(after_tables - before_tables)
-  nonempty_additions = {
-    table: after_counts[table]
-    for table in added_tables
-    if table in MANIFEST_ADDITIVE_EMPTY_TABLES and after_counts[table] != 0
-  }
-  if not valid_before or not valid_after or nonempty_additions:
+  hard_cut = before_heads == (EXTENSION_CUTOVER_PREVIOUS_HEAD,)
+  extension_reset_invalid = hard_cut and after_counts.get("extensions") != 0
+  if not valid_before or not valid_after or extension_reset_invalid:
     raise ValueError(
       json.dumps(
         {
           "after_alembic_heads": list(after_heads),
           "before_missing_tables": before_missing,
           "before_alembic_heads": list(before_heads),
-          "missing_expected_tables": missing_expected,
           "missing_tables": missing,
-          "nonempty_additive_tables": nonempty_additions,
+          "extension_reset_invalid": extension_reset_invalid,
           "unexpected_tables": unexpected,
         },
         sort_keys=True,
@@ -115,6 +108,10 @@ def verify_manifest_transition(
 
   additions: list[dict[str, int | str]] = []
   for table, before_count in sorted(before_counts.items()):
+    if hard_cut and table in EXTENSION_CUTOVER_RELATIONS:
+      continue
+    if table not in after_counts:
+      raise ValueError(f"unexpected removed table outside hard cut: {table}")
     after_count = after_counts[table]
     if after_count == before_count:
       continue

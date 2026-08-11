@@ -21,11 +21,19 @@ class SourceCollectJobManager:
   """Manager for source collect jobs."""
 
   @classmethod
-  async def run(cls, job_id: SourceCollectJobID):
+  async def run(cls, job_id: SourceCollectJobID) -> bool:
+    """Atomically claim and consume one pending job at most once."""
     with SessionLocal() as db:
       job = db.exec(
-        sqlmodel.select(SourceCollectJobModel).where(SourceCollectJobModel.id == job_id)
-      ).one()
+        sqlmodel.select(SourceCollectJobModel)
+        .where(
+          SourceCollectJobModel.id == job_id,
+          SourceCollectJobModel.status == SourceCollectJobStatus.PENDING,
+        )
+        .with_for_update(skip_locked=True)
+      ).one_or_none()
+      if job is None:
+        return False
 
       job.status = SourceCollectJobStatus.RUNNING
       job.started_at = get_datetimez()
@@ -47,6 +55,7 @@ class SourceCollectJobManager:
         job.closed_at = get_datetimez()
         db.add(job)
         db.commit()
+    return True
 
   @classmethod
   async def check(cls):

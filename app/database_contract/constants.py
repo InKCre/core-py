@@ -4,7 +4,7 @@ import uuid
 
 
 CONTRACT_FORMAT = 1
-CONTRACT_REVISION = "peer-database-runtime-v1"
+CONTRACT_REVISION = "peer-database-runtime-v2"
 
 PROTOCOL_SCHEMA = "inkcre"
 INTERNAL_SCHEMA = "inkcre_internal"
@@ -31,8 +31,6 @@ APPLICATION_TABLES = (
   "block_embeddings",
   "blocks",
   "clients",
-  "extension_installations",
-  "extension_peer_bindings",
   "extensions",
   "logs",
   "relation_embeddings",
@@ -44,11 +42,8 @@ APPLICATION_TABLES = (
   "storages",
 )
 
-MANIFEST_ADDITIVE_EMPTY_TABLES = frozenset(
-  {
-    "extension_installations",
-    "extension_peer_bindings",
-  }
+EXTENSION_CUTOVER_RELATIONS = frozenset(
+  {"extensions", "extension_installations", "extension_peer_bindings"}
 )
-MANIFEST_ADDITIVE_PREVIOUS_HEAD = "d9f4e2a1b7c3"
-MANIFEST_ADDITIVE_CURRENT_HEAD = "f2a6c8e4b1d7"
+EXTENSION_CUTOVER_PREVIOUS_HEAD = "f2a6c8e4b1d7"
+EXTENSION_CUTOVER_CURRENT_HEAD = "b8c1d2e3f4a5"

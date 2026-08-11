@@ -12,13 +12,6 @@ JsonObject = dict[str, Any]
 
 
 @dataclass(frozen=True)
-class ExtensionProfile:
-  id: str
-  version: str
-  nickname: str
-
-
-@dataclass(frozen=True)
 class TypeProfile:
   id: str
   description: str
@@ -65,15 +58,6 @@ HTTP_STORAGE_SCHEMA = _object_schema(
     "follow_redirects": _boolean(True),
     "timeout": _integer(30),
   },
-)
-
-BUILTIN_EXTENSIONS = (
-  ExtensionProfile("github", "0.1.0", "GitHub"),
-  ExtensionProfile("learn_english", "0.1.0", "Learn English"),
-  ExtensionProfile("mail", "0.1.0", "Mail"),
-  ExtensionProfile("rss", "0.1.0", "RSS/Atom Feeds"),
-  ExtensionProfile("telegram", "0.1.0", "Telegram"),
-  ExtensionProfile("twitter", "0.1.0", "Twitter"),
 )
 
 BUILTIN_STORAGE_TYPES = tuple(
@@ -207,6 +191,5 @@ BUILTIN_STORAGES = (
   StorageProfile(-3, "http_html", "HTTP HTML", {}),
 )
 
-BUILTIN_EXTENSIONS_BY_ID = {item.id: item for item in BUILTIN_EXTENSIONS}
 BUILTIN_STORAGE_TYPES_BY_ID = {item.id: item for item in BUILTIN_STORAGE_TYPES}
 BUILTIN_SOURCE_TYPES_BY_ID = {item.id: item for item in BUILTIN_SOURCE_TYPES}

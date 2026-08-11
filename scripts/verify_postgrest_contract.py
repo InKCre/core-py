@@ -23,6 +23,7 @@ from app.database_contract.constants import (
 
 
 PROBE_CLIENT_ID = uuid.UUID("00000000-0000-4000-8000-000000000099")
+PROBE_EXTENSION_NAME = "inkcre/postgrest-contract-probe"
 
 
 def _token(secret: str, *, now: int | None = None) -> str:
@@ -112,6 +113,81 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
   created = json.loads(response_body)
   if not created or created[0].get("id") != str(PROBE_CLIENT_ID):
     raise RuntimeError("authenticated write returned an unexpected record")
+
+  escaped_extension = parse.quote(PROBE_EXTENSION_NAME, safe="")
+  _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="DELETE",
+    token=valid_token,
+  )
+  checks["extension_insert"], _ = _call(
+    base_url,
+    "extensions",
+    method="POST",
+    token=valid_token,
+    document={
+      "name": PROBE_EXTENSION_NAME,
+      "version": "1.0.0",
+      "enabled": [],
+      "config": {},
+    },
+  )
+  _expect(checks["extension_insert"], 201, "Extension insert")
+  checks["enabled_direct_update_denied"], _ = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="PATCH",
+    token=valid_token,
+    document={"enabled": [str(PROBE_CLIENT_ID)]},
+  )
+  _expect(
+    checks["enabled_direct_update_denied"],
+    403,
+    "direct enabled update",
+  )
+  checks["enabled_rpc"], enabled_body = _call(
+    base_url,
+    "rpc/set_extension_peer_enabled",
+    method="POST",
+    token=valid_token,
+    document={
+      "p_name": PROBE_EXTENSION_NAME,
+      "p_peer_id": str(PROBE_CLIENT_ID),
+      "p_enabled": True,
+    },
+  )
+  _expect(checks["enabled_rpc"], 200, "enabled RPC")
+  enabled_rows = json.loads(enabled_body)
+  if not enabled_rows or enabled_rows[0].get("enabled") != [str(PROBE_CLIENT_ID)]:
+    raise RuntimeError("enabled RPC returned an unexpected Extension record")
+  checks["enabled_delete_denied"], _ = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="DELETE",
+    token=valid_token,
+  )
+  # The database guard reports SQLSTATE 23514, which PostgREST maps to HTTP 400.
+  _expect(checks["enabled_delete_denied"], 400, "enabled Extension delete")
+  checks["disabled_rpc"], _ = _call(
+    base_url,
+    "rpc/set_extension_peer_enabled",
+    method="POST",
+    token=valid_token,
+    document={
+      "p_name": PROBE_EXTENSION_NAME,
+      "p_peer_id": str(PROBE_CLIENT_ID),
+      "p_enabled": False,
+    },
+  )
+  _expect(checks["disabled_rpc"], 200, "disabled RPC")
+  checks["extension_cleanup"], _ = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="DELETE",
+    token=valid_token,
+  )
+  _expect(checks["extension_cleanup"], 204, "Extension cleanup")
 
   checks["wrong_secret"], _ = _call(
     base_url,

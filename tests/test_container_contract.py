@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.business.extension import ExtensionManager
+from app.business.extension import ExtensionHost
 from scripts import container
 
 
@@ -53,10 +53,13 @@ def test_database_command_forwards_only_structured_arguments(monkeypatch):
   assert forwarded == {"arguments": ["migrate"]}
 
 
-def test_release_artifact_has_no_runtime_extension_downloader():
-  assert not hasattr(ExtensionManager, "download")
+def test_host_exposes_no_legacy_target_or_catalog_manager():
+  assert not hasattr(ExtensionHost, "download")
+  assert not hasattr(ExtensionHost, "sync")
 
 
-def test_install_rejects_extension_absent_from_artifact():
-  with pytest.raises(ValueError, match="not part of this artifact"):
-    ExtensionManager.install("not_checked_in")
+def test_dockerfile_contains_no_checked_in_extension_or_custom_bundle():
+  dockerfile = (container.PROJECT_ROOT / "Dockerfile").read_text()
+
+  assert "COPY extensions" not in dockerfile
+  assert "extension-target" not in dockerfile

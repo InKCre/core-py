@@ -1,9 +1,13 @@
-from .main import ExtensionModel, ExtensionID
-from .registry import ExtensionInstallationModel, ExtensionPeerBindingModel
+from .main import (
+  EXTENSION_NAME_PATTERN,
+  EXTENSION_SEMVER_PATTERN,
+  ExtensionModel,
+  ExtensionName,
+)
 
 __all__ = [
+  "EXTENSION_NAME_PATTERN",
+  "EXTENSION_SEMVER_PATTERN",
   "ExtensionModel",
-  "ExtensionID",
-  "ExtensionInstallationModel",
-  "ExtensionPeerBindingModel",
+  "ExtensionName",
 ]

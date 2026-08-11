@@ -7,8 +7,6 @@ __all__ = [
   "SourceModel",
   "SourceCollectJobModel",
   "ExtensionModel",
-  "ExtensionInstallationModel",
-  "ExtensionPeerBindingModel",
   "RelationEmbeddingModel",
   "BlockEmbeddingModel",
   "ClientModel",
@@ -27,10 +25,6 @@ from .info_base.block import BlockModel
 from .info_base.storage import StorageModel, StorageTypesModel
 from .info_base.relation import RelationModel
 from .source import SourceModel, SourceCollectJobModel
-from .extension import (
-  ExtensionInstallationModel,
-  ExtensionModel,
-  ExtensionPeerBindingModel,
-)
+from .extension import ExtensionModel
 from .sink import RelationEmbeddingModel, BlockEmbeddingModel
 from .client.main import ClientModel
