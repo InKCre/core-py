@@ -1,7 +1,7 @@
 # Mail Extension
 
 - **Unit ID**: `mail-extension`。
-- **State**: **Active — Verify / Promote；implementation and J1–J4 accepted**。
+- **State**: **Complete — implemented、accepted and promoted 2026-08-11**。
 - **Objective**: 保留 Mail extension identity，把现有 PoC 当作需求与失败证据，先建立可信且尽可能完整的
   communication-record baseline，再让真实邮件场景推动 organization、info-base basic use/query 与
   client-web 的必要演进，使用户能以足够低的成本持有和打理来自多个邮箱的信息。长期目标是让 InKCre
@@ -20,9 +20,10 @@
   Storage policy、protocol-neutral IMAP Adapter、ordinary/backfill collection、canonical Mail graph、exact MIME
   materialization Peer capability、五个 Mail Resolvers，以及 client-web generic InfoBase route/popup/Mail solved-content
   journey。J1–J4 已证明 real protocol → graph → Resolver/Storage → browser，而不是 schema/helper proxy。
-- **Next Step**: 完成 Hub source diff、task packet 和外部验收服务清理，复核 core-py/client-web/Hub 三个 owner 的
-  最终 diff。Hub commit/push、两个 Spoke implementation/local-doc commits 与后续 shared-ref bumps 必须保持分离，
-  并等待 Sir 的显式提交/推送授权；在这些 delivery operations 完成前不选择下一 active unit。
+- **Next Step**: 本 unit 已关闭。Hub `067c60a`、core-py implementation `d3cded7`、client-web implementation
+  `1e69938` 以及两个纯 shared-ref commits（core-py `8e07da8`、client-web `056c265`）已按 owner 分离完成；
+  post-bump `pdm run check` / `pnpm check` 均通过。Program 返回 unit-selection gate，不在本 packet 内预选下一个
+  active unit。
   Adaptive batching 仅是本 unit 收口阶段的临时协作策略，低风险自然推论不再逐项请求批准。
 - **Decision History**: Product scope 已形成完整 candidate；D-263 已冻结 linear Email ladder，D-264 已冻结每一 rung 的
   `zero → continue / one → reuse / many → stop-and-create`，D-265 已冻结 null identity completion 与 non-null

@@ -4,11 +4,10 @@
 
 `上游需求 → 被打破的假设 → 候选 owner → 影响 → evidence → status`
 
-active unit 是 [Mail extension](units/mail-extension/packet.md)，当前处于 design closure。Mail 的横切压力
-必须从其 user journey 与 acceptance evidence 重新建立；不能把协议 feature checklist 或旧实现缺口直接升级
-为 MVP blocker。下列既有 pressures 保留为已完成 units 的 provenance，不自动成为 Mail 的设计前提。
+当前没有 active unit。[Mail extension](units/mail-extension/packet.md) 已完成；其横切压力由真实 user journey、
+acceptance 和实现证据关闭。下列 pressures 保留为 completed-unit provenance，不自动成为 future unit 的设计前提。
 
-## Active-unit pressures
+## Completed Mail-unit pressures
 
 ### P-018 — Mail cannot be permanently modeled as a read-only collection adapter
 

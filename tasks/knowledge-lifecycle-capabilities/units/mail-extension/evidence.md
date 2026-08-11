@@ -1,14 +1,14 @@
 # Mail Extension Evidence
 
-## Client-web Source-runtime baseline
+## Historical client-web Source-runtime baseline
 
-- Current `@inkcre/core` exposes persisted `Source`、`SourceType` and legacy `SourceCollectJob` models plus database helpers，
-  while client-web exposes Source/job management UI。Repository search finds no executable Source manager、handler registry
-  or Source implementation in client-web；the Twitter extension contains Resolver/rendering behavior only。
-- Therefore Mail Acceptance cannot name an existing client-web Source handler。The accepted client-web Job-worker capability
-  must be proven through an acceptance-owned extension implementing the production registration contract，while production
-  browser runtime correctly declines IMAP jobs it cannot transport。This keeps test aliases out of production and does not
-  expand the Mail Source into a browser IMAP implementation。
+- The preflight `@inkcre/core` exposed persisted `Source`、`SourceType` and legacy `SourceCollectJob` models plus database helpers，
+  while client-web exposed Source/job management UI。Repository search found no executable Source manager、handler registry
+  or Source implementation in client-web；the Twitter extension contained Resolver/rendering behavior only。
+- Therefore preflight could not name an existing client-web Source handler。The accepted client-web Job-worker capability was
+  proven through the production registration contract，while production browser runtime correctly declines IMAP jobs it
+  cannot transport。This keeps test aliases out of production and does not expand the Mail Source into a browser IMAP
+  implementation。
 
 ## Acceptance-server capability coverage
 
@@ -21,7 +21,7 @@
 - Sources：Dovecot [2.0.19 release notes](https://dovecot.org/list/dovecot-news/2012-March/000218.html) and the
   Dovecot imaptest [server capability matrix](https://github.com/dovecot/imaptest/wiki/Specs)。
 
-> Read-only product/technical evidence for the active Mail unit。Decisions remain in the program decision register。
+> Read-only product/technical evidence retained from the completed Mail unit。Decisions remain in the program decision register。
 
 ## Attachment Fetch Behavior
 

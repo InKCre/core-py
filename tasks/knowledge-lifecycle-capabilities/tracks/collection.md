@@ -12,7 +12,7 @@
 | Existing sources | 兼容性与回归基线：Twitter、GitHub、RSS、Mail、Telegram | Evidence collected |
 | Memos extension | memo-like 的首个可实现单元；当前 scope 是 backend MVP | Complete — implementation/E2E and owner commits complete |
 | RSS extension hardening | 首个传统 source-path reference unit；固定 RSS/Atom identity、change、graph、job/state 与 failure contract | Complete — human-accepted 2026-08-03 |
-| Mail extension | 以高价值真实邮箱建立可信 collection baseline，并向 organization/query/client-web 传导真实压力 | Active — Verify / Promote；J1–J4 passed |
+| Mail extension | 以高价值真实邮箱建立可信 collection baseline，并向 organization/query/client-web 传导真实压力 | Complete — implementation/J1–J4/promotion complete 2026-08-11 |
 | CalDAV | 日历协议与结构化同步压力 | Queued |
 | Nextcloud Files | 文件层级、binary、pointer/storage 压力 | Queued |
 | Apple Notes | macOS local runtime 与受限访问压力 | Queued |
@@ -41,8 +41,9 @@
 
 ## Active Slice
 
-[Mail extension](../units/mail-extension/packet.md) 是当前 active collection unit，处于 Verify / Promote；real
-Dovecot/PostgreSQL J1–J3 与 built-browser/Peer J4 已通过，剩余 owner-separated delivery。
+当前没有 active collection slice。[Mail extension](../units/mail-extension/packet.md) 已通过 real
+Dovecot/PostgreSQL J1–J3、built-browser/Peer J4、durable promotion 与 post-bump repository gates；下一 slice 由
+program selection gate 决定。
 它不以协议完整性或 feature checklist 判定 MVP / MLP；先固定低成本持有邮件信息的真实 job、collection
 boundary 与可接受代价。RSS hardening 与 Memos backend MVP 均已完成；future RSS hardening、Memos
 collectors/products 仍需以新 scope 过 gate，不能继承既有 approval。

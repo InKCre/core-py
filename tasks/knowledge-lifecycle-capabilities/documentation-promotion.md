@@ -2,11 +2,9 @@
 
 ## Control
 
-- **Mode**: Memos/RSS/semantic-retrieval shared promotion published。Mail implementation and J1–J4 are accepted；its stable
-  PRD/Product-TDD projection is applied to the Hub source worktree but is not yet committed/published。The active core-py
-  worktree still references published Hub `95c4023`；the active client-web feature branch retains its pre-restack `a0ba0d4`
-  reference because Slice 0 deliberately did not transplant an unrelated shared-ref commit。Neither reference moves until
-  the required Hub-first commit/push and later pure shared-ref bumps receive explicit authorization。
+- **Mode**: Memos/RSS/semantic-retrieval/Mail shared promotion published。Mail PRD/Product-TDD truth is Hub `067c60a`；
+  core-py `8e07da8` and client-web `056c265` consume that exact published head through pure shared-ref commits。The Mail
+  implementation/local-doc owners remain separately committed as core-py `d3cded7` and client-web `1e69938`。
 - **Apply gate**: unresolved discussion pressure remains here；stable design + verified implementation triggers
   durable projection during unit completion。Commit、push、Hub publication、shared-ref bump 与 production mutation
   remain separately authorized operations。

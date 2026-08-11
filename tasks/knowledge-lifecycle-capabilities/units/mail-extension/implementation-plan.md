@@ -14,10 +14,10 @@
   artifacts through IMAP APPEND and passes J1–J3 through production Source/Job/InfoBase/Resolver/Storage paths。
 - J4 passes with the graph produced by J1–J3 through built client-web、built Mail remote、PostgREST、core-py Peer HTTP and a
   real browser。It exposed and fixed an iframe browsing-context history bug rather than weakening the literal-back contract。
-- Slice 7 code/local-doc cleanup is complete；Hub shared truth is applied in the Hub source worktree but remains uncommitted
-  and unpublished pending explicit owner-separated authorization。
+- Slice 7 is complete：code/local docs are committed per Spoke，Hub PR #15 is merged as `067c60a`，and each Spoke consumes
+  that published truth through a pure shared-ref commit。Post-bump full repository gates pass。
 
-- **Status**: R5 execution complete；J1–J4 accepted；owner-separated delivery pending。
+- **Status**: Complete；R5 execution、J1–J4、durable promotion and owner-separated delivery passed。
 - **Authority**: D-201–D-315、the frozen technical-design files in this unit and the four blocking journeys in
   [Acceptance](acceptance.md)。
 - **Delivery shape**: retain the `mail-extension` identity and replace its PoC behavior。This is one implementable unit，not
