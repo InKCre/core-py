@@ -17,7 +17,6 @@ from .constants import (
   PROTOCOL_SCHEMA,
 )
 from .profile import (
-  BUILTIN_EXTENSIONS,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
@@ -62,29 +61,6 @@ def reconcile_builtins(database_url: str | None = None) -> None:
   """Upsert artifact-owned catalogs without starting any runtime service."""
   with database_connection(database_url) as connection:
     with connection.cursor() as cursor:
-      for extension in BUILTIN_EXTENSIONS:
-        cursor.execute(
-          sql.SQL(
-            """
-            INSERT INTO {}.extensions (
-              id, version, enabled, nickname, config, config_schema
-            )
-            VALUES (
-              %s,
-              %s,
-              ARRAY[]::uuid[],
-              %s,
-              jsonb_build_object(),
-              NULL
-            )
-            ON CONFLICT (id) DO UPDATE
-            SET version = EXCLUDED.version,
-                nickname = EXCLUDED.nickname
-            """
-          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
-          (extension.id, extension.version, extension.nickname),
-        )
-
       for storage_type in BUILTIN_STORAGE_TYPES:
         cursor.execute(
           sql.SQL(
@@ -215,7 +191,7 @@ def development_baseline_fingerprint(
       for key, query in (
         (
           "extensions",
-          sql.SQL("SELECT id, version, nickname FROM {}.extensions ORDER BY id").format(
+          sql.SQL("SELECT name, version, nickname FROM {}.extensions ORDER BY name").format(
             sql.Identifier(PROTOCOL_SCHEMA)
           ),
         ),

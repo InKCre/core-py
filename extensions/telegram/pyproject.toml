@@ -1,19 +1,33 @@
+[build-system]
+requires = ["setuptools>=80,<81"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inkcre-ext-telegram"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "Lanzhijiang", email = "lanzhijiang@foxmail.com"},
+description = "Telegram extension for InKCre"
+authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
+dependencies = [
+  "fastapi>=0.139.2,<0.140.0",
+  "pydantic>=2.11.7,<3.0.0",
+  "python-telegram-bot>=21.10.0,<23.0.0",
+  "sqlmodel>=0.0.24,<0.0.25",
 ]
-dependencies = []
-requires-python = "==3.12.*"
+requires-python = ">=3.12,<3.13"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 
+[project.entry-points."inkcre.core.extensions"]
+telegram = "extensions.telegram:Extension"
 
-[tool.pdm]
-distribution = false
-
-[tool.inkcre-ext]
-id = "telegram"
+[tool.inkcre-extension]
+name = "inkcre/telegram"
 nickname = "Telegram"
+host-sdk = "core-py"
+host-sdk-version = ">=0.1.0,<0.2.0"
+
+[tool.setuptools]
+packages = ["extensions.telegram"]
+
+[tool.setuptools.package-dir]
+"extensions.telegram" = "."

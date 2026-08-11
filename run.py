@@ -3,7 +3,6 @@
 import asyncio
 import contextlib
 import os
-import sys
 
 import fastapi
 import uvicorn
@@ -16,24 +15,21 @@ logger = setup_obsrv()
 # Setup logging end
 
 # Load flags
-SKIP_EXTENSIONS_SYNC: bool = os.getenv("SKIP_EXTENSIONS_SYNC", "").lower() in (
+SKIP_EXTENSION_START: bool = os.getenv("SKIP_EXTENSION_START", "").lower() in (
   "1",
   "true",
   "yes",
 )
 # Load flags end
 
-sys.path.insert(0, "extensions")
-
 from fastapi.middleware.cors import CORSMiddleware
 from app.settings import settings
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
-from app.routes.extension import REGISTRY_ROUTER as registry_extension_router
 from app.routes.extension import ROUTER as extension_router
 from app.routes.source import ROUTER as source_router
 from app.business.source import SourceManager
-from app.business.extension import REGISTRY_EXTENSION_MANAGER, ExtensionManager
+from app.business.extension import EXTENSION_HOST
 from app.business.client import ClientManager
 from app.business.info_base.main import InfoBaseManager
 from app.business.sink import SinkManager
@@ -58,12 +54,10 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   # Setup built-in storage instances
   StorageManager.setup_builtin_storages()
 
-  if not SKIP_EXTENSIONS_SYNC:
-    ExtensionManager.sync()
-    ExtensionManager.start_enabled(app)
-    await REGISTRY_EXTENSION_MANAGER.start_enabled(app)
-    SourceManager.sync_source_types()
-    SourceManager.set_up_collect_jobs()
+  if not SKIP_EXTENSION_START:
+    await EXTENSION_HOST.start_enabled(app)
+  SourceManager.sync_source_types()
+  SourceManager.set_up_collect_jobs()
 
   if not scheduler.running:
     scheduler.start()
@@ -124,19 +118,7 @@ async def lifespan(app: fastapi.FastAPI):
     await bootstrap_task
   if scheduler.running:
     scheduler.shutdown(wait=True)
-  shutdown_failures: list[Exception] = []
-  for close_extensions in (
-    REGISTRY_EXTENSION_MANAGER.close_running,
-    ExtensionManager.close_running,
-  ):
-    try:
-      await close_extensions()
-    except Exception as error:
-      shutdown_failures.append(error)
-  if len(shutdown_failures) == 1:
-    raise shutdown_failures[0]
-  if shutdown_failures:
-    raise ExceptionGroup("Extension shutdown failed", shutdown_failures)
+  await EXTENSION_HOST.close_running()
 
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
@@ -192,7 +174,6 @@ sink_router.get("/rag")(SinkManager.rag)
 api_app.include_router(block_router)
 api_app.include_router(relation_router)
 api_app.include_router(extension_router)
-api_app.include_router(registry_extension_router)
 api_app.include_router(source_router)
 api_app.include_router(root_router)
 api_app.include_router(sink_router)

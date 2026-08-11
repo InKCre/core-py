@@ -11,6 +11,6 @@ os.environ.update(
     "LLM_SP_AK": "",
     "LLM_SP_BASE_URL": "",
     "OBSRV__LOGGING_BACKEND": "none",
-    "SKIP_EXTENSIONS_SYNC": "1",
+    "SKIP_EXTENSION_START": "1",
   }
 )

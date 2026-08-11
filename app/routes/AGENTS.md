@@ -15,7 +15,7 @@ FastAPI 路由注册层，将业务逻辑暴露为 REST API 端点。
 | [block.py](block.py) | `/blocks` | BlockManager | GET, POST, PUT, DELETE |
 | [relation.py](relation.py) | `/relations` | RelationManager | GET, POST, PUT, DELETE |
 | [source.py](source.py) | `/sources` | SourceManager | GET, POST, PUT, DELETE |
-| [extension.py](extension.py) | `/extensions` | ExtensionManager | GET, POST, PUT, DELETE, /install |
+| [extension.py](extension.py) | `/extensions` | ExtensionHost | GET, POST, PUT, DELETE, enable/disable |
 
 ### 其他路由
 

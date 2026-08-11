@@ -23,7 +23,7 @@ def test_production_profile_projects_the_executable_contract():
   assert profile["format"] == 1
   assert profile["environment"] == "production"
   assert profile["database_contract"] == {
-    "migration_head": "f2a6c8e4b1d7",
+    "migration_head": "b8c1d2e3f4a5",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }
@@ -42,8 +42,6 @@ def test_contract_publishes_the_complete_protocol_projection():
     "block_embeddings",
     "blocks",
     "clients",
-    "extension_installations",
-    "extension_peer_bindings",
     "extensions",
     "logs",
     "relation_embeddings",
@@ -54,7 +52,20 @@ def test_contract_publishes_the_complete_protocol_projection():
     "storage_types",
     "storages",
   }
-  assert protocol["functions"] == {}
+  assert protocol["functions"] == {
+    "set_extension_peer_enabled": {
+      "arguments": [
+        {"name": "p_name", "type": {"kind": "string"}, "nullable": False},
+        {
+          "name": "p_peer_id",
+          "type": {"kind": "string", "format": "uuid"},
+          "nullable": False,
+        },
+        {"name": "p_enabled", "type": {"kind": "boolean"}, "nullable": False},
+      ],
+      "returns": {"relation": "extensions", "set": True},
+    }
+  }
   assert protocol["relations"]["clients"]["columns"]["id"] == {
     "type": {"kind": "string", "format": "uuid"},
     "nullable": False,
@@ -69,38 +80,19 @@ def test_contract_publishes_the_complete_protocol_projection():
     "kind": "array",
     "items": {"kind": "number"},
   }
-  assert protocol["relations"]["extension_installations"]["columns"]["version"] == {
+  assert protocol["relations"]["extensions"]["columns"]["version"] == {
     "type": {"kind": "string"},
     "nullable": False,
     "generated": False,
     "has_default": False,
   }
-  assert protocol["relations"]["extension_peer_bindings"]["columns"]["version"] == {
-    "type": {"kind": "string"},
+  assert protocol["relations"]["extensions"]["columns"]["enabled"] == {
+    "type": {"kind": "array", "items": {"kind": "string", "format": "uuid"}},
     "nullable": False,
     "generated": False,
-    "has_default": False,
+    "has_default": True,
   }
-  binding_relationships = {
-    relationship["foreign_key_name"]: relationship
-    for relationship in protocol["relations"]["extension_peer_bindings"]["relationships"]
-  }
-  assert binding_relationships == {
-    "extension_peer_bindings_installation_fkey": {
-      "foreign_key_name": "extension_peer_bindings_installation_fkey",
-      "columns": ["name", "namespace", "version"],
-      "referenced_relation": "extension_installations",
-      "referenced_columns": ["name", "namespace", "version"],
-      "one_to_one": False,
-    },
-    "extension_peer_bindings_peer_fkey": {
-      "foreign_key_name": "extension_peer_bindings_peer_fkey",
-      "columns": ["peer_id"],
-      "referenced_relation": "clients",
-      "referenced_columns": ["id"],
-      "one_to_one": False,
-    },
-  }
+  assert protocol["relations"]["extensions"]["relationships"] == []
 
 
 def test_production_profile_has_stable_ids_and_https_endpoints():

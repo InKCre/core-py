@@ -118,5 +118,29 @@ def protocol_document() -> dict[str, object]:
     "format": PROTOCOL_DOCUMENT_FORMAT,
     "schema": PROTOCOL_SCHEMA,
     "relations": relations,
-    "functions": {},
+    "functions": {
+      "set_extension_peer_enabled": {
+        "arguments": [
+          {
+            "name": "p_name",
+            "type": {"kind": "string"},
+            "nullable": False,
+          },
+          {
+            "name": "p_peer_id",
+            "type": {"kind": "string", "format": "uuid"},
+            "nullable": False,
+          },
+          {
+            "name": "p_enabled",
+            "type": {"kind": "boolean"},
+            "nullable": False,
+          },
+        ],
+        "returns": {
+          "relation": "extensions",
+          "set": True,
+        },
+      }
+    },
   }

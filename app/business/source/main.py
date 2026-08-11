@@ -1,4 +1,6 @@
 import abc
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
@@ -8,13 +10,27 @@ from typing import Optional as Opt
 from app.engine import SessionLocal
 from app.database_contract.profile import BUILTIN_SOURCE_TYPES_BY_ID
 from app.schemas.info_base.block import BlockID
-from app.schemas.source import SourceModel, SourceID, SourceTypesModel
+from app.schemas.source import (
+  SourceCollectJobModel,
+  SourceModel,
+  SourceID,
+  SourceTypesModel,
+)
 from app.scheduler import scheduler
 
 if typing.TYPE_CHECKING:
   from .collect_job import SourceCollectJobModel
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
+
+
+@dataclass(frozen=True)
+class SourceRuntimeActivation:
+  """Exact scheduler/cache contribution owned by one runtime publication."""
+
+  source_types: frozenset[str]
+  source_ids: tuple[SourceID, ...]
+  job_ids: tuple[str, ...]
 
 
 class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
@@ -97,6 +113,9 @@ class SourceManager:
 
   SOURCES: dict[SourceID, SourceBase] = {}
   _SOURCE_CLASSES: dict[str, type[SourceBase]] = {}
+  _SOURCE_ROW_TYPES: dict[SourceID, str] = {}
+  _SOURCE_INSTANCE_TYPES: dict[SourceID, str] = {}
+  _SOURCE_JOB_TYPES: dict[str, str] = {}
 
   @classmethod
   def snapshot_source_types(cls) -> dict[str, type[SourceBase]]:
@@ -141,10 +160,14 @@ class SourceManager:
     cls._SOURCE_CLASSES[source_type] = source_cls
 
   @classmethod
-  def sync_source_types(cls) -> None:
+  def sync_source_types(
+    cls,
+    source_types: Mapping[str, type[SourceBase]] | None = None,
+  ) -> None:
     """Persist registered source types during explicit runtime bootstrap."""
+    selected = source_types if source_types is not None else cls._SOURCE_CLASSES
     with SessionLocal() as db:
-      for source_type, source_cls in cls._SOURCE_CLASSES.items():
+      for source_type, source_cls in selected.items():
         builtin = BUILTIN_SOURCE_TYPES_BY_ID.get(source_type)
         stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
           id=source_type,
@@ -168,28 +191,116 @@ class SourceManager:
       db.commit()
 
   @classmethod
-  def set_up_collect_jobs(cls):
+  def _source_rows(
+    cls,
+    source_types: Collection[str] | None = None,
+  ) -> tuple[SourceModel, ...]:
     with SessionLocal() as db:
-      sources = db.exec(
-        sqlmodel.select(SourceModel).where(SourceModel.collect_at is not None)
-      ).all()
+      statement = sqlmodel.select(SourceModel)
+      if source_types is not None:
+        if not source_types:
+          return ()
+        statement = statement.where(sqlmodel.col(SourceModel.type).in_(tuple(source_types)))
+      return tuple(db.exec(statement).all())
 
-    for source in sources:
-      if source.collect_at is None:
-        continue
-      # TODO create a source collect job instead of directly scheduling the collect
-      scheduler.add_job(
-        func=cls._get_source_ins(typing.cast(SourceID, source.id), source.type).collect,
-        trigger=source.collect_at.to_trigger(),
-        id=f"source.{source.id}.collect",
-        replace_existing=True,
-        misfire_grace_time=None,
+  @classmethod
+  def set_up_collect_jobs(
+    cls,
+    source_types: Collection[str] | None = None,
+  ) -> SourceRuntimeActivation:
+    sources = cls._source_rows(source_types)
+    source_ids = tuple(source.id for source in sources if source.id is not None)
+    cls._SOURCE_ROW_TYPES.update(
+      {source.id: source.type for source in sources if source.id is not None}
+    )
+    job_ids: list[str] = []
+
+    try:
+      for source in sources:
+        if source.collect_at is None or source.id is None:
+          continue
+        job_id = f"source.{source.id}.collect"
+        scheduler.add_job(
+          func=cls._run_scheduled_collect,
+          args=[source.id],
+          trigger=source.collect_at.to_trigger(),
+          id=job_id,
+          replace_existing=True,
+          misfire_grace_time=None,
+        )
+        job_ids.append(job_id)
+        cls._SOURCE_JOB_TYPES[job_id] = source.type
+    except Exception:
+      cls.withdraw_runtime_activation(
+        SourceRuntimeActivation(
+          source_types=frozenset(source_types or (source.type for source in sources)),
+          source_ids=source_ids,
+          job_ids=tuple(job_ids),
+        )
       )
+      raise
+    return SourceRuntimeActivation(
+      source_types=frozenset(source_types or (source.type for source in sources)),
+      source_ids=source_ids,
+      job_ids=tuple(job_ids),
+    )
+
+  @classmethod
+  def withdraw_runtime_activation(cls, activation: SourceRuntimeActivation) -> None:
+    """Remove an exact runtime contribution without querying or deleting rows."""
+    job_ids = set(activation.job_ids)
+    job_ids.update(
+      job_id
+      for job_id, source_type in cls._SOURCE_JOB_TYPES.items()
+      if source_type in activation.source_types
+    )
+    for job_id in job_ids:
+      if scheduler.get_job(job_id) is not None:
+        scheduler.remove_job(job_id)
+      cls._SOURCE_JOB_TYPES.pop(job_id, None)
+
+    source_ids = set(activation.source_ids)
+    source_ids.update(
+      source_id
+      for source_id, source_type in cls._SOURCE_ROW_TYPES.items()
+      if source_type in activation.source_types
+    )
+    source_ids.update(
+      source_id
+      for source_id, source_type in cls._SOURCE_INSTANCE_TYPES.items()
+      if source_type in activation.source_types
+    )
+    source_ids.update(
+      source_id
+      for source_id, source in cls.SOURCES.items()
+      if f"{type(source).__module__}.{type(source).__qualname__}" in activation.source_types
+    )
+    for source_id in source_ids:
+      cls.SOURCES.pop(source_id, None)
+      cls._SOURCE_ROW_TYPES.pop(source_id, None)
+      cls._SOURCE_INSTANCE_TYPES.pop(source_id, None)
+
+  @classmethod
+  async def _run_scheduled_collect(cls, source_id: SourceID) -> None:
+    """Create one durable collect job, then run the canonical job path."""
+    from .collect_job import SourceCollectJobManager
+
+    with SessionLocal() as db:
+      job = SourceCollectJobModel(source=source_id, config={})
+      db.add(job)
+      db.commit()
+      db.refresh(job)
+      if job.id is None:
+        raise RuntimeError("Scheduled Source collect job did not receive an ID")
+      job_id = job.id
+    await SourceCollectJobManager.run(job_id)
 
   @classmethod
   def _get_source_ins(cls, source_id: SourceID, source_type: Opt[str] = None) -> SourceBase:
     ins = cls.SOURCES.get(source_id, None)
     if ins is None:
+      if source_type is None:
+        source_type = cls._SOURCE_ROW_TYPES.get(source_id)
       if source_type is None:
         with SessionLocal() as db:
           source_type = db.exec(
@@ -200,6 +311,10 @@ class SourceManager:
         raise ValueError(f"Source class {source_type} not registered.")
       ins = source_class(_id=source_id)
       cls.SOURCES[source_id] = ins
+      cls._SOURCE_ROW_TYPES[source_id] = source_type
+      cls._SOURCE_INSTANCE_TYPES[source_id] = source_type
+    elif source_type is not None:
+      cls._SOURCE_INSTANCE_TYPES.setdefault(source_id, source_type)
     return ins
 
   @classmethod
@@ -219,5 +334,8 @@ class SourceManager:
       db.add(source)
       db.commit()
       db.refresh(source)
+
+    if source.id is not None:
+      cls._SOURCE_ROW_TYPES[source.id] = type_
 
     return source

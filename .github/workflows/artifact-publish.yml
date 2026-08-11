@@ -60,84 +60,11 @@ jobs:
             --source-revision "$HEAD_SHA"
           cmp "$RUNNER_TEMP/manifest.json" release/database-contract/manifest.json
 
-      - name: Set up locked target publisher
-        uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
-        with:
-          python-version-file: .python-version
-          version: 2.27.0
-          cache: true
-
-      - name: Install locked target publisher
-        id: publisher
-        run: |
-          pdm install \
-            --no-default \
-            --group extension-publisher \
-            --frozen-lockfile
-          python_path="$(pdm info --python)"
-          cli_path="$(pdm run which inkcre-ext)"
-          test -x "$python_path"
-          test -x "$cli_path"
-          test "$(
-            "$python_path" -c \
-              'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'
-          )" = "3.12"
-          test "$(
-            "$python_path" -c \
-              'from importlib.metadata import version; print(version("inkcre-extension-registry"))'
-          )" = "0.1.2"
-          echo "cli=$cli_path" >> "$GITHUB_OUTPUT"
-          echo "python=$python_path" >> "$GITHUB_OUTPUT"
-
-      - name: Build admitted Twitter target
-        id: target
-        run: |
-          target_directory="release/extension-targets/twitter"
-          artifact_directory="$RUNNER_TEMP/twitter-target-files"
-          build_result="$RUNNER_TEMP/twitter-target-build.json"
-          mkdir --parents "$target_directory" "$artifact_directory"
-
-          "${{ steps.publisher.outputs.python }}" \
-            scripts/build_extension_target.py bundle \
-            --project-root . \
-            --extension-id twitter \
-            --output "$target_directory/bundle.zip"
-          cp "$target_directory/bundle.zip" "$artifact_directory/bundle.zip"
-          test "$(find "$artifact_directory" -maxdepth 1 -type f | wc -l)" = 1
-
-          "${{ steps.publisher.outputs.cli }}" build-target \
-            --config extensions/twitter/target-publish.json \
-            --directory "$artifact_directory" \
-            --output "$target_directory/manifest.json" \
-            > "$build_result"
-          target_digest="$(
-            "${{ steps.publisher.outputs.python }}" \
-              scripts/build_extension_target.py catalog \
-              --config extensions/twitter/target-publish.json \
-              --extension-id twitter \
-              --bundle "$target_directory/bundle.zip" \
-              --manifest "$target_directory/manifest.json" \
-              --output release/extension-targets/catalog.json
-          )"
-          cli_digest="$(jq --exit-status --raw-output '.target_digest' "$build_result")"
-          catalog_digest="$(
-            jq --exit-status --raw-output \
-              '.targets | if length == 1 then .[0].target_digest else error("target count") end' \
-              release/extension-targets/catalog.json
-          )"
-          test "$target_digest" = "$cli_digest"
-          test "$target_digest" = "$catalog_digest"
-          cmp "$target_directory/bundle.zip" "$artifact_directory/bundle.zip"
-
-          echo "artifact_directory=$artifact_directory" >> "$GITHUB_OUTPUT"
-          echo "target_digest=$target_digest" >> "$GITHUB_OUTPUT"
-
       - name: Build and publish immutable runtime
         id: image
         env:
           GHCR_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          TARGET_DIGEST: ${{ steps.target.outputs.target_digest }}
         run: |
           repository="${GITHUB_REPOSITORY,,}"
           image="ghcr.io/$repository"
@@ -156,26 +83,8 @@ jobs:
           docker run --rm "$commit_ref" \
             python scripts/container.py db schema --json >/dev/null
           test "$(docker inspect --format='{{.Config.User}}' "$commit_ref")" = "inkcre"
-          test "$(
-            docker inspect \
-              --format='{{index .Config.Labels "io.inkcre.extension-targets.catalog"}}' \
-              "$commit_ref"
-          )" = "/app/extension-targets/catalog.json"
-          image_catalog_digest="$(
-            docker run --rm "$commit_ref" python -c \
-              'import json; from pathlib import Path; value = json.loads(Path("/app/extension-targets/catalog.json").read_text()); assert len(value["targets"]) == 1; print(value["targets"][0]["target_digest"])'
-          )"
-          image_verified_digest="$(
-            docker run --rm "$commit_ref" \
-              python scripts/build_extension_target.py catalog \
-              --config extensions/twitter/target-publish.json \
-              --extension-id twitter \
-              --bundle /app/extension-targets/twitter/bundle.zip \
-              --manifest /app/extension-targets/twitter/manifest.json \
-              --output /tmp/rebuilt-extension-target-catalog.json
-          )"
-          test "$image_catalog_digest" = "$TARGET_DIGEST"
-          test "$image_verified_digest" = "$TARGET_DIGEST"
+          docker run --rm "$commit_ref" python -c \
+            'import pathlib, pip; assert not pathlib.Path("/app/extensions").exists()'
 
           printf '%s' "$GHCR_TOKEN" |
             docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
@@ -183,89 +92,15 @@ jobs:
           docker pull "$commit_ref" >/dev/null
 
           digest_ref="$(
-            docker inspect \
-              --format='{{index .RepoDigests 0}}' \
-              "$commit_ref"
+            docker inspect --format='{{index .RepoDigests 0}}' "$commit_ref"
           )"
           test "${digest_ref%%@*}" = "$image"
-
           echo "commit_ref=$commit_ref" >> "$GITHUB_OUTPUT"
           echo "digest_ref=$digest_ref" >> "$GITHUB_OUTPUT"
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
-      - name: Publish exact target to Extension Registry
-        id: registry
-        env:
-          BUILD_ID: ${{ github.run_id }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          INKCRE_EXTENSION_REGISTRY_TOKEN: >-
-            ${{ secrets.INKCRE_EXTENSION_REGISTRY_TOKEN }}
-          INKCRE_EXTENSION_REGISTRY_URL: >-
-            ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://inkcre-extension-registry.lanzhijiang.workers.dev' }}
-          LOCAL_TARGET_DIGEST: ${{ steps.target.outputs.target_digest }}
-          SOURCE_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
-        run: |
-          publish_result="$RUNNER_TEMP/twitter-target-publish.json"
-          published_manifest="$RUNNER_TEMP/twitter-target-published-manifest.json"
-          release_result="$RUNNER_TEMP/twitter-release.json"
-          "${{ steps.publisher.outputs.cli }}" publish-target \
-            --registry-url "$INKCRE_EXTENSION_REGISTRY_URL" \
-            --config extensions/twitter/target-publish.json \
-            --directory "${{ steps.target.outputs.artifact_directory }}" \
-            --source-repository "$SOURCE_REPOSITORY" \
-            --source-revision "$HEAD_SHA" \
-            --build-id "$BUILD_ID" \
-            --manifest-output "$published_manifest" \
-            > "$publish_result"
-
-          jq --exit-status \
-            --arg digest "$LOCAL_TARGET_DIGEST" \
-            '.coordinate == "inkcre/twitter" and
-             .version == "0.1.0" and
-             .state == "published" and
-             .target_key == "python-core-v1" and
-             .target_digest == $digest and
-             (.source_revision | type == "string" and length > 0) and
-             (.build_id | type == "string" and length > 0)' \
-            "$publish_result"
-          cmp "$published_manifest" release/extension-targets/twitter/manifest.json
-
-          "${{ steps.publisher.outputs.cli }}" show-release \
-            --registry-url "$INKCRE_EXTENSION_REGISTRY_URL" \
-            --coordinate inkcre/twitter \
-            --version 0.1.0 \
-            > "$release_result"
-          jq --exit-status \
-            --arg digest "$LOCAL_TARGET_DIGEST" \
-            --arg source_repository "$SOURCE_REPOSITORY" \
-            '.namespace == "inkcre" and
-             .name == "twitter" and
-             .version == "0.1.0" and
-             .state == "published" and
-             ([.targets[] | select(.target_key == "python-core-v1")] | length == 1) and
-             ([.targets[] | select(.target_key == "python-core-v1")][0] |
-               .target_digest == $digest and
-               .source_repository == $source_repository and
-               (.source_revision | type == "string" and length > 0) and
-               (.build_id | type == "string" and length > 0))' \
-            "$release_result"
-          returned_source_revision="$(
-            jq --exit-status --raw-output \
-              '[.targets[] | select(.target_key == "python-core-v1")][0].source_revision' \
-              "$release_result"
-          )"
-          returned_build_id="$(
-            jq --exit-status --raw-output \
-              '[.targets[] | select(.target_key == "python-core-v1")][0].build_id' \
-              "$release_result"
-          )"
-          echo "source_revision=$returned_source_revision" >> "$GITHUB_OUTPUT"
-          echo "build_id=$returned_build_id" >> "$GITHUB_OUTPUT"
-          echo "target_digest=$LOCAL_TARGET_DIGEST" >> "$GITHUB_OUTPUT"
-
       - name: Promote mutable main image
         id: promote
-        if: steps.registry.outcome == 'success'
         env:
           COMMIT_REF: ${{ steps.image.outputs.commit_ref }}
           DIGEST_REF: ${{ steps.image.outputs.digest_ref }}
@@ -279,27 +114,18 @@ jobs:
             "$IMAGE:main" |
             grep --fixed-strings --line-regexp "$DIGEST_REF"
 
-      - name: Record artifact delivery identity
+      - name: Record runtime delivery identity
         if: always() && steps.image.outcome == 'success'
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest_ref }}
           MAIN_PROMOTION: ${{ steps.promote.outcome }}
-          TARGET_BUILD_ID: ${{ steps.registry.outputs.build_id }}
-          TARGET_DIGEST: ${{ steps.target.outputs.target_digest }}
-          TARGET_PUBLICATION: ${{ steps.registry.outcome }}
-          TARGET_SOURCE_REVISION: ${{ steps.registry.outputs.source_revision }}
         run: |
           {
-            echo "### core-py runtime and Extension target"
+            echo "### core-py runtime"
             echo
             echo "- Delivery source revision: \`$HEAD_SHA\`"
             echo "- Immutable image: \`$IMAGE_DIGEST\`"
-            echo "- Target: \`inkcre/twitter@0.1.0#python-core-v1\`"
-            echo "- Target digest: \`$TARGET_DIGEST\`"
-            echo "- Target source revision: \`$TARGET_SOURCE_REVISION\`"
-            echo "- Target build ID: \`$TARGET_BUILD_ID\`"
-            echo "- Registry publication: \`$TARGET_PUBLICATION\`"
             echo "- Mutable main promotion: \`$MAIN_PROMOTION\`"
             echo "- Contract command: \`python scripts/container.py db contract --json\`"
             echo "- Schema command: \`python scripts/container.py db schema --json\`"

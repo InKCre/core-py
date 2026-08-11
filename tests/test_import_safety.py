@@ -64,7 +64,7 @@ def test_application_import_and_openapi_are_database_independent(tmp_path):
     "LLM_SP_AK": "",
     "LLM_SP_BASE_URL": "",
     "OBSRV__LOGGING_BACKEND": "none",
-    "SKIP_EXTENSIONS_SYNC": "1",
+    "SKIP_EXTENSION_START": "1",
     "PYTHONPATH": str(PROJECT_ROOT),
   }
   result = subprocess.run(  # noqa: S603
@@ -73,7 +73,7 @@ def test_application_import_and_openapi_are_database_independent(tmp_path):
       "-c",
       (
         "from run import api_app; schema=api_app.openapi(); "
-        "assert '/extension-installations/{namespace}/{name}' in schema['paths']; "
+        "assert '/extensions/{namespace}/{name}' in schema['paths']; "
         "print(len(schema['paths']))"
       ),
     ],

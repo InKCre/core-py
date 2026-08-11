@@ -1,19 +1,34 @@
+[build-system]
+requires = ["setuptools>=80,<81"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inkcre-ext-rss"
 version = "0.1.0"
-description = "RSS/Atom feed extension for InKCre"
+description = "RSS and Atom extension for InKCre"
 authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 dependencies = [
-  "beautifulsoup4>=4.12.0",
-  "lxml>=5.0.0",
-  "readability-lxml>=0.8.0",
+  "aiohttp>=3.14.1,<4.0.0",
+  "beautifulsoup4>=4.12.0,<5.0.0",
+  "fastapi>=0.139.2,<0.140.0",
+  "html2text>=2025.4.15",
+  "readability-lxml>=0.8.0,<1.0.0",
+  "sqlmodel>=0.0.24,<0.0.25",
 ]
-requires-python = ">=3.12"
-readme = "README.md"
-license = { text = "MIT" }
+requires-python = ">=3.12,<3.13"
+license = "MIT"
 
-[tool.pdm]
-distribution = false
+[project.entry-points."inkcre.core.extensions"]
+rss = "extensions.rss:Extension"
 
-[tool.inkcre-ext]
+[tool.inkcre-extension]
+name = "inkcre/rss"
 nickname = "RSS/Atom Feeds"
+host-sdk = "core-py"
+host-sdk-version = ">=0.1.0,<0.2.0"
+
+[tool.setuptools]
+packages = ["extensions.rss"]
+
+[tool.setuptools.package-dir]
+"extensions.rss" = "."

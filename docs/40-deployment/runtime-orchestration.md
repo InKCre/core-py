@@ -14,8 +14,9 @@ Current bootstrap flow in `run.py`:
 2. wait asynchronously until the complete runtime database contract is ready
 3. register the current client
 4. persist registered storage types and set up built-in storage instances
-5. sync the fixed extension profile unless `SKIP_EXTENSIONS_SYNC=1`
-6. start enabled extensions, which registers source and resolver classes in memory
+5. cold-restore the current peer's exact enabled Extension Releases through Registry-native
+   wheel acquisition and standard entry-point discovery unless `SKIP_EXTENSION_START=1`
+6. start restored extensions, which registers routes, source types, and resolvers in memory
 7. persist registered source types and set up source collection schedules
 8. start the scheduler and register periodic jobs
 9. report readiness as true
@@ -51,7 +52,7 @@ These are runtime guarantees, not route-layer behavior.
 - hosted API documentation is not currently published by this repository
 
 Application module import constructs routes and in-memory registries only. Database
-registration and extension synchronization begin inside lifespan startup, never during
+registration and Extension cold restore begin inside lifespan startup, never during
 module import.
 
 ### 6. Health probes have separate semantics

@@ -36,7 +36,7 @@
 | `SourceCollectJobManager` | 采集任务执行调度 | [source/collect_job.py](source/collect_job.py) |
 | `SinkManager` | RAG 等信息检索输出 | [sink/main.py](sink/main.py) |
 | `EmbeddingManager` | Embedding 生成和检索 | [sink/embedding.py](sink/embedding.py) |
-| `ExtensionManager` | Extension 生命周期管理 | [extension/main.py](extension/main.py) |
+| `ExtensionHost` | Extension 安装、启停与生命周期管理 | [extension/main.py](extension/main.py) |
 | `ClientManager` | 客户端注册和管理 | [client/main.py](client/main.py) |
 
 ### 模块依赖

@@ -23,7 +23,6 @@ from .constants import (
   PROTOCOL_SCHEMA,
 )
 from .profile import (
-  BUILTIN_EXTENSIONS,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
@@ -41,6 +40,8 @@ TABLE_PRIVILEGES = {
   "TRUNCATE",
   "UPDATE",
 }
+EXTENSIONS_TABLE_PRIVILEGES = TABLE_PRIVILEGES - {"UPDATE"}
+EXTENSIONS_UPDATE_COLUMNS = {"config", "config_schema", "nickname", "version"}
 SEQUENCE_PRIVILEGES = {"SELECT", "UPDATE", "USAGE"}
 
 
@@ -205,6 +206,21 @@ def _function_acl_rows(cursor, schema_name: str) -> dict[tuple[str, str], set[st
   return rows
 
 
+def _extension_update_column_acl(cursor) -> set[str]:
+  cursor.execute(
+    """
+    SELECT column_name
+    FROM information_schema.column_privileges
+    WHERE table_schema = %s
+      AND table_name = 'extensions'
+      AND grantee = %s
+      AND privilege_type = 'UPDATE'
+    """,
+    (PROTOCOL_SCHEMA, AUTHENTICATED_ROLE),
+  )
+  return {row[0] for row in cursor.fetchall()}
+
+
 def _default_acl_rows(cursor, owner_role: str) -> dict[tuple[str, str], set[str]]:
   cursor.execute(
     """
@@ -250,11 +266,16 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
 
   table_acls = _relation_acl_rows(cursor, "r")
   for table_name in APPLICATION_TABLES:
-    if table_acls.get((table_name, AUTHENTICATED_ROLE), set()) != TABLE_PRIVILEGES:
+    expected_privileges = (
+      EXTENSIONS_TABLE_PRIVILEGES if table_name == "extensions" else TABLE_PRIVILEGES
+    )
+    if table_acls.get((table_name, AUTHENTICATED_ROLE), set()) != expected_privileges:
       problems.append(f"table_acl:{table_name}")
     for denied in ("PUBLIC", ANONYMOUS_ROLE, AUTHENTICATOR_ROLE):
       if table_acls.get((table_name, denied)):
         problems.append(f"table_acl:{table_name}:{denied}")
+  if _extension_update_column_acl(cursor) != EXTENSIONS_UPDATE_COLUMNS:
+    problems.append("column_acl:extensions:update")
 
   sequence_acls = _relation_acl_rows(cursor, "S")
   cursor.execute(
@@ -288,12 +309,43 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
     (PROTOCOL_SCHEMA,),
   )
   protocol_function_names = [row[0] for row in cursor.fetchall()]
+  if protocol_function_names != ["set_extension_peer_enabled"]:
+    problems.append("protocol_functions")
   for function_name in protocol_function_names:
     if protocol_functions.get((function_name, AUTHENTICATED_ROLE)) != {"EXECUTE"}:
       problems.append(f"function_acl:{function_name}")
     for denied in ("PUBLIC", ANONYMOUS_ROLE, AUTHENTICATOR_ROLE):
       if protocol_functions.get((function_name, denied)):
         problems.append(f"function_acl:{function_name}:{denied}")
+
+  cursor.execute(
+    """
+    SELECT
+      procedure.provolatile = 'v',
+      procedure.proisstrict,
+      procedure.prosecdef,
+      pg_get_function_result(procedure.oid) = 'SETOF inkcre.extensions',
+      procedure.proconfig = ARRAY['search_path=pg_catalog, inkcre']::text[]
+    FROM pg_proc AS procedure
+    WHERE procedure.oid =
+      to_regprocedure('inkcre.set_extension_peer_enabled(text,uuid,boolean)')
+    """
+  )
+  if cursor.fetchone() != (True, True, True, True, True):
+    problems.append("set_extension_peer_enabled_signature")
+
+  cursor.execute(
+    """
+    SELECT
+      procedure.prosecdef,
+      procedure.proconfig = ARRAY['search_path=pg_catalog']::text[]
+    FROM pg_proc AS procedure
+    WHERE procedure.oid =
+      to_regprocedure('inkcre_internal.enforce_extension_state_authority()')
+    """
+  )
+  if cursor.fetchone() != (False, True):
+    problems.append("extension_state_authority_signature")
 
   internal_functions = _function_acl_rows(cursor, INTERNAL_SCHEMA)
   if internal_functions.get(("check_jwt", AUTHENTICATED_ROLE)) != {"EXECUTE"}:
@@ -364,16 +416,6 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
 
 def _catalog_component(cursor) -> dict[str, Any]:
   problems: list[str] = []
-
-  for extension in BUILTIN_EXTENSIONS:
-    cursor.execute(
-      sql.SQL("SELECT version, nickname FROM {}.extensions WHERE id = %s").format(
-        sql.Identifier(PROTOCOL_SCHEMA)
-      ),
-      (extension.id,),
-    )
-    if cursor.fetchone() != (extension.version, extension.nickname):
-      problems.append(f"extension:{extension.id}")
 
   for table_name, profiles in (
     ("storage_types", BUILTIN_STORAGE_TYPES),

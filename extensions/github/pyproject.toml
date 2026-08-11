@@ -1,21 +1,33 @@
+[build-system]
+requires = ["setuptools>=80,<81"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inkcre-ext-github"
 version = "0.1.0"
-description = "GitHub extension for InKCre - provides GitHub Stars source"
-authors = [
-    {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"},
-]
+description = "GitHub extension for InKCre"
+authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 dependencies = [
-    "PyGithub>=2.8.1",
+  "fastapi>=0.139.2,<0.140.0",
+  "pydantic>=2.11.7,<3.0.0",
+  "PyGithub>=2.8.1,<3.0.0",
+  "sqlmodel>=0.0.24,<0.0.25",
 ]
-requires-python = "==3.12.*"
+requires-python = ">=3.12,<3.13"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 
+[project.entry-points."inkcre.core.extensions"]
+github = "extensions.github:Extension"
 
-[tool.pdm]
-distribution = false
-
-[inkcre-ext]
-id = "github"
+[tool.inkcre-extension]
+name = "inkcre/github"
 nickname = "GitHub"
+host-sdk = "core-py"
+host-sdk-version = ">=0.1.0,<0.2.0"
+
+[tool.setuptools]
+packages = ["extensions.github"]
+
+[tool.setuptools.package-dir]
+"extensions.github" = "."
