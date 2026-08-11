@@ -309,7 +309,10 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
     (PROTOCOL_SCHEMA,),
   )
   protocol_function_names = [row[0] for row in cursor.fetchall()]
-  if protocol_function_names != ["set_extension_peer_enabled"]:
+  if protocol_function_names != [
+    "set_extension_peer_enabled",
+    "update_updated_at_column",
+  ]:
     problems.append("protocol_functions")
   for function_name in protocol_function_names:
     if protocol_functions.get((function_name, AUTHENTICATED_ROLE)) != {"EXECUTE"}:

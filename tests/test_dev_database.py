@@ -64,9 +64,9 @@ def test_runtime_profile_carries_cross_peer_instance_provenance(
   monkeypatch.setattr(
     dev_database,
     "_runtime_directory",
-    lambda selected: runtime_directory
-    if selected == instance
-    else Path("/unexpected-runtime"),
+    lambda selected: (
+      runtime_directory if selected == instance else Path("/unexpected-runtime")
+    ),
   )
   credentials = {
     "format": 1,

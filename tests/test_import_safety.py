@@ -67,7 +67,7 @@ def test_application_import_and_openapi_are_database_independent(tmp_path):
     "SKIP_EXTENSION_START": "1",
     "PYTHONPATH": str(PROJECT_ROOT),
   }
-  result = subprocess.run(  # noqa: S603
+  result = subprocess.run(
     [
       sys.executable,
       "-c",
