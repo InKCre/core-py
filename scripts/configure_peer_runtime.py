@@ -68,26 +68,31 @@ def configure_peer_runtime(
     str,
     CorePeerConfig(http_public_base_url=http_public_base_url).http_public_base_url,
   )
+  deadline = time.monotonic() + wait_seconds
   with database_connection(database_url) as connection:
-    with connection.cursor() as cursor:
-      cursor.execute(
-        "SELECT config FROM inkcre.peers WHERE id = %s FOR UPDATE",
-        (peer_id,),
-      )
-      row = cursor.fetchone()
-      if row is None:
-        raise RuntimeError(f"Peer {peer_id} has not registered")
-      current = CorePeerConfig.model_validate(row[0] or {})
-      next_config = current.model_copy(
-        update={"http_public_base_url": normalized_url}
-      ).model_dump(mode="json")
-      cursor.execute(
-        "UPDATE inkcre.peers SET config = %s WHERE id = %s",
-        (Jsonb(next_config), peer_id),
-      )
+    while True:
+      with connection.cursor() as cursor:
+        cursor.execute(
+          "SELECT config FROM inkcre.peers WHERE id = %s FOR UPDATE",
+          (peer_id,),
+        )
+        row = cursor.fetchone()
+        if row is not None:
+          current = CorePeerConfig.model_validate(row[0] or {})
+          next_config = current.model_copy(
+            update={"http_public_base_url": normalized_url}
+          ).model_dump(mode="json")
+          cursor.execute(
+            "UPDATE inkcre.peers SET config = %s WHERE id = %s",
+            (Jsonb(next_config), peer_id),
+          )
+          break
+      connection.rollback()
+      if time.monotonic() >= deadline:
+        raise RuntimeError(f"Peer {peer_id} did not register before convergence")
+      time.sleep(1)
     connection.commit()
 
-    deadline = time.monotonic() + wait_seconds
     while True:
       with connection.cursor() as cursor:
         cursor.execute(
