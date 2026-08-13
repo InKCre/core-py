@@ -58,7 +58,7 @@
   - PR 45: `br-spring-waterfall-azfql7jo`, child of `preview-base`, seven-day TTL
   - PR 52: `br-jolly-water-azqn2jbk`, child of `preview-base`, seven-day TTL
 - GitHub repository secret `NEON_API_KEY` was rotated to project-scoped key metadata ID
-  `3263094`. Repository and production-environment project IDs now reference the new project;
+  `3263246`. Repository and production-environment project IDs now reference the new project;
   production branch parent is the literal `null`; production branch and recovery IDs match the
   active topology.
 - Encrypted production archive:
@@ -78,6 +78,8 @@
   migration, readiness, and manifest transition. Its release step rejected Heroku's successful
   same-image no-op; independent production probes passed and the local action now treats that
   response idempotently.
-- Old API key metadata IDs `2586162` and `3262801` were revoked. The old project
+- Old API key metadata IDs `2586162` and `3262801` were revoked. Deleting the old project
+  also removed the repository-level Neon settings managed by its integration, so key
+  `3263094` was replaced and revoked after those settings were restored explicitly. The old project
   `small-feather-66252738` is absent from active inventory and present only in recoverable
   inventory through 2026-08-20T11:39:39Z.

@@ -7,9 +7,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_preview_treats_same_images_as_success():
-  delivery = (
-    PROJECT_ROOT / ".github/actions/preview-delivery/action.yml"
-  ).read_text(encoding="utf-8")
+  delivery = (PROJECT_ROOT / ".github/actions/preview-delivery/action.yml").read_text(
+    encoding="utf-8"
+  )
 
   assert 'if [ "$guard_release" != "$before_guard_release" ]; then' in delivery
   assert 'if [ "$web_release" != "$before_web_release" ]; then' in delivery
@@ -20,9 +20,9 @@ def test_preview_treats_same_images_as_success():
 
 
 def test_production_reuses_last_deployed_release_when_heroku_returns_noop():
-  delivery = (
-    PROJECT_ROOT / ".github/actions/production-delivery/action.yml"
-  ).read_text(encoding="utf-8")
+  delivery = (PROJECT_ROOT / ".github/actions/production-delivery/action.yml").read_text(
+    encoding="utf-8"
+  )
 
   assert 'web_release="$previous_release"' in delivery
   assert 'postgrest_release="$previous_postgrest_release"' in delivery
