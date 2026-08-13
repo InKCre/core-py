@@ -15,7 +15,7 @@ from sqlalchemy.pool import NullPool
 
 from migrations.metadata import get_target_metadata
 from migrations.settings import MigrationSettings
-from app.database_contract import PROTOCOL_SCHEMA
+from app.database_contract import INTERNAL_SCHEMA, PROTOCOL_SCHEMA
 
 
 SANITIZE_GUARD = "ALLOW_PREVIEW_BASE_SANITIZE"
@@ -39,6 +39,14 @@ def validate_application_tables(actual: set[str], expected: set[str]) -> None:
     if unexpected:
       details.append(f"unexpected tables: {', '.join(unexpected)}")
     raise ValueError("; ".join(details))
+
+
+def validate_source_environment(environment: str) -> None:
+  """Allow only a production clone or an already-sanitized preview baseline."""
+  if environment not in {"production", "runtime"}:
+    raise ValueError(
+      "preview base must inherit production or already have runtime identity"
+    )
 
 
 def sanitize_preview_base(database_url: str) -> tuple[str, ...]:
@@ -81,10 +89,28 @@ def sanitize_preview_base(database_url: str) -> tuple[str, ...]:
       if current_heads != expected_heads:
         raise ValueError("preview base is not at the repository Alembic head")
 
+      source_environment = connection.execute(
+        text(
+          f'SELECT environment FROM "{INTERNAL_SCHEMA}".contract_state '
+          "WHERE singleton FOR UPDATE"
+        )
+      ).scalar_one()
+      validate_source_environment(source_environment)
+
       quoted_tables = ", ".join(
         f'"{PROTOCOL_SCHEMA}"."{table}"' for table in sorted(expected_tables)
       )
       connection.execute(text(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE"))
+
+      environment_update = connection.execute(
+        text(
+          f'UPDATE "{INTERNAL_SCHEMA}".contract_state '
+          "SET environment = 'runtime', updated_at = CURRENT_TIMESTAMP "
+          "WHERE singleton"
+        )
+      )
+      if environment_update.rowcount != 1:
+        raise RuntimeError("preview base environment identity was not reset")
 
       for table in sorted(expected_tables):
         remaining = connection.execute(

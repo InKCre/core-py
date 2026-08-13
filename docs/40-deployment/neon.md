@@ -39,7 +39,9 @@ outputs and are never written to logs or artifacts.
 `preview-base` is a normal Neon branch because schema-only branching is incompatible with
 the legacy `authenticated` web role on the current runtime branch. Its one-time bootstrap
 copies the source branch internally, immediately truncates every known application table,
-and verifies the database remains at the repository head.
+resets the cloned database identity from `production` to `runtime`, and verifies the database
+remains at the repository head. The identity reset is limited to this guarded, data-free
+baseline; canonical production remains immutable.
 Production is not mutated, and production rows never enter a PR-owned branch.
 
 The current Neon free-v3 plan has a protected-branch quota of zero, so provider protection
@@ -99,10 +101,11 @@ it neither applies nor verifies the schema transition.
 
 ## Production Branch
 
-The canonical production branch is named `production`. It is a no-TTL child of the durable
-pre-cutover checkpoint, not a rename or in-place migration of `staging`. Its initial
-manifest preserved every application-table row count and changed only the Alembic head to
-the convergence revision.
+The canonical production branch is named `production`. Since the 2026-08-13 project-root
+migration it is the no-TTL root and default branch of the active Neon project. It was restored
+from a directly encrypted custom archive whose value-free source and target manifests and
+normalized schema dumps matched exactly. GitHub stores the expected parent identity as the
+literal value `null` so the delivery guard can distinguish this topology from a missing value.
 
 Native runtime and PostgREST use role-specific URLs derived from the pooled branch
 coordinate. The protected GitHub lifecycle process alone receives the direct owner
@@ -119,29 +122,20 @@ The current Neon plan cannot protect this branch. GitHub environment isolation, 
 branch-ID/parent guards, serialized release execution, the durable checkpoint, and the
 encrypted archive are required compensating controls.
 
-## Retained Lineage And Retired Branches
+## Current Topology And Retired Project
 
-There is no active Neon staging or develop environment:
+There is no active Neon staging or develop environment. The active topology is intentionally
+small:
 
-- the stale `develop` branch was deleted on 2026-07-24;
-- the historical staging branch was renamed to
-  `archive/staging-lineage-20250824` (`br-broad-bread-a1j7v4ct`) and its compute endpoint was
-  deleted;
-- the archived branch remains storage-only because Neon refuses to delete a branch while it
-  is the ancestor of retained children, including `backup/pre-cutover-20260723` and therefore
-  canonical `production`;
-- `master` remains the provider-required default root and is not an application environment.
+- root/default `production` is the sole canonical runtime branch;
+- one fresh no-TTL `backup/peer-contract-*` child is the production recovery checkpoint;
+- `preview-base` is the sanitized no-TTL child of production;
+- only open, trusted pull requests own seven-day `preview/core-py/pr-<number>` children.
 
-The retained recovery surface is deliberate:
-
-- `backup/pre-cutover-20260723` preserves the pre-cutover lineage;
-- `backup/peer-contract-20260724-052651` and
-  `backup/peer-contract-20260724-054730` are no-TTL production recovery branches;
-- `preview-base` is the data-free parent for repository-qualified PR branches.
-
-No runtime, workflow, credential, or documented command may address the archived staging
-lineage. Removing it later requires first replacing or deleting every retained descendant;
-that is a recovery-retention decision, not routine environment cleanup.
+The former project, including its provider-required `master` root and historical staging
+lineage, was soft-deleted after production and all open-PR consumers were proven on the new
+project. Its GitHub API keys were revoked. Neon retains the deleted project for its provider
+recovery window only; no runtime, workflow, or credential may address it.
 
 ## Operational Implication
 
