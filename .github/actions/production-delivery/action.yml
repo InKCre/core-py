@@ -36,7 +36,7 @@ inputs:
     description: Exact canonical production branch ID
     required: true
   neon_parent_branch_id:
-    description: Exact durable checkpoint branch ID
+    description: Exact parent branch ID, or literal null for project-root production
     required: true
   neon_project_id:
     description: Neon project containing the production branch
@@ -547,8 +547,9 @@ runs:
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        test "$guard_release" != "$before_guard_release"
-        wait_for_release "$APP_NAME" "$guard_release"
+        if [ "$guard_release" != "$before_guard_release" ]; then
+          wait_for_release "$APP_NAME" "$guard_release"
+        fi
 
         if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
           configure_app
@@ -563,8 +564,12 @@ runs:
           heroku releases --app "$APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        test "$web_release" != "$before_web_release"
-        wait_for_release "$APP_NAME" "$web_release"
+        if [ "$web_release" != "$before_web_release" ]; then
+          wait_for_release "$APP_NAME" "$web_release"
+        else
+          test -n "$previous_release"
+          web_release="$previous_release"
+        fi
 
         before_postgrest_release="$(
           heroku releases --app "$POSTGREST_APP_NAME" --json |
@@ -575,8 +580,12 @@ runs:
           heroku releases --app "$POSTGREST_APP_NAME" --json |
             jq -r '.[0].version // empty'
         )"
-        test "$postgrest_release" != "$before_postgrest_release"
-        wait_for_release "$POSTGREST_APP_NAME" "$postgrest_release"
+        if [ "$postgrest_release" != "$before_postgrest_release" ]; then
+          wait_for_release "$POSTGREST_APP_NAME" "$postgrest_release"
+        else
+          test -n "$previous_postgrest_release"
+          postgrest_release="$previous_postgrest_release"
+        fi
 
         if [ "$HAS_POSTGREST_RELEASE" = true ]; then
           configure_postgrest
