@@ -46,7 +46,7 @@ jobs:
           path: source
           persist-credentials: false
 
-      - name: Build web and release images without deployment secrets
+      - name: Build peer transport images without deployment secrets
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -61,6 +61,13 @@ jobs:
             --provenance=false \
             --target heroku-release \
             --tag "inkcre-preview-release:$HEAD_SHA" \
+            "${{ github.workspace }}/source"
+          docker build \
+            --platform linux/amd64 \
+            --provenance=false \
+            --file "${{ github.workspace }}/source/Dockerfile.postgrest" \
+            --build-arg "SOURCE_REVISION=$HEAD_SHA" \
+            --tag "inkcre-preview-postgrest:$HEAD_SHA" \
             "${{ github.workspace }}/source"
 
       - name: Reverify preview authority before delivery
@@ -94,7 +101,7 @@ jobs:
       - name: Install pinned Heroku CLI
         run: npm install --global heroku@11.8.1
 
-      - name: Delete exact deterministic app
+      - name: Delete exact deterministic apps
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -105,7 +112,10 @@ jobs:
               exit 1
               ;;
           esac
-          app_name="inkcre-core-py-pr-$PR_NUMBER"
-          if heroku apps:info --app "$app_name" >/dev/null 2>&1; then
-            heroku apps:destroy --app "$app_name" --confirm "$app_name"
-          fi
+          for app_name in \
+            "inkcre-core-py-pr-$PR_NUMBER" \
+            "inkcre-postgrest-pr-$PR_NUMBER"; do
+            if heroku apps:info --app "$app_name" >/dev/null 2>&1; then
+              heroku apps:destroy --app "$app_name" --confirm "$app_name"
+            fi
+          done
