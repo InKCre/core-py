@@ -62,6 +62,7 @@ def test_remote_payload_contains_only_the_runtime_build_surface(tmp_path):
   assert "compose.args" in names
   assert "context/Dockerfile" in names
   assert "context/app" in names
+  assert "context/release/database-contract/README.md" in names
   assert "context/tasks" not in names
   assert "context/.env" not in names
   assert not any("__pycache__" in Path(name).parts for name in names)
@@ -83,6 +84,14 @@ def test_provider_equality_includes_exact_ssh_target_and_binary():
 
   assert provider.same_database_provider(first, first)
   assert not provider.same_database_provider(first, second)
+
+
+def test_control_socket_does_not_inherit_the_worktree_path(tmp_path, monkeypatch):
+  monkeypatch.setattr(provider.tempfile, "gettempdir", lambda: str(tmp_path))
+
+  assert provider.control_socket("0123456789abcdef") == (
+    tmp_path / "inkcre-core-py-ssh" / "0123456789abcdef"
+  )
 
 
 def test_compose_failure_is_actionable_and_redacts_runtime_secrets(

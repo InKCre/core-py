@@ -11,6 +11,7 @@ from app.engine import SessionLocal
 from app.database_contract.profile import BUILTIN_SOURCE_TYPES_BY_ID
 from app.schemas.info_base.block import BlockID
 from app.schemas.source import (
+  CollectAt,
   SourceCollectJobModel,
   SourceModel,
   SourceID,
@@ -81,6 +82,10 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     - Used for passive collection methods like webhooks.
     """
     raise NotImplementedError(f"{self.__class__.__name__} does not support passive record")
+
+  def scheduled_collect_config(self) -> dict[str, typing.Any]:
+    """Build immutable input for a scheduler-created collect job."""
+    return {}
 
   def get_config(self) -> ConfigTV:
     """Get the configuration of the source."""
@@ -285,8 +290,12 @@ class SourceManager:
     """Create one durable collect job, then run the canonical job path."""
     from .collect_job import SourceCollectJobManager
 
+    source = cls._get_source_ins(source_id)
     with SessionLocal() as db:
-      job = SourceCollectJobModel(source=source_id, config={})
+      job = SourceCollectJobModel(
+        source=source_id,
+        config=source.scheduled_collect_config(),
+      )
       db.add(job)
       db.commit()
       db.refresh(job)
@@ -339,3 +348,47 @@ class SourceManager:
       cls._SOURCE_ROW_TYPES[source.id] = type_
 
     return source
+
+  @classmethod
+  def ensure_exists(
+    cls,
+    type_: str,
+    *,
+    nickname: Opt[str] = None,
+    config: dict | None = None,
+    collect_at: CollectAt | None = None,
+  ) -> tuple[SourceModel, bool]:
+    """Return any existing Source of this type, or atomically create one.
+
+    This is an at-least-one primitive, not a uniqueness policy: existing Sources
+    are never renamed or rescheduled, and callers may still create more Sources.
+    """
+    with SessionLocal() as db:
+      db.connection().execute(
+        sqlalchemy.text("SELECT pg_advisory_xact_lock(hashtextextended(:type, 0))"),
+        {"type": type_},
+      )
+      source = db.exec(
+        sqlmodel.select(SourceModel)
+        .where(SourceModel.type == type_)
+        .order_by(sqlmodel.col(SourceModel.id))
+        .limit(1)
+        .with_for_update()
+      ).one_or_none()
+      created = source is None
+      if source is None:
+        source = SourceModel(
+          type=type_,
+          nickname=nickname,
+          config=dict(config or {}),
+          collect_at=collect_at,
+        )
+        db.add(source)
+        db.commit()
+        db.refresh(source)
+
+    if source.id is not None:
+      cls._SOURCE_ROW_TYPES[source.id] = type_
+    if created and source.collect_at is not None:
+      cls.set_up_collect_jobs({type_})
+    return source, created

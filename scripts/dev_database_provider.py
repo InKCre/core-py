@@ -31,6 +31,7 @@ BUILD_CONTEXT_PATHS = (
   Path("migrations"),
   Path("pdm.lock"),
   Path("pyproject.toml"),
+  Path("release/database-contract"),
   Path("run.py"),
   Path("scripts"),
   Path("utils"),
@@ -398,7 +399,10 @@ def diagnose_database_provider(provider: DatabaseProvider) -> ProviderDiagnostic
 
 def control_socket(identity: str) -> Path:
   """Return the instance-owned OpenSSH control socket path."""
-  return RUNTIME_ROOT / "ssh" / identity
+  # OpenSSH control sockets use a short Unix-domain path limit. Worktree paths can
+  # exceed it before the instance suffix is added, so keep only the stable owner
+  # and instance identity in the system temporary directory.
+  return Path(tempfile.gettempdir()) / "inkcre-core-py-ssh" / identity
 
 
 def database_access_ready(

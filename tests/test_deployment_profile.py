@@ -23,7 +23,7 @@ def test_production_profile_projects_the_executable_contract():
   assert profile["format"] == 1
   assert profile["environment"] == "production"
   assert profile["database_contract"] == {
-    "migration_head": "b8c1d2e3f4a5",
+    "migration_head": "c7d8e9f0a1b2",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }

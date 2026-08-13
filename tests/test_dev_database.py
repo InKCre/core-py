@@ -134,3 +134,34 @@ def test_source_fingerprint_names_and_hashes_each_file(monkeypatch, tmp_path):
   compose.write_text("services:\n  postgres: {}")
 
   assert dev_database._source_fingerprint() != initial
+
+
+def test_readiness_invokes_the_container_cli(monkeypatch):
+  state = _state("0123456789abcdef")
+  calls = []
+
+  def compose(_state, arguments, *, timeout):
+    calls.append((arguments, timeout))
+    return '{"status":"ok"}'
+
+  monkeypatch.setattr(dev_database, "_compose", compose)
+
+  assert dev_database._readiness(state)["status"] == "ok"
+  assert calls == [
+    (
+      (
+        "run",
+        "--rm",
+        "--no-deps",
+        "init",
+        "python",
+        "scripts/container.py",
+        "db",
+        "ready",
+        "--profile",
+        "development",
+        "--json",
+      ),
+      45,
+    )
+  ]

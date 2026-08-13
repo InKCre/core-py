@@ -19,6 +19,7 @@ def test_canonical_extensions_relation_is_the_only_extension_state_model():
     table.c.enabled,
     table.c.nickname,
     table.c.config,
+    table.c.state,
     table.c.config_schema,
   ]
   assert list(table.primary_key.columns) == [table.c.name]
@@ -27,6 +28,7 @@ def test_canonical_extensions_relation_is_the_only_extension_state_model():
   assert not table.c.version.nullable
   assert not table.c.enabled.nullable
   assert not table.c.config.nullable
+  assert not table.c.state.nullable
   assert "extension_installations" not in {
     candidate.name for candidate in get_target_metadata().tables.values()
   }
@@ -46,4 +48,5 @@ def test_canonical_extensions_constraints_match_public_validators():
   assert constraints == {
     "extensions_name_canonical": f"name ~ '{EXTENSION_NAME_PATTERN}'",
     "extensions_version_canonical": f"version ~ '{EXTENSION_SEMVER_PATTERN}'",
+    "extensions_state_object": "jsonb_typeof(state) = 'object'",
   }

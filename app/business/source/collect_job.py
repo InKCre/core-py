@@ -1,5 +1,7 @@
 import datetime
+import json
 
+import sqlalchemy
 import sqlmodel
 
 from app.engine import SessionLocal
@@ -19,6 +21,39 @@ LOGGER = get_logger().getChild(__name__)
 
 class SourceCollectJobManager:
   """Manager for source collect jobs."""
+
+  @classmethod
+  def ensure(
+    cls,
+    source_id: int,
+    config: dict,
+  ) -> tuple[SourceCollectJobModel, bool]:
+    """Atomically reuse or create one non-failed job for exact JSON input."""
+    canonical_config = json.dumps(config, sort_keys=True, separators=(",", ":"))
+    lock_identity = f"source-collect-job\0{source_id}\0{canonical_config}"
+    with SessionLocal() as db:
+      db.connection().execute(
+        sqlalchemy.text("SELECT pg_advisory_xact_lock(hashtextextended(:identity, 0))"),
+        {"identity": lock_identity},
+      )
+      jobs = db.exec(
+        sqlmodel.select(SourceCollectJobModel)
+        .where(
+          SourceCollectJobModel.source == source_id,
+          SourceCollectJobModel.status != SourceCollectJobStatus.FAILED,
+        )
+        .order_by(sqlmodel.col(SourceCollectJobModel.id))
+        .with_for_update()
+      ).all()
+      existing = next((job for job in jobs if dict(job.config) == config), None)
+      if existing is not None:
+        db.commit()
+        return existing, False
+      job = SourceCollectJobModel(source=source_id, config=dict(config))
+      db.add(job)
+      db.commit()
+      db.refresh(job)
+      return job, True
 
   @classmethod
   async def run(cls, job_id: SourceCollectJobID) -> bool:

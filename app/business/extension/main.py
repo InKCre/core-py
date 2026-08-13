@@ -39,17 +39,22 @@ from .release import (
 from .runtime import (
   ExtensionPublication,
   ExtensionPublicationSnapshot,
+  PublicHTTPRoute,
+  PublicHTTPRouteClaim,
   ExtensionRuntimeClaim,
   ExtensionRuntimeClaimConflictError,
   ExtensionRuntimeRecord,
 )
-from .state import ExtensionState, ExtensionStateStore, SQLExtensionStateStore
+from .state import ExtensionStore, InstalledExtension, SQLExtensionStore
 
 
 LOGGER = get_logger().getChild(__name__)
 
 
 class EmptyConfig(sqlmodel.SQLModel): ...
+
+
+class EmptyState(sqlmodel.SQLModel): ...
 
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
@@ -64,11 +69,13 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     cls,
     ext_id: str,
     config_cls: type[ConfigTV],
+    state_cls: type[sqlmodel.SQLModel] = EmptyState,
     **kwargs: typing.Any,
   ) -> None:
     cls.__extid__ = ext_id
     cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
     cls.__configschema__ = config_cls.model_json_schema()
+    cls.__statecls__ = state_cls
     super().__init_subclass__(**kwargs)
 
   @classmethod
@@ -98,10 +105,16 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
       setattr(cls, "config", validated_config)
       router = fastapi.APIRouter(prefix=f"/{cls.__extid__}")
       cls._register_apis(router)
+      registered_routes = tuple(router.routes)
       app.include_router(router, tags=["extension", cls.__extid__])
       cls._init_sources()
       cls._init_resolvers()
       publication = snapshot.finish()
+      publication.public_http_claim = PublicHTTPRouteClaim.acquire(
+        cls.__extid__,
+        cls.public_http_routes(),
+        registered_routes,
+      )
       publication.activate_source_types()
       extension.persist_config_schema(dict(cls.__configschema__))
     except Exception:
@@ -128,8 +141,6 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     )
     if record is None:
       raise ExtensionRuntimeError(f"Extension runtime {cls.__extid__} has no state")
-    config = typing.cast(sqlmodel.SQLModel, getattr(cls, "config"))
-    record.persist_config(config.model_dump())
     LOGGER.info("Extension %s closed", cls.__extid__)
 
   @classmethod
@@ -161,12 +172,81 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
     """Register Extension-owned API endpoints."""
 
   @classmethod
-  def update_config(cls, new_config: dict[str, typing.Any] | ConfigTV) -> None:
+  def public_http_routes(cls) -> tuple[PublicHTTPRoute, ...]:
+    return ()
+
+  @classmethod
+  def _runtime_record(cls) -> ExtensionRuntimeRecord:
+    record = typing.cast(
+      ExtensionRuntimeRecord | None,
+      cls.__dict__.get("__runtime_record__"),
+    )
+    if record is None:
+      raise ExtensionRuntimeError(f"Extension runtime {cls.__extid__} has no state")
+    return record
+
+  @classmethod
+  def get_config(cls) -> ConfigTV:
+    validated = cls.__configcls__(  # pyrefly: ignore[missing-attribute]
+      **cls._runtime_record().read_config()
+    )
+    setattr(cls, "config", validated)
+    return validated
+
+  @classmethod
+  def update_config(cls, new_config: dict[str, typing.Any] | ConfigTV) -> ConfigTV:
     if isinstance(new_config, dict):
       validated = cls.__configcls__(**new_config)  # pyrefly: ignore[missing-attribute]
     else:
       validated = new_config
+    cls._runtime_record().persist_config(validated.model_dump(mode="json"))
     setattr(cls, "config", validated)
+    return validated
+
+  @classmethod
+  def get_state(cls) -> sqlmodel.SQLModel:
+    return cls.__statecls__(**cls._runtime_record().read_state())  # pyrefly: ignore[missing-attribute]
+
+  @classmethod
+  def mutate_state(
+    cls,
+    transform: typing.Callable[[sqlmodel.SQLModel], sqlmodel.SQLModel],
+  ) -> sqlmodel.SQLModel:
+    state_cls = cls.__statecls__  # pyrefly: ignore[missing-attribute]
+
+    def mutate(raw: dict[str, typing.Any]) -> dict[str, typing.Any]:
+      current = state_cls(**raw)
+      updated = transform(current)
+      if not isinstance(updated, state_cls):
+        raise TypeError("Extension state transform returned the wrong model")
+      return updated.model_dump(mode="json")
+
+    return state_cls(**cls._runtime_record().mutate_state(mutate))
+
+  @classmethod
+  def mutate_config_and_state(
+    cls,
+    transform: typing.Callable[
+      [ConfigTV, sqlmodel.SQLModel], tuple[ConfigTV, sqlmodel.SQLModel]
+    ],
+  ) -> tuple[ConfigTV, sqlmodel.SQLModel]:
+    config_cls = cls.__configcls__  # pyrefly: ignore[missing-attribute]
+    state_cls = cls.__statecls__  # pyrefly: ignore[missing-attribute]
+
+    def mutate(
+      raw_config: dict[str, typing.Any],
+      raw_state: dict[str, typing.Any],
+    ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
+      config, state = transform(config_cls(**raw_config), state_cls(**raw_state))
+      if not isinstance(config, config_cls) or not isinstance(state, state_cls):
+        raise TypeError("Extension config/state transform returned the wrong models")
+      return config.model_dump(mode="json"), state.model_dump(mode="json")
+
+    raw_config, raw_state = cls._runtime_record().mutate_config_and_state(mutate)
+    config = config_cls(**raw_config)
+    state = state_cls(**raw_state)
+    setattr(cls, "config", config)
+    return config, state
 
 
 @dataclass
@@ -186,11 +266,11 @@ class ExtensionHost:
   def __init__(
     self,
     *,
-    store: ExtensionStateStore | None = None,
+    store: ExtensionStore | None = None,
     release_client: ReleaseResolver | None = None,
     distribution_consumer: DistributionConsumer | None = None,
   ) -> None:
-    self.store = store or SQLExtensionStateStore()
+    self.store = store or SQLExtensionStore()
     self.release_client = release_client or RegistryReleaseClient(
       settings.extension_registry_url,
       settings.extension_registry_timeout_seconds,
@@ -203,10 +283,10 @@ class ExtensionHost:
     self._loaded_versions: dict[str, str] = {}
     self._runtime_lock = asyncio.Lock()
 
-  def list(self) -> tuple[ExtensionState, ...]:
+  def list(self) -> tuple[InstalledExtension, ...]:
     return self.store.list()
 
-  def get(self, name: str) -> ExtensionState:
+  def get(self, name: str) -> InstalledExtension:
     validate_coordinate(name)
     state = self.store.get(name)
     if state is None:
@@ -230,7 +310,7 @@ class ExtensionHost:
     association = require_python_association(release)
     return release, association
 
-  def install(self, name: str, version: str) -> ExtensionState:
+  def install(self, name: str, version: str) -> InstalledExtension:
     validate_coordinate(name, version)
     existing = self.store.get(name)
     if existing is not None and existing.version == version:
@@ -253,7 +333,7 @@ class ExtensionHost:
     self,
     name: str,
     config: dict[str, typing.Any],
-  ) -> ExtensionState:
+  ) -> InstalledExtension:
     state = self.get(name)
     running = self.running.get(name)
     if running is None:
@@ -263,11 +343,10 @@ class ExtensionHost:
       getattr(running.extension_class, "__configcls__"),
     )
     validated = config_class(**config)
-    updated = self.store.update_config(name, validated.model_dump())
     running.extension_class.update_config(validated)
-    return updated
+    return self.get(name)
 
-  def _acquire(self, state: ExtensionState):
+  def _acquire(self, state: InstalledExtension):
     release, association = self._resolve(
       state.name,
       state.version,
@@ -279,7 +358,7 @@ class ExtensionHost:
   async def _start(
     self,
     app: fastapi.FastAPI,
-    state: ExtensionState,
+    state: InstalledExtension,
   ) -> RunningExtension:
     existing = self.running.get(state.name)
     if existing is not None:
@@ -295,7 +374,7 @@ class ExtensionHost:
   async def _start_acquired(
     self,
     app: fastapi.FastAPI,
-    state: ExtensionState,
+    state: InstalledExtension,
     association: PythonReleaseDescriptor,
     acquired: AcquiredDistribution,
     *,
@@ -317,6 +396,25 @@ class ExtensionHost:
     def persist_config(config: dict[str, typing.Any]) -> None:
       self.store.update_config(state.name, config)
 
+    def read_config() -> dict[str, typing.Any]:
+      return self.store.read_config(state.name)
+
+    def read_state() -> dict[str, typing.Any]:
+      return self.store.read_state(state.name)
+
+    def mutate_state(
+      transform: typing.Callable[[dict[str, typing.Any]], dict[str, typing.Any]],
+    ) -> dict[str, typing.Any]:
+      return self.store.mutate_state(state.name, transform)
+
+    def mutate_config_and_state(
+      transform: typing.Callable[
+        [dict[str, typing.Any], dict[str, typing.Any]],
+        tuple[dict[str, typing.Any], dict[str, typing.Any]],
+      ],
+    ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
+      return self.store.mutate_config_and_state(state.name, transform)
+
     def stage_schema(schema: dict[str, typing.Any]) -> None:
       schema_box["value"] = schema
 
@@ -329,7 +427,11 @@ class ExtensionHost:
       runtime_record = ExtensionRuntimeRecord(
         extension_id=association.entry_point.name,
         config=dict(state.config),
+        read_config=read_config,
         persist_config=persist_config,
+        read_state=read_state,
+        mutate_state=mutate_state,
+        mutate_config_and_state=mutate_config_and_state,
         persist_config_schema=stage_schema,
       )
       extension_class.on_start(
@@ -404,7 +506,7 @@ class ExtensionHost:
     name: str,
     *,
     app: fastapi.FastAPI | None = None,
-  ) -> ExtensionState:
+  ) -> InstalledExtension:
     validate_coordinate(name)
     runtime_app = app or self.fastapi_app
     if runtime_app is None:
@@ -445,7 +547,7 @@ class ExtensionHost:
         ) from conflict
       raise conflict
 
-  async def disable(self, name: str) -> ExtensionState:
+  async def disable(self, name: str) -> InstalledExtension:
     validate_coordinate(name)
     peer_id = ClientManager.get_current_client_id()
     async with self._runtime_lock:
@@ -519,8 +621,10 @@ EXTENSION_HOST = ExtensionHost()
 __all__ = [
   "EXTENSION_HOST",
   "EmptyConfig",
+  "EmptyState",
   "ExtensionBase",
   "ExtensionHost",
   "ExtensionHostError",
-  "ExtensionState",
+  "InstalledExtension",
+  "PublicHTTPRoute",
 ]

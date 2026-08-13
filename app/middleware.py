@@ -19,6 +19,7 @@ from app.database_contract.constants import (
 )
 from app.settings import settings
 from libs.obsrv.main import get_logger
+from app.business.extension.runtime import PublicHTTPRouteClaim
 
 
 def decode_peer_jwt(
@@ -95,7 +96,6 @@ class LoggingMiddleware(BaseHTTPMiddleware):
       extra={
         "method": request.method,
         "path": request.url.path,
-        "query_params": str(request.query_params),
       },
     )
 
@@ -161,6 +161,7 @@ class JWTMiddleware(BaseHTTPMiddleware):
       request.url.path in {"/heartbeat", "/livez", "/readyz"}
       or request.url.path == "/docs"
       or request.url.path.startswith("/openapi.json")
+      or PublicHTTPRouteClaim.permits(request.method, request.url.path)
     ):
       return await call_next(request)
 

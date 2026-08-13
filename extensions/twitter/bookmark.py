@@ -29,6 +29,19 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
 
   API_BASE_URL = "https://api.x.com/2"
 
+  def scheduled_collect_config(self) -> dict[str, typing.Any]:
+    from .setup_flow import TwitterExtensionState, TwitterSetupConflict
+    from . import Extension
+
+    state = TwitterExtensionState.model_validate(Extension.get_state().model_dump())
+    if state.account is None or state.account.reconnect_required:
+      raise TwitterSetupConflict("Twitter account is not connected")
+    return {
+      "full": False,
+      "result_limit": 40,
+      "authorization_id": state.account.authorization_id,
+    }
+
   async def collect(self, job: "SourceCollectJobModel") -> None:
     """Collect all new bookmarks and its notes.
 
@@ -45,11 +58,17 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
     config = job.config or {}
     full = config.get("full", False)
     result_limit = config.get("result_limit", 40)
+    authorization_id = config.get("authorization_id")
+    if not isinstance(authorization_id, str) or not authorization_id:
+      raise RuntimeError("Twitter collect job has no authorization identity")
 
     page = job.state.get("page") if job.state else None
 
-    api_client = TwitterAPI.new()
-    bookmarks_res = await api_client.get_bookmarks(page=page, max_results=result_limit)
+    api_client = TwitterAPI.new(expected_authorization_id=authorization_id)
+    try:
+      bookmarks_res = await api_client.get_bookmarks(page=page, max_results=result_limit)
+    finally:
+      await api_client.close()
 
     # find new tweets start point
     old_start_at = len(bookmarks_res.tweets)
@@ -100,7 +119,7 @@ class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
         )
       )
 
-    if not full:
+    if not full and bookmarks_res.tweets:
       state = self.get_state()
       state["latest_tweet_id"] = bookmarks_res.tweets[0].id
       self.set_state(state)

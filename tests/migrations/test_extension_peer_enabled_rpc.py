@@ -17,7 +17,7 @@ import sqlalchemy
 import sqlmodel
 
 from app.business.extension.errors import ExtensionStateConflictError
-from app.business.extension.state import SQLExtensionStateStore
+from app.business.extension.state import SQLExtensionStore
 
 
 @pytest.fixture(scope="module")
@@ -69,16 +69,21 @@ def postgres_connection_info(tmp_path_factory) -> Iterator[dict[str, object]]:
 
 @pytest.fixture(scope="module")
 def rpc_database(postgres_connection_info, monkeypatch_module):
-  migration = importlib.import_module(
+  native_migration = importlib.import_module(
     "migrations.versions.b8c1d2e3f4a5_native_extension_distribution_cutover"
   )
+  state_migration = importlib.import_module(
+    "migrations.versions.c7d8e9f0a1b2_add_extension_state"
+  )
   guard_statements: list[str] = []
-  monkeypatch_module.setattr(migration.op, "execute", guard_statements.append)
-  migration._create_extension_state_guard()
-  assert len(guard_statements) == 2
+  monkeypatch_module.setattr(native_migration.op, "execute", guard_statements.append)
+  native_migration._create_extension_state_guard()
+  monkeypatch_module.setattr(state_migration.op, "execute", guard_statements.append)
+  state_migration._replace_state_guard(include_extension_state=True)
+  assert len(guard_statements) == 3
   statements: list[str] = []
-  monkeypatch_module.setattr(migration.op, "execute", statements.append)
-  migration._create_peer_enable_rpc()
+  monkeypatch_module.setattr(native_migration.op, "execute", statements.append)
+  native_migration._create_peer_enable_rpc()
   assert len(statements) == 2
   with psycopg.connect(**postgres_connection_info, autocommit=True) as connection:
     connection.execute("CREATE SCHEMA inkcre")
@@ -94,6 +99,7 @@ def rpc_database(postgres_connection_info, monkeypatch_module):
         enabled uuid[] NOT NULL DEFAULT '{}',
         nickname text,
         config jsonb NOT NULL DEFAULT '{}',
+        state jsonb NOT NULL DEFAULT '{}',
         config_schema jsonb
       )
       """
@@ -239,6 +245,16 @@ def test_authenticated_cannot_bypass_rpc_or_insert_enabled_intent(rpc_database):
       "UPDATE inkcre.extensions SET config = '{\"safe\": true}'::jsonb "
       "WHERE name = 'inkcre/test'"
     )
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+      connection.execute(
+        "UPDATE inkcre.extensions SET state = '{\"unsafe\": true}'::jsonb "
+        "WHERE name = 'inkcre/test'"
+      )
+    with pytest.raises(psycopg.errors.CheckViolation, match="state must be empty"):
+      connection.execute(
+        "INSERT INTO inkcre.extensions (name, version, state) "
+        "VALUES ('inkcre/state-injected', '1.0.0', '{\"unsafe\": true}'::jsonb)"
+      )
     connection.execute("RESET ROLE")
 
 
@@ -260,6 +276,24 @@ def test_database_blocks_version_change_and_delete_while_enabled(rpc_database):
       "SELECT * FROM inkcre.set_extension_peer_enabled(%s, %s, false)",
       ("inkcre/test", peer),
     )
+
+
+def test_database_blocks_version_change_while_extension_state_is_not_empty(
+  rpc_database,
+):
+  with psycopg.connect(**rpc_database, autocommit=True) as connection:
+    connection.execute(
+      "INSERT INTO inkcre.extensions (name, version, state) "
+      "VALUES ('inkcre/stateful', '1.0.0', '{}')"
+    )
+    connection.execute(
+      "UPDATE inkcre.extensions SET state = '{\"authorization\": true}'::jsonb "
+      "WHERE name = 'inkcre/stateful'"
+    )
+    with pytest.raises(psycopg.errors.CheckViolation, match="state is not empty"):
+      connection.execute(
+        "UPDATE inkcre.extensions SET version = '2.0.0' WHERE name = 'inkcre/stateful'"
+      )
 
 
 def test_internal_guard_is_not_in_the_postgrest_protocol_schema(rpc_database):
@@ -288,7 +322,7 @@ def test_concurrent_first_install_returns_semantic_conflict(rpc_database):
   def make_session() -> sqlmodel.Session:
     return sqlmodel.Session(engine)
 
-  store = SQLExtensionStateStore(make_session)
+  store = SQLExtensionStore(make_session)
   with psycopg.connect(**rpc_database) as first:
     first.execute(
       "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",

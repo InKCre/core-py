@@ -8,6 +8,10 @@
 - 一个 canonical `extensions` row 表示 deployment 安装的 exact Release；`installed`、
   `enabled[]`、`running` 不可混用。
 - `ExtensionBase` 保持配置校验、`on_start`、`on_close` 与可逆 route/source/resolver publication。
+- `ExtensionBase.get_config()`、`get_state()` 读取当前数据库真值；config/state mutation 通过 Host
+  提供的语义接口持久化。Extension 不接触 SQLModel relation，且 Host 不缓存 state 真值。
+- `config` 是用户声明的部署配置；`state` 是 Extension 管理的 deployment-wide 运行状态。
+  并发与事务由 Core/PostgreSQL adapter 负责，不要求 Extension 自己实现 compare-and-set。
 - Extension wheel 直接 import Core 模块；Host 只接受标准 `inkcre.core.extensions` entry point。
 - Registry Simple URL 必须与配置的 Registry 同源且路径精确匹配 Project。
 - runtime 只能把普通 wheel 安装到当前 Core interpreter/site-packages；禁止 `pip --target`、
@@ -21,6 +25,8 @@
 - enable 先启动 runtime，再调用 atomic enabled RPC；返回 version 不一致时移除 peer 并停止旧 runtime。
 - disable 先停止 runtime，再调用 RPC；RPC 失败时重启 exact prior runtime，durable intent 不变。
 - cold restore 失败不得删除 `enabled[]`，并使 bootstrap/readiness 失败。
+- 公开 HTTP 入口必须由 Extension 显式声明 exact method/path；Host 仅在 runtime publication
+  存活期间授权该 route 绕过 Peer JWT，撤销 runtime 时同步撤销授权。
 
 ## 权限和持久化
 

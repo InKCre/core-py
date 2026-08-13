@@ -17,7 +17,7 @@ from app.business.extension.errors import (
   ExtensionRestartRequiredError,
   ExtensionStateConflictError,
 )
-from app.business.extension.main import ExtensionBase, ExtensionHost
+from app.business.extension.main import ExtensionBase, ExtensionHost, PublicHTTPRoute
 from app.business.extension.release import (
   EntryPointDescriptor,
   ExtensionReleaseDescriptor,
@@ -25,8 +25,8 @@ from app.business.extension.release import (
   require_python_association,
   simple_project_and_index_urls,
 )
-from app.business.extension.state import ExtensionState
-from app.business.extension.runtime import ExtensionRuntimeClaim
+from app.business.extension.state import InstalledExtension
+from app.business.extension.runtime import ExtensionRuntimeClaim, PublicHTTPRouteClaim
 from app.business.client import ClientManager
 
 
@@ -38,7 +38,16 @@ class FixtureConfig(sqlmodel.SQLModel):
   value: int = 1
 
 
-class FixtureExtension(ExtensionBase, ext_id="fixture", config_cls=FixtureConfig):
+class FixtureRuntimeState(sqlmodel.SQLModel):
+  counter: int = 0
+
+
+class FixtureExtension(
+  ExtensionBase,
+  ext_id="fixture",
+  config_cls=FixtureConfig,
+  state_cls=FixtureRuntimeState,
+):
   fail_close = False
 
   @classmethod
@@ -46,6 +55,14 @@ class FixtureExtension(ExtensionBase, ext_id="fixture", config_cls=FixtureConfig
     @router.get("/status")
     def status():
       return {"ok": True}
+
+    @router.get("/callback")
+    def callback():
+      return {"ok": True}
+
+  @classmethod
+  def public_http_routes(cls):
+    return (PublicHTTPRoute(method="GET", path="/callback"),)
 
   @classmethod
   async def on_close(cls) -> None:
@@ -79,8 +96,9 @@ def release(*, state: str = "published", version: str = "1.0.0"):
 
 
 class FakeStore:
-  def __init__(self, state: ExtensionState | None = None) -> None:
+  def __init__(self, state: InstalledExtension | None = None) -> None:
     self.state = state
+    self.runtime_state: dict[str, typing.Any] = {}
     self.set_calls: list[tuple[str, uuid.UUID, bool]] = []
     self.fail_set = False
     self.version_on_enable: str | None = None
@@ -94,7 +112,7 @@ class FakeStore:
   def install(self, name: str, version: str, nickname: str):
     if self.state is not None and self.state.version != version and self.state.enabled:
       raise ExtensionStateConflictError("enabled")
-    self.state = ExtensionState(
+    self.state = InstalledExtension(
       name=name,
       version=version,
       nickname=nickname,
@@ -110,6 +128,24 @@ class FakeStore:
     assert self.state is not None
     self.state = self.state.model_copy(update={"config": config})
     return self.state
+
+  def read_config(self, name: str):
+    assert self.state is not None
+    return dict(self.state.config)
+
+  def read_state(self, name: str):
+    return dict(self.runtime_state)
+
+  def mutate_state(self, name: str, transform):
+    self.runtime_state = transform(dict(self.runtime_state))
+    return dict(self.runtime_state)
+
+  def mutate_config_and_state(self, name: str, transform):
+    assert self.state is not None
+    config, state = transform(dict(self.state.config), dict(self.runtime_state))
+    self.state = self.state.model_copy(update={"config": config})
+    self.runtime_state = state
+    return dict(config), dict(state)
 
   def update_config_schema(self, name: str, schema: dict):
     assert self.state is not None
@@ -183,6 +219,8 @@ def clean_runtime(monkeypatch):
   FakeModules.fail_unload = False
   with ExtensionRuntimeClaim._lock:
     ExtensionRuntimeClaim._owners.clear()
+  with PublicHTTPRouteClaim._lock:
+    PublicHTTPRouteClaim._owners.clear()
   monkeypatch.setattr(host_module, "DistributionModules", FakeModules)
   monkeypatch.setattr(ClientManager, "get_current_client_id", lambda: PEER_ID)
   yield
@@ -191,9 +229,11 @@ def clean_runtime(monkeypatch):
   FixtureExtension.release_runtime()
   with ExtensionRuntimeClaim._lock:
     ExtensionRuntimeClaim._owners.clear()
+  with PublicHTTPRouteClaim._lock:
+    PublicHTTPRouteClaim._owners.clear()
 
 
-def make_host(state: ExtensionState, descriptor=None):
+def make_host(state: InstalledExtension, descriptor=None):
   store = FakeStore(state)
   consumer = FakeConsumer()
   host = ExtensionHost(
@@ -205,7 +245,7 @@ def make_host(state: ExtensionState, descriptor=None):
 
 
 def test_enable_starts_before_atomic_enabled_rpc_and_rolls_back_on_rpc_failure():
-  state = ExtensionState(name=NAME, version="1.0.0")
+  state = InstalledExtension(name=NAME, version="1.0.0")
   host, store, _ = make_host(state)
   store.fail_set = True
   app = fastapi.FastAPI()
@@ -218,10 +258,48 @@ def test_enable_starts_before_atomic_enabled_rpc_and_rolls_back_on_rpc_failure()
   assert store.set_calls == [(NAME, PEER_ID, True)]
   assert host.running == {}
   assert len(app.routes) == original_routes
+  assert not PublicHTTPRouteClaim.permits("GET", "/fixture/callback")
+
+
+def test_public_http_route_claim_follows_runtime_publication_lifecycle():
+  state = InstalledExtension(name=NAME, version="1.0.0")
+  host, _, _ = make_host(state)
+
+  asyncio.run(host.enable(NAME, app=fastapi.FastAPI()))
+  assert PublicHTTPRouteClaim.permits("GET", "/fixture/callback")
+  assert not PublicHTTPRouteClaim.permits("POST", "/fixture/callback")
+
+  asyncio.run(host.disable(NAME))
+  assert not PublicHTTPRouteClaim.permits("GET", "/fixture/callback")
+
+
+def test_extension_facing_config_and_state_api_reads_fresh_and_persists_immediately():
+  state = InstalledExtension(name=NAME, version="1.0.0")
+  host, store, _ = make_host(state)
+  asyncio.run(host.enable(NAME, app=fastapi.FastAPI()))
+  assert store.state is not None
+  store.state = store.state.model_copy(update={"config": {"value": 7}})
+
+  assert FixtureExtension.get_config().value == 7
+  updated = FixtureExtension.update_config({"value": 9})
+  runtime_state = typing.cast(
+    FixtureRuntimeState,
+    FixtureExtension.mutate_state(
+      lambda current: FixtureRuntimeState(
+        counter=typing.cast(FixtureRuntimeState, current).counter + 1
+      )
+    ),
+  )
+
+  assert updated.value == 9
+  assert store.state.config == {"value": 9}
+  assert runtime_state.counter == 1
+  assert store.runtime_state == {"counter": 1}
+  asyncio.run(host.disable(NAME))
 
 
 def test_existing_exact_yanked_release_can_cold_restore_without_mutating_intent():
-  state = ExtensionState(name=NAME, version="1.0.0", enabled=(PEER_ID,))
+  state = InstalledExtension(name=NAME, version="1.0.0", enabled=(PEER_ID,))
   host, store, consumer = make_host(state, release(state="yanked"))
 
   asyncio.run(host.start_enabled(fastapi.FastAPI()))
@@ -232,7 +310,7 @@ def test_existing_exact_yanked_release_can_cold_restore_without_mutating_intent(
 
 
 def test_concurrent_version_change_compensates_enabled_and_started_runtime():
-  state = ExtensionState(name=NAME, version="1.0.0")
+  state = InstalledExtension(name=NAME, version="1.0.0")
   host, store, _ = make_host(state)
   store.version_on_enable = "2.0.0"
 
@@ -252,8 +330,8 @@ def test_concurrent_version_change_compensates_enabled_and_started_runtime():
 def test_runtime_claim_blocks_cross_namespace_package_collision_until_release():
   first_name = "inkcre/fixture"
   second_name = "other/fixture"
-  first_state = ExtensionState(name=first_name, version="1.0.0")
-  second_state = ExtensionState(name=second_name, version="1.0.0")
+  first_state = InstalledExtension(name=first_name, version="1.0.0")
+  second_state = InstalledExtension(name=second_name, version="1.0.0")
   first_descriptor = release().model_copy(update={"name": first_name})
   second_descriptor = release().model_copy(update={"name": second_name})
   first, _, _ = make_host(first_state, first_descriptor)
@@ -272,7 +350,7 @@ def test_runtime_claim_blocks_cross_namespace_package_collision_until_release():
 
 
 def test_failed_startup_compensation_releases_runtime_claim(monkeypatch):
-  state = ExtensionState(name=NAME, version="1.0.0")
+  state = InstalledExtension(name=NAME, version="1.0.0")
   failed, _, _ = make_host(state)
 
   def fail_load(self, extension_base):
@@ -285,13 +363,13 @@ def test_failed_startup_compensation_releases_runtime_claim(monkeypatch):
 
 
 def test_new_install_rejects_yanked_and_version_change_rejects_enabled_intent():
-  missing = ExtensionState(name=NAME, version="1.0.0", enabled=(PEER_ID,))
+  missing = InstalledExtension(name=NAME, version="1.0.0", enabled=(PEER_ID,))
   host, _, _ = make_host(missing, release(version="2.0.0"))
   with pytest.raises(ExtensionStateConflictError):
     host.install(NAME, "2.0.0")
 
   fresh_host, _, _ = make_host(
-    ExtensionState(name="inkcre/another", version="1.0.0"),
+    InstalledExtension(name="inkcre/another", version="1.0.0"),
     release(state="yanked"),
   )
   with pytest.raises(ExtensionCompatibilityError):
@@ -299,7 +377,7 @@ def test_new_install_rejects_yanked_and_version_change_rejects_enabled_intent():
 
 
 def test_loaded_version_change_requires_restart_even_after_disable():
-  state = ExtensionState(name=NAME, version="1.0.0")
+  state = InstalledExtension(name=NAME, version="1.0.0")
   host, _, _ = make_host(state, release(version="2.0.0"))
   host._loaded_versions[NAME] = "1.0.0"
 
@@ -308,7 +386,7 @@ def test_loaded_version_change_requires_restart_even_after_disable():
 
 
 def test_disable_rpc_failure_restarts_exact_prior_runtime_and_preserves_intent():
-  state = ExtensionState(name=NAME, version="1.0.0", enabled=(PEER_ID,))
+  state = InstalledExtension(name=NAME, version="1.0.0", enabled=(PEER_ID,))
   host, store, _ = make_host(state)
   app = fastapi.FastAPI()
   asyncio.run(host.start_enabled(app))
@@ -323,7 +401,7 @@ def test_disable_rpc_failure_restarts_exact_prior_runtime_and_preserves_intent()
 
 
 def test_disable_reports_both_rpc_and_restart_compensation_failures(monkeypatch):
-  state = ExtensionState(name=NAME, version="1.0.0", enabled=(PEER_ID,))
+  state = InstalledExtension(name=NAME, version="1.0.0", enabled=(PEER_ID,))
   host, store, _ = make_host(state)
   asyncio.run(host.start_enabled(fastapi.FastAPI()))
   store.fail_set = True
@@ -344,7 +422,7 @@ def test_disable_reports_both_rpc_and_restart_compensation_failures(monkeypatch)
 
 @pytest.mark.parametrize("phase", ["close", "unload"])
 def test_partial_stop_failure_remains_tracked_and_never_mutates_enabled(phase: str):
-  state = ExtensionState(name=NAME, version="1.0.0", enabled=(PEER_ID,))
+  state = InstalledExtension(name=NAME, version="1.0.0", enabled=(PEER_ID,))
   host, store, _ = make_host(state)
   app = fastapi.FastAPI()
   asyncio.run(host.start_enabled(app))
@@ -374,7 +452,7 @@ def test_host_sdk_uses_npm_semver_ranges_and_prerelease_rules():
     )
   with pytest.raises(ExtensionCompatibilityError):
     require_python_association(
-      descriptor.model_copy(update={"python": association(">=0.1.1-beta.1")})
+      descriptor.model_copy(update={"python": association(">=0.1.2-beta.1")})
     )
 
 

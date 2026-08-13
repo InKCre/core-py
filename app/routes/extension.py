@@ -5,7 +5,7 @@ import typing
 import fastapi
 import pydantic
 
-from app.business.extension import EXTENSION_HOST, ExtensionState
+from app.business.extension import EXTENSION_HOST, InstalledExtension
 from app.business.extension.errors import (
   ExtensionAcquisitionError,
   ExtensionCompatibilityError,
@@ -47,12 +47,12 @@ def _raise_http_error(error: ExtensionHostError) -> typing.NoReturn:
 
 
 @ROUTER.get("")
-def list_extensions() -> tuple[ExtensionState, ...]:
+def list_extensions() -> tuple[InstalledExtension, ...]:
   return EXTENSION_HOST.list()
 
 
 @ROUTER.get("/{namespace}/{name}")
-def get_extension(namespace: str, name: str) -> ExtensionState:
+def get_extension(namespace: str, name: str) -> InstalledExtension:
   try:
     return EXTENSION_HOST.get(_coordinate(namespace, name))
   except ExtensionHostError as error:
@@ -64,7 +64,7 @@ def install_extension(
   namespace: str,
   name: str,
   version: str = fastapi.Query(...),
-) -> ExtensionState:
+) -> InstalledExtension:
   """Install one exact published Extension Release with no enabled peers."""
   try:
     return EXTENSION_HOST.install(_coordinate(namespace, name), version)
@@ -86,7 +86,7 @@ def update_extension_config(
   namespace: str,
   name: str,
   body: dict[str, typing.Any] = fastapi.Body(...),
-) -> ExtensionState:
+) -> InstalledExtension:
   try:
     return EXTENSION_HOST.update_config(_coordinate(namespace, name), body)
   except pydantic.ValidationError as error:
@@ -99,7 +99,7 @@ def update_extension_config(
 
 
 @ROUTER.post("/{namespace}/{name}/enable")
-async def enable_extension(namespace: str, name: str) -> ExtensionState:
+async def enable_extension(namespace: str, name: str) -> InstalledExtension:
   try:
     return await EXTENSION_HOST.enable(_coordinate(namespace, name))
   except ExtensionHostError as error:
@@ -107,7 +107,7 @@ async def enable_extension(namespace: str, name: str) -> ExtensionState:
 
 
 @ROUTER.post("/{namespace}/{name}/disable")
-async def disable_extension(namespace: str, name: str) -> ExtensionState:
+async def disable_extension(namespace: str, name: str) -> InstalledExtension:
   try:
     return await EXTENSION_HOST.disable(_coordinate(namespace, name))
   except ExtensionHostError as error:

@@ -238,6 +238,17 @@ def test_scheduled_callback_without_parameters_creates_and_runs_a_durable_job(
     "_source_rows",
     classmethod(lambda cls, selected=None: (row,)),
   )
+  monkeypatch.setattr(
+    SourceManager,
+    "_get_source_ins",
+    classmethod(
+      lambda cls, source_id, source_type=None: type(
+        "ScheduledSource",
+        (),
+        {"scheduled_collect_config": lambda self: {}},
+      )()
+    ),
+  )
   monkeypatch.setattr(SourceCollectJobManager, "run", classmethod(run_job))
   activation = SourceManager.set_up_collect_jobs({row.type})
 
@@ -246,6 +257,54 @@ def test_scheduled_callback_without_parameters_creates_and_runs_a_durable_job(
   assert [(job.source, job.config) for job in created] == [(51, {})]
   assert run_ids == [71]
   SourceManager.withdraw_runtime_activation(activation)
+
+
+def test_collect_job_ensure_reuses_exact_non_failed_input_under_a_database_lock(
+  monkeypatch,
+):
+  jobs: list[SourceCollectJobModel] = []
+  lock_identities: list[str] = []
+
+  class Result:
+    def all(self):
+      return list(jobs)
+
+  class EnsureSession:
+    def __enter__(self):
+      return self
+
+    def __exit__(self, *args):
+      return None
+
+    def connection(self):
+      return self
+
+    def execute(self, statement, parameters):
+      lock_identities.append(parameters["identity"])
+
+    def exec(self, statement):
+      return Result()
+
+    def add(self, job):
+      jobs.append(job)
+
+    def commit(self):
+      return None
+
+    def refresh(self, job):
+      job.id = 81
+
+  monkeypatch.setattr(collect_job_module, "SessionLocal", EnsureSession)
+  config = {"authorization_id": "account-1", "full": False, "result_limit": 40}
+
+  first, first_created = SourceCollectJobManager.ensure(41, config)
+  second, second_created = SourceCollectJobManager.ensure(41, config)
+
+  assert first_created is True
+  assert second_created is False
+  assert second is first
+  assert len(jobs) == 1
+  assert len(set(lock_identities)) == 1
 
 
 def test_partial_scheduler_activation_rolls_back_added_jobs_and_type_ownership(
