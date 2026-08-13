@@ -10,6 +10,7 @@ import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
 
+from app.database_contract.profile import BUILTIN_JOB_TYPES_BY_ID
 from app.engine import SessionLocal
 from app.scheduler import scheduler, with_trace_id
 from app.schemas.job import JobID, JobModel, JobStatus, JobTypeID, JobTypeModel
@@ -85,11 +86,20 @@ class JobManager:
     """Project locally registered exact Handler contracts to PostgreSQL."""
     with SessionLocal() as db_session:
       for handler in cls._handlers.values():
+        builtin = BUILTIN_JOB_TYPES_BY_ID.get(handler.type)
         statement = sqlalchemy.dialects.postgresql.insert(JobTypeModel).values(
           id=handler.type,
-          description=handler.description,
-          parameters_schema=handler.parameters_model.model_json_schema(),
-          default_timeout_seconds=handler.default_timeout_seconds,
+          description=builtin.description if builtin is not None else handler.description,
+          parameters_schema=(
+            builtin.parameters_schema
+            if builtin is not None
+            else handler.parameters_model.model_json_schema()
+          ),
+          default_timeout_seconds=(
+            builtin.default_timeout_seconds
+            if builtin is not None
+            else handler.default_timeout_seconds
+          ),
         )
         statement = statement.on_conflict_do_update(
           index_elements=[JobTypeModel.id],
