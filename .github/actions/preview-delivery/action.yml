@@ -26,6 +26,9 @@ inputs:
   postgrest_database_password:
     description: Preview PostgREST authenticator role password
     required: true
+  preview_jwt_seed:
+    description: Root secret used to derive one stable signing key per repository PR
+    required: true
   pr_number:
     description: Pull request number
     required: true
@@ -278,6 +281,7 @@ runs:
         PR_NUMBER: ${{ inputs.pr_number }}
         POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
         POSTGREST_DATABASE_URL: ${{ steps.database.outputs.postgrest_database_url }}
+        PREVIEW_JWT_SEED: ${{ inputs.preview_jwt_seed }}
         WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: |
         wait_for_release() {
@@ -401,10 +405,13 @@ runs:
           fi
         }
 
-        JWT_SECRET="$(heroku config:get JWT_SECRET --app "$APP_NAME" || true)"
-        if [ -z "$JWT_SECRET" ]; then
-          JWT_SECRET="$(openssl rand -hex 32)"
-        fi
+        JWT_SECRET="$(
+          python \
+            "$GITHUB_ACTION_PATH/../../../scripts/derive_preview_jwt_secret.py" \
+            --repository "$GITHUB_REPOSITORY" \
+            --pr-number "$PR_NUMBER"
+        )"
+        test -n "$JWT_SECRET"
         echo "::add-mask::$JWT_SECRET"
 
         if [ "$HAS_DEPLOYED_RELEASE" = false ]; then
