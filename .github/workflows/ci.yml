@@ -135,7 +135,7 @@ jobs:
           required = (
             'app', 'libs', 'utils', 'migrations/versions',
             'alembic.ini', 'scripts/container.py', 'scripts/database.py',
-            'scripts/verify_postgrest_contract.py', 'data/ai/prompts'
+            'scripts/verify_postgrest_contract.py'
           );
           missing = [path for path in required if not Path(path).exists()];
           assert not missing, missing;

@@ -26,14 +26,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.settings import settings
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
+from app.routes.extension import PEER_INBOUND as extension_peer_inbound
 from app.routes.extension import ROUTER as extension_router
 from app.routes.source import ROUTER as source_router
+from app.routes.deployment_config import ROUTER as deployment_config_router
+from app.routes.info_base import ROUTER as info_base_router
+from app.routes.lexical_retrieval import PEER_INBOUND as lexical_retrieval_peer_inbound
+from app.routes.lexical_retrieval import ROUTER as lexical_retrieval_router
+from app.routes.organization import PEER_INBOUND as organization_peer_inbound
+from app.routes.organization import ROUTER as organization_router
+from app.routes.semantic_retrieval import PEER_INBOUND as semantic_retrieval_peer_inbound
+from app.routes.semantic_retrieval import ROUTER as semantic_retrieval_router
 from app.business.source import SourceManager
+from app.business.cron import CronManager
+from app.business.job import JobManager
 from app.business.extension import EXTENSION_HOST
-from app.business.client import ClientManager
-from app.business.info_base.main import InfoBaseManager
-from app.business.sink import SinkManager
-from app.middleware import LoggingMiddleware, JWTMiddleware
+from app.business.peer import PeerManager
+from app.business.ai import AIManager
+
+# Import core-owned Job contracts before their catalog is synchronized.
+from app.business.organization_job import MediaInterpretationJobHandler  # noqa: F401
+from app.middleware import LoggingMiddleware, require_peer_jwt
+from app.schemas.peer import PEER_EXECUTION_HEADER
 from app.health import check_database_readiness
 from app.runtime import RUNTIME_STATUS, RuntimePhase
 
@@ -44,12 +58,19 @@ from app.scheduler import scheduler
 
 async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   """Initialize database-backed runtime services after migrations are ready."""
-  from app.business.source import SourceCollectJobManager
+  from app.business.info_base.resolver import register_core_resolvers
   from app.business.info_base.storage import StorageManager
-  from app.business.sink.embedding import EmbeddingManager
 
-  # Register this client first
-  ClientManager.register_self()
+  # Register this Peer first so extension enablement can resolve its identity.
+  PeerManager.register_self()
+  PeerManager.setup_builtin_outbounds()
+  PeerManager.register_inbound(semantic_retrieval_peer_inbound)
+  PeerManager.register_inbound(lexical_retrieval_peer_inbound)
+  PeerManager.register_inbound(organization_peer_inbound)
+  PeerManager.register_inbound(extension_peer_inbound)
+
+  # Core decoders exist independently of installed/enabled extensions.
+  register_core_resolvers()
 
   # Setup built-in storage instances
   StorageManager.setup_builtin_storages()
@@ -57,26 +78,38 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   if not SKIP_EXTENSION_START:
     await EXTENSION_HOST.start_enabled(app)
   SourceManager.sync_source_types()
-  SourceManager.set_up_collect_jobs()
+
+  JobManager.sync_job_types()
+
+  AIManager.sync_dialects()
+
+  # Publish only after every provider route and runtime-owned capability is ready.
+  PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
 
   if not scheduler.running:
     scheduler.start()
 
-  # Add periodic job to check pending source collect jobs
+  # Peer-local timers only wake the database-owned Cron and Job lifecycles.
   scheduler.add_job(
-    SourceCollectJobManager.check,
+    PeerManager.refresh_self,
     "interval",
-    seconds=30,
-    id="sources.collect_jobs.check_pending",
+    seconds=settings.peer_lease_renew_interval_seconds,
+    args=[settings.peer_lease_ttl_seconds],
+    id="peer.refresh_self",
     replace_existing=True,
   )
-
-  # Add periodic job to check and create missing embeddings
   scheduler.add_job(
-    EmbeddingManager.check_and_create_missing_embeddings,
+    JobManager.check,
     "interval",
-    seconds=60,  # Check every minute
-    id="sink.embeddings.check_missing",
+    seconds=30,
+    id="jobs.check",
+    replace_existing=True,
+  )
+  scheduler.add_job(
+    CronManager.check,
+    "interval",
+    seconds=30,
+    id="crons.check",
     replace_existing=True,
   )
 
@@ -112,6 +145,7 @@ async def lifespan(app: fastapi.FastAPI):
   yield
 
   logger.info("Application shutdown")
+  runtime_was_ready = RUNTIME_STATUS.ready
   RUNTIME_STATUS.set(RuntimePhase.STOPPING, "application_shutdown")
   bootstrap_task.cancel()
   with contextlib.suppress(asyncio.CancelledError):
@@ -119,15 +153,14 @@ async def lifespan(app: fastapi.FastAPI):
   if scheduler.running:
     scheduler.shutdown(wait=True)
   await EXTENSION_HOST.close_running()
+  if runtime_was_ready:
+    await asyncio.to_thread(PeerManager.clear_self_lease)
 
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
 
 # 添加日志中间件
 api_app.add_middleware(LoggingMiddleware)
-
-# 添加JWT认证中间件
-api_app.add_middleware(JWTMiddleware)
 
 # 添加CORS中间件以支持跨域请求
 api_app.add_middleware(
@@ -136,6 +169,7 @@ api_app.add_middleware(
   allow_credentials=True,
   allow_methods=["*"],  # 允许所有HTTP方法
   allow_headers=["*"],  # 允许所有请求头
+  expose_headers=[PEER_EXECUTION_HEADER],
 )
 
 
@@ -165,18 +199,20 @@ async def readiness() -> JSONResponse:
   )
 
 
-root_router = fastapi.APIRouter(tags=["root"])
-sink_router = fastapi.APIRouter(prefix="/sink", tags=["sink"])
+core_router = fastapi.APIRouter(
+  dependencies=[fastapi.Depends(require_peer_jwt)],
+)
 
-root_router.put("/graph")(InfoBaseManager.insert_subgrpah)
-sink_router.get("/rag")(SinkManager.rag)
-
-api_app.include_router(block_router)
-api_app.include_router(relation_router)
-api_app.include_router(extension_router)
-api_app.include_router(source_router)
-api_app.include_router(root_router)
-api_app.include_router(sink_router)
+core_router.include_router(block_router)
+core_router.include_router(relation_router)
+core_router.include_router(extension_router)
+core_router.include_router(source_router)
+core_router.include_router(deployment_config_router)
+core_router.include_router(info_base_router)
+core_router.include_router(organization_router)
+core_router.include_router(semantic_retrieval_router)
+core_router.include_router(lexical_retrieval_router)
+api_app.include_router(core_router)
 
 if __name__ == "__main__":
   uvicorn.run(api_app, host=settings.host, port=settings.port)

@@ -23,12 +23,6 @@ inputs:
   jwt_secret:
     description: Production JWT signing secret
     required: true
-  llm_sp_ak:
-    description: Production LLM provider credential
-    required: true
-  llm_sp_base_url:
-    description: Production LLM provider base URL
-    required: true
   neon_api_key:
     description: Neon authorization for resolving production connections
     required: true
@@ -373,8 +367,6 @@ runs:
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         JWT_SECRET: ${{ inputs.jwt_secret }}
-        LLM_SP_AK: ${{ inputs.llm_sp_ak }}
-        LLM_SP_BASE_URL: ${{ inputs.llm_sp_base_url }}
         POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
         POSTGREST_DATABASE_URL: ${{ steps.database.outputs.postgrest_database_url }}
         POSTGREST_URL: ${{ steps.heroku.outputs.postgrest_url }}
@@ -438,29 +430,29 @@ runs:
 
         configure_app() {
           local before_release
-          local client_id
+          local peer_id
           local release_version
 
           before_release="$(
             heroku releases --app "$APP_NAME" --json |
               jq -r '.[0].version // empty'
           )"
-          client_id="$(
+          peer_id="$(
             python -c \
               "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, '$APP_NAME'))"
           )"
           heroku config:set --app "$APP_NAME" \
-            "CLIENT_BASE_URL=$WEB_URL" \
-            "CLIENT_ID=$client_id" \
-            "CLIENT_NAME=core-py-production" \
             "DATABASE_SCALE_0=true" \
             "DATABASE_URL=$DATABASE_URL" \
             "INKCRE_ENV_FILE=" \
             "JWT_SECRET=$JWT_SECRET" \
-            "LLM_SP_AK=$LLM_SP_AK" \
-            "LLM_SP_BASE_URL=$LLM_SP_BASE_URL" \
             "OBSRV__LOGGING_BACKEND=none" \
+            "PEER_ID=$peer_id" \
+            "PEER_NAME=core-py-production" \
             "SKIP_EXTENSIONS_SYNC=0" >/dev/null
+          heroku config:unset \
+            CLIENT_BASE_URL CLIENT_ID CLIENT_NAME LLM_SP_AK LLM_SP_BASE_URL \
+            --app "$APP_NAME" >/dev/null || true
           if [ -n "$(
             heroku config:get MIGRATION_DATABASE_URL --app "$APP_NAME" || true
           )" ]; then
@@ -605,6 +597,25 @@ runs:
         echo "previous_release=$previous_release" >> "$GITHUB_OUTPUT"
         echo "previous_postgrest_release=$previous_postgrest_release" \
           >> "$GITHUB_OUTPUT"
+
+    - name: Converge production Peer advertisement
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.heroku.outputs.app_name }}
+        DATABASE_URL: ${{ steps.database.outputs.core_database_url }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        WEB_URL: ${{ steps.heroku.outputs.web_url }}
+      run: |
+        peer_id="$(
+          python -c \
+            "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, '$APP_NAME'))"
+        )"
+        docker run --rm \
+          --env DATABASE_URL \
+          "inkcre-production-release:$HEAD_SHA" \
+          python scripts/configure_peer_runtime.py \
+          --peer-id "$peer_id" \
+          --http-public-base-url "$WEB_URL"
 
     - name: Probe production peers or roll back applications
       shell: bash

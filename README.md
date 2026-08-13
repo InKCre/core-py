@@ -19,6 +19,24 @@ checks, migration containment, formatting, lint, and the complete unit-test suit
 
 Developer setup and shared-skill notes: [CONTRIBUTING.md](CONTRIBUTING.md)
 
+## Browser-Only Self-Hosting
+
+A repository owner can deploy their own InKCre instance to Neon and two Render Docker
+services without cloning this repository. Forking is the onboarding mechanism; the deployed
+instance is independent from InKCre's canonical production environment. Configure the six
+documented GitHub Secrets/Variables, then run the checked-in `Deploy self-hosted InKCre`
+workflow. The JWT signing secret remains private and grants full Peer authority.
+
+Exact onboarding steps, runtime limits, and cleanup:
+[Self-Hosting On Render And Neon](docs/40-deployment/render-neon-self-host.md).
+
+## Security
+
+Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Security-sensitive
+design and triage should use the repository's [Core Security
+Model](docs/30-unit-tdd/security-model.md) rather than treating hardening practices as
+context-free requirements.
+
 ## Documentation Map
 
 If `docs/_shared/` is missing, run `git submodule update --init --recursive` before following shared-doc links.
@@ -30,6 +48,8 @@ If `docs/_shared/` is missing, run `git submodule update --init --recursive` bef
 - Shared product glossary: [docs/_shared/10-prd/glossary.md](docs/_shared/10-prd/glossary.md)
 - Shared cross-unit technical truth: [docs/_shared/20-product-tdd/](docs/_shared/20-product-tdd/)
 - Local unit architecture: [docs/30-unit-tdd/business-pipeline-and-authority.md](docs/30-unit-tdd/business-pipeline-and-authority.md)
+- Memos extension architecture: [docs/30-unit-tdd/memos-extension.md](docs/30-unit-tdd/memos-extension.md)
+- Core security model: [docs/30-unit-tdd/security-model.md](docs/30-unit-tdd/security-model.md)
 - Deployment and runtime truth: [docs/40-deployment/README.md](docs/40-deployment/README.md)
 - Agent-owned volatile task workspaces: [tasks/](tasks/)
 

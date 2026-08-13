@@ -5,6 +5,12 @@ The organization-wide Git and pull-request policy lives in
 This guide adds the `core-py` setup, validation, migration, and delivery details required by that
 policy; it does not weaken the organization baseline.
 
+## Security Reports
+
+Do not disclose suspected vulnerabilities in a public issue or pull request. Follow
+[SECURITY.md](SECURITY.md) to report them privately. Use ordinary issues for functional
+bugs that do not cross a security boundary.
+
 ## Development Setup
 
 ```bash

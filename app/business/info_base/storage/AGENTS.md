@@ -1,61 +1,67 @@
 # storage/ Local Guide
 
-本文件只描述 `app/business/info_base/storage/` 的局部事实与风险边界。更上层的 ingestion mechanics 看 [app/business/info_base/AGENTS.md](../AGENTS.md)；跨模块结构看 [docs/30-unit-tdd/business-pipeline-and-authority.md](../../../../docs/30-unit-tdd/business-pipeline-and-authority.md)。
+本文件只描述 `app/business/info_base/storage/` 的局部事实与风险边界。上层 contract 看
+[info_base guide](../AGENTS.md)。
 
 ## 何时阅读
 
-在以下情况进入本目录前先读这里：
-
-- 修改 `StorageManager` 或 `Storage`
-- 新增 / 删除 storage type
-- 修改 built-in storage setup 或 storage ID 约定
-- 修改 storage 与 resolver 的责任边界
-
-## 局部执行规则
-
-- storage 只负责“按 pointer 取 raw content”，不要把语义解释塞进 storage。
-- built-in storage ID 保持负数；不要把用户可创建的 storage 和 built-in ID 空间混在一起。
-- 若改动会影响 import-time 注册、dynamic import fallback、或 built-in setup，先读 `main.py` 与 `__init__.py`，不要只看单个 storage 实现。
+- 修改 `StorageManager`、`Storage`、`WritableStorage`；
+- 新增/删除 storage type 或 built-in storage；
+- 修改 opaque pointer、byte lifecycle、catalog/bootstrap；
+- 修改 block hydration 与 storage 的边界。
 
 ## 关键文件
 
-- `app/business/info_base/storage/main.py`: `StorageManager`、`Storage` 基类、built-in setup
-- `app/business/info_base/storage/http.py`: built-in HTTP storages
-- `app/business/info_base/storage/__init__.py`: built-in storage import side effect
+- `main.py`：registry、catalog sync、base/writable interfaces；
+- `http.py`：bounded HTTP(S) byte retrieval；
+- `postgresql.py`：deployment-owned PostgreSQL byte CRUD；
+- `app/database_contract/profile.py`：built-in catalog authority。
 
-## 当前稳定事实
+## Stable Contract
 
-### Registry Side Effect
+- Storage 输入是自己拥有 grammar 的 opaque pointer string，输出是 actual bytes。
+- Storage 不拥有 MIME、filename、information kind、resolver ID、embedding 或 block identity。
+- `WritableStorage.create_raw_content(bytes, caller_session)` 是 common create seam，返回可直接持久化为
+  `block.content` 的 pointer string；storage handler 自己 serialize internal key。
+- Low-level read/write/update/delete 接受 caller-owned session，不得自行 commit；用于 application command 与
+  graph mutation 协调。
+- 原地 update pointer-addressed bytes 不更新 block row/cache/embedding；这是 storage 与 block 独立 authority 的
+ 代价，不通过 storage→block 反向依赖隐藏。
 
-- `Storage.__init_subclass__()` 只把 storage class 注册到
-  `StorageManager._STORAGE_CLASSES`。
-- `StorageManager.sync_storage_types()` 在显式 runtime bootstrap 中同步
-  `storage_types` 记录；import 本身不得连接数据库。
-- storage 可用性仍依赖 import-time 内存登记，但不依赖 import-time 外部写入。
+现存 method 中的 `raw_content` 是 mechanics API name，表示未被 resolver 解释的 bytes，不是第二套 block
+representation。Shared/domain prose 使用 `actual bytes` 与 `hydrated content`。
 
-### Built-In Storage IDs
+## Registry And Bootstrap
 
-当前 built-in storage ID 约定：
+- `Storage.__init_subclass__()` 只注册内存 class，不连接数据库。
+- `StorageManager.sync_storage_types()` / `setup_builtin_storages()` 在显式 runtime bootstrap 中 reconcile catalog。
+- Built-in handler type 是短 ID，因此 `storage/__init__.py` 必须 import 当前 handlers；dynamic dotted-path fallback
+  只服务真正使用 dotted class path 的 custom type。
 
-- `-1`: `http_image`
-- `-2`: `http_video`
-- `-3`: `http_html`
+## Current Built-Ins
 
-这些 negative IDs 的目的是和用户自定义 storage 避免冲突。
+| Storage ID | Type | Capability |
+| --- | --- | --- |
+| `-1` | `http` | read-only bounded HTTP(S) bytes |
+| `-4` | `postgresql_binary` | deployment-owned byte C/R/U/D |
 
-### Fetch Responsibility
+Retired `-2/-3` catalog rows可能存在于历史数据库，但当前 code/profile 不注册或产生 semantic HTTP storage。
+不要重新增加 `http_image`、`http_video`、`http_html`；semantic interpretation 属于 exact resolver。
 
-- `StorageManager.get_storage()` 先按 `storage_id` 读取 `StorageModel`，再决定使用已注册 class 还是 dynamic import。
-- storage 返回的是 raw content，不负责 block identity、resolver semantics、embedding ownership。
+## PostgreSQL Binary Storage
 
-## 局部风险
+- `storage_blobs` backing relation 只拥有 UUID + bytes；它不是 storage type 或 information object。
+- Pointer 当前是 storage-owned JSON `{ "blob_id": "<uuid>" }`；application/extension 不得 hard-code。
+- Native core commands使用 caller session；PostgREST peer 使用 admitted raw create/read RPC 与 exact row update/delete。
+- Referenced `storages` catalog row deletion是 `RESTRICT`；删除 storage blob 不反查或改写 blocks。
 
-- built-in storage types 当前是短字符串（如 `http_image`），不是 dotted import path。
-- 这意味着如果 built-in class 没有先被 import 注册，`get_storage()` 的 dynamic import fallback 并不能正确恢复它们。
-- 所以 `storage/__init__.py` 的 import side effect 不是装饰品，是 built-in 可用性的前提。
+## HTTP Storage
+
+- 只接受 HTTP(S) pointer；timeout、redirect 与 maximum response bytes来自 storage config。
+- 同时检查 declared length 与 chunked received size；返回 bytes，不按 Content-Type 选择 resolver。
 
 ## 编辑指引
 
-- 新增 built-in storage 时，同时更新 negative ID 约定与 `setup_builtin_storages()`。
-- 新增非 built-in storage 时，先想清楚它是靠 import-time 注册，还是必须支持 dotted-path dynamic import。
-- 若某个变化会把 raw-content fetch 和语义解释揉在一起，优先判定这是不是 resolver 责任，而不是继续加 prose。
+- 新 storage 优先回答 pointer grammar、byte limit、read/write capability 和 deletion ownership；不要从 media kind
+  派生 storage family。
+- S3/Nextcloud 等 future storage 复用同一 byte contract；source/application 只依赖 common create seam。

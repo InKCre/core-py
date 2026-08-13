@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "documents": {
+    "sqlite.architecture-source": {
+      "artifact": "sqlite-architecture.html",
+      "source_url": "https://www.sqlite.org/arch.html",
+      "retrieved_at": "2026-08-07",
+      "sha256": "e5e00e53255dc1093fc8c087ff31b84c93dc802366392bda14e3f085776f521a",
+      "provenance": "SQLite documentation is dedicated to the public domain by its authors.",
+      "provenance_url": "https://www.sqlite.org/copyright.html"
+    }
+  },
+  "producer_inputs": {
+    "memo.design-capture": {
+      "body": "Capture a fleeting architecture decision at the moment it appears. Preserve the original note as authority, then connect later interpretations instead of rewriting the source.",
+      "comment": "A useful follow-up records why the decision matters and what evidence could make us revisit it."
+    },
+    "rss.deep-modules": {
+      "feed_title": "Sustainable Software Notes",
+      "feed_description": "Practical writing about keeping software understandable as it grows.",
+      "item_title": "Deep modules hide complexity behind small interfaces",
+      "summary": "A deep module spends internal complexity to make its public surface easier to learn and harder to misuse.",
+      "article": "Deep modules are valuable because a small, stable interface can conceal substantial implementation detail. The design succeeds when callers need to understand fewer decisions, invariants, and failure branches. Depth is not the same as size: a large module with a broad, leaky interface is still shallow."
+    },
+    "atom.peer-discovery": {
+      "feed_title": "Distributed Systems Field Notes",
+      "feed_description": "Small architectural patterns for cooperating runtime peers.",
+      "item_title": "Separate capability discovery from invocation",
+      "summary": "Peers can advertise exact capabilities and liveness while domain callers keep request semantics in their own managers.",
+      "article": "Service discovery answers which live peer claims an exact capability. Invocation remains a separate protocol operation. A routing layer can select an eligible peer without teaching the generic peer subsystem the business meaning of the capability payload."
+    }
+  },
+  "derived_aliases": {
+    "sqlite.pager": {
+      "source": "sqlite.architecture-source",
+      "approach": "rumination",
+      "relation": "interpretation"
+    }
+  },
+  "quality_queries": [
+    {
+      "id": "capture-a-fleeting-decision",
+      "query": "How should I preserve a fleeting architecture decision so later interpretation does not erase the original note?",
+      "primary": ["memo.design-capture"],
+      "distractors": ["rss.deep-modules", "atom.peer-discovery"]
+    },
+    {
+      "id": "deep-module",
+      "query": "Why does a small stable interface that hides substantial implementation complexity improve maintainability?",
+      "primary": ["rss.deep-modules"],
+      "distractors": ["memo.design-capture", "atom.peer-discovery"]
+    },
+    {
+      "id": "peer-discovery",
+      "query": "How can live peers advertise exact capabilities while keeping business request semantics out of service discovery?",
+      "primary": ["atom.peer-discovery"],
+      "distractors": ["memo.design-capture", "rss.deep-modules"]
+    },
+    {
+      "id": "sqlite-pager-rumination",
+      "query": "Which SQLite subsystem owns the page cache and coordinates locking, rollback, commit, and database-file transactions?",
+      "primary": ["sqlite.pager"],
+      "distractors": ["memo.design-capture", "rss.deep-modules"],
+      "must_outrank": ["sqlite.architecture-source"]
+    }
+  ]
+}

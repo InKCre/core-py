@@ -4,9 +4,10 @@ __all__ = ["ROUTER"]
 
 import fastapi
 from typing import Optional as Opt
-from app.business.source import SourceCollectJobManager
-from app.engine import SessionLocal
-from app.schemas.source import SourceCollectJobModel, SourceID
+from app.business.job import JobManager
+from app.business.source import SOURCE_BACKFILL_JOB_TYPE, SOURCE_COLLECT_JOB_TYPE
+from app.schemas.job import JobModel
+from app.schemas.source import SourceID
 
 ROUTER = fastapi.APIRouter(
   prefix="/sources",
@@ -15,17 +16,25 @@ ROUTER = fastapi.APIRouter(
 
 
 @ROUTER.post("/{source_id}/collect")
-async def run_source_collect(
-  source_id: SourceID, body: Opt[dict] = None
-) -> SourceCollectJobModel:
+async def run_source_collect(source_id: SourceID, body: Opt[dict] = None) -> JobModel:
   """Run source collect (by creating a source collect job.)"""
-  with SessionLocal() as db:
-    if body is None:
-      body = {}
-    job = SourceCollectJobModel(source=source_id, config=body)
-    db.add(job)
-    db.commit()
-    db.refresh(job)
+  job = JobManager.create(
+    SOURCE_COLLECT_JOB_TYPE,
+    {"source": source_id, "config": body or {}},
+  )
+  await JobManager.check()
+  return job
 
-  await SourceCollectJobManager.check()
+
+@ROUTER.post("/{source_id}/backfill")
+async def run_source_backfill(
+  source_id: SourceID, body: dict, timeout_seconds: int | None = None
+) -> JobModel:
+  """Create one explicit historical Source Job."""
+  job = JobManager.create(
+    SOURCE_BACKFILL_JOB_TYPE,
+    {"source": source_id, "config": body},
+    timeout_seconds,
+  )
+  await JobManager.check()
   return job

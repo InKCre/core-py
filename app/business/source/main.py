@@ -1,6 +1,5 @@
 import abc
-from collections.abc import Collection, Mapping
-from dataclasses import dataclass
+import pydantic
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
@@ -9,28 +8,17 @@ from typing import Optional as Opt
 
 from app.engine import SessionLocal
 from app.database_contract.profile import BUILTIN_SOURCE_TYPES_BY_ID
-from app.schemas.info_base.block import BlockID
-from app.schemas.source import (
-  SourceCollectJobModel,
-  SourceModel,
-  SourceID,
-  SourceTypesModel,
-)
-from app.scheduler import scheduler
+from app.business.info_base.block import BlockManager
+from app.schemas.info_base.block import BlockForm, BlockModel
+from app.schemas.job import JobModel
+from app.schemas.source import SourceModel, SourceID, SourceTypesModel
+from .resolver import SOURCE_RESOLVER_ID, SourceContent
 
-if typing.TYPE_CHECKING:
-  from .collect_job import SourceCollectJobModel
-
-ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
+ConfigTV = typing.TypeVar("ConfigTV", bound=pydantic.BaseModel)
 
 
-@dataclass(frozen=True)
-class SourceRuntimeActivation:
-  """Exact scheduler/cache contribution owned by one runtime publication."""
-
-  source_types: frozenset[str]
-  source_ids: tuple[SourceID, ...]
-  job_ids: tuple[str, ...]
+class EmptySourceCommandConfig(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
@@ -43,11 +31,21 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
   __configschema__: dict
   """Source configuration JSON schema"""
   __configcls__: type[ConfigTV]
+  __collectconfigcls__: type[pydantic.BaseModel]
+  __backfillconfigcls__: type[pydantic.BaseModel] | None
 
-  def __init_subclass__(cls, config_cls: type[ConfigTV], **kwargs) -> None:
+  def __init_subclass__(
+    cls,
+    config_cls: type[ConfigTV],
+    collect_config_cls: type[pydantic.BaseModel] = EmptySourceCommandConfig,
+    backfill_config_cls: type[pydantic.BaseModel] | None = None,
+    **kwargs,
+  ) -> None:
     # ConfigTV is bound by the concrete source subclass.
     cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
     cls.__configschema__ = config_cls.model_json_schema()
+    cls.__collectconfigcls__ = collect_config_cls  # pyrefly: ignore[no-access]
+    cls.__backfillconfigcls__ = backfill_config_cls  # pyrefly: ignore[no-access]
     SourceManager.add_source_type(cls)
     return super().__init_subclass__(**kwargs)
 
@@ -55,7 +53,7 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     self._id = _id
 
   @abc.abstractmethod
-  async def collect(self, job: "SourceCollectJobModel") -> None:
+  async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
     """Collect new data from the source.
 
     :param job: The collect job containing config and state.
@@ -64,12 +62,9 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     - Should not surpress exceptions, raise it.
     """
 
-  @abc.abstractmethod
-  async def _organize(self, block_id: BlockID) -> None:
-    """Organize the collected block.
-
-    Organization to collected blocks are concurrently.
-    """
+  async def backfill(self, job: JobModel, config: pydantic.BaseModel) -> None:
+    del job, config
+    raise NotImplementedError(f"{self.__class__.__name__} does not support backfill")
 
   async def record(self, data: typing.Any) -> None:
     """Record data passively (e.g., from webhook).
@@ -87,6 +82,14 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     with SessionLocal() as db:
       source = db.exec(sqlmodel.select(SourceModel).where(SourceModel.id == self._id)).one()
       return self.__configcls__.model_validate(source.config)
+
+  def validate_collect_config(self, config: dict) -> pydantic.BaseModel:
+    return self.__collectconfigcls__.model_validate(config)
+
+  def validate_backfill_config(self, config: dict) -> pydantic.BaseModel:
+    if self.__backfillconfigcls__ is None:
+      raise NotImplementedError(f"{self.__class__.__name__} does not support backfill")
+    return self.__backfillconfigcls__.model_validate(config)
 
   def get_state(self) -> dict:
     """Get the source state from database."""
@@ -113,9 +116,6 @@ class SourceManager:
 
   SOURCES: dict[SourceID, SourceBase] = {}
   _SOURCE_CLASSES: dict[str, type[SourceBase]] = {}
-  _SOURCE_ROW_TYPES: dict[SourceID, str] = {}
-  _SOURCE_INSTANCE_TYPES: dict[SourceID, str] = {}
-  _SOURCE_JOB_TYPES: dict[str, str] = {}
 
   @classmethod
   def snapshot_source_types(cls) -> dict[str, type[SourceBase]]:
@@ -162,12 +162,12 @@ class SourceManager:
   @classmethod
   def sync_source_types(
     cls,
-    source_types: Mapping[str, type[SourceBase]] | None = None,
+    source_classes: dict[str, type[SourceBase]] | None = None,
   ) -> None:
     """Persist registered source types during explicit runtime bootstrap."""
-    selected = source_types if source_types is not None else cls._SOURCE_CLASSES
+    registered = cls._SOURCE_CLASSES if source_classes is None else source_classes
     with SessionLocal() as db:
-      for source_type, source_cls in selected.items():
+      for source_type, source_cls in registered.items():
         builtin = BUILTIN_SOURCE_TYPES_BY_ID.get(source_type)
         stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
           id=source_type,
@@ -179,128 +179,46 @@ class SourceManager:
           config_schema=(
             builtin.config_schema if builtin is not None else source_cls.__configschema__
           ),
+          collect_config_schema=(
+            builtin.collect_config_schema
+            if builtin is not None
+            else source_cls.__collectconfigcls__.model_json_schema()
+          ),
+          backfill_config_schema=(
+            builtin.backfill_config_schema
+            if builtin is not None
+            else (
+              None
+              if source_cls.__backfillconfigcls__ is None
+              else source_cls.__backfillconfigcls__.model_json_schema()
+            )
+          ),
         )
         stmt = stmt.on_conflict_do_update(
           index_elements=[SourceTypesModel.id],
           set_=dict(
             description=stmt.excluded.description,
             config_schema=stmt.excluded.config_schema,
+            collect_config_schema=stmt.excluded.collect_config_schema,
+            backfill_config_schema=stmt.excluded.backfill_config_schema,
           ),
         )
         db.exec(stmt)  # type: ignore
       db.commit()
 
   @classmethod
-  def _source_rows(
-    cls,
-    source_types: Collection[str] | None = None,
-  ) -> tuple[SourceModel, ...]:
-    with SessionLocal() as db:
-      statement = sqlmodel.select(SourceModel)
-      if source_types is not None:
-        if not source_types:
-          return ()
-        statement = statement.where(sqlmodel.col(SourceModel.type).in_(tuple(source_types)))
-      return tuple(db.exec(statement).all())
+  def has_source_type(cls, source_type: str) -> bool:
+    return source_type in cls._SOURCE_CLASSES
 
   @classmethod
-  def set_up_collect_jobs(
-    cls,
-    source_types: Collection[str] | None = None,
-  ) -> SourceRuntimeActivation:
-    sources = cls._source_rows(source_types)
-    source_ids = tuple(source.id for source in sources if source.id is not None)
-    cls._SOURCE_ROW_TYPES.update(
-      {source.id: source.type for source in sources if source.id is not None}
-    )
-    job_ids: list[str] = []
-
-    try:
-      for source in sources:
-        if source.collect_at is None or source.id is None:
-          continue
-        job_id = f"source.{source.id}.collect"
-        scheduler.add_job(
-          func=cls._run_scheduled_collect,
-          args=[source.id],
-          trigger=source.collect_at.to_trigger(),
-          id=job_id,
-          replace_existing=True,
-          misfire_grace_time=None,
-        )
-        job_ids.append(job_id)
-        cls._SOURCE_JOB_TYPES[job_id] = source.type
-    except Exception:
-      cls.withdraw_runtime_activation(
-        SourceRuntimeActivation(
-          source_types=frozenset(source_types or (source.type for source in sources)),
-          source_ids=source_ids,
-          job_ids=tuple(job_ids),
-        )
-      )
-      raise
-    return SourceRuntimeActivation(
-      source_types=frozenset(source_types or (source.type for source in sources)),
-      source_ids=source_ids,
-      job_ids=tuple(job_ids),
-    )
-
-  @classmethod
-  def withdraw_runtime_activation(cls, activation: SourceRuntimeActivation) -> None:
-    """Remove an exact runtime contribution without querying or deleting rows."""
-    job_ids = set(activation.job_ids)
-    job_ids.update(
-      job_id
-      for job_id, source_type in cls._SOURCE_JOB_TYPES.items()
-      if source_type in activation.source_types
-    )
-    for job_id in job_ids:
-      if scheduler.get_job(job_id) is not None:
-        scheduler.remove_job(job_id)
-      cls._SOURCE_JOB_TYPES.pop(job_id, None)
-
-    source_ids = set(activation.source_ids)
-    source_ids.update(
-      source_id
-      for source_id, source_type in cls._SOURCE_ROW_TYPES.items()
-      if source_type in activation.source_types
-    )
-    source_ids.update(
-      source_id
-      for source_id, source_type in cls._SOURCE_INSTANCE_TYPES.items()
-      if source_type in activation.source_types
-    )
-    source_ids.update(
-      source_id
-      for source_id, source in cls.SOURCES.items()
-      if f"{type(source).__module__}.{type(source).__qualname__}" in activation.source_types
-    )
-    for source_id in source_ids:
-      cls.SOURCES.pop(source_id, None)
-      cls._SOURCE_ROW_TYPES.pop(source_id, None)
-      cls._SOURCE_INSTANCE_TYPES.pop(source_id, None)
-
-  @classmethod
-  async def _run_scheduled_collect(cls, source_id: SourceID) -> None:
-    """Create one durable collect job, then run the canonical job path."""
-    from .collect_job import SourceCollectJobManager
-
-    with SessionLocal() as db:
-      job = SourceCollectJobModel(source=source_id, config={})
-      db.add(job)
-      db.commit()
-      db.refresh(job)
-      if job.id is None:
-        raise RuntimeError("Scheduled Source collect job did not receive an ID")
-      job_id = job.id
-    await SourceCollectJobManager.run(job_id)
+  def supports_backfill(cls, source_type: str) -> bool:
+    source_cls = cls._SOURCE_CLASSES.get(source_type)
+    return source_cls is not None and source_cls.__backfillconfigcls__ is not None
 
   @classmethod
   def _get_source_ins(cls, source_id: SourceID, source_type: Opt[str] = None) -> SourceBase:
     ins = cls.SOURCES.get(source_id, None)
     if ins is None:
-      if source_type is None:
-        source_type = cls._SOURCE_ROW_TYPES.get(source_id)
       if source_type is None:
         with SessionLocal() as db:
           source_type = db.exec(
@@ -311,10 +229,6 @@ class SourceManager:
         raise ValueError(f"Source class {source_type} not registered.")
       ins = source_class(_id=source_id)
       cls.SOURCES[source_id] = ins
-      cls._SOURCE_ROW_TYPES[source_id] = source_type
-      cls._SOURCE_INSTANCE_TYPES[source_id] = source_type
-    elif source_type is not None:
-      cls._SOURCE_INSTANCE_TYPES.setdefault(source_id, source_type)
     return ins
 
   @classmethod
@@ -327,15 +241,77 @@ class SourceManager:
     return cls._get_source_ins(source_id)
 
   @classmethod
-  def create(cls, type_: str, nickname: Opt[str] = None) -> SourceModel:
+  def create(
+    cls,
+    type_: str,
+    nickname: Opt[str] = None,
+    config: dict | None = None,
+    storage: int | None = None,
+  ) -> SourceModel:
     """Add a new source."""
+    source_class = cls._SOURCE_CLASSES.get(type_)
+    if source_class is None:
+      raise ValueError(f"Source class {type_} not registered.")
+    normalized = source_class.__configcls__.model_validate(config or {}).model_dump(  # pyrefly: ignore[missing-attribute]
+      mode="json"
+    )
     with SessionLocal() as db:
-      source = SourceModel(type=type_, nickname=nickname)
+      source = SourceModel(
+        type=type_,
+        nickname=nickname,
+        config=normalized,
+        storage=storage,
+      )
       db.add(source)
       db.commit()
       db.refresh(source)
 
-    if source.id is not None:
-      cls._SOURCE_ROW_TYPES[source.id] = type_
-
     return source
+
+  @classmethod
+  def resolve_writable_storage(
+    cls,
+    source: SourceModel,
+    db_session: sqlmodel.Session,
+  ):
+    from .config import resolve_writable_storage
+
+    return resolve_writable_storage(source, db_session)
+
+  @classmethod
+  def ensure_block(
+    cls,
+    source: SourceModel,
+    db_session: sqlmodel.Session,
+  ) -> BlockModel:
+    """Create/reuse and refresh one Source-owned graph anchor projection."""
+    if source.id is None:
+      raise ValueError("Source must be persisted before creating its anchor")
+    locked = db_session.exec(
+      sqlmodel.select(SourceModel).where(SourceModel.id == source.id).with_for_update()
+    ).one()
+    content = SourceContent(
+      id=source.id,
+      type=locked.type,
+      nickname=locked.nickname,
+    ).model_dump_json()
+    if locked.block is None:
+      block = BlockManager.create(
+        BlockForm(resolver=SOURCE_RESOLVER_ID, content=content),
+        db_session,
+      )
+      locked.block = block.id
+      db_session.add(locked)
+      db_session.flush()
+      return block
+
+    block = db_session.get(BlockModel, locked.block)
+    if block is None:  # pragma: no cover - FK invariant
+      raise RuntimeError("Source anchor reference does not resolve")
+    if block.resolver != SOURCE_RESOLVER_ID or block.content != content:
+      block.resolver = SOURCE_RESOLVER_ID
+      block.storage = None
+      block.content = content
+      db_session.add(block)
+      db_session.flush()
+    return block

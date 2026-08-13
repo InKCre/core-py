@@ -1,0 +1,37 @@
+[project]
+name = "inkcre-ext-memos"
+version = "0.1.0"
+description = "Memo-family collection extension for InKCre"
+authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
+dependencies = [
+  "fastapi>=0.139.2,<0.140.0",
+  "pydantic>=2.11.7,<3.0.0",
+  "sqlmodel>=0.0.24,<0.0.25",
+]
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+
+[project.entry-points."inkcre.core.extensions"]
+memos = "extensions.memos:Extension"
+
+[tool.inkcre-extension]
+name = "inkcre/memos"
+nickname = "Memos"
+host-sdk = "core-py"
+host-sdk-version = ">=0.1.0 <0.2.0"
+
+[tool.setuptools]
+packages = [
+  "extensions.memos",
+  "extensions.memos.family",
+  "extensions.memos.products",
+  "extensions.memos.products.memos",
+  "extensions.memos.products.memos.v0_29_1",
+]
+
+[tool.setuptools.package-dir]
+"extensions.memos" = "."
+"extensions.memos.family" = "family"
+"extensions.memos.products" = "products"
+"extensions.memos.products.memos" = "products/memos"
+"extensions.memos.products.memos.v0_29_1" = "products/memos/v0_29_1"

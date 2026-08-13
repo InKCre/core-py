@@ -1,0 +1,12 @@
+From: Mary Shaw <mary@example.test>
+To: Systems Notebook <notes@inkcre.test>
+Subject: Connect mechanisms only after their owners are clear
+Date: Tue, 11 Aug 2026 08:40:00 +0000
+Message-ID: <ownership-before-mechanism@inkcre.acceptance>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+An integration becomes maintainable when each fact has one authority and each
+effect has one owner.  Shared helpers can remove repetition, but they should not
+quietly acquire the lifecycle of the domains that call them.

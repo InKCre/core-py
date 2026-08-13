@@ -41,6 +41,41 @@ Peers must consume that exact profile/descriptor. Sharing only an SSH alias, dae
 or contract version does not prove that core-py and client-web use the same database.
 Only core-py owns Compose startup, reset, volume deletion, credentials, and tunnel cleanup.
 
+After core and PostgREST are reachable, the owner projects the dynamic core loopback URL into the core Peer's
+database-owned `config.http_public_base_url`. It then waits for that exact Peer to publish the three built-in HTTP
+capabilities and a live database-time lease before writing a converged descriptor. Attached client-web runtimes only verify
+that snapshot; they do not rewrite the owner Peer, reset the database, or stop the owner runtime.
+
+## Shared Runtime Boundary Diagnostics
+
+An attached peer proves the selected database runtime by matching the owner descriptor and
+readiness evidence for:
+
+- runtime instance and owner repository;
+- Compose project and Docker daemon ID;
+- source fingerprint, database contract revision, and migration head;
+- core-py and PostgREST loopback endpoints.
+
+This is a contract-compatible attachment, not proof that the peer's pinned core-py image and
+the running owner image are byte-for-byte identical. A different source revision or image is
+valid while the contract revision and migration head remain compatible. When diagnosing
+implementation-specific behavior, compare `source_revision` and `core_image` in
+`runtime.json` with the peer's pinned image digest before assuming artifact equality.
+
+The Compose network and PostgreSQL endpoint are currently derived from the exact Compose
+project, source fingerprint, checked-in service wiring, and recorded local/remote ports; they
+are not published as independent profile identity fields. If a future issue suggests that two
+peers reached different databases, compare `runtime.json`, `profile.json`, and
+`readiness.json` from the owner before inspecting provider state. Do not accept matching
+daemon IDs, ports, or contract revisions alone. If owner, project, fingerprint, endpoints,
+or readiness do not converge, stop reuse and let core-py re-establish the runtime.
+
+External peers must not reset or tear down a core-py-owned runtime. The command path rejects
+both operations; current dedicated external-attachment regression coverage proves teardown
+rejection but does not separately exercise reset rejection. Treat that missing negative case,
+and first-class network/database endpoint identity, as the first places to strengthen if a
+shared-runtime boundary failure is observed.
+
 For Python-only iteration against an already initialized database:
 
 ```bash
@@ -86,12 +121,24 @@ Lifecycle execution additionally requires:
 
 Commonly needed:
 
-- `CLIENT_ID`
-- `CLIENT_NAME`
-- `CLIENT_BASE_URL`
-- `LLM_SP_AK`
-- `LLM_SP_BASE_URL`
+- `PEER_ID`
+- `PEER_NAME`
+- `PEER_LEASE_TTL_SECONDS`
+- `PEER_LEASE_RENEW_INTERVAL_SECONDS`
+- `PEER_HTTP_TIMEOUT_SECONDS`
+- `SEMANTIC_RETRIEVAL_MAINTENANCE_INTERVAL_SECONDS`
+- `SEMANTIC_RETRIEVAL_MAINTENANCE_MAX_EMBEDDINGS`
+- `SEMANTIC_RETRIEVAL_MAINTENANCE_BATCH_SIZE`
+- `SEMANTIC_RETRIEVAL_MAINTENANCE_SCAN_PAGE_SIZE`
 - `OBSRV__*`
+
+AI Provider credentials and base URLs are shared deployment facts stored in `ai_providers.config`; they are not runtime
+environment variables. The OpenAI-compatible adapter validates that database config at use time.
+
+Credentialed semantic-quality acceptance is explicit and separate from the ordinary repository check. It requires
+`INKCRE_ACCEPTANCE_AI_API_KEY`, optional `INKCRE_ACCEPTANCE_AI_BASE_URL`, exact embedding/chat model IDs and an explicitly
+selected migrated `INKCRE_TEST_DATABASE_URL`; see the local Semantic Retrieval Unit TDD for the command and pass/fail
+authority.
 
 ## Database Branch Workflow In CI
 

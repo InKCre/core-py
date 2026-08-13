@@ -5,7 +5,12 @@ import typing
 import fastapi
 import pydantic
 
-from app.business.extension import EXTENSION_HOST, ExtensionState
+from app.business.extension import (
+  EXTENSION_HOST,
+  EXTENSION_MANAGEMENT_CAPABILITY,
+  ExtensionState,
+)
+from app.business.peer import PeerHTTPInbound
 from app.business.extension.errors import (
   ExtensionAcquisitionError,
   ExtensionCompatibilityError,
@@ -16,9 +21,15 @@ from app.business.extension.errors import (
   ExtensionRuntimeError,
   ExtensionStateConflictError,
 )
+from app.schemas.extension import ExtensionManagementCommand
 
 
-ROUTER = fastapi.APIRouter(prefix="/extensions", tags=["extension"])
+ROUTER = fastapi.APIRouter(tags=["extension"])
+PEER_INBOUND = PeerHTTPInbound(
+  capability=EXTENSION_MANAGEMENT_CAPABILITY,
+  method="POST",
+  path="/extension-management",
+)
 
 
 def _coordinate(namespace: str, name: str) -> str:
@@ -46,12 +57,12 @@ def _raise_http_error(error: ExtensionHostError) -> typing.NoReturn:
   raise fastapi.HTTPException(status_code=status_code, detail=str(error)) from error
 
 
-@ROUTER.get("")
+@ROUTER.get("/extensions")
 def list_extensions() -> tuple[ExtensionState, ...]:
   return EXTENSION_HOST.list()
 
 
-@ROUTER.get("/{namespace}/{name}")
+@ROUTER.get("/extensions/{namespace}/{name}")
 def get_extension(namespace: str, name: str) -> ExtensionState:
   try:
     return EXTENSION_HOST.get(_coordinate(namespace, name))
@@ -59,7 +70,7 @@ def get_extension(namespace: str, name: str) -> ExtensionState:
     _raise_http_error(error)
 
 
-@ROUTER.post("/{namespace}/{name}")
+@ROUTER.post("/extensions/{namespace}/{name}")
 def install_extension(
   namespace: str,
   name: str,
@@ -72,7 +83,7 @@ def install_extension(
     _raise_http_error(error)
 
 
-@ROUTER.delete("/{namespace}/{name}", status_code=204)
+@ROUTER.delete("/extensions/{namespace}/{name}", status_code=204)
 def uninstall_extension(namespace: str, name: str) -> fastapi.Response:
   try:
     EXTENSION_HOST.uninstall(_coordinate(namespace, name))
@@ -81,7 +92,7 @@ def uninstall_extension(namespace: str, name: str) -> fastapi.Response:
   return fastapi.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
 
-@ROUTER.put("/{namespace}/{name}/config")
+@ROUTER.put("/extensions/{namespace}/{name}/config")
 def update_extension_config(
   namespace: str,
   name: str,
@@ -98,7 +109,7 @@ def update_extension_config(
     _raise_http_error(error)
 
 
-@ROUTER.post("/{namespace}/{name}/enable")
+@ROUTER.post("/extensions/{namespace}/{name}/enable")
 async def enable_extension(namespace: str, name: str) -> ExtensionState:
   try:
     return await EXTENSION_HOST.enable(_coordinate(namespace, name))
@@ -106,9 +117,23 @@ async def enable_extension(namespace: str, name: str) -> ExtensionState:
     _raise_http_error(error)
 
 
-@ROUTER.post("/{namespace}/{name}/disable")
+@ROUTER.post("/extensions/{namespace}/{name}/disable")
 async def disable_extension(namespace: str, name: str) -> ExtensionState:
   try:
     return await EXTENSION_HOST.disable(_coordinate(namespace, name))
+  except ExtensionHostError as error:
+    _raise_http_error(error)
+
+
+@ROUTER.post("/extension-management", include_in_schema=False)
+async def manage_extension(body: ExtensionManagementCommand) -> ExtensionState:
+  """Execute the fixed Peer-local Extension management capability."""
+  try:
+    return await EXTENSION_HOST.manage_local(body)
+  except pydantic.ValidationError as error:
+    raise fastapi.HTTPException(
+      status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
+      detail=error.errors(include_url=False, include_context=False),
+    ) from error
   except ExtensionHostError as error:
     _raise_http_error(error)

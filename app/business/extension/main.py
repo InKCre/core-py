@@ -9,10 +9,19 @@ from dataclasses import dataclass
 import typing
 
 import fastapi
+import pydantic
 import sqlmodel
 
-from app.business.client import ClientManager
+from app.business.peer import PeerManager
+from app.schemas.extension import (
+  DisableExtensionCommand,
+  EnableExtensionCommand,
+  ExtensionManagementCommand,
+  PatchExtensionConfigCommand,
+)
+from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
 from app.settings import settings
+from app.middleware import require_peer_jwt
 from libs.obsrv.main import get_logger
 
 from .distribution import (
@@ -47,12 +56,17 @@ from .state import ExtensionState, ExtensionStateStore, SQLExtensionStateStore
 
 
 LOGGER = get_logger().getChild(__name__)
+EXTENSION_MANAGEMENT_CAPABILITY = "core.extension.management.v1"
+
+
+class ExtensionDelegationError(RuntimeError):
+  """The selected Peer did not return the Extension management contract."""
 
 
 class EmptyConfig(sqlmodel.SQLModel): ...
 
 
-ConfigTV = typing.TypeVar("ConfigTV", bound=sqlmodel.SQLModel)
+ConfigTV = typing.TypeVar("ConfigTV", bound=pydantic.BaseModel)
 
 
 class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
@@ -96,11 +110,16 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
         **(extension.config or {})
       )
       setattr(cls, "config", validated_config)
-      router = fastapi.APIRouter(prefix=f"/{cls.__extid__}")
+      router = fastapi.APIRouter(
+        prefix=f"/{cls.__extid__}",
+        dependencies=cls.api_dependencies(),
+      )
       cls._register_apis(router)
       app.include_router(router, tags=["extension", cls.__extid__])
       cls._init_sources()
       cls._init_resolvers()
+      for inbound in cls.peer_inbounds():
+        PeerManager.register_inbound(inbound)
       publication = snapshot.finish()
       publication.activate_source_types()
       extension.persist_config_schema(dict(cls.__configschema__))
@@ -118,7 +137,22 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
   def _init_resolvers(cls) -> None: ...
 
   @classmethod
+  def load_decoders(cls) -> None:
+    """Publish persisted-content decoders without starting routes or Sources."""
+    cls._init_resolvers()
+
+  @classmethod
   def _init_sources(cls) -> None: ...
+
+  @classmethod
+  def api_dependencies(cls) -> list[typing.Any]:
+    """Return root API dependencies; override with [] to compose product auth."""
+    return [fastapi.Depends(require_peer_jwt)]
+
+  @classmethod
+  def peer_inbounds(cls) -> tuple[typing.Any, ...]:
+    """Return exact Peer inbounds published while this Extension is running."""
+    return ()
 
   @classmethod
   async def on_close(cls) -> None:
@@ -168,6 +202,16 @@ class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
       validated = new_config
     setattr(cls, "config", validated)
 
+  @classmethod
+  def validate_config(cls, config: dict[str, typing.Any]) -> ConfigTV:
+    """Validate one persisted configuration through the Extension-owned model."""
+    return cls.__configcls__(**config)  # pyrefly: ignore[missing-attribute, bad-return]
+
+  @classmethod
+  def config_schema(cls) -> dict[str, typing.Any]:
+    """Return the Extension-owned schema projected to deployment state."""
+    return dict(cls.__configschema__)
+
 
 @dataclass
 class RunningExtension:
@@ -205,6 +249,50 @@ class ExtensionHost:
 
   def list(self) -> tuple[ExtensionState, ...]:
     return self.store.list()
+
+  async def manage(
+    self,
+    command: ExtensionManagementCommand,
+    *,
+    route_to_peer: PeerRef,
+  ) -> ExtensionState:
+    """Execute one Extension command on one exact Peer."""
+    if route_to_peer == PeerManager.get_current_peer_ref():
+      return await self.manage_local(command)
+
+    request = PeerProtocolRequest(body=command.model_dump(mode="json"))
+    result = await PeerManager.delegate(
+      EXTENSION_MANAGEMENT_CAPABILITY,
+      typing.cast(
+        typing.Any,
+        request.model_dump(mode="json", exclude_unset=True),
+      ),
+      route_to_peer=route_to_peer,
+    )
+    try:
+      response = PeerProtocolResponse.model_validate(result)
+      if response.status != 200 or "body" not in response.model_fields_set:
+        raise ExtensionDelegationError(
+          f"Extension management Peer returned HTTP {response.status}"
+        )
+      return ExtensionState.model_validate(response.body)
+    except pydantic.ValidationError as error:
+      raise ExtensionDelegationError(
+        "Extension management Peer returned an invalid response"
+      ) from error
+
+  async def manage_local(
+    self,
+    command: ExtensionManagementCommand,
+  ) -> ExtensionState:
+    """Execute one already-validated command without entering delegation."""
+    if isinstance(command, EnableExtensionCommand):
+      return await self.enable(command.extension)
+    if isinstance(command, DisableExtensionCommand):
+      return await self.disable(command.extension)
+    if isinstance(command, PatchExtensionConfigCommand):
+      return self.patch_config(command.extension, command.patch)
+    typing.assert_never(command)
 
   def get(self, name: str) -> ExtensionState:
     validate_coordinate(name)
@@ -266,6 +354,15 @@ class ExtensionHost:
     updated = self.store.update_config(name, validated.model_dump())
     running.extension_class.update_config(validated)
     return updated
+
+  def patch_config(
+    self,
+    name: str,
+    patch: dict[str, typing.Any],
+  ) -> ExtensionState:
+    """Apply one shallow config patch through the canonical update path."""
+    current = self.get(name)
+    return self.update_config(name, {**current.config, **patch})
 
   def _acquire(self, state: ExtensionState):
     release, association = self._resolve(
@@ -410,7 +507,7 @@ class ExtensionHost:
     if runtime_app is None:
       raise ExtensionRuntimeError("FastAPI app is required to enable an Extension")
     self.fastapi_app = runtime_app
-    peer_id = ClientManager.get_current_client_id()
+    peer_id = PeerManager.get_current_peer_ref()
     async with self._runtime_lock:
       state = self.get(name)
       running = await self._start(runtime_app, state)
@@ -427,6 +524,8 @@ class ExtensionHost:
           ) from persistence_error
         raise
       if persisted.version == running.version:
+        if running.extension_class.peer_inbounds():
+          PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
         return persisted
 
       conflict = ExtensionStateConflictError(
@@ -447,16 +546,22 @@ class ExtensionHost:
 
   async def disable(self, name: str) -> ExtensionState:
     validate_coordinate(name)
-    peer_id = ClientManager.get_current_client_id()
+    peer_id = PeerManager.get_current_peer_ref()
     async with self._runtime_lock:
       state = self.get(name)
       if peer_id not in state.enabled:
         return state
       running = self.running.get(name)
+      published_peer_inbounds = (
+        bool(running.extension_class.peer_inbounds()) if running is not None else False
+      )
       if running is not None:
         await self._stop(running)
       try:
-        return self.store.set_peer_enabled(name, peer_id, False)
+        persisted = self.store.set_peer_enabled(name, peer_id, False)
+        if published_peer_inbounds:
+          PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+        return persisted
       except Exception as persistence_error:
         if running is None:
           raise
@@ -483,7 +588,7 @@ class ExtensionHost:
   async def start_enabled(self, app: fastapi.FastAPI) -> None:
     """Cold-restore exact enabled intent; failures never rewrite enabled[]."""
     self.fastapi_app = app
-    peer_id = ClientManager.get_current_client_id()
+    peer_id = PeerManager.get_current_peer_ref()
     failures: list[Exception] = []
     async with self._runtime_lock:
       for state in self.store.list():
@@ -517,9 +622,11 @@ EXTENSION_HOST = ExtensionHost()
 
 
 __all__ = [
+  "EXTENSION_MANAGEMENT_CAPABILITY",
   "EXTENSION_HOST",
   "EmptyConfig",
   "ExtensionBase",
+  "ExtensionDelegationError",
   "ExtensionHost",
   "ExtensionHostError",
   "ExtensionState",

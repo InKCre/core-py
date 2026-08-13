@@ -22,7 +22,7 @@ from app.database_contract.constants import (
 )
 
 
-PROBE_CLIENT_ID = uuid.UUID("00000000-0000-4000-8000-000000000099")
+PROBE_PEER_ID = uuid.UUID("00000000-0000-4000-8000-000000000099")
 PROBE_EXTENSION_NAME = "inkcre/postgrest-contract-probe"
 
 
@@ -79,11 +79,11 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
   """Prove representative read/write and rejection semantics."""
   valid_token = _token(secret)
   invalid_token = _token(wrong_secret)
-  escaped_id = parse.quote(str(PROBE_CLIENT_ID), safe="")
+  escaped_id = parse.quote(str(PROBE_PEER_ID), safe="")
 
   _call(
     base_url,
-    f"clients?id=eq.{escaped_id}",
+    f"peers?id=eq.{escaped_id}",
     method="DELETE",
     token=valid_token,
   )
@@ -91,18 +91,18 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
   checks: dict[str, int] = {}
   checks["authenticated_read"], _ = _call(
     base_url,
-    "clients?select=id&limit=1",
+    "peers?select=id&limit=1",
     token=valid_token,
   )
   _expect(checks["authenticated_read"], 200, "authenticated read")
 
   checks["authenticated_write"], response_body = _call(
     base_url,
-    "clients",
+    "peers",
     method="POST",
     token=valid_token,
     document={
-      "id": str(PROBE_CLIENT_ID),
+      "id": str(PROBE_PEER_ID),
       "name": "postgrest-contract-probe",
       "labels": ["contract-probe"],
       "config": {},
@@ -111,7 +111,7 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
   )
   _expect(checks["authenticated_write"], 201, "authenticated write")
   created = json.loads(response_body)
-  if not created or created[0].get("id") != str(PROBE_CLIENT_ID):
+  if not created or created[0].get("id") != str(PROBE_PEER_ID):
     raise RuntimeError("authenticated write returned an unexpected record")
 
   escaped_extension = parse.quote(PROBE_EXTENSION_NAME, safe="")
@@ -139,7 +139,7 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
     f"extensions?name=eq.{escaped_extension}",
     method="PATCH",
     token=valid_token,
-    document={"enabled": [str(PROBE_CLIENT_ID)]},
+    document={"enabled": [str(PROBE_PEER_ID)]},
   )
   _expect(
     checks["enabled_direct_update_denied"],
@@ -153,13 +153,13 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
     token=valid_token,
     document={
       "p_name": PROBE_EXTENSION_NAME,
-      "p_peer_id": str(PROBE_CLIENT_ID),
+      "p_peer_id": str(PROBE_PEER_ID),
       "p_enabled": True,
     },
   )
   _expect(checks["enabled_rpc"], 200, "enabled RPC")
   enabled_rows = json.loads(enabled_body)
-  if not enabled_rows or enabled_rows[0].get("enabled") != [str(PROBE_CLIENT_ID)]:
+  if not enabled_rows or enabled_rows[0].get("enabled") != [str(PROBE_PEER_ID)]:
     raise RuntimeError("enabled RPC returned an unexpected Extension record")
   checks["enabled_delete_denied"], _ = _call(
     base_url,
@@ -176,7 +176,7 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
     token=valid_token,
     document={
       "p_name": PROBE_EXTENSION_NAME,
-      "p_peer_id": str(PROBE_CLIENT_ID),
+      "p_peer_id": str(PROBE_PEER_ID),
       "p_enabled": False,
     },
   )
@@ -191,20 +191,20 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
 
   checks["wrong_secret"], _ = _call(
     base_url,
-    "clients?select=id&limit=1",
+    "peers?select=id&limit=1",
     token=invalid_token,
   )
   _expect(checks["wrong_secret"], 401, "wrong secret")
 
   checks["anonymous"], _ = _call(
     base_url,
-    "clients?select=id&limit=1",
+    "peers?select=id&limit=1",
   )
   _expect(checks["anonymous"], 401, "anonymous request")
 
   checks["cleanup"], _ = _call(
     base_url,
-    f"clients?id=eq.{escaped_id}",
+    f"peers?id=eq.{escaped_id}",
     method="DELETE",
     token=valid_token,
   )

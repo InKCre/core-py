@@ -40,7 +40,15 @@ from scripts.extension_distribution import read_project, verify_wheel
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-EXTENSIONS = ("github", "learn_english", "mail", "rss", "telegram", "twitter")
+EXTENSIONS = (
+  "github",
+  "learn_english",
+  "mail",
+  "memos",
+  "rss",
+  "telegram",
+  "twitter",
+)
 
 
 def release_and_association():
@@ -204,17 +212,11 @@ def test_all_first_party_projects_build_pep420_entry_point_wheels(tmp_path: Path
     from app.business.extension.main import ExtensionBase
     from app.business.extension.runtime import ExtensionRuntimeRecord
     from app.business.source import SourceManager
-    from app.business.source.main import SourceRuntimeActivation
 
     expected = {EXTENSIONS!r}
     runtime_root = Path(sys.prefix).resolve()
     SourceManager.sync_source_types = classmethod(
       lambda cls, selected=None: None
-    )
-    SourceManager.set_up_collect_jobs = classmethod(
-      lambda cls, selected=None: SourceRuntimeActivation(
-        frozenset(selected or ()), (), ()
-      )
     )
 
     for name in expected:

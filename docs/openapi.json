@@ -166,16 +166,6 @@
               "type": "integer",
               "title": "Block Id"
             }
-          },
-          {
-            "name": "organize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Organize"
-            }
           }
         ],
         "requestBody": {
@@ -220,27 +210,15 @@
         "summary": "Create Block",
         "description": "创建块",
         "operationId": "create_block_blocks_post",
-        "parameters": [
-          {
-            "name": "organize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Organize"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BlockModel"
+                "$ref": "#/components/schemas/BlockForm"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -266,131 +244,6 @@
         }
       }
     },
-    "/blocks/query/by_embedding": {
-      "get": {
-        "tags": [
-          "block"
-        ],
-        "summary": "Query By Embedding",
-        "operationId": "query_by_embedding_blocks_query_by_embedding_get",
-        "parameters": [
-          {
-            "name": "block_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Block Id"
-            }
-          },
-          {
-            "name": "query",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Query"
-            }
-          },
-          {
-            "name": "resolver",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Resolver"
-            }
-          },
-          {
-            "name": "num",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10,
-              "title": "Num"
-            }
-          },
-          {
-            "name": "max_distance",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "default": 0.3,
-              "title": "Max Distance"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BlockModel"
-                  },
-                  "title": "Response Query By Embedding Blocks Query By Embedding Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/blocks/embeddings": {
-      "put": {
-        "tags": [
-          "block"
-        ],
-        "summary": "Refresh Embeddings",
-        "description": "Rebuild all blocks' embeddings - delegates to sink embedding service",
-        "operationId": "refresh_embeddings_blocks_embeddings_put",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/relations": {
       "post": {
         "tags": [
@@ -402,7 +255,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RelationModel"
+                "$ref": "#/components/schemas/RelationCreateForm"
               }
             }
           },
@@ -863,7 +716,222 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SourceCollectJobModel"
+                  "$ref": "#/components/schemas/JobModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{source_id}/backfill": {
+      "post": {
+        "tags": [
+          "source"
+        ],
+        "summary": "Run Source Backfill",
+        "description": "Create one explicit historical Source Job.",
+        "operationId": "run_source_backfill_sources__source_id__backfill_post",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "timeout_seconds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Timeout Seconds"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/configs/{key}": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Get Config",
+        "operationId": "get_config_configs__key__get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentConfigView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Replace Config",
+        "operationId": "replace_config_configs__key__put",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentConfigReplaceForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentConfigView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Patch Config",
+        "operationId": "patch_config_configs__key__patch",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentConfigView"
                 }
               }
             }
@@ -884,15 +952,15 @@
     "/graph": {
       "put": {
         "tags": [
-          "root"
+          "info-base"
         ],
-        "summary": "Insert Subgrpah",
-        "operationId": "insert_subgrpah_graph_put",
+        "summary": "Submit Graph",
+        "operationId": "submit_graph_graph_put",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SubGraphForm"
+                "$ref": "#/components/schemas/GraphForm"
               }
             }
           },
@@ -904,7 +972,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RootV1InsertGraphResBody"
+                  "$ref": "#/components/schemas/SubmitGraphResult"
                 }
               }
             }
@@ -922,106 +990,105 @@
         }
       }
     },
-    "/sink/rag": {
-      "get": {
+    "/organization/ruminate": {
+      "post": {
         "tags": [
-          "sink"
+          "organization"
         ],
-        "summary": "Rag",
-        "description": "RAG (Retrieval Augmented Generation) endpoint\n\n:param query: User query\n:param context: Additional context string\n:param context_blocks: Additional context block IDs\n:param retrieve_mode: Retrieval mode - \"embedding\", \"reasoning\", or \"feature\"\n:param use_reranker: Whether to use reranker to improve retrieval results\n:param num_retrieve: Number of blocks to retrieve initially\n:param num_rerank: Number of blocks to keep after reranking",
-        "operationId": "rag_sink_rag_get",
-        "parameters": [
-          {
-            "name": "query",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Query"
+        "summary": "Ruminate",
+        "operationId": "ruminate_organization_ruminate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuminationRequest"
+              }
             }
           },
-          {
-            "name": "context",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              ],
-              "title": "Context"
-            }
-          },
-          {
-            "name": "context_blocks",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "integer"
-              },
-              "default": [],
-              "title": "Context Blocks"
-            }
-          },
-          {
-            "name": "retrieve_mode",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "feature",
-                "embedding",
-                "reasoning"
-              ],
-              "type": "string",
-              "default": "embedding",
-              "title": "Retrieve Mode"
-            }
-          },
-          {
-            "name": "use_reranker",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Use Reranker"
-            }
-          },
-          {
-            "name": "num_retrieve",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "title": "Num Retrieve"
-            }
-          },
-          {
-            "name": "num_rerank",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 5,
-              "title": "Num Rerank"
+              }
             }
           }
+        }
+      }
+    },
+    "/semantic-retrieval": {
+      "post": {
+        "tags": [
+          "semantic-retrieval"
         ],
+        "summary": "Retrieve",
+        "operationId": "retrieve_semantic_retrieval_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemanticRetrievalRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SinkV1RAGResBody"
+                  "$ref": "#/components/schemas/SemanticRetrievalResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lexical-retrieval": {
+      "post": {
+        "tags": [
+          "lexical-retrieval"
+        ],
+        "summary": "Retrieve",
+        "operationId": "retrieve_lexical_retrieval_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LexicalRetrievalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexicalRetrievalResult"
                 }
               }
             }
@@ -1042,29 +1109,8 @@
   },
   "components": {
     "schemas": {
-      "BlockModel": {
+      "BlockForm": {
         "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          },
           "storage": {
             "anyOf": [
               {
@@ -1085,12 +1131,148 @@
             "title": "Content"
           }
         },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "resolver",
+          "content"
+        ],
+        "title": "BlockForm",
+        "description": "Producer-owned values for creating one Block."
+      },
+      "BlockModel": {
+        "properties": {
+          "storage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage"
+          },
+          "resolver": {
+            "type": "string",
+            "title": "Resolver"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "resolver",
           "content"
         ],
         "title": "BlockModel"
+      },
+      "BlockSemanticRetrievalMatch": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "block",
+            "title": "Type",
+            "default": "block"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/BlockModel"
+          },
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entity",
+          "score"
+        ],
+        "title": "BlockSemanticRetrievalMatch"
+      },
+      "DeploymentConfigReplaceForm": {
+        "properties": {
+          "schema": {
+            "type": "string",
+            "title": "Schema"
+          },
+          "value": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema",
+          "value"
+        ],
+        "title": "DeploymentConfigReplaceForm",
+        "description": "Complete PUT body; schema changes are allowed only through this form."
+      },
+      "DeploymentConfigView": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "schema": {
+            "type": "string",
+            "title": "Schema"
+          },
+          "value": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Value"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "schema",
+          "value",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DeploymentConfigView",
+        "description": "Validated deployment config projection exposed by the HTTP resource."
       },
       "ExtensionState": {
         "properties": {
@@ -1148,6 +1330,112 @@
         "title": "ExtensionState",
         "description": "Stable Host-facing projection; SQLModel and table details remain private."
       },
+      "GraphBlockForm": {
+        "properties": {
+          "storage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage"
+          },
+          "resolver": {
+            "type": "string",
+            "title": "Resolver"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "id": {
+            "type": "integer",
+            "exclusiveMaximum": 0.0,
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "resolver",
+          "content",
+          "id"
+        ],
+        "title": "GraphBlockForm",
+        "description": "A new Block declaration under one GraphForm-local negative ID."
+      },
+      "GraphBlockIDMapping": {
+        "properties": {
+          "local_id": {
+            "type": "integer",
+            "exclusiveMaximum": 0.0,
+            "title": "Local Id"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "local_id",
+          "id"
+        ],
+        "title": "GraphBlockIDMapping",
+        "description": "Map one command-local Block identity to its persisted identity."
+      },
+      "GraphForm": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/GraphBlockForm"
+            },
+            "type": "array",
+            "title": "Blocks",
+            "default": []
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/GraphRelationForm"
+            },
+            "type": "array",
+            "title": "Relations",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "GraphForm",
+        "description": "Flat command for adding arbitrarily connected Blocks and Relations."
+      },
+      "GraphRelationForm": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "from_": {
+            "type": "integer",
+            "title": "From"
+          },
+          "to_": {
+            "type": "integer",
+            "title": "To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content",
+          "from_",
+          "to_"
+        ],
+        "title": "GraphRelationForm",
+        "description": "A Relation declaration over the GraphForm signed Block-ID namespace."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1161,41 +1449,7 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "InArcForm": {
-        "properties": {
-          "relation": {
-            "$ref": "#/components/schemas/RelationModel"
-          },
-          "from_subgraph": {
-            "$ref": "#/components/schemas/SubGraphForm"
-          }
-        },
-        "type": "object",
-        "required": [
-          "relation",
-          "from_subgraph"
-        ],
-        "title": "InArcForm",
-        "description": "A form for creating an incoming arc"
-      },
-      "OutArcForm": {
-        "properties": {
-          "relation": {
-            "$ref": "#/components/schemas/RelationModel"
-          },
-          "to_subgraph": {
-            "$ref": "#/components/schemas/SubGraphForm"
-          }
-        },
-        "type": "object",
-        "required": [
-          "relation",
-          "to_subgraph"
-        ],
-        "title": "OutArcForm",
-        "description": "A form for creating an outgoing arc"
-      },
-      "RelationModel": {
+      "JobModel": {
         "properties": {
           "id": {
             "anyOf": [
@@ -1208,85 +1462,28 @@
             ],
             "title": "Id"
           },
-          "updated_at": {
+          "type": {
             "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
+            "title": "Type"
           },
-          "from_": {
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "State"
+          },
+          "timeout_seconds": {
             "type": "integer",
-            "title": "From",
-            "default": 0
+            "exclusiveMinimum": 0.0,
+            "title": "Timeout Seconds"
           },
-          "to_": {
-            "type": "integer",
-            "title": "To",
-            "default": 0
-          },
-          "content": {
-            "type": "string",
-            "title": "Content"
-          }
-        },
-        "type": "object",
-        "required": [
-          "content"
-        ],
-        "title": "RelationModel"
-      },
-      "RootV1InsertGraphResBody": {
-        "properties": {
-          "blocks": {
-            "items": {
-              "$ref": "#/components/schemas/BlockModel"
-            },
-            "type": "array",
-            "title": "Blocks"
-          },
-          "relations": {
-            "items": {
-              "$ref": "#/components/schemas/RelationModel"
-            },
-            "type": "array",
-            "title": "Relations"
-          }
-        },
-        "type": "object",
-        "required": [
-          "blocks",
-          "relations"
-        ],
-        "title": "RootV1InsertGraphResBody"
-      },
-      "SinkV1RAGResBody": {
-        "properties": {
-          "message": {
-            "type": "string",
-            "title": "Message"
-          }
-        },
-        "type": "object",
-        "required": [
-          "message"
-        ],
-        "title": "SinkV1RAGResBody"
-      },
-      "SourceCollectJobModel": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "source": {
-            "type": "integer",
-            "title": "Source"
+          "status": {
+            "$ref": "#/components/schemas/JobStatus",
+            "default": "pending"
           },
           "created_at": {
             "type": "string",
@@ -1316,67 +1513,298 @@
               }
             ],
             "title": "Closed At"
-          },
-          "status": {
-            "$ref": "#/components/schemas/SourceCollectJobStatus",
-            "default": "pending"
-          },
-          "state": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "State"
-          },
-          "config": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Config"
           }
         },
         "type": "object",
         "required": [
-          "source"
+          "type",
+          "timeout_seconds"
         ],
-        "title": "SourceCollectJobModel",
-        "description": "Model for source collect jobs.\n\nSource collect jobs should be handled as soon as possible, no schedule given."
+        "title": "JobModel",
+        "description": "One durable execution opportunity for an exact registered command."
       },
-      "SourceCollectJobStatus": {
+      "JobStatus": {
         "type": "string",
         "enum": [
           "pending",
           "running",
           "finished",
-          "failed"
+          "failed",
+          "timed_out",
+          "aborted"
         ],
-        "title": "SourceCollectJobStatus"
+        "title": "JobStatus"
       },
-      "SubGraphForm": {
+      "LexicalRetrievalMatch": {
         "properties": {
           "block": {
             "$ref": "#/components/schemas/BlockModel"
           },
-          "out_arcs": {
-            "items": {
-              "$ref": "#/components/schemas/OutArcForm"
-            },
-            "type": "array",
-            "title": "Out Arcs",
-            "default": []
+          "label": {
+            "type": "string",
+            "title": "Label"
           },
-          "in_arcs": {
-            "items": {
-              "$ref": "#/components/schemas/InArcForm"
-            },
-            "type": "array",
-            "title": "In Arcs",
-            "default": []
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          },
+          "evidence": {
+            "type": "string",
+            "enum": [
+              "label_exact",
+              "label_substring",
+              "text_substring",
+              "terms"
+            ],
+            "title": "Evidence"
+          },
+          "rank": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Rank"
           }
         },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "block",
+          "label",
+          "excerpt",
+          "evidence",
+          "rank"
+        ],
+        "title": "LexicalRetrievalMatch"
+      },
+      "LexicalRetrievalRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 20
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "LexicalRetrievalRequest"
+      },
+      "LexicalRetrievalResult": {
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/LexicalRetrievalMatch"
+            },
+            "type": "array",
+            "title": "Matches"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "matches"
+        ],
+        "title": "LexicalRetrievalResult"
+      },
+      "RelationCreateForm": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "from_": {
+            "type": "integer",
+            "title": "From"
+          },
+          "to_": {
+            "type": "integer",
+            "title": "To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content",
+          "from_",
+          "to_"
+        ],
+        "title": "RelationCreateForm",
+        "description": "Standalone Relation creation command with persisted Block endpoints."
+      },
+      "RelationModel": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "from_": {
+            "type": "integer",
+            "title": "From",
+            "default": 0
+          },
+          "to_": {
+            "type": "integer",
+            "title": "To",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "RelationModel"
+      },
+      "RelationSemanticRetrievalMatch": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "relation",
+            "title": "Type",
+            "default": "relation"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/RelationModel"
+          },
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entity",
+          "score"
+        ],
+        "title": "RelationSemanticRetrievalMatch"
+      },
+      "RuminationRequest": {
+        "properties": {
+          "block": {
+            "type": "integer",
+            "title": "Block"
+          }
+        },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "block"
         ],
-        "title": "SubGraphForm",
-        "description": "A form for creating a sub-graph (start from a block, follows its in/out relations,\nincludes all reachable blocks)"
+        "title": "RuminationRequest",
+        "description": "Explicit request to reconsider one focal Block."
+      },
+      "SemanticRetrievalRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile"
+          },
+          "options": {
+            "$ref": "#/components/schemas/VectorRetrievalOptions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "SemanticRetrievalRequest"
+      },
+      "SemanticRetrievalResult": {
+        "properties": {
+          "profile": {
+            "type": "integer",
+            "title": "Profile"
+          },
+          "metric": {
+            "type": "string",
+            "const": "cosine",
+            "title": "Metric",
+            "default": "cosine"
+          },
+          "matches": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/BlockSemanticRetrievalMatch"
+                },
+                {
+                  "$ref": "#/components/schemas/RelationSemanticRetrievalMatch"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "block": "#/components/schemas/BlockSemanticRetrievalMatch",
+                  "relation": "#/components/schemas/RelationSemanticRetrievalMatch"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Matches"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "profile",
+          "matches"
+        ],
+        "title": "SemanticRetrievalResult"
+      },
+      "SubmitGraphResult": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/GraphBlockIDMapping"
+            },
+            "type": "array",
+            "title": "Blocks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "blocks"
+        ],
+        "title": "SubmitGraphResult",
+        "description": "Minimal successful graph-command result used by producers and Agent Tools."
       },
       "ValidationError": {
         "properties": {
@@ -1417,6 +1845,47 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VectorRetrievalOptions": {
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 20
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": -1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score"
+          },
+          "entity_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "block",
+                "relation"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "title": "Entity Types"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VectorRetrievalOptions",
+        "description": "Query-scoped controls over one already compatible vector space."
       }
     }
   }

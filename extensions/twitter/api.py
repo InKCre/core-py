@@ -23,7 +23,7 @@ from . import Extension
 
 class Tweet(sqlmodel.SQLModel):
   id: int
-  user_id: str
+  user_id: str | None = None
   """推文用户ID"""
   conversation_id: Opt[int] = None
   text: str
@@ -322,7 +322,7 @@ class OfficialAPI(TwitterAPI):
       tweets.append(
         Tweet(
           id=tweet_id,
-          # user_id=tweet._.user  # TODO
+          user_id=tweet._.author_id(),
           text=tweet_text,
           conversation_id=conversation_id,
           photos=tuple(photos),
@@ -608,7 +608,7 @@ class TwikitAPI(TwitterAPI):
       text=tweet_text,
       photos=tuple(photos),
       videos=tuple(videos),
-      urls=tuple(),
+      urls=tuple(urls),
     )
 
   @classmethod

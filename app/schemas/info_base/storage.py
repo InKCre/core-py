@@ -1,4 +1,5 @@
 import typing
+import uuid
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
@@ -7,6 +8,24 @@ from typing import Optional as Opt
 
 StorageTypeID: typing.TypeAlias = str
 StorageID: typing.TypeAlias = int
+
+
+class StorageBlobModel(sqlmodel.SQLModel, table=True):
+  """Raw PostgreSQL-owned bytes addressed by an opaque generated pointer."""
+
+  __tablename__: str = "storage_blobs"  # type: ignore
+
+  id: uuid.UUID = sqlmodel.Field(
+    default_factory=uuid.uuid4,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.dialects.postgresql.UUID(as_uuid=True),
+      primary_key=True,
+      server_default=sqlalchemy.text("gen_random_uuid()"),
+    ),
+  )
+  data: bytes = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(sqlalchemy.LargeBinary, nullable=False)
+  )
 
 
 class StorageTypesModel(sqlmodel.SQLModel, table=True):
@@ -31,6 +50,14 @@ class StorageTypesModel(sqlmodel.SQLModel, table=True):
       nullable=False,
     ),
     default=dict,
+  )
+  writable: bool = sqlmodel.Field(
+    default=False,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.Boolean,
+      nullable=False,
+      server_default=sqlalchemy.false(),
+    ),
   )
 
 
