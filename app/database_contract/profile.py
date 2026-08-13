@@ -119,6 +119,11 @@ BUILTIN_AI_DIALECTS = (
     "OpenAI-compatible embedding and chat protocol.",
     OPENAI_COMPATIBLE_DIALECT_SCHEMA,
   ),
+  TypeProfile(
+    "core.alibaba-model-studio.v1",
+    "Alibaba Model Studio OpenAI-compatible multimodal chat protocol.",
+    OPENAI_COMPATIBLE_DIALECT_SCHEMA,
+  ),
 )
 
 BUILTIN_STORAGE_TYPES = (
@@ -166,6 +171,97 @@ SOURCE_BACKFILL_PARAMETERS_SCHEMA = {
   "title": "SourceBackfillParameters",
 }
 
+LEXICAL_MAINTENANCE_PARAMETERS_SCHEMA = {
+  "$defs": {
+    "LexicalMaintenanceOptions": {
+      "additionalProperties": False,
+      "properties": {
+        "diagnostic_limit": {
+          "default": 20,
+          "minimum": 0,
+          "title": "Diagnostic Limit",
+          "type": "integer",
+        },
+        "max_records": {
+          "default": 100,
+          "minimum": 1,
+          "title": "Max Records",
+          "type": "integer",
+        },
+        "scan_page_size": {
+          "default": 100,
+          "minimum": 1,
+          "title": "Scan Page Size",
+          "type": "integer",
+        },
+      },
+      "title": "LexicalMaintenanceOptions",
+      "type": "object",
+    }
+  },
+  "additionalProperties": False,
+  "properties": {
+    "options": {"$ref": "#/$defs/LexicalMaintenanceOptions"},
+  },
+  "title": "LexicalMaintenanceJobParameters",
+  "type": "object",
+}
+
+SEMANTIC_MAINTENANCE_PARAMETERS_SCHEMA = {
+  "$defs": {
+    "EmbeddingMaintenanceOptions": {
+      "additionalProperties": False,
+      "description": "Peer-local bounds for one resumable maintenance invocation.",
+      "properties": {
+        "batch_size": {
+          "default": 20,
+          "minimum": 1,
+          "title": "Batch Size",
+          "type": "integer",
+        },
+        "diagnostic_limit": {
+          "default": 20,
+          "minimum": 0,
+          "title": "Diagnostic Limit",
+          "type": "integer",
+        },
+        "max_embeddings": {
+          "default": 100,
+          "minimum": 1,
+          "title": "Max Embeddings",
+          "type": "integer",
+        },
+        "scan_page_size": {
+          "default": 100,
+          "minimum": 1,
+          "title": "Scan Page Size",
+          "type": "integer",
+        },
+      },
+      "title": "EmbeddingMaintenanceOptions",
+      "type": "object",
+    }
+  },
+  "additionalProperties": False,
+  "properties": {
+    "options": {"$ref": "#/$defs/EmbeddingMaintenanceOptions"},
+    "profile": {
+      "anyOf": [{"type": "integer"}, {"type": "null"}],
+      "default": None,
+      "title": "Profile",
+    },
+  },
+  "title": "EmbeddingMaintenanceJobParameters",
+  "type": "object",
+}
+
+MEDIA_INTERPRETATION_PARAMETERS_SCHEMA = {
+  "additionalProperties": False,
+  "properties": {},
+  "title": "MediaInterpretationJobParameters",
+  "type": "object",
+}
+
 BUILTIN_JOB_TYPES = (
   JobTypeProfile(
     "core.source.collect.v1",
@@ -177,6 +273,36 @@ BUILTIN_JOB_TYPES = (
     "core.source.backfill.v1",
     "Run one exact historical collection command for a configured Source.",
     SOURCE_BACKFILL_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.feature_retrieval.lexical.maintain.v1",
+    "Maintain missing or stale Block lexical projection records.",
+    LEXICAL_MAINTENANCE_PARAMETERS_SCHEMA,
+    900,
+  ),
+  JobTypeProfile(
+    "core.feature_retrieval.lexical.rebuild.v1",
+    "Rebuild Block lexical records present before invocation.",
+    LEXICAL_MAINTENANCE_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.semantic_retrieval.maintain.v1",
+    "Maintain missing or stale semantic embedding records.",
+    SEMANTIC_MAINTENANCE_PARAMETERS_SCHEMA,
+    900,
+  ),
+  JobTypeProfile(
+    "core.semantic_retrieval.rebuild.v1",
+    "Rebuild semantic embedding records present before invocation.",
+    SEMANTIC_MAINTENANCE_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.organization.media_interpretation.v1",
+    "Interpret missing image, audio, and video Blocks through configured Agents.",
+    MEDIA_INTERPRETATION_PARAMETERS_SCHEMA,
     1800,
   ),
 )
