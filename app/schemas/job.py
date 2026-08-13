@@ -63,6 +63,7 @@ class JobModel(sqlmodel.SQLModel, table=True):
 
   __tablename__ = "jobs"  # type: ignore
   __table_args__ = (
+    sqlalchemy.Index("jobs_status_idx", "status"),
     sqlalchemy.CheckConstraint(
       "timeout_seconds > 0",
       name="jobs_timeout_seconds_positive",

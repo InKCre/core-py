@@ -19,6 +19,7 @@ class CronModel(sqlmodel.SQLModel, table=True):
 
   __tablename__ = "crons"  # type: ignore
   __table_args__ = (
+    sqlalchemy.Index("crons_enabled_idx", "enabled"),
     sqlalchemy.CheckConstraint(
       "job_timeout_seconds IS NULL OR job_timeout_seconds > 0",
       name="crons_job_timeout_seconds_positive",
