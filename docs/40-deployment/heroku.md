@@ -27,10 +27,10 @@ files.
 
 Trusted same-repository pull requests currently use:
 
-- app name `inkcre-core-py-pr-<number>`;
+- app names `inkcre-core-py-pr-<number>` and `inkcre-postgrest-pr-<number>`;
 - pipeline `inkcre-core`, stage `review`;
 - container stack in the US region;
-- one Eco `web` dyno;
+- one Eco `web` dyno for each peer transport;
 - matching seven-day Neon branch `preview/core-py/pr-<number>`;
 - no Heroku addon.
 
@@ -42,12 +42,14 @@ portable-runtime, and branch checks pass for the exact PR SHA, preview delivery:
 3. removes inherited provider-created protocol roles only on first bootstrap;
 4. runs the PR artifact's complete preview-profile initialization and readiness;
 5. derives an `inkcre_core` URL without logging it;
-6. configures and releases the Heroku app;
-7. forces `web=1:eco` and probes `/livez` plus `/readyz`.
+6. configures and releases the Core and PostgREST apps against that exact branch;
+7. forces both formations to `web=1:eco`, probes Core `/livez` plus `/readyz`, and
+   verifies authenticated PostgREST read/write plus anonymous and wrong-secret denial.
 
-The owner URL and PostgREST database password never enter preview Heroku config.
-PR close destroys only the deterministic app; the independent Neon workflow deletes only
-the deterministic database branch.
+The owner URL never enters preview Heroku config. The Core app receives only the
+`inkcre_core` URL; the PostgREST app receives only the `authenticator` URL. PR close destroys
+only the two deterministic apps; the independent Neon workflow deletes only the deterministic
+database branch.
 
 Repository-qualified app and branch identities keep a core-py PR and a client-web PR with
 the same number from addressing the same review resources.
