@@ -14,12 +14,8 @@ from sqlalchemy.pool import NullPool
 
 from migrations.metadata import get_target_metadata
 from migrations.settings import MigrationSettings
-from app.database_contract.constants import (
-  EXTENSION_CUTOVER_CURRENT_HEAD,
-  EXTENSION_CUTOVER_PREVIOUS_HEAD,
-  EXTENSION_CUTOVER_RELATIONS,
-  PROTOCOL_SCHEMA,
-)
+from app.database_contract.constants import PROTOCOL_SCHEMA
+from app.database_contract.migration import get_repository_heads
 from scripts.sanitize_preview_base import LINEAGE_TABLE
 
 
@@ -28,15 +24,12 @@ def validate_manifest_application_tables(
   expected_tables: set[str],
   alembic_heads: set[str],
 ) -> None:
-  """Bind the hard-cut predecessor and current table sets to exact lineage."""
-  if alembic_heads == {EXTENSION_CUTOVER_PREVIOUS_HEAD}:
-    required_tables = expected_tables | (EXTENSION_CUTOVER_RELATIONS - {"extensions"})
-  elif alembic_heads == {EXTENSION_CUTOVER_CURRENT_HEAD}:
-    required_tables = expected_tables
-  else:
+  """Bind the complete application table set to this artifact's lineage."""
+  repository_heads = set(get_repository_heads())
+  if alembic_heads != repository_heads:
     raise ValueError(f"unsupported database manifest lineage: {sorted(alembic_heads)}")
 
-  if actual_tables == required_tables:
+  if actual_tables == expected_tables:
     return
 
   raise ValueError(
@@ -44,7 +37,6 @@ def validate_manifest_application_tables(
       {
         "alembic_heads": sorted(alembic_heads),
         "expected_tables": sorted(expected_tables),
-        "required_tables": sorted(required_tables),
         "actual_tables": sorted(actual_tables),
       },
       sort_keys=True,
@@ -58,6 +50,7 @@ def _resolve_application_schema(
   alembic_heads: set[str],
 ) -> tuple[str, set[str]]:
   candidates: list[tuple[str, set[str]]] = []
+  rejections: dict[str, str] = {}
   for schema_name in (PROTOCOL_SCHEMA, "public"):
     actual_tables = set(
       connection.execute(
@@ -82,12 +75,20 @@ def _resolve_application_schema(
         expected_tables,
         alembic_heads,
       )
-    except ValueError:
+    except ValueError as error:
+      rejections[schema_name] = str(error)
       continue
     candidates.append((schema_name, actual_tables))
   if len(candidates) != 1:
     raise ValueError(
-      f"expected exactly one complete application schema, found {len(candidates)}"
+      json.dumps(
+        {
+          "candidate_count": len(candidates),
+          "error": "expected exactly one complete application schema",
+          "rejections": rejections,
+        },
+        sort_keys=True,
+      )
     )
   return candidates[0]
 

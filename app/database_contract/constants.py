@@ -51,9 +51,3 @@ APPLICATION_TABLES = (
   "storage_blobs",
   "storages",
 )
-
-EXTENSION_CUTOVER_RELATIONS = frozenset(
-  {"extensions", "extension_installations", "extension_peer_bindings"}
-)
-EXTENSION_CUTOVER_PREVIOUS_HEAD = "f2a6c8e4b1d7"
-EXTENSION_CUTOVER_CURRENT_HEAD = "b8c1d2e3f4a5"
