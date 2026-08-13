@@ -18,7 +18,7 @@ os.environ.update(
     "DATABASE_URL": database_url,
     "JWT_SECRET": "test-only-jwt-secret-at-least-32-bytes",
     "OBSRV__LOGGING_BACKEND": "none",
-    "SKIP_EXTENSIONS_SYNC": "1",
+    "SKIP_EXTENSION_START": "1",
   }
 )
 

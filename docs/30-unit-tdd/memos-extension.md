@@ -52,7 +52,7 @@ PAT 是 nullable ordinary extension config：`memos_pat_` 加 32 个 ASCII alpha
 deployment trust boundary，不建立 session、refresh token、PAT table 或 terminal-user record。比较在
 request time 执行，因此有效 config update 后 replace/revoke 立即生效，无需重建 routes。
 
-ExtensionManager 的通用 config pipeline 先把 patch 与 current config shallow-merge，再用 `config_cls`
+ExtensionHost 的通用 config pipeline 先把 patch 与 current config shallow-merge，再用 `config_cls`
 验证 complete next value，随后写 DB 并替换 live config。invalid config 不改变 durable/runtime state；
 disabled extension 可以预配置 PAT。
 

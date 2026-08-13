@@ -10,7 +10,6 @@ import json
 import os
 
 from aiohttp import web
-import fastapi
 from fastapi.testclient import TestClient
 import pytest
 import sqlalchemy
@@ -18,7 +17,6 @@ import sqlmodel
 
 from app.business.ai import AIManager
 from app.business.deployment_config import DeploymentConfigManager
-from app.business.extension.routing import ExtensionRouteMount
 from app.business.info_base import BlockManager, InfoBaseManager, RelationManager
 from app.business.info_base.resolver import register_core_resolvers
 from app.business.info_base.resolver.html import HTMLResolver
@@ -38,6 +36,7 @@ from app.business.lexical_retrieval import LexicalRetrievalManager
 from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
 from app.engine import SessionLocal
 from app.schemas import AgentDefinitionModel
+from tests.extensions.runtime_support import publish_extension
 from app.schemas.ai import (
   AIModelModel,
   AIProviderModel,
@@ -52,7 +51,6 @@ from app.schemas.ai import (
   UserMessage,
 )
 from app.schemas.deployment_config import DeploymentConfigModel, DeploymentConfigView
-from app.schemas.extension import ExtensionModel
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.semantic_retrieval import (
@@ -203,16 +201,10 @@ def _resource_id(name: str) -> int:
 
 
 def _memos_client() -> TestClient:
-  application = fastapi.FastAPI()
-  model = ExtensionModel(
-    id="memos",
-    version="0.1.0",
-    enabled=[],
-    config={"personal_access_token": PAT},
-  )
-  mount = ExtensionRouteMount(application, MemosExtension.on_start(model))
-  mount.publish()
-  return TestClient(application)
+  return publish_extension(
+    MemosExtension,
+    {"personal_access_token": PAT},
+  ).client
 
 
 def _ingest_memo(manifest: CorpusManifest) -> tuple[int, int]:

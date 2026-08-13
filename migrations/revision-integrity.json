@@ -4,9 +4,11 @@
   "previous_manifest_sha256": "077705815948319b03286fa8550478710f8964263be19c35432d2a3462e76ed8",
   "revisions": {
     "1e4c7a9b2d5f_add_block_lexical_records.py": "20cd7c361b0f822811d52beb692a255078e3842fd64d74287ee0c13d0bc8df26",
+    "3f7a9c2d5e1b_merge_extension_registry_feature_retrieval.py": "a12ebb2f37a00dcc13b6dea6b7f9be0f6870d57530e8d234eb934c080d027c07",
     "77cd53ad8080_add_global_jobs_crons_and_source_runtime.py": "8eda54520a7099c957ee6a1b5e6e48d5ee2b3dbe18b0dea4b6a5246dbef04bd2",
     "a1b2c3d4e5f6_add_clients_modify_extensions_enabled.py": "15292a9fcf834474c8453e3d1d9db962962fb5d729bc0b80053615cf71315b96",
     "a8b9c0d1e2f3_add_ai_registry_and_profiles.py": "4c9346dac54e797ba8cb6fa7dfa8604482a114905bea88d3ff71b32fb9da5246",
+    "b8c1d2e3f4a5_native_extension_distribution_cutover.py": "c0527edff210a9646c69de2da01c2877bce4acbc05af969c5bfb8d1a3fd0d3c8",
     "b8f1c2d3e4a5_add_storage_hydration_protocol.py": "87162d8376aaaac7ceb56bbfc1e03eb3e893607b0d51c4a2fd235d9f6201f395",
     "b9c0d1e2f3a4_add_agent_definitions.py": "59529e759610193da3427c5b18e0c9be25e46e5e2419a3237bcf9ef88c263fa3",
     "c0d1e2f3a4b5_adopt_peer_capability_delegation.py": "7474fcda0b55fe2ce2047f761579459385aac9f43e7359ced881b8eb1fc6c265",
@@ -16,6 +18,7 @@
     "d9f4e2a1b7c3_adopt_peer_database_protocol.py": "9a163533b5a0619e51bfb94ba7ad0c5c3d168fba5808b08f67531fd8f7e5f263",
     "e1f4a5b6c7d8_migrate_memos_attachment_v2.py": "5f3691149e06b28378f79eed7eaacd1c415ee6c92fb83b3b5745a429346d5e01",
     "e5a01f9e69ef_init.py": "a10de6c0818abc593951a34e51a974ffcd999f60ba5afc441f87ac6cef8d869e",
+    "f2a6c8e4b1d7_add_extension_registry_deployment_state.py": "a2cf3059f87e17292baf9fd10a1acb8b26ccb928845dbe4bec95b374164cd46d",
     "f2c8a6d1e4b7_add_postgresql_binary_storage.py": "1137323490b324da3f1672cf5a3a8b5edb1e6a258cc10129926bf6e8d232a111",
     "f7a8b9c0d1e2_add_deployment_configs.py": "9bb58b1d22dccef5817e28df8bcb88ab6edfff70a6823d80b3637752899188fe"
   }

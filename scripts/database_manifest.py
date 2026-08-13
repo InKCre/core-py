@@ -14,12 +14,50 @@ from sqlalchemy.pool import NullPool
 
 from migrations.metadata import get_target_metadata
 from migrations.settings import MigrationSettings
-from app.database_contract import PROTOCOL_SCHEMA
-from scripts.sanitize_preview_base import LINEAGE_TABLE, validate_application_tables
+from app.database_contract.constants import (
+  EXTENSION_CUTOVER_CURRENT_HEAD,
+  EXTENSION_CUTOVER_PREVIOUS_HEAD,
+  EXTENSION_CUTOVER_RELATIONS,
+  PROTOCOL_SCHEMA,
+)
+from scripts.sanitize_preview_base import LINEAGE_TABLE
 
 
-def _resolve_application_schema(connection, expected_tables: set[str]) -> str:
-  candidates: list[str] = []
+def validate_manifest_application_tables(
+  actual_tables: set[str],
+  expected_tables: set[str],
+  alembic_heads: set[str],
+) -> None:
+  """Bind the hard-cut predecessor and current table sets to exact lineage."""
+  if alembic_heads == {EXTENSION_CUTOVER_PREVIOUS_HEAD}:
+    required_tables = expected_tables | (EXTENSION_CUTOVER_RELATIONS - {"extensions"})
+  elif alembic_heads == {EXTENSION_CUTOVER_CURRENT_HEAD}:
+    required_tables = expected_tables
+  else:
+    raise ValueError(f"unsupported database manifest lineage: {sorted(alembic_heads)}")
+
+  if actual_tables == required_tables:
+    return
+
+  raise ValueError(
+    json.dumps(
+      {
+        "alembic_heads": sorted(alembic_heads),
+        "expected_tables": sorted(expected_tables),
+        "required_tables": sorted(required_tables),
+        "actual_tables": sorted(actual_tables),
+      },
+      sort_keys=True,
+    )
+  )
+
+
+def _resolve_application_schema(
+  connection,
+  expected_tables: set[str],
+  alembic_heads: set[str],
+) -> tuple[str, set[str]]:
+  candidates: list[tuple[str, set[str]]] = []
   for schema_name in (PROTOCOL_SCHEMA, "public"):
     actual_tables = set(
       connection.execute(
@@ -39,10 +77,14 @@ def _resolve_application_schema(connection, expected_tables: set[str]) -> str:
       ).scalars()
     )
     try:
-      validate_application_tables(actual_tables, expected_tables)
+      validate_manifest_application_tables(
+        actual_tables,
+        expected_tables,
+        alembic_heads,
+      )
     except ValueError:
       continue
-    candidates.append(schema_name)
+    candidates.append((schema_name, actual_tables))
   if len(candidates) != 1:
     raise ValueError(
       f"expected exactly one complete application schema, found {len(candidates)}"
@@ -60,22 +102,22 @@ def build_database_manifest(database_url: str) -> dict[str, object]:
 
   try:
     with engine.connect() as connection:
-      application_schema = _resolve_application_schema(
-        connection,
-        expected_tables,
-      )
-
       heads = sorted(
         connection.execute(
           text(f'SELECT version_num FROM public."{LINEAGE_TABLE}"')
         ).scalars()
+      )
+      application_schema, actual_tables = _resolve_application_schema(
+        connection,
+        expected_tables,
+        set(heads),
       )
       quote = connection.dialect.identifier_preparer.quote
       counts = {
         table: connection.execute(
           text(f"SELECT count(*) FROM {quote(application_schema)}.{quote(table)}")
         ).scalar_one()
-        for table in sorted(expected_tables)
+        for table in sorted(actual_tables)
       }
       server_version = connection.execute(
         text("SELECT current_setting('server_version_num')")

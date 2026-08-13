@@ -1,0 +1,204 @@
+name: Publish first-party Extension wheels
+
+on:
+  workflow_run:
+    workflows:
+      - Repository and artifact checks
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      initial_publication:
+        description: Type INITIAL_ONLY; recovery must rerun the original publication run
+        required: true
+        type: choice
+        options:
+          - INITIAL_ONLY
+
+permissions:
+  checks: read
+  contents: read
+
+concurrency:
+  group: publish-first-party-extensions
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.extension }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        extension:
+          - github
+          - learn_english
+          - mail
+          - memos
+          - rss
+          - telegram
+          - twitter
+    env:
+      INKCRE_EXTENSION_REGISTRY_TOKEN: ${{ secrets.INKCRE_EXTENSION_REGISTRY_TOKEN }}
+      INKCRE_EXTENSION_REGISTRY_URL: >-
+        ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://registry.inkcre.dev' }}
+      SOURCE_DATE_EPOCH: "315532800"
+    steps:
+      - name: Checkout exact main source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify source belongs to current main history
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main
+
+      - name: Select changed Extension
+        id: selection
+        env:
+          EXTENSION: ${{ matrix.extension }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          selected=false
+          if test "${{ github.event_name }}" = workflow_dispatch; then
+            test "${{ inputs.initial_publication }}" = INITIAL_ONLY
+            selected=true
+          else
+            before="$(
+              gh api \
+                "repos/${{ github.repository }}/check-suites/${{ github.event.workflow_run.check_suite_id }}" \
+                --jq .before
+            )"
+            if ! [[ "$before" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "before_sha has an invalid shape" >&2
+              exit 1
+            elif test "$before" = 0000000000000000000000000000000000000000; then
+              selected=true
+            else
+              git merge-base --is-ancestor "$before" HEAD
+              if ! git diff --quiet "$before" HEAD -- "extensions/$EXTENSION"; then
+                selected=true
+              fi
+            fi
+          fi
+          echo "selected=$selected" >> "$GITHUB_OUTPUT"
+
+      - name: Record unchanged Extension no-op
+        if: steps.selection.outputs.selected != 'true'
+        run: echo "No source change for ${{ matrix.extension }}; publication is a no-op."
+
+      - name: Set up frozen publisher
+        if: steps.selection.outputs.selected == 'true'
+        uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
+        with:
+          python-version-file: .python-version
+          version: 2.27.0
+          cache: true
+
+      - name: Install frozen publisher
+        if: steps.selection.outputs.selected == 'true'
+        run: >-
+          pdm install --no-default --group extension-publisher --frozen-lockfile
+
+      - name: Build and verify native wheel
+        if: steps.selection.outputs.selected == 'true'
+        id: wheel
+        env:
+          EXTENSION: ${{ matrix.extension }}
+        run: |
+          output="$RUNNER_TEMP/$EXTENSION"
+          mkdir --parents "$output"
+          pdm run python -m build \
+            --wheel \
+            --no-isolation \
+            --outdir "$output" \
+            "extensions/$EXTENSION"
+          wheel="$(find "$output" -maxdepth 1 -type f -name '*.whl')"
+          test -n "$wheel"
+          test "$(find "$output" -maxdepth 1 -type f -name '*.whl' | wc -l)" = 1
+          metadata="$RUNNER_TEMP/$EXTENSION-metadata.json"
+          pdm run python scripts/extension_distribution.py verify-wheel \
+            --project "extensions/$EXTENSION" \
+            --wheel "$wheel"
+          pdm run python scripts/extension_distribution.py metadata \
+            --project "extensions/$EXTENSION" \
+            --source-repository "${{ github.server_url }}/${{ github.repository }}" \
+            --source-revision "$(git rev-parse HEAD)" \
+            --build-id "${{ github.run_id }}" > "$metadata"
+          echo "metadata=$metadata" >> "$GITHUB_OUTPUT"
+          echo "wheel=$wheel" >> "$GITHUB_OUTPUT"
+
+      - name: Revalidate Extension subtree before remote mutation
+        if: steps.selection.outputs.selected == 'true'
+        env:
+          EXTENSION: ${{ matrix.extension }}
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main
+          if ! git diff --quiet HEAD origin/main -- "extensions/$EXTENSION"; then
+            echo "Extension source changed after this checked run; refusing publication." >&2
+            exit 1
+          fi
+
+      - name: Prepare exact native Release association
+        if: steps.selection.outputs.selected == 'true'
+        env:
+          METADATA: ${{ steps.wheel.outputs.metadata }}
+        run: |
+          coordinate="$(jq -r '.coordinate' "$METADATA")"
+          namespace="${coordinate%%/*}"
+          name="${coordinate#*/}"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $INKCRE_EXTENSION_REGISTRY_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data "$(jq -c '.prepare' "$METADATA")" \
+            "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases"
+
+      - name: Upload wheel through native PyPI protocol
+        if: steps.selection.outputs.selected == 'true'
+        run: >-
+          pdm run uv publish
+          --publish-url "$INKCRE_EXTENSION_REGISTRY_URL/legacy/"
+          --token "$INKCRE_EXTENSION_REGISTRY_TOKEN"
+          "${{ steps.wheel.outputs.wheel }}"
+
+      - name: Publish exact Release
+        if: steps.selection.outputs.selected == 'true'
+        env:
+          METADATA: ${{ steps.wheel.outputs.metadata }}
+        run: |
+          coordinate="$(jq -r '.coordinate' "$METADATA")"
+          version="$(jq -r '.version' "$METADATA")"
+          namespace="${coordinate%%/*}"
+          name="${coordinate#*/}"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $INKCRE_EXTENSION_REGISTRY_TOKEN" \
+            "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version/publish"
+
+      - name: Verify anonymous exact Release descriptor
+        if: steps.selection.outputs.selected == 'true'
+        env:
+          METADATA: ${{ steps.wheel.outputs.metadata }}
+        run: |
+          coordinate="$(jq -r '.coordinate' "$METADATA")"
+          version="$(jq -r '.version' "$METADATA")"
+          namespace="${coordinate%%/*}"
+          name="${coordinate#*/}"
+          curl --fail --silent --show-error \
+            "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version" |
+            jq --exit-status \
+              --arg coordinate "$coordinate" \
+              --arg version "$version" \
+              '.name == $coordinate and .version == $version and
+               .state == "published" and .python.host_sdk == "core-py"'

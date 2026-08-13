@@ -16,17 +16,21 @@ def test_bootstrap_publishes_all_fixed_inbounds_before_scheduling(monkeypatch):
   ai = MagicMock()
   jobs = MagicMock()
   crons = MagicMock()
+  sources = MagicMock()
   scheduler = MagicMock()
   scheduler.running = False
   monkeypatch.setattr(run, "PeerManager", peer)
   monkeypatch.setattr(run, "AIManager", ai)
   monkeypatch.setattr(run, "JobManager", jobs)
   monkeypatch.setattr(run, "CronManager", crons)
+  monkeypatch.setattr(run, "SourceManager", sources)
   monkeypatch.setattr(run, "scheduler", scheduler)
-  monkeypatch.setattr(run, "SKIP_EXTENSIONS_SYNC", True)
+  monkeypatch.setattr(run, "SKIP_EXTENSION_START", True)
   monkeypatch.setattr(StorageManager, "setup_builtin_storages", MagicMock())
 
-  run.bootstrap_runtime(MagicMock())
+  import asyncio
+
+  asyncio.run(run.bootstrap_runtime(MagicMock()))
 
   capabilities = {call.args[0].capability for call in peer.register_inbound.call_args_list}
   assert capabilities == {
@@ -45,6 +49,7 @@ def test_bootstrap_publishes_all_fixed_inbounds_before_scheduling(monkeypatch):
   assert refresh_job.kwargs["args"] == [run.settings.peer_lease_ttl_seconds]
   assert refresh_job.kwargs["seconds"] == run.settings.peer_lease_renew_interval_seconds
   jobs.sync_job_types.assert_called_once_with()
+  sources.sync_source_types.assert_called_once_with()
   scheduled = {call.kwargs["id"]: call for call in scheduler.add_job.call_args_list}
   assert scheduled["jobs.check"].args[0] is jobs.check
   assert scheduled["crons.check"].args[0] is crons.check

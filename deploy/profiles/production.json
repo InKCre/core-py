@@ -2,8 +2,8 @@
   "format": 1,
   "environment": "production",
   "database_contract": {
-    "revision": "lexical-retrieval-runtime-v1",
-    "migration_head": "1e4c7a9b2d5f",
+    "revision": "extension-registry-feature-retrieval-v1",
+    "migration_head": "3f7a9c2d5e1b",
     "protocol_schema": "inkcre"
   },
   "peer": {

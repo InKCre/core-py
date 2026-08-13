@@ -1,12 +1,18 @@
 """Tests for telegram extension."""
 
+import asyncio
 import os
+
+import fastapi
+from fastapi.routing import APIRoute
 
 # Set a dummy database connection string to avoid engine creation error
 os.environ.setdefault("DB_CONN_STRING", "sqlite:///:memory:")
 
 from extensions.telegram.schema import TelegramMessage
+from extensions.telegram import Extension
 from datetime import datetime
+from app.business.source import SourceManager
 
 
 def test_telegram_message_schema():
@@ -69,3 +75,29 @@ def test_telegram_message_serialization():
   assert restored_message.message_id == original_message.message_id
   assert restored_message.text == original_message.text
   assert restored_message.date == original_message.date
+
+
+def test_runtime_module_loads_and_registers_a_working_source_api(monkeypatch):
+  router = fastapi.APIRouter()
+  Extension._register_apis(router)
+  route = next(
+    route
+    for route in router.routes
+    if isinstance(route, APIRoute) and route.path == "/bot/{source_id}"
+  )
+  assert route.endpoint.__annotations__["source_id"] is int
+  recorded: list[dict[str, object]] = []
+
+  class FakeSource:
+    async def record(self, data):
+      recorded.append(data)
+
+  monkeypatch.setattr(SourceManager, "get_source_ins", lambda source_id: FakeSource())
+
+  class FakeRequest:
+    async def json(self):
+      return {"update_id": 7}
+
+  response = asyncio.run(route.endpoint(17, FakeRequest()))
+  assert response == {"ok": True}
+  assert recorded == [{"update_id": 7}]

@@ -1,6 +1,6 @@
 line-length = 92
 indent-width = 2
-extend-exclude = ["migrations/versions"]
+extend-exclude = ["migrations/versions", "*.md"]
 
 [format]
 indent-style = "space"

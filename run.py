@@ -3,7 +3,6 @@
 import asyncio
 import contextlib
 import os
-import sys
 
 import fastapi
 import uvicorn
@@ -16,14 +15,12 @@ logger = setup_obsrv()
 # Setup logging end
 
 # Load flags
-SKIP_EXTENSIONS_SYNC: bool = os.getenv("SKIP_EXTENSIONS_SYNC", "").lower() in (
+SKIP_EXTENSION_START: bool = os.getenv("SKIP_EXTENSION_START", "").lower() in (
   "1",
   "true",
   "yes",
 )
 # Load flags end
-
-sys.path.insert(0, "extensions")
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.settings import settings
@@ -43,7 +40,7 @@ from app.routes.semantic_retrieval import ROUTER as semantic_retrieval_router
 from app.business.source import SourceManager
 from app.business.cron import CronManager
 from app.business.job import JobManager
-from app.business.extension import ExtensionManager
+from app.business.extension import EXTENSION_HOST
 from app.business.peer import PeerManager
 from app.business.ai import AIManager
 
@@ -59,7 +56,7 @@ from app.runtime import RUNTIME_STATUS, RuntimePhase
 from app.scheduler import scheduler
 
 
-def bootstrap_runtime(app: fastapi.FastAPI) -> None:
+async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   """Initialize database-backed runtime services after migrations are ready."""
   from app.business.info_base.resolver import register_core_resolvers
   from app.business.info_base.storage import StorageManager
@@ -78,11 +75,9 @@ def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   # Setup built-in storage instances
   StorageManager.setup_builtin_storages()
 
-  if not SKIP_EXTENSIONS_SYNC:
-    ExtensionManager.sync()
-    ExtensionManager.load_installed_decoders()
-    ExtensionManager.start_enabled(app)
-    SourceManager.sync_source_types()
+  if not SKIP_EXTENSION_START:
+    await EXTENSION_HOST.start_enabled(app)
+  SourceManager.sync_source_types()
 
   JobManager.sync_job_types()
 
@@ -131,7 +126,7 @@ async def bootstrap_when_database_is_ready(app: fastapi.FastAPI) -> None:
     await asyncio.sleep(retry_seconds)
 
   try:
-    bootstrap_runtime(app)
+    await bootstrap_runtime(app)
   except Exception:
     RUNTIME_STATUS.set(RuntimePhase.FAILED, "runtime_bootstrap_failed")
     logger.exception("Runtime bootstrap failed")
@@ -157,7 +152,7 @@ async def lifespan(app: fastapi.FastAPI):
     await bootstrap_task
   if scheduler.running:
     scheduler.shutdown(wait=True)
-  await ExtensionManager.close_running()
+  await EXTENSION_HOST.close_running()
   if runtime_was_ready:
     await asyncio.to_thread(PeerManager.clear_self_lease)
 

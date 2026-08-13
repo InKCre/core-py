@@ -5,14 +5,12 @@ import datetime
 import os
 from pathlib import Path
 
-import fastapi
 from fastapi.testclient import TestClient
 import pytest
 import sqlalchemy
 import sqlmodel
 
 from app.business.info_base.block import BlockManager
-from app.business.extension.routing import ExtensionRouteMount
 from app.business.info_base.relation import RelationManager
 from app.business.info_base.storage import StorageManager
 from app.business.info_base.storage.postgresql import PostgreSQLBlobPointer
@@ -20,7 +18,6 @@ from app.engine import SessionLocal
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageBlobModel
-from app.schemas.extension import ExtensionModel
 from extensions.memos import Extension
 from extensions.memos.family import (
   AttachmentApplicationService,
@@ -30,6 +27,7 @@ from extensions.memos.family import (
   MemoVisibility,
 )
 from extensions.memos.family.attachment import AttachmentGraphRepository
+from tests.extensions.runtime_support import publish_extension
 
 
 pytestmark = pytest.mark.skipif(
@@ -90,16 +88,11 @@ def _track_attachment(solved, tracked_block_ids: set[int], tracked_blob_ids: set
 
 
 def _client(*, raise_server_exceptions: bool = True) -> TestClient:
-  app = fastapi.FastAPI()
-  model = ExtensionModel(
-    id="memos",
-    version="0.1.0",
-    enabled=[],
-    config={"personal_access_token": "memos_pat_" + "A" * 32},
-  )
-  mount = ExtensionRouteMount(app, Extension.on_start(model))
-  mount.publish()
-  return TestClient(app, raise_server_exceptions=raise_server_exceptions)
+  return publish_extension(
+    Extension,
+    {"personal_access_token": "memos_pat_" + "A" * 32},
+    raise_server_exceptions=raise_server_exceptions,
+  ).client
 
 
 @pytest.mark.parametrize(

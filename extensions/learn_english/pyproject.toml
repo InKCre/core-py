@@ -1,19 +1,27 @@
+[build-system]
+requires = ["setuptools>=80,<81"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inkcre-ext-learn_english"
 version = "0.1.0"
-description = "InKCre extension of Learn English"
-authors = [
-    {name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com"},
-]
-dependencies = []
-requires-python = "==3.12.*"
-readme = "README.md"
-license = {text = "MIT"}
+description = "Learn English extension for InKCre"
+authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
+dependencies = ["sqlmodel>=0.0.24,<0.0.25"]
+requires-python = ">=3.12,<3.13"
+license = "MIT"
 
+[project.entry-points."inkcre.core.extensions"]
+learn_english = "extensions.learn_english:Extension"
 
-[tool.pdm]
-distribution = false
-
-[tool.inkcre-ext]
-id = "learn_english"
+[tool.inkcre-extension]
+name = "inkcre/learn-english"
 nickname = "Learn English"
+host-sdk = "core-py"
+host-sdk-version = ">=0.1.0 <0.2.0"
+
+[tool.setuptools]
+packages = ["extensions.learn_english"]
+
+[tool.setuptools.package-dir]
+"extensions.learn_english" = "."

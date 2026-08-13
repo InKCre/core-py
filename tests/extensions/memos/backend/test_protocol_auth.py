@@ -2,19 +2,15 @@
 
 import time
 
-import fastapi
-from fastapi.testclient import TestClient
 import jwt
 import pytest
 
-from app.business.extension.routing import ExtensionRouteMount
 from app.database_contract.constants import (
   JWT_ALGORITHM,
   JWT_AUDIENCE,
   JWT_ISSUER,
   JWT_ROLE,
 )
-from app.schemas.extension import ExtensionModel
 from app.settings import settings
 from extensions.memos import Extension
 from extensions.memos.config import MemosConfig
@@ -26,6 +22,7 @@ from extensions.memos.family import (
   MemoPage,
   SolvedMemo,
 )
+from tests.extensions.runtime_support import publish_extension
 
 
 PAT = "memos_pat_" + "A" * 32
@@ -48,16 +45,8 @@ def _peer_token() -> str:
 
 
 def _publish(config: dict | None = None):
-  app = fastapi.FastAPI()
-  model = ExtensionModel(
-    id="memos",
-    version="0.1.0",
-    enabled=[],
-    config=config or {},
-  )
-  mount = ExtensionRouteMount(app, Extension.on_start(model))
-  mount.publish()
-  return app, mount, TestClient(app)
+  published = publish_extension(Extension, config)
+  return published.app, published, published.client
 
 
 @pytest.mark.parametrize(
@@ -426,18 +415,11 @@ def test_disable_and_reenable_replace_only_the_owned_route_set():
   assert client.get("/memos/api/v1/instance/profile").status_code == 404
   assert client.get("/core-proof").status_code == 200
 
-  replacement = ExtensionRouteMount(
-    app,
-    Extension.on_start(
-      ExtensionModel(
-        id="memos",
-        version="0.1.0",
-        enabled=[],
-        config={"personal_access_token": PAT},
-      )
-    ),
+  replacement = publish_extension(
+    Extension,
+    {"personal_access_token": PAT},
+    app=app,
   )
-  replacement.publish()
   assert client.get("/memos/api/v1/instance/profile").status_code == 200
   assert list(app.openapi()["paths"]).count("/memos/api/v1/instance/profile") == 1
 

@@ -336,9 +336,8 @@
         "tags": [
           "extension"
         ],
-        "summary": "Get Extensions",
-        "description": "List all installed extensions",
-        "operationId": "get_extensions_extensions_get",
+        "summary": "List Extensions",
+        "operationId": "list_extensions_extensions_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -346,10 +345,10 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ExtensionModel"
+                    "$ref": "#/components/schemas/ExtensionState"
                   },
                   "type": "array",
-                  "title": "Response Get Extensions Extensions Get"
+                  "title": "Response List Extensions Extensions Get"
                 }
               }
             }
@@ -357,47 +356,88 @@
         }
       }
     },
-    "/extensions/{extid}": {
+    "/extensions/{namespace}/{name}": {
+      "get": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Get Extension",
+        "operationId": "get_extension_extensions__namespace___name__get",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "extension"
         ],
         "summary": "Install Extension",
-        "description": "Register an extension that is already included in this artifact.",
-        "operationId": "install_extension_extensions__extid__post",
+        "description": "Install one exact published Extension Release with no enabled peers.",
+        "operationId": "install_extension_extensions__namespace___name__post",
         "parameters": [
           {
-            "name": "extid",
+            "name": "namespace",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Extid"
+              "title": "Namespace"
             }
           },
           {
-            "name": "disabled",
-            "in": "query",
-            "required": false,
+            "name": "name",
+            "in": "path",
+            "required": true,
             "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Disabled"
+              "type": "string",
+              "title": "Name"
             }
           },
           {
             "name": "version",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
               "title": "Version"
             }
           }
@@ -408,7 +448,112 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionModel"
+                  "$ref": "#/components/schemas/ExtensionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Uninstall Extension",
+        "operationId": "uninstall_extension_extensions__namespace___name__delete",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extensions/{namespace}/{name}/config": {
+      "put": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Update Extension Config",
+        "operationId": "update_extension_config_extensions__namespace___name__config_put",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionState"
                 }
               }
             }
@@ -426,50 +571,91 @@
         }
       }
     },
-    "/extension-management": {
+    "/extensions/{namespace}/{name}/enable": {
       "post": {
         "tags": [
           "extension"
         ],
-        "summary": "Manage Extension",
-        "description": "Execute one fixed, Peer-local Extension management command.",
-        "operationId": "manage_extension_extension_management_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/EnableExtensionCommand"
-                  },
-                  {
-                    "$ref": "#/components/schemas/DisableExtensionCommand"
-                  },
-                  {
-                    "$ref": "#/components/schemas/PatchExtensionConfigCommand"
-                  }
-                ],
-                "title": "Body",
-                "discriminator": {
-                  "propertyName": "action",
-                  "mapping": {
-                    "enable": "#/components/schemas/EnableExtensionCommand",
-                    "disable": "#/components/schemas/DisableExtensionCommand",
-                    "patch_config": "#/components/schemas/PatchExtensionConfigCommand"
-                  }
-                }
-              }
+        "summary": "Enable Extension",
+        "operationId": "enable_extension_extensions__namespace___name__enable_post",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
             }
           },
-          "required": true
-        },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionModel"
+                  "$ref": "#/components/schemas/ExtensionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extensions/{namespace}/{name}/disable": {
+      "post": {
+        "tags": [
+          "extension"
+        ],
+        "summary": "Disable Extension",
+        "operationId": "disable_extension_extensions__namespace___name__disable_post",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionState"
                 }
               }
             }
@@ -530,7 +716,78 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SourceCollectJobModel"
+                  "$ref": "#/components/schemas/JobModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{source_id}/backfill": {
+      "post": {
+        "tags": [
+          "source"
+        ],
+        "summary": "Run Source Backfill",
+        "description": "Create one explicit historical Source Job.",
+        "operationId": "run_source_backfill_sources__source_id__backfill_post",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "timeout_seconds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Timeout Seconds"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobModel"
                 }
               }
             }
@@ -807,6 +1064,47 @@
           }
         }
       }
+    },
+    "/lexical-retrieval": {
+      "post": {
+        "tags": [
+          "lexical-retrieval"
+        ],
+        "summary": "Retrieve",
+        "operationId": "retrieve_lexical_retrieval_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LexicalRetrievalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexicalRetrievalResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -976,51 +1274,11 @@
         "title": "DeploymentConfigView",
         "description": "Validated deployment config projection exposed by the HTTP resource."
       },
-      "DisableExtensionCommand": {
+      "ExtensionState": {
         "properties": {
-          "action": {
+          "name": {
             "type": "string",
-            "const": "disable",
-            "title": "Action"
-          },
-          "extension": {
-            "type": "string",
-            "title": "Extension"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "action",
-          "extension"
-        ],
-        "title": "DisableExtensionCommand"
-      },
-      "EnableExtensionCommand": {
-        "properties": {
-          "action": {
-            "type": "string",
-            "const": "enable",
-            "title": "Action"
-          },
-          "extension": {
-            "type": "string",
-            "title": "Extension"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "action",
-          "extension"
-        ],
-        "title": "EnableExtensionCommand"
-      },
-      "ExtensionModel": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
+            "title": "Name"
           },
           "version": {
             "type": "string",
@@ -1032,7 +1290,8 @@
               "format": "uuid"
             },
             "type": "array",
-            "title": "Enabled"
+            "title": "Enabled",
+            "default": []
           },
           "nickname": {
             "anyOf": [
@@ -1065,11 +1324,11 @@
         },
         "type": "object",
         "required": [
-          "id",
+          "name",
           "version"
         ],
-        "title": "ExtensionModel",
-        "description": "Globally, every extension has a unique ID.\nOnly one instance of each extension on a deployment.\nIf a record presents here, the extension is installed."
+        "title": "ExtensionState",
+        "description": "Stable Host-facing projection; SQLModel and table details remain private."
       },
       "GraphBlockForm": {
         "properties": {
@@ -1190,31 +1449,169 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "PatchExtensionConfigCommand": {
+      "JobModel": {
         "properties": {
-          "action": {
-            "type": "string",
-            "const": "patch_config",
-            "title": "Action"
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
           },
-          "extension": {
+          "type": {
             "type": "string",
-            "title": "Extension"
+            "title": "Type"
           },
-          "patch": {
+          "parameters": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Patch"
+            "title": "Parameters"
+          },
+          "state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "State"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Timeout Seconds"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus",
+            "default": "pending"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "timeout_seconds"
+        ],
+        "title": "JobModel",
+        "description": "One durable execution opportunity for an exact registered command."
+      },
+      "JobStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "finished",
+          "failed",
+          "timed_out",
+          "aborted"
+        ],
+        "title": "JobStatus"
+      },
+      "LexicalRetrievalMatch": {
+        "properties": {
+          "block": {
+            "$ref": "#/components/schemas/BlockModel"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          },
+          "evidence": {
+            "type": "string",
+            "enum": [
+              "label_exact",
+              "label_substring",
+              "text_substring",
+              "terms"
+            ],
+            "title": "Evidence"
+          },
+          "rank": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Rank"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "action",
-          "extension",
-          "patch"
+          "block",
+          "label",
+          "excerpt",
+          "evidence",
+          "rank"
         ],
-        "title": "PatchExtensionConfigCommand"
+        "title": "LexicalRetrievalMatch"
+      },
+      "LexicalRetrievalRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 20
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "LexicalRetrievalRequest"
+      },
+      "LexicalRetrievalResult": {
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/LexicalRetrievalMatch"
+            },
+            "type": "array",
+            "title": "Matches"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "matches"
+        ],
+        "title": "LexicalRetrievalResult"
       },
       "RelationCreateForm": {
         "properties": {
@@ -1391,84 +1788,6 @@
           "matches"
         ],
         "title": "SemanticRetrievalResult"
-      },
-      "SourceCollectJobModel": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "source": {
-            "type": "integer",
-            "title": "Source"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At"
-          },
-          "closed_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Closed At"
-          },
-          "status": {
-            "$ref": "#/components/schemas/SourceCollectJobStatus",
-            "default": "pending"
-          },
-          "state": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "State"
-          },
-          "config": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Config"
-          }
-        },
-        "type": "object",
-        "required": [
-          "source"
-        ],
-        "title": "SourceCollectJobModel",
-        "description": "Model for source collect jobs.\n\nSource collect jobs should be handled as soon as possible, no schedule given."
-      },
-      "SourceCollectJobStatus": {
-        "type": "string",
-        "enum": [
-          "pending",
-          "running",
-          "finished",
-          "failed"
-        ],
-        "title": "SourceCollectJobStatus"
       },
       "SubmitGraphResult": {
         "properties": {

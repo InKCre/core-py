@@ -22,9 +22,9 @@ def test_production_profile_projects_the_executable_contract():
 
   assert profile["format"] == 1
   assert profile["environment"] == "production"
-  assert contract["migration_heads"] == ["1e4c7a9b2d5f"]
+  assert contract["migration_heads"] == ["3f7a9c2d5e1b"]
   assert profile["database_contract"] == {
-    "migration_head": "1e4c7a9b2d5f",
+    "migration_head": "3f7a9c2d5e1b",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }
@@ -109,6 +109,29 @@ def test_contract_publishes_the_complete_protocol_projection():
         "database_type": "timestamp with time zone",
       },
       "returns_set": False,
+      "volatility": "volatile",
+    },
+    "set_extension_peer_enabled": {
+      "arguments": [
+        {
+          "name": "p_name",
+          "type": {"kind": "string"},
+        },
+        {
+          "name": "p_peer_id",
+          "type": {"kind": "string", "format": "uuid"},
+        },
+        {
+          "name": "p_enabled",
+          "type": {"kind": "boolean"},
+        },
+      ],
+      "returns": {
+        "kind": "relation",
+        "relation": "extensions",
+        "database_type": "inkcre.extensions",
+      },
+      "returns_set": True,
       "volatility": "volatile",
     },
   }

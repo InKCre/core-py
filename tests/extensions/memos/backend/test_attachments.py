@@ -4,12 +4,9 @@ import datetime
 import json
 from pathlib import Path
 
-import fastapi
 from fastapi.testclient import TestClient
 import pytest
 
-from app.business.extension.routing import ExtensionRouteMount
-from app.schemas.extension import ExtensionModel
 from extensions.memos import Extension
 from extensions.memos.family import (
   AttachmentApplicationService,
@@ -21,6 +18,7 @@ from extensions.memos.family import (
   SolvedMemo,
 )
 from extensions.memos.products.memos.v0_29_1 import backend
+from tests.extensions.runtime_support import publish_extension
 
 
 PAT = "memos_pat_" + "A" * 32
@@ -28,16 +26,10 @@ FIXTURES = Path(__file__).parents[1] / "products" / "memos" / "v0_29_1" / "fixtu
 
 
 def _publish() -> TestClient:
-  app = fastapi.FastAPI()
-  model = ExtensionModel(
-    id="memos",
-    version="0.1.0",
-    enabled=[],
-    config={"personal_access_token": PAT},
-  )
-  mount = ExtensionRouteMount(app, Extension.on_start(model))
-  mount.publish()
-  return TestClient(app)
+  return publish_extension(
+    Extension,
+    {"personal_access_token": PAT},
+  ).client
 
 
 def _attachment(

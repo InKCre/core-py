@@ -156,8 +156,11 @@ does not close the Unit。
 - a fresh disposable Neon branch migrated from empty state to `1e4c7a9b2d5f`。The complete database-enabled non-migration suite
   passed 414 tests with 5 skips；upgrade/downgrade acceptance passed separately，and RSS real HTTP-double journeys passed after
   Job catalog isolation was corrected。
-- the exact PDM 2.27.0 hermetic core contract passes 394 tests with 41 explicitly external skips and zero lint/type diagnostics。
+- the exact PDM 2.27.0 hermetic core contract passes after the `origin/main` extension-registry integration with 445 tests、41
+  explicitly external skips and zero lint/type diagnostics；a fresh PostgreSQL database also passes migration、init and
+  development readiness against the merge revision。
 - client-web's complete test/lint/type/build contract passes with the new facade and InfoBaseListView。Generated cross-repo
   database/OpenAPI artifacts remain pending an immutable pushed core source rather than being fabricated from a dirty worktree。
-- Render service/API behavior is covered by a mocked official-wire controller test and actionlint。Real Render account-backed
-  creation、Free cold wake and deployed probes remain pending under D-340；this does not substitute for the final PR preview gates。
+- Render service/API behavior is covered by a mocked official-wire controller test and actionlint。The required private GitHub
+  secrets and public variables are now configured；real service creation、Free cold wake and deployed probes remain pending and
+  do not substitute for the final PR preview gates。

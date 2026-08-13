@@ -166,6 +166,6 @@ Public signing-key publication is withdrawn for this increment。Self-host deplo
 both keep signing authority private by default；an owner may still share a JWT privately during a live demonstration。Public
 read-only admission and Cloudflare-native Peer execution remain separate follow-up design problems。
 
-The controller、workflow、README journey and simulated Render API contract are implemented。A real Render account is not
-currently available，so exact service creation、Free cold-start behavior and host-side `/readyz`/PostgREST probes remain one
-explicit operational gate rather than an implementation uncertainty。
+The controller、workflow、README journey and simulated Render API contract are implemented。The real Render account and required
+GitHub settings are now available；exact service creation、Free cold-start behavior and host-side `/readyz`/PostgREST probes
+remain an explicit execution gate，independent from canonical preview regression。

@@ -3,6 +3,7 @@ import asyncio
 import base64
 import datetime
 import os
+from pathlib import Path
 import re
 import typing
 import secrets
@@ -51,6 +52,15 @@ class TwitterAPI(abc.ABC):
   """
 
   SINGLETON: Opt["TwitterAPI"] = None
+
+  @classmethod
+  async def close_singleton(cls) -> None:
+    """Close and forget the singleton so a later enable gets a fresh client."""
+    singleton = cls.SINGLETON
+    if singleton is None:
+      return
+    await singleton.close()
+    cls.SINGLETON = None
 
   @classmethod
   def new(cls, api_router: Opt[fastapi.APIRouter] = None) -> "TwitterAPI":
@@ -498,6 +508,13 @@ class OfficialAPI(TwitterAPI):
 class TwikitAPI(TwitterAPI):
   """Twikit API client."""
 
+  DATA_DIRECTORY = Path("data/extensions/twitter")
+  COOKIES_FILE = DATA_DIRECTORY / "twikit_cookies.json"
+
+  @classmethod
+  def _prepare_data_directory(cls) -> None:
+    cls.DATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
+
   def __init__(  # noqa: PLR0913
     self,
     email: str,
@@ -520,7 +537,8 @@ class TwikitAPI(TwitterAPI):
     self._totp_secret = totp_secret
 
   async def close(self):
-    self._client.save_cookies("data/extensions/twitter/twikit_cookies.json")
+    self._prepare_data_directory()
+    self._client.save_cookies(str(self.COOKIES_FILE))
 
   @property
   def user_handle(self) -> str:
@@ -533,12 +551,13 @@ class TwikitAPI(TwitterAPI):
     return self._client._user_id
 
   async def _login(self):
+    self._prepare_data_directory()
     await self._client.login(
       auth_info_1=self._email,
       auth_info_2=self._username,
       password=self._password,
       totp_secret=self._totp_secret,
-      cookies_file="data/extensions/twitter/twikit_cookies.json",
+      cookies_file=str(self.COOKIES_FILE),
     )
 
   @staticmethod

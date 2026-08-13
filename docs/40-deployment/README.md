@@ -7,6 +7,7 @@ This layer stores operational truth: how the service starts, how environments ar
 - [development-environment.md](development-environment.md)
 - [database-contract.md](database-contract.md)
 - [docker.md](docker.md)
+- [native-extension-distribution.md](native-extension-distribution.md)
 - [heroku.md](heroku.md)
 - [neon.md](neon.md)
 - [runtime-orchestration.md](runtime-orchestration.md)
@@ -27,6 +28,8 @@ This layer stores operational truth: how the service starts, how environments ar
 - `.github/workflows/branching-database.yml`
 - `.github/workflows/ci.yml`
 - `.github/workflows/artifact-publish.yml`
+- `scripts/extension_distribution.py`
+- `.github/workflows/extension-publish.yml`
 - `.github/actions/preview-verify/action.yml`
 - `.github/actions/preview-delivery/action.yml`
 - `.github/workflows/preview-deploy.yml`

@@ -14,8 +14,10 @@ Current bootstrap flow in `run.py`:
 2. wait asynchronously until the complete runtime database contract is ready
 3. register the current Peer identity and the built-in Peer HTTP outbound/business inbounds
 4. persist registered storage types and set up built-in storage instances
-5. sync the fixed extension profile unless `SKIP_EXTENSIONS_SYNC=1`
-6. start enabled extensions, which registers source and resolver classes in memory
+5. cold-restore this Peer's exact enabled Extension Releases through Registry-native wheel
+   acquisition and standard entry-point discovery unless `SKIP_EXTENSION_START=1`
+6. start restored extensions, which registers routes, source types, resolvers, and Peer inbounds
+   through one reversible publication
 7. persist registered source types
 8. persist the complete locally registered Job Handler catalog
 9. persist peer-local registered AI dialect contracts

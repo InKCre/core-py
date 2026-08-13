@@ -89,8 +89,14 @@ def _reset_acceptance_database() -> None:
         "inkcre.storage_blobs, inkcre.blocks RESTART IDENTITY CASCADE"
       )
     )
-    extension = db.get(ExtensionModel, "mail")
-    assert extension is not None
+    extension = db.get(ExtensionModel, "inkcre/mail")
+    if extension is None:
+      extension = ExtensionModel(
+        name="inkcre/mail",
+        version="0.1.0",
+        enabled=[],
+        config={},
+      )
     extension.config = {
       "default_excluded_mailboxes": {
         "names": ["Excluded"],
@@ -228,7 +234,7 @@ def _set_source_config(source_id: int, config: MailSourceConfig) -> None:
 
 def _set_extension_exclusion(name: str) -> None:
   with SessionLocal() as db:
-    extension = db.get(ExtensionModel, "mail")
+    extension = db.get(ExtensionModel, "inkcre/mail")
     assert extension is not None
     extension.config = {"default_excluded_mailboxes": {"names": [name], "special_uses": []}}
     db.add(extension)

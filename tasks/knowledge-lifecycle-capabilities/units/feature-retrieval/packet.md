@@ -16,8 +16,9 @@
   exact local/delegated capability、multimodal faithful materialization、Alibaba Model Studio dialect and system-driven media
   interpretation。client-web now owns the peer facade、InfoBaseListView and List-hosted Inspector/SolvedContent outlets。The
   real NASA image/audio/video → PostgreSQL Storage → Resolver → provider → graph → lexical → Organization Agent journey passed；
-  core's hermetic contract passes with 394 tests and 41 external skips，and the complete database-enabled suites passed during
-  execution。Render API mechanics pass simulated contract tests；a live Render creation remains operationally pending。
+  core's hermetic contract passes after the `origin/main` extension-registry integration with 445 tests and 41 external skips；
+  a fresh PostgreSQL database also passes migration、init and readiness against the merge revision。Render API mechanics pass
+  simulated contract tests，and real account inputs are ready；live creation remains pending in this acceptance run。
 - **Verification Direction**: Acceptance 最终必须以真实 collected graph 和用户可判断的 finding tasks 证明新增能力
   补足了 semantic/graph retrieval 不能合理完成的工作；不能以 operator 数量、schema round-trip 或人工构造的 query
   fixture 代替产品价值。J1–J7 已冻结 exact identifier、中文片段、Mail attachment metadata、freshness、PDF body、
@@ -35,9 +36,9 @@
 - **Current Question**: no unresolved product/technical fork blocks implementation。Public JWT publication is deferred under
   D-340；D-341 separates fork-based self-host onboarding from the canonical production demo。The remaining evidence is a real
   Render account-backed service creation、cold-start probe and matching PR previews。
-- **Next Step**: finish local/shared durable projection and final cross-repo verification，then await Sir's separate commit/push
-  authorization。After push，require exact core/client PR previews and matching J7；when a Render account is available，run the
-  checked-in fork workflow once to close the host-specific operational probe。
+- **Next Step**: Sir 已授权 delivery closure。先完成 core/client 与主线的合并、push 与 exact preview regression；再以
+  preview 执行 matching J7，并独立运行 checked-in Render + Neon fork workflow，关闭 host-specific operational probe。
+  两条 journey 共享产品产物，但 canonical preview/demo 不被 fork workflow 配置或重定义。
 - **Delivery Gate**: implementation is not accepted after local checks alone。After separately authorized commits and pushes，
   the current core-py and client-web PR previews must both pass；core-py's preview must prove fresh migration/database readiness，
   and the built client journey must target the matching live core preview rather than a stable-release substitute。

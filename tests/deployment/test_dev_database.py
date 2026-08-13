@@ -30,7 +30,7 @@ def _state(instance: str) -> dict:
       "daemon_name": "docker-desktop",
     },
     "contract_revision": "peer-database-runtime-v1",
-    "migration_head": "d9f4e2a1b7c3",
+    "migration_head": "f2a6c8e4b1d7",
     "source_revision": "a" * 40,
     "source_fingerprint": "b" * 64,
     "core_image": "inkcre-core-py-development:aaaaaaaaaaaa",

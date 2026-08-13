@@ -35,14 +35,15 @@ class MailSourceBindingError(RuntimeError):
 
 def _mail_extension_default_exclusions() -> MailboxExclusionPolicy:
   """Read current extension defaults without requiring a running API mount."""
-  from app.business.extension.main import ExtensionManager
+  from app.business.extension import EXTENSION_HOST
   from . import Extension
 
-  running = ExtensionManager.RUNNING_EXTENSIONS.get("mail")
+  running = EXTENSION_HOST.running.get("inkcre/mail")
   if running is not None:
-    return typing.cast(type[Extension], running).config.default_excluded_mailboxes
-  persisted = ExtensionManager.get("mail")
-  config = Extension.validate_config({} if persisted is None else persisted.config or {})
+    extension_class = typing.cast(type[Extension], running.extension_class)
+    return extension_class.config.default_excluded_mailboxes
+  persisted = EXTENSION_HOST.store.get("inkcre/mail")
+  config = Extension.validate_config({} if persisted is None else persisted.config)
   return config.default_excluded_mailboxes
 
 

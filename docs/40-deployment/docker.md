@@ -12,9 +12,10 @@ operational helpers:
 
 - Python and PDM versions are pinned by `.python-version` and the Docker build argument
 - production dependencies come only from the frozen root `pdm.lock`
-- the final image contains core code, shared libraries, checked-in extensions, prompts,
-  Alembic configuration, and every migration revision
-- extension-local virtual environments and locks are not image inputs
+- the final image contains Core code, shared libraries, prompts, Alembic configuration, every
+  migration revision, and a writable Core virtual environment with native `pip`
+- checked-in Extension source, custom ZIP bundles, catalogs, and Extension-local environments
+  are not image inputs
 - the final process runs as the non-root `inkcre` user
 
 The service has no entry point and defaults to `python scripts/container.py web`, which keeps
@@ -25,7 +26,11 @@ Heroku's shell-based `CMD` behavior explicit. Call other supported commands with
   [database-contract.md](database-contract.md)
 - `python scripts/container.py ready`: compatibility entry point for runtime-profile readiness
 
-The artifact never generates migrations or downloads extension code.
+The image never embeds Extension code. During enable or cold restore, the Core
+Extension Host resolves the Registry Release, selects its wheel through the same-origin Simple
+index, rejects dependency plans that replace Core-owned Distributions, and installs the wheel
+into `/app/.venv` with ordinary `pip`. Entry points are discovered through
+`importlib.metadata`; there is no target overlay or `sys.path` mutation.
 
 The canonical service contains `curl` for Heroku release logging and uses the same full default
 command in Docker and Heroku. The separate release guard is deliberately harmless: Heroku config
@@ -91,9 +96,11 @@ The same job initializes a separate neutral runtime database, exports password-f
 a PostgreSQL 17 whole-database schema dump, and appends only its Alembic and contract-state
 lifecycle rows. After the workflow passes on exact current `main`,
 `artifact-publish.yml` embeds that checked evidence, builds the canonical service image once,
-tests its manifest, and publishes its commit tag and immutable digest. Production pulls that
-digest and transfers the same image content to Heroku; it does not rebuild core code. Only a
-successful production probe moves the mutable `stable` discovery channel.
+and publishes the image commit tag and immutable digest. First-party wheels are independently
+built and published by `extension-publish.yml` only for changed Extension directories after the
+same exact-main checks pass. Application image promotion is not coupled to Extension publication.
+Production pulls that digest and transfers the same image content to Heroku; it does not rebuild
+core code. Only a successful production probe moves the mutable `stable` discovery channel.
 
 When no local Docker-compatible runtime is installed, `svc.local.json` may select the
 checked-in SSH provider implemented by `scripts/dev_database_provider.py` and

@@ -118,16 +118,56 @@ class SourceManager:
   _SOURCE_CLASSES: dict[str, type[SourceBase]] = {}
 
   @classmethod
+  def snapshot_source_types(cls) -> dict[str, type[SourceBase]]:
+    """Capture the in-memory source publication surface.
+
+    Extension startup uses this snapshot to build a reversible publication
+    handle. Importing a source remains memory-only; persistence still happens
+    only through :meth:`sync_source_types`.
+    """
+    return dict(cls._SOURCE_CLASSES)
+
+  @classmethod
+  def restore_source_types(
+    cls,
+    before: dict[str, type[SourceBase]],
+    published: dict[str, type[SourceBase]],
+  ) -> None:
+    """Undo only source registrations made by one publication.
+
+    A later publisher that replaced the same key wins; this avoids one
+    extension teardown erasing an unrelated, newer registration.
+    """
+    missing = object()
+    for source_type in before.keys() | published.keys():
+      previous = before.get(source_type, missing)
+      publication = published.get(source_type, missing)
+      if previous is publication:
+        continue
+
+      current = cls._SOURCE_CLASSES.get(source_type, missing)
+      if current is not publication:
+        continue
+      if previous is missing:
+        cls._SOURCE_CLASSES.pop(source_type, None)
+      else:
+        cls._SOURCE_CLASSES[source_type] = typing.cast(type[SourceBase], previous)
+
+  @classmethod
   def add_source_type(cls, source_cls: type[SourceBase]) -> None:
     """Register a source type in memory without external side effects."""
     source_type = source_cls.__module__ + "." + source_cls.__qualname__
     cls._SOURCE_CLASSES[source_type] = source_cls
 
   @classmethod
-  def sync_source_types(cls) -> None:
+  def sync_source_types(
+    cls,
+    source_classes: dict[str, type[SourceBase]] | None = None,
+  ) -> None:
     """Persist registered source types during explicit runtime bootstrap."""
+    registered = cls._SOURCE_CLASSES if source_classes is None else source_classes
     with SessionLocal() as db:
-      for source_type, source_cls in cls._SOURCE_CLASSES.items():
+      for source_type, source_cls in registered.items():
         builtin = BUILTIN_SOURCE_TYPES_BY_ID.get(source_type)
         stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
           id=source_type,

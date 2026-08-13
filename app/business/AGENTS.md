@@ -40,7 +40,7 @@
 | `SemanticRetrievalManager` | Semantic projection、EmbeddingRecord maintenance、exact ranking | [semantic_retrieval/main.py](semantic_retrieval/main.py) |
 | `LexicalRetrievalManager` | Block-local lexical projection、derived-record maintenance、exact feature ranking | [lexical_retrieval/main.py](lexical_retrieval/main.py) |
 | `OrganizationManager` | Explicit focal-Block rumination、Agent composition、graph-aware Tools | [organization.py](organization.py) |
-| `ExtensionManager` | Extension 生命周期管理 | [extension/main.py](extension/main.py) |
+| `ExtensionHost` | Extension 安装、启停与生命周期管理 | [extension/main.py](extension/main.py) |
 | `PeerManager` | Peer identity、capability/lease discovery、delegation | [peer/main.py](peer/main.py) |
 
 ### 模块依赖

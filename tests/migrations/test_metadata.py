@@ -50,7 +50,7 @@ def _table(table_name: str):
 def test_text_columns_match_the_published_migration_types():
   metadata = get_target_metadata()
   text_columns = {
-    ("extensions", "id"),
+    ("extensions", "name"),
     ("extensions", "nickname"),
     ("logs", "severity_text"),
     ("logs", "body"),
@@ -75,6 +75,10 @@ def test_production_required_columns_are_not_nullable():
     ("peers", "config_schema"),
     ("configs", "schema"),
     ("configs", "value"),
+    ("extensions", "config"),
+    ("extensions", "enabled"),
+    ("extensions", "name"),
+    ("extensions", "version"),
     ("logs", "timestamp"),
     ("sources", "config"),
     ("sources", "created_at"),

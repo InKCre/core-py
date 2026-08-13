@@ -66,8 +66,8 @@
   core derived records/Jobs/Peer capability、multimodal Resolver + Organization paths 和 client InfoBaseListView 均已落地，
   real NASA/DashScope vertical 与本地完整 contracts 已通过。D-340 关闭 public-JWT 分叉，self-host signing authority
   保持 owner-private；
-  Render controller/workflow 已实现，真实 host probe 等账号可用后补。当前进入 durable promotion、owner review，随后在
-  Sir 独立授权下按 owner 提交/push 并等待 core/client exact preview closure。
+  Render controller/workflow 已实现，真实账号与 GitHub settings 已就绪。Sir 已授权 delivery closure；当前按 owner
+  完成 core/client 主线合并与 push，随后分别以 exact preview 和独立 fork deployment 关闭两条验收线。
 
 ## Program Boundary
 

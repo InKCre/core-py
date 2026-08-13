@@ -585,7 +585,7 @@ def deploy_render_neon(
       "OBSRV__LOGGING_BACKEND": "none",
       "PEER_ID": str(peer_id),
       "PEER_NAME": core_name,
-      "SKIP_EXTENSIONS_SYNC": "0",
+      "SKIP_EXTENSION_START": "0",
       "SOURCE_REVISION": request.commit,
     },
   )

@@ -4,7 +4,7 @@ import uuid
 
 
 CONTRACT_FORMAT = 1
-CONTRACT_REVISION = "lexical-retrieval-runtime-v1"
+CONTRACT_REVISION = "extension-registry-feature-retrieval-v1"
 
 PROTOCOL_SCHEMA = "inkcre"
 INTERNAL_SCHEMA = "inkcre_internal"
@@ -51,3 +51,9 @@ APPLICATION_TABLES = (
   "storage_blobs",
   "storages",
 )
+
+EXTENSION_CUTOVER_RELATIONS = frozenset(
+  {"extensions", "extension_installations", "extension_peer_bindings"}
+)
+EXTENSION_CUTOVER_PREVIOUS_HEAD = "f2a6c8e4b1d7"
+EXTENSION_CUTOVER_CURRENT_HEAD = "b8c1d2e3f4a5"

@@ -12,13 +12,6 @@ JsonObject = dict[str, Any]
 
 
 @dataclass(frozen=True)
-class ExtensionProfile:
-  id: str
-  version: str
-  nickname: str
-
-
-@dataclass(frozen=True)
 class TypeProfile:
   id: str
   description: str
@@ -126,16 +119,6 @@ BUILTIN_AI_DIALECTS = (
     "OpenAI-compatible embedding and chat protocol.",
     OPENAI_COMPATIBLE_DIALECT_SCHEMA,
   ),
-)
-
-BUILTIN_EXTENSIONS = (
-  ExtensionProfile("github", "0.1.0", "GitHub"),
-  ExtensionProfile("learn_english", "0.1.0", "Learn English"),
-  ExtensionProfile("mail", "0.1.0", "Mail"),
-  ExtensionProfile("memos", "0.1.0", "Memos"),
-  ExtensionProfile("rss", "0.1.0", "RSS/Atom Feeds"),
-  ExtensionProfile("telegram", "0.1.0", "Telegram"),
-  ExtensionProfile("twitter", "0.1.0", "Twitter"),
 )
 
 BUILTIN_STORAGE_TYPES = (
@@ -417,7 +400,6 @@ BUILTIN_STORAGES = (
   StorageProfile(-4, "postgresql_binary", "PostgreSQL Binary", {}),
 )
 
-BUILTIN_EXTENSIONS_BY_ID = {item.id: item for item in BUILTIN_EXTENSIONS}
 BUILTIN_AI_DIALECTS_BY_ID = {item.id: item for item in BUILTIN_AI_DIALECTS}
 BUILTIN_STORAGE_TYPES_BY_ID = {item.id: item for item in BUILTIN_STORAGE_TYPES}
 BUILTIN_SOURCE_TYPES_BY_ID = {item.id: item for item in BUILTIN_SOURCE_TYPES}

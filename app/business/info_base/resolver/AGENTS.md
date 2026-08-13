@@ -26,6 +26,8 @@
 - 避免 module-level import `BlockManager`；resolver 与 `block.py` 有循环依赖风险，graph mutation dependency 按需
   lazy import。
 - `Resolver.__init_subclass__()` exact-register decoder；同 class 重复 idempotent，不同 class 抢同 ID 失败。
+- Extension runtime 通过 registry snapshot/restore 撤销本次 publication；重复 enable 必须显式重新注册，不能
+  依赖只执行一次的 module import side effect。
 - `register_core_resolvers()` 独立于 extension sync/start；extension disabled 不能让 core decoder 消失。
 - Resolver ID 必须 namespaced + versioned。共享 semantic IDs 固定为九个 `core.<kind>.v1`；不保留 bare alias。
 - Agent graph drafting 是 opt-in capability：subclass 同时声明 `draft_description`、`draft_input_model` 并实现

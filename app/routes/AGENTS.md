@@ -15,7 +15,7 @@ FastAPI 路由注册层，将业务逻辑暴露为 REST API 端点。
 | [block.py](block.py) | `/blocks` | BlockManager | GET, POST, PUT, DELETE |
 | [relation.py](relation.py) | `/relations` | RelationManager | GET, POST, PUT, DELETE |
 | [source.py](source.py) | `/sources` | SourceManager | GET, POST, PUT, DELETE |
-| [extension.py](extension.py) | `/extensions`, `/extension-management` | ExtensionManager | list/install, fixed management command |
+| [extension.py](extension.py) | `/extensions`, `/extension-management` | ExtensionHost | registry management + fixed Peer command |
 | [deployment_config.py](deployment_config.py) | `/configs` | DeploymentConfigManager | GET, PUT, PATCH |
 | [info_base.py](info_base.py) | `/graph` | InfoBaseManager | PUT |
 | [semantic_retrieval.py](semantic_retrieval.py) | `/semantic-retrieval` | SemanticRetrievalManager | POST + Peer inbound |

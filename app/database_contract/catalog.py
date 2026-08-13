@@ -18,7 +18,6 @@ from .constants import (
 )
 from .profile import (
   BUILTIN_AI_DIALECTS,
-  BUILTIN_EXTENSIONS,
   BUILTIN_JOB_TYPES,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
@@ -64,29 +63,6 @@ def reconcile_builtins(database_url: str | None = None) -> None:
   """Upsert artifact-owned catalogs without starting any runtime service."""
   with database_connection(database_url) as connection:
     with connection.cursor() as cursor:
-      for extension in BUILTIN_EXTENSIONS:
-        cursor.execute(
-          sql.SQL(
-            """
-            INSERT INTO {}.extensions (
-              id, version, enabled, nickname, config, config_schema
-            )
-            VALUES (
-              %s,
-              %s,
-              ARRAY[]::uuid[],
-              %s,
-              jsonb_build_object(),
-              NULL
-            )
-            ON CONFLICT (id) DO UPDATE
-            SET version = EXCLUDED.version,
-                nickname = EXCLUDED.nickname
-            """
-          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
-          (extension.id, extension.version, extension.nickname),
-        )
-
       for dialect in BUILTIN_AI_DIALECTS:
         cursor.execute(
           sql.SQL(
@@ -275,7 +251,7 @@ def development_baseline_fingerprint(
         ),
         (
           "extensions",
-          sql.SQL("SELECT id, version, nickname FROM {}.extensions ORDER BY id").format(
+          sql.SQL("SELECT name, version, nickname FROM {}.extensions ORDER BY name").format(
             sql.Identifier(PROTOCOL_SCHEMA)
           ),
         ),
@@ -310,7 +286,8 @@ def development_baseline_fingerprint(
           "development_peer",
           sql.SQL(
             "SELECT id::text, name, labels, config, config_schema, capabilities, "
-            "lease_expires_at::text, created_at::text "
+            "EXTRACT(EPOCH FROM lease_expires_at)::bigint, "
+            "EXTRACT(EPOCH FROM created_at)::bigint "
             "FROM {}.peers WHERE id = %s"
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
         ),

@@ -65,7 +65,47 @@ PROTOCOL_FUNCTIONS: dict[str, dict[str, object]] = {
     "returns_set": False,
     "volatility": "volatile",
   },
+  "set_extension_peer_enabled": {
+    "arguments": [
+      {
+        "name": "p_name",
+        "type": {"kind": "string"},
+      },
+      {
+        "name": "p_peer_id",
+        "type": {"kind": "string", "format": "uuid"},
+      },
+      {
+        "name": "p_enabled",
+        "type": {"kind": "boolean"},
+      },
+    ],
+    "returns": {
+      "kind": "relation",
+      "relation": "extensions",
+      "database_type": "inkcre.extensions",
+    },
+    "returns_set": True,
+    "volatility": "volatile",
+  },
 }
+
+
+def _database_type_name(type_document: dict[str, object]) -> str:
+  explicit = type_document.get("database_type")
+  if isinstance(explicit, str):
+    return explicit
+  format_ = type_document.get("format")
+  if isinstance(format_, str):
+    return format_
+  kind = type_document.get("kind")
+  if kind == "string":
+    return "text"
+  if kind == "boolean":
+    return "boolean"
+  if kind == "number":
+    return "numeric"
+  raise TypeError(f"unsupported database function type: {type_document!r}")
 
 
 def protocol_database_function_signatures() -> dict[
@@ -85,10 +125,10 @@ def protocol_database_function_signatures() -> dict[
         if argument["name"] is not None
       ),
       tuple(
-        cast(str, cast(dict[str, object], argument["type"])["format"])
+        _database_type_name(cast(dict[str, object], argument["type"]))
         for argument in arguments
       ),
-      cast(str, returns.get("database_type", returns["format"])),
+      _database_type_name(returns),
       cast(bool, function_document["returns_set"]),
       volatility_codes[cast(str, function_document["volatility"])],
     )

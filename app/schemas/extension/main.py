@@ -1,34 +1,43 @@
+import typing
 import uuid
+
 import pydantic
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
-import typing
-from typing import Optional as Opt
 
 
-ExtensionID: typing.TypeAlias = str
+ExtensionName: typing.TypeAlias = str
+EXTENSION_NAME_PATTERN = (
+  r"^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?/"
+  r"[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$"
+)
+EXTENSION_SEMVER_PATTERN = (
+  r"^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)"
+  r"(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+  r"([.](0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$"
+)
 
 
 class EnableExtensionCommand(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   action: typing.Literal["enable"]
-  extension: ExtensionID
+  extension: ExtensionName
 
 
 class DisableExtensionCommand(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   action: typing.Literal["disable"]
-  extension: ExtensionID
+  extension: ExtensionName
 
 
 class PatchExtensionConfigCommand(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   action: typing.Literal["patch_config"]
-  extension: ExtensionID
+  extension: ExtensionName
   patch: dict[str, typing.Any]
 
 
@@ -39,26 +48,29 @@ ExtensionManagementCommand: typing.TypeAlias = typing.Annotated[
 
 
 class ExtensionModel(sqlmodel.SQLModel, table=True):
-  """
-
-  Globally, every extension has a unique ID.
-  Only one instance of each extension on a deployment.
-  If a record presents here, the extension is installed.
-  """
+  """Private persistence model for one exact deployment Extension Release."""
 
   __tablename__: str = "extensions"  # type: ignore
+  __table_args__ = (
+    sqlalchemy.CheckConstraint(
+      f"name ~ '{EXTENSION_NAME_PATTERN}'",
+      name="extensions_name_canonical",
+    ),
+    sqlalchemy.CheckConstraint(
+      f"version ~ '{EXTENSION_SEMVER_PATTERN}'",
+      name="extensions_version_canonical",
+    ),
+  )
 
-  id: ExtensionID = sqlmodel.Field(
+  name: ExtensionName = sqlmodel.Field(
     sa_column=sqlalchemy.Column(sqlalchemy.Text, primary_key=True)
   )
-  version: str = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.Text, nullable=False))
-  """Version of extension.
-    
-    format: `major.minor.patch`.
-    """
+  version: str = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+  )
   enabled: list[uuid.UUID] = sqlmodel.Field(
     default_factory=list,
-    sa_column=sqlmodel.Column(
+    sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.ARRAY(
         sqlalchemy.dialects.postgresql.UUID(as_uuid=True)
       ),
@@ -66,25 +78,22 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
       nullable=False,
     ),
   )
-  """List of Peer IDs for which this extension is enabled.
-
-  Empty array means disabled for all Peers.
-  """
-  nickname: Opt[str] = sqlmodel.Field(
+  nickname: str | None = sqlmodel.Field(
     default=None,
     sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=True),
   )
   config: dict = sqlmodel.Field(
     default_factory=dict,
-    sa_column=sqlmodel.Column(
+    sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,
       server_default=sqlalchemy.text("'{}'::jsonb"),
+      nullable=False,
     ),
   )
-  config_schema: Opt[dict] = sqlmodel.Field(
-    default=None, sa_column=sqlmodel.Column(sqlalchemy.dialects.postgresql.JSONB)
+  config_schema: dict | None = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.dialects.postgresql.JSONB,
+      nullable=True,
+    ),
   )
-  """JSON schema for the config field.
-    
-    Auto-populated from config_cls.model_json_schema().
-    """

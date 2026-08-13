@@ -25,4 +25,10 @@ def test_offline_upgrade_requires_only_database_url(
 
   command.upgrade(config, "head", sql=True)
 
-  assert "CREATE TABLE" in capsys.readouterr().out
+  offline_sql = capsys.readouterr().out
+  assert "CREATE TABLE" in offline_sql
+  assert "DROP TABLE inkcre.extension_peer_bindings" in offline_sql
+  assert "DROP TABLE inkcre.extension_installations" in offline_sql
+  assert "CREATE FUNCTION inkcre.set_extension_peer_enabled" in offline_sql
+  assert "REVOKE EXECUTE ON FUNCTION" in offline_sql
+  assert "FROM inkcre.clients" in offline_sql

@@ -23,6 +23,8 @@
 - `SourceBase.__init_subclass__()` 只登记内存 class；import 不连接数据库。
 - `SourceManager.sync_source_types()` 在显式 bootstrap reconcile catalog。
 - Extension source 必须在 extension startup import；否则 source type 不存在于当前 runtime registry。
+- Extension runtime 通过 registry snapshot/restore 撤销本次 publication；重复 enable 必须显式重新注册，不能
+  依赖只执行一次的 module import side effect。
 
 ## Config And State
 

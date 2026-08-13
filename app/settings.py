@@ -74,6 +74,18 @@ class Settings(BaseSettings):
   semantic_retrieval_maintenance_batch_size: int = Field(default=20, gt=0)
   semantic_retrieval_maintenance_scan_page_size: int = Field(default=100, gt=0)
 
+  # Public Extension Registry and native Python Distribution consumer
+  extension_registry_url: str = Field(
+    default="https://registry.inkcre.dev",
+    description="Public Extension Registry origin used for install and new enable",
+  )
+  extension_registry_timeout_seconds: float = Field(
+    default=5.0,
+    gt=0,
+    le=30,
+    description="Bounded timeout for public Extension Registry requests",
+  )
+
   @field_validator("database_url")
   @classmethod
   def use_psycopg_driver(cls, v: str) -> str:

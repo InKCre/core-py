@@ -36,7 +36,7 @@ RUN apt-get update \
 
 COPY --from=builder --chown=inkcre:inkcre /app/.venv /app/.venv
 COPY --chown=inkcre:inkcre app/ app/
-COPY --chown=inkcre:inkcre extensions/ extensions/
+COPY --chown=inkcre:inkcre data/ai/prompts/ data/ai/prompts/
 COPY --chown=inkcre:inkcre libs/ libs/
 COPY --chown=inkcre:inkcre migrations/ migrations/
 COPY --chown=inkcre:inkcre scripts/ scripts/
@@ -47,8 +47,6 @@ COPY --chown=inkcre:inkcre \
     pyproject.toml \
     run.py \
     ./
-
-RUN install -d -o inkcre -g inkcre /app/data/extensions/twitter
 
 USER inkcre
 

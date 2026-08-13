@@ -1,31 +1,58 @@
+"""One Core Extension Host over Registry-native Python Distributions."""
+
+from __future__ import annotations
+
 import abc
+import asyncio
+import contextlib
+from dataclasses import dataclass
 import typing
+
 import fastapi
 import pydantic
 import sqlmodel
-import importlib
-import os
-import tomllib
-import json
-from typing import Optional as Opt
-from app.engine import SessionLocal
-from app.configuration import ConfigContract
-from app.database_contract.profile import BUILTIN_EXTENSIONS_BY_ID
-from app.schemas.ai import JSONValue
-from app.schemas.extension.main import (
+
+from app.business.peer import PeerManager
+from app.schemas.extension import (
   DisableExtensionCommand,
   EnableExtensionCommand,
-  ExtensionID,
   ExtensionManagementCommand,
-  ExtensionModel,
   PatchExtensionConfigCommand,
 )
 from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
-from app.middleware import require_peer_jwt
 from app.settings import settings
-from app.business.peer import PeerManager
-from .routing import ExtensionRouteMount
+from app.middleware import require_peer_jwt
 from libs.obsrv.main import get_logger
+
+from .distribution import (
+  AcquiredDistribution,
+  DistributionConsumer,
+  DistributionModules,
+  PipDistributionConsumer,
+)
+from .errors import (
+  ExtensionCompatibilityError,
+  ExtensionHostError,
+  ExtensionNotInstalledError,
+  ExtensionRestartRequiredError,
+  ExtensionRuntimeError,
+  ExtensionStateConflictError,
+)
+from .release import (
+  PythonReleaseDescriptor,
+  RegistryReleaseClient,
+  ReleaseResolver,
+  require_python_association,
+  validate_coordinate,
+)
+from .runtime import (
+  ExtensionPublication,
+  ExtensionPublicationSnapshot,
+  ExtensionRuntimeClaim,
+  ExtensionRuntimeClaimConflictError,
+  ExtensionRuntimeRecord,
+)
+from .state import ExtensionState, ExtensionStateStore, SQLExtensionStateStore
 
 
 LOGGER = get_logger().getChild(__name__)
@@ -33,7 +60,7 @@ EXTENSION_MANAGEMENT_CAPABILITY = "core.extension.management.v1"
 
 
 class ExtensionDelegationError(RuntimeError):
-  pass
+  """The selected Peer did not return the Extension management contract."""
 
 
 class EmptyConfig(sqlmodel.SQLModel): ...
@@ -43,383 +70,203 @@ ConfigTV = typing.TypeVar("ConfigTV", bound=pydantic.BaseModel)
 
 
 class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
-  """InKCre Extension base class."""
+  """Extension-facing lifecycle and validated configuration model."""
 
   config: ConfigTV
-  __configcontract__: ConfigContract[ConfigTV]
 
   def __init_subclass__(
     cls,
-    ext_id: ExtensionID,
+    ext_id: str,
     config_cls: type[ConfigTV],
-    **kwargs,
+    **kwargs: typing.Any,
   ) -> None:
     cls.__extid__ = ext_id
-    # ConfigTV is bound by each concrete extension subclass; Python's type model
-    # cannot represent a class attribute specialized by that subclass binding.
-    cls.__configcontract__ = ConfigContract(config_cls)  # pyrefly: ignore[no-access]
-    return super().__init_subclass__(**kwargs)
+    cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
+    cls.__configschema__ = config_cls.model_json_schema()
+    super().__init_subclass__(**kwargs)
 
   @classmethod
-  def on_start(cls, extension: ExtensionModel) -> fastapi.APIRouter:
-    cls.config = cls.validate_config(extension.config or {})  # pyrefly: ignore[no-access]
+  def on_start(
+    cls,
+    app: fastapi.FastAPI,
+    extension: ExtensionRuntimeRecord,
+    publication_snapshot: ExtensionPublicationSnapshot | None = None,
+  ) -> None:
+    """Validate config and atomically publish routes, sources, and resolvers."""
+    snapshot = publication_snapshot or ExtensionPublicationSnapshot.capture(app)
+    if cls.runtime_active():
+      snapshot.rollback()
+      raise ExtensionRuntimeError(f"Extension runtime {cls.__extid__} is already active")
+    if extension.extension_id != cls.__extid__:
+      snapshot.rollback()
+      raise ExtensionRuntimeError(
+        f"Runtime record {extension.extension_id} does not belong to {cls.__extid__}"
+      )
 
-    router = fastapi.APIRouter(
-      prefix=f"/{cls.__extid__}",
-      tags=["extension", cls.__extid__],
-      dependencies=cls.api_dependencies(),
-    )
-    cls._register_apis(router)
+    publication: ExtensionPublication | None = None
+    setattr(cls, "__runtime_record__", extension)
+    try:
+      validated_config = cls.__configcls__(  # pyrefly: ignore[missing-attribute]
+        **(extension.config or {})
+      )
+      setattr(cls, "config", validated_config)
+      router = fastapi.APIRouter(
+        prefix=f"/{cls.__extid__}",
+        dependencies=cls.api_dependencies(),
+      )
+      cls._register_apis(router)
+      app.include_router(router, tags=["extension", cls.__extid__])
+      cls._init_sources()
+      cls._init_resolvers()
+      for inbound in cls.peer_inbounds():
+        PeerManager.register_inbound(inbound)
+      publication = snapshot.finish()
+      publication.activate_source_types()
+      extension.persist_config_schema(dict(cls.__configschema__))
+    except Exception:
+      if publication is None:
+        snapshot.rollback()
+      else:
+        publication.restore()
+      raise
 
-    cls._init_sources()
-
-    LOGGER.info(f"Extension {cls.__extid__} started.")
-    return router
+    setattr(cls, "__runtime_publication__", publication)
+    LOGGER.info("Extension %s started", cls.__extid__)
 
   @classmethod
-  def api_dependencies(cls) -> list[typing.Any]:
-    """Return root API dependencies; override with [] to compose extension auth."""
-    return [fastapi.Depends(require_peer_jwt)]
+  def _init_resolvers(cls) -> None: ...
 
   @classmethod
   def load_decoders(cls) -> None:
-    """Load persisted-content decoders independently of live API/source state."""
+    """Publish persisted-content decoders without starting routes or Sources."""
     cls._init_resolvers()
 
   @classmethod
-  def _init_resolvers(cls): ...
+  def _init_sources(cls) -> None: ...
 
   @classmethod
-  def _init_sources(cls): ...
+  def api_dependencies(cls) -> list[typing.Any]:
+    """Return root API dependencies; override with [] to compose product auth."""
+    return [fastapi.Depends(require_peer_jwt)]
 
   @classmethod
   def peer_inbounds(cls) -> tuple[typing.Any, ...]:
-    """Return exact Peer inbounds whose routes exist only while this extension runs."""
+    """Return exact Peer inbounds published while this Extension is running."""
     return ()
 
   @classmethod
-  async def on_close(cls):
-    LOGGER.info(f"Extension {cls.__extid__} closed.")
+  async def on_close(cls) -> None:
+    record = typing.cast(
+      ExtensionRuntimeRecord | None,
+      cls.__dict__.get("__runtime_record__"),
+    )
+    if record is None:
+      raise ExtensionRuntimeError(f"Extension runtime {cls.__extid__} has no state")
+    config = typing.cast(sqlmodel.SQLModel, getattr(cls, "config"))
+    record.persist_config(config.model_dump())
+    LOGGER.info("Extension %s closed", cls.__extid__)
+
+  @classmethod
+  def runtime_active(cls) -> bool:
+    publication = typing.cast(
+      ExtensionPublication | None,
+      cls.__dict__.get("__runtime_publication__"),
+    )
+    return publication is not None and not publication.restored
+
+  @classmethod
+  def unpublish(cls) -> None:
+    publication = typing.cast(
+      ExtensionPublication | None,
+      cls.__dict__.get("__runtime_publication__"),
+    )
+    if publication is not None:
+      publication.restore()
+
+  @classmethod
+  def release_runtime(cls) -> None:
+    for attribute in ("__runtime_publication__", "__runtime_record__"):
+      if attribute in cls.__dict__:
+        delattr(cls, attribute)
 
   @classmethod
   @abc.abstractmethod
-  def _register_apis(cls, router: fastapi.APIRouter):
-    """Register API endpoints for the extension here.
-
-    - Do not register API bypass or duplicate with the core APIs.
-    """
+  def _register_apis(cls, router: fastapi.APIRouter) -> None:
+    """Register Extension-owned API endpoints."""
 
   @classmethod
-  def update_config(cls, new_config: dict | ConfigTV):
-    """Update extension configuration at runtime.
-
-    :param new_config:
-    """
+  def update_config(cls, new_config: dict[str, typing.Any] | ConfigTV) -> None:
     if isinstance(new_config, dict):
-      cls.config = cls.__configcontract__.validate(new_config)  # pyrefly: ignore[no-access]
+      validated = cls.__configcls__(**new_config)  # pyrefly: ignore[missing-attribute]
     else:
-      cls.config = new_config  # pyrefly: ignore[no-access]
+      validated = new_config
+    setattr(cls, "config", validated)
 
   @classmethod
-  def validate_config(cls, config: dict) -> ConfigTV:
-    """Validate and normalize persisted configuration for this extension."""
-    return cls.__configcontract__.validate(config)  # pyrefly: ignore[missing-attribute, bad-return]
+  def validate_config(cls, config: dict[str, typing.Any]) -> ConfigTV:
+    """Validate one persisted configuration through the Extension-owned model."""
+    return cls.__configcls__(**config)  # pyrefly: ignore[missing-attribute, bad-return]
 
   @classmethod
-  def prepare_config_patch(
-    cls,
-    current: dict[str, typing.Any],
-    patch: dict[str, typing.Any],
-  ) -> ConfigTV:
-    """Validate a shallow patch through the shared config mechanics."""
-    return cls.__configcontract__.prepare_patch(current, patch)  # pyrefly: ignore[missing-attribute, bad-return]
-
-  @classmethod
-  def config_schema(cls) -> dict:
-    """Return optional UI metadata derived from the authoritative config model."""
-    return cls.__configcontract__.json_schema()  # pyrefly: ignore[missing-attribute]
+  def config_schema(cls) -> dict[str, typing.Any]:
+    """Return the Extension-owned schema projected to deployment state."""
+    return dict(cls.__configschema__)
 
 
-class ExtensionManager:
-  RUNNING_EXTENSIONS: dict[ExtensionID, type[ExtensionBase]] = dict()
-  ROUTE_MOUNTS: dict[ExtensionID, ExtensionRouteMount] = dict()
-  FASTAPI_APP: fastapi.FastAPI | None = None
+@dataclass
+class RunningExtension:
+  name: str
+  version: str
+  association: PythonReleaseDescriptor
+  acquired: AcquiredDistribution
+  extension_class: type[ExtensionBase]
+  modules: DistributionModules
+  claim: ExtensionRuntimeClaim
 
-  @staticmethod
-  def _peer_inbounds(extension_class: type[ExtensionBase]) -> tuple[typing.Any, ...]:
-    provider = getattr(extension_class, "peer_inbounds", None)
-    return () if provider is None else tuple(provider())
 
-  @classmethod
-  def start_enabled(cls, app: fastapi.FastAPI):
-    """Start all extensions enabled for the current Peer."""
-    cls.FASTAPI_APP = app
-    for extension in cls.get_installed(enabled_only=True):
-      cls.start(extension=extension)
+class ExtensionHost:
+  """Canonical install/config/enable/disable/uninstall facade for Core."""
 
-  @classmethod
-  def load_installed_decoders(cls) -> None:
-    """Make decoders for installed artifacts available even while disabled."""
-    for extension in cls.get_installed():
-      cls._load_extension_class(extension.id).load_decoders()
+  def __init__(
+    self,
+    *,
+    store: ExtensionStateStore | None = None,
+    release_client: ReleaseResolver | None = None,
+    distribution_consumer: DistributionConsumer | None = None,
+  ) -> None:
+    self.store = store or SQLExtensionStateStore()
+    self.release_client = release_client or RegistryReleaseClient(
+      settings.extension_registry_url,
+      settings.extension_registry_timeout_seconds,
+    )
+    self.distribution_consumer = distribution_consumer or PipDistributionConsumer(
+      settings.extension_registry_url,
+    )
+    self.running: dict[str, RunningExtension] = {}
+    self.fastapi_app: fastapi.FastAPI | None = None
+    self._loaded_versions: dict[str, str] = {}
+    self._runtime_lock = asyncio.Lock()
 
-  @classmethod
-  async def close_running(cls):
-    """Close all running extensions.
+  def list(self) -> tuple[ExtensionState, ...]:
+    return self.store.list()
 
-    It could involves closes of connections, so asynchronous.
-    """
-    to_close = tuple(cls.RUNNING_EXTENSIONS)
-    for extid in to_close:
-      await cls.close(extid)
-
-  @classmethod
-  def start(
-    cls,
-    extid: Opt[ExtensionID] = None,
-    extension: Opt[ExtensionModel] = None,
-    app: Opt[fastapi.FastAPI] = None,
-  ):
-    """Start a specific extension."""
-    if app is None:
-      app = cls.FASTAPI_APP
-    else:
-      cls.FASTAPI_APP = app
-    if app is None:
-      raise ValueError("FastAPI app instance is required to start extension.")
-    if extension is None and extid is not None:
-      extension = cls.get(extid)
-    if not extension:
-      raise ValueError(f"Extension not provided or not found: {extid}")
-    extension_class = cls._load_extension_class(extension.id)
-
-    if extension.id in cls.RUNNING_EXTENSIONS:
-      LOGGER.warning(f"Extension {extension.id} is already running.")
-    else:
-      extension_class.load_decoders()
-      cls._save_config_schema(extension.id, extension_class.config_schema())
-      router = extension_class.on_start(extension=extension)
-      mount = ExtensionRouteMount(app=app, router=router)
-      mount.publish()
-      inbounds = cls._peer_inbounds(extension_class)
-      for inbound in inbounds:
-        PeerManager.register_inbound(inbound)
-      cls.ROUTE_MOUNTS[extension.id] = mount
-      cls.RUNNING_EXTENSIONS[extension_class.__extid__] = extension_class
-      if inbounds:
-        PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
-
-  @classmethod
-  async def close(cls, extid: ExtensionID):
-    """Close a specific extension."""
-    extension_class = cls.RUNNING_EXTENSIONS.get(extid)
-    if extension_class is None:
-      LOGGER.warning(f"Extension {extid} is not running.")
-      return
-
-    mount = cls.ROUTE_MOUNTS.get(extid)
-    if mount is not None:
-      mount.unpublish()
-    inbounds = cls._peer_inbounds(extension_class)
-    for inbound in inbounds:
-      PeerManager.unregister_inbound(inbound.capability)
-    if inbounds:
-      PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
-
-    # Keep the runtime entry after a close failure so a later disable/close can retry.
-    await extension_class.on_close()
-    cls.ROUTE_MOUNTS.pop(extid, None)
-    cls.RUNNING_EXTENSIONS.pop(extid, None)
-
-  @classmethod
-  def _load_extension_class(cls, extid: ExtensionID) -> type[ExtensionBase]:
-    extension_module = importlib.import_module(f"extensions.{extid}")
-    return typing.cast(type[ExtensionBase], extension_module.Extension)
-
-  @classmethod
-  def _save_config_schema(cls, extid: ExtensionID, config_schema: dict) -> None:
-    with SessionLocal() as db:
-      extension = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
-      ).first()
-      if extension is None or extension.config_schema == config_schema:
-        return
-      extension.config_schema = config_schema
-      db.add(extension)
-      db.commit()
-
-  @classmethod
-  def _read_metadata(cls, ext_path: str) -> tuple[Opt[str], Opt[str]]:
-    """Read extension metadata (nickname, version) from a local extension
-    directory.
-
-    :param ext_path: Path to the extension directory
-    :return: Tuple of (nickname, version). Returns (None, None) if metadata
-             cannot be read.
-    """
-    nickname = None
-    version = None
-
-    # Try to read metadata from pyproject.toml first
-    pyproject_path = os.path.join(ext_path, "pyproject.toml")
-    if os.path.exists(pyproject_path):
-      try:
-        with open(pyproject_path, "rb") as f:
-          data = tomllib.load(f)
-        inkcre_ext = data.get("tool", {}).get("inkcre-ext", {})
-        nickname = inkcre_ext.get("nickname", None)
-        version = data.get("project", {}).get("version", None)
-        return nickname, version
-      except Exception:
-        # Continue to try metadata.json
-        pass
-
-    # Fall back to reading metadata.json from dist-info directory
-    metadata_json_path = None
-    for dist_info_item in os.listdir(ext_path):
-      if dist_info_item.endswith(".dist-info"):
-        metadata_json_path = os.path.join(ext_path, dist_info_item, "metadata.json")
-        break
-
-    if metadata_json_path and os.path.exists(metadata_json_path):
-      try:
-        with open(metadata_json_path, "r", encoding="utf-8") as f:
-          metadata = json.load(f)
-        ext_meta = metadata.get("extensions", {}).get("inkcre-ext", {})
-        nickname = ext_meta.get("nickname", None)
-        version = metadata.get("version", None)
-        return nickname, version
-      except Exception:
-        # Skip if metadata.json is also invalid
-        pass
-
-    return None, None
-
-  @classmethod
-  def install(cls, extid: ExtensionID, version: Opt[str] = None) -> ExtensionModel:
-    """Register a checked-in extension without downloading runtime code."""
-    extension_path = os.path.join("extensions", extid)
-    if not os.path.isdir(extension_path):
-      raise ValueError(f"Extension {extid} is not part of this artifact")
-
-    nickname, local_version = cls._read_metadata(extension_path)
-    if nickname is None and local_version is None:
-      raise ValueError(f"Extension {extid} has no valid local metadata")
-    local_version = local_version or "0.1.0"
-    if version is not None and version != local_version:
-      raise ValueError(f"Extension {extid} version {version} is not part of this artifact")
-
-    with SessionLocal() as db:
-      existing = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
-      ).first()
-      if existing:
-        existing.version = local_version
-        existing.nickname = nickname
-        db.add(existing)
-        db.commit()
-        db.refresh(existing)
-        return existing
-
-      extension = ExtensionModel(
-        id=extid,
-        version=local_version,
-        nickname=nickname,
-        config={},
-        enabled=[],
-      )
-      db.add(extension)
-      db.commit()
-      db.refresh(extension)
-
-      return extension
-
-  @classmethod
-  async def enable(cls, extid: ExtensionID) -> ExtensionModel:
-    """Enable an extension for the current Peer.
-
-    Adds the current Peer ID to the extension's enabled list and starts it.
-    """
-    from app.business.peer import PeerManager
-
-    peer = PeerManager.get_current_peer_ref()
-
-    with SessionLocal() as db:
-      extension = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
-      ).first()
-
-      if not extension:
-        raise ValueError(f"Extension with id {extid} not found.")
-
-      current_enabled = set(extension.enabled)
-      if peer not in current_enabled:
-        current_enabled.add(peer)
-        extension.enabled = list(current_enabled)
-        db.add(extension)
-        db.commit()
-        db.refresh(extension)
-
-      # Start extension if not already running
-      if extid not in cls.RUNNING_EXTENSIONS:
-        cls.start(extid)
-
-      return extension
-
-  @classmethod
-  async def disable(cls, extid: ExtensionID) -> ExtensionModel:
-    """Disable an extension for the current Peer.
-
-    Removes the current Peer ID from the extension's enabled list and stops it.
-    """
-    from app.business.peer import PeerManager
-
-    peer = PeerManager.get_current_peer_ref()
-
-    with SessionLocal() as db:
-      extension = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
-      ).first()
-
-      if not extension:
-        raise ValueError(f"Extension with id {extid} not found.")
-
-      current_enabled = set(extension.enabled)
-      if peer in current_enabled:
-        current_enabled.discard(peer)
-        extension.enabled = list(current_enabled)
-        db.add(extension)
-        db.commit()
-        db.refresh(extension)
-
-      # Close extension if running
-      if extid in cls.RUNNING_EXTENSIONS:
-        await cls.close(extid)
-
-      return extension
-
-  @classmethod
   async def manage(
-    cls,
+    self,
     command: ExtensionManagementCommand,
     *,
     route_to_peer: PeerRef,
-  ) -> ExtensionModel:
+  ) -> ExtensionState:
     """Execute one Extension command on one exact Peer."""
-    from app.business.peer import PeerManager
-
     if route_to_peer == PeerManager.get_current_peer_ref():
-      return await cls.manage_local(command)
+      return await self.manage_local(command)
 
-    payload = PeerProtocolRequest(
-      body=typing.cast(
-        JSONValue,
-        command.model_dump(mode="json"),
-      )
-    )
+    request = PeerProtocolRequest(body=command.model_dump(mode="json"))
     result = await PeerManager.delegate(
       EXTENSION_MANAGEMENT_CAPABILITY,
-      typing.cast(JSONValue, payload.model_dump(mode="json", exclude_unset=True)),
+      typing.cast(
+        typing.Any,
+        request.model_dump(mode="json", exclude_unset=True),
+      ),
       route_to_peer=route_to_peer,
     )
     try:
@@ -428,177 +275,359 @@ class ExtensionManager:
         raise ExtensionDelegationError(
           f"Extension management Peer returned HTTP {response.status}"
         )
-      return ExtensionModel.model_validate(response.body)
+      return ExtensionState.model_validate(response.body)
     except pydantic.ValidationError as error:
       raise ExtensionDelegationError(
         "Extension management Peer returned an invalid response"
       ) from error
 
-  @classmethod
   async def manage_local(
-    cls,
+    self,
     command: ExtensionManagementCommand,
-  ) -> ExtensionModel:
+  ) -> ExtensionState:
     """Execute one already-validated command without entering delegation."""
     if isinstance(command, EnableExtensionCommand):
-      return await cls.enable(command.extension)
+      return await self.enable(command.extension)
     if isinstance(command, DisableExtensionCommand):
-      return await cls.disable(command.extension)
+      return await self.disable(command.extension)
     if isinstance(command, PatchExtensionConfigCommand):
-      updated = cls.update_config(command.extension, command.patch)
-      if updated is None:
-        raise ValueError(f"Extension with id {command.extension} not found.")
-      return updated
+      return self.patch_config(command.extension, command.patch)
     typing.assert_never(command)
 
-  @classmethod
-  def get_installed(
-    cls,
-    enabled_only: bool = False,
-  ) -> tuple[ExtensionModel, ...]:
-    """Get installed extensions.
+  def get(self, name: str) -> ExtensionState:
+    validate_coordinate(name)
+    state = self.store.get(name)
+    if state is None:
+      raise ExtensionNotInstalledError(f"{name} is not installed")
+    return state
 
-    :param enabled_only: If True, only return extensions enabled for the current Peer.
-    """
-    from app.business.peer import PeerManager
+  def _resolve(
+    self,
+    name: str,
+    version: str,
+    *,
+    allow_yanked: bool,
+  ):
+    release = self.release_client.get(name, version)
+    if release.state == "yanked" and allow_yanked:
+      LOGGER.warning("Using yanked exact installed Release %s@%s", name, version)
+    elif release.state != "published":
+      raise ExtensionCompatibilityError(
+        f"{name}@{version} is not available for this operation"
+      )
+    association = require_python_association(release)
+    return release, association
 
-    with SessionLocal() as db:
-      query = sqlmodel.select(ExtensionModel)
+  def install(self, name: str, version: str) -> ExtensionState:
+    validate_coordinate(name, version)
+    existing = self.store.get(name)
+    if existing is not None and existing.version == version:
+      return existing
+    loaded_version = self._loaded_versions.get(name)
+    if loaded_version is not None and loaded_version != version:
+      raise ExtensionRestartRequiredError(
+        f"{name} {loaded_version} was already imported; restart before installing {version}"
+      )
+    release, _ = self._resolve(name, version, allow_yanked=False)
+    return self.store.install(name, version, release.nickname)
 
-      if enabled_only:
-        peer = PeerManager.get_current_peer_ref()
-        enabled_column = typing.cast(typing.Any, ExtensionModel.enabled)
-        query = query.where(enabled_column.any(peer))
+  def uninstall(self, name: str) -> None:
+    validate_coordinate(name)
+    if name in self.running:
+      raise ExtensionStateConflictError(f"Cannot uninstall running Extension {name}")
+    self.store.uninstall(name)
 
-      return tuple(db.exec(query).all())
-
-  @classmethod
-  def get(cls, extid: ExtensionID) -> Opt[ExtensionModel]:
-    """Get extension data by ID."""
-    with SessionLocal() as db:
-      return db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
-      ).first()
-
-  @classmethod
   def update_config(
-    cls,
-    extid: ExtensionID,
+    self,
+    name: str,
+    config: dict[str, typing.Any],
+  ) -> ExtensionState:
+    state = self.get(name)
+    running = self.running.get(name)
+    if running is None:
+      return self.store.update_config(name, config)
+    config_class = typing.cast(
+      type[sqlmodel.SQLModel],
+      getattr(running.extension_class, "__configcls__"),
+    )
+    validated = config_class(**config)
+    updated = self.store.update_config(name, validated.model_dump())
+    running.extension_class.update_config(validated)
+    return updated
+
+  def patch_config(
+    self,
+    name: str,
     patch: dict[str, typing.Any],
-  ) -> ExtensionModel | None:
-    """Validate a shallow config patch, persist it, then apply it live."""
-    with SessionLocal() as db:
-      extension_model = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.id == extid)
-      ).first()
-      if extension_model is None:
-        return None
+  ) -> ExtensionState:
+    """Apply one shallow config patch through the canonical update path."""
+    current = self.get(name)
+    return self.update_config(name, {**current.config, **patch})
 
-      extension_class = cls._load_extension_class(extid)
-      validated = extension_class.prepare_config_patch(
-        extension_model.config or {},
-        patch,
-      )
-      extension_model.config = validated.model_dump(mode="json")
-      extension_model.config_schema = extension_class.config_schema()
-      db.add(extension_model)
-      db.commit()
-      db.refresh(extension_model)
+  def _acquire(self, state: ExtensionState):
+    release, association = self._resolve(
+      state.name,
+      state.version,
+      allow_yanked=True,
+    )
+    acquired = self.distribution_consumer.acquire(release, association)
+    return association, acquired
 
-    running_class = cls.RUNNING_EXTENSIONS.get(extid)
-    if running_class is not None:
-      running_class.update_config(validated)
-
-    return extension_model
-
-  @classmethod
-  def sync(cls):
-    """Sync locally installed extensions with database (bi-directional)."""
-    LOGGER.info("Starting extension synchronization")
-
-    extensions_dir = "extensions"
-    os.makedirs(extensions_dir, exist_ok=True)
-
-    with SessionLocal() as db:
-      # Get all locally installed extensions
-      local_extensions = set()
-      local_count = 0
-      updated_count = 0
-      new_count = 0
-
-      LOGGER.info(f"Scanning local extensions directory: {extensions_dir}")
-
-      if os.path.exists(extensions_dir):
-        for item in os.listdir(extensions_dir):
-          ext_path = os.path.join(extensions_dir, item)
-          if os.path.isdir(ext_path):
-            ext_id = item  # Folder name is the extension ID
-            LOGGER.debug(f"Processing local extension: {ext_id}")
-
-            nickname, version = cls._read_metadata(ext_path)
-            builtin = BUILTIN_EXTENSIONS_BY_ID.get(ext_id)
-            if builtin is not None:
-              nickname = builtin.nickname
-              version = builtin.version
-
-            # Skip if we couldn't read any metadata
-            if nickname is None and version is None:
-              LOGGER.warning(f"Skipping extension {ext_id}: no valid metadata found")
-              continue
-
-            local_extensions.add(ext_id)
-            local_count += 1
-
-            # Use default version if not found in metadata
-            if version is None:
-              version = "0.1.0"
-              LOGGER.info(f"Using default version {version} for extension {ext_id}")
-
-            existing = db.exec(
-              sqlmodel.select(ExtensionModel).where(ExtensionModel.id == ext_id)
-            ).first()
-            if existing:
-              LOGGER.info(
-                "Updating existing extension %s: version=%s, nickname=%s",
-                ext_id,
-                version,
-                nickname,
-              )
-              existing.version = version
-              existing.nickname = nickname
-              db.add(existing)
-              updated_count += 1
-            else:
-              LOGGER.info(
-                f"Adding new extension {ext_id}: version={version}, nickname={nickname}"
-              )
-              new_ext = ExtensionModel(
-                id=ext_id,
-                version=version,
-                nickname=nickname,
-                enabled=[],
-              )
-              db.add(new_ext)
-              new_count += 1
-
-      db.commit()
-      LOGGER.info(
-        "Local sync completed: %d local extensions found, %d updated, %d added",
-        local_count,
-        updated_count,
-        new_count,
-      )
-
-      # Runtime artifacts are immutable. Database-only records are never downloaded.
-      all_db_extensions = db.exec(sqlmodel.select(ExtensionModel)).all()
-      db_only = sorted(
-        extension.id
-        for extension in all_db_extensions
-        if extension.id not in local_extensions
-      )
-      if db_only:
-        LOGGER.warning(
-          "Ignoring database-only extensions absent from this artifact: %s",
-          ", ".join(db_only),
+  async def _start(
+    self,
+    app: fastapi.FastAPI,
+    state: ExtensionState,
+  ) -> RunningExtension:
+    existing = self.running.get(state.name)
+    if existing is not None:
+      if existing.version != state.version:
+        raise ExtensionRestartRequiredError(
+          f"A different Release of {state.name} is already running"
         )
-      LOGGER.info("Extension synchronization completed successfully")
+      return existing
+
+    association, acquired = await asyncio.to_thread(self._acquire, state)
+    return await self._start_acquired(app, state, association, acquired)
+
+  async def _start_acquired(
+    self,
+    app: fastapi.FastAPI,
+    state: ExtensionState,
+    association: PythonReleaseDescriptor,
+    acquired: AcquiredDistribution,
+    *,
+    persist_schema: bool = True,
+  ) -> RunningExtension:
+    try:
+      claim = ExtensionRuntimeClaim.acquire(association.entry_point.name)
+    except ExtensionRuntimeClaimConflictError as error:
+      raise ExtensionStateConflictError(str(error)) from error
+    try:
+      modules = DistributionModules(acquired)
+    except Exception:
+      claim.release()
+      raise
+    extension_class: type[ExtensionBase] | None = None
+    snapshot = ExtensionPublicationSnapshot.capture(app)
+    schema_box: dict[str, dict[str, typing.Any]] = {}
+
+    def persist_config(config: dict[str, typing.Any]) -> None:
+      self.store.update_config(state.name, config)
+
+    def stage_schema(schema: dict[str, typing.Any]) -> None:
+      schema_box["value"] = schema
+
+    try:
+      extension_class = typing.cast(type[ExtensionBase], modules.load(ExtensionBase))
+      if extension_class.__extid__ != association.entry_point.name:
+        raise ExtensionCompatibilityError(
+          "ExtensionBase identity differs from the declared entry point"
+        )
+      runtime_record = ExtensionRuntimeRecord(
+        extension_id=association.entry_point.name,
+        config=dict(state.config),
+        persist_config=persist_config,
+        persist_config_schema=stage_schema,
+      )
+      extension_class.on_start(
+        app,
+        runtime_record,
+        publication_snapshot=snapshot,
+      )
+      modules.assert_origins()
+      schema = schema_box.get("value")
+      if schema is None:
+        raise ExtensionRuntimeError("Extension did not publish a config schema")
+      if persist_schema:
+        self.store.update_config_schema(state.name, schema)
+    except Exception:
+      if extension_class is not None:
+        with contextlib.suppress(Exception):
+          await extension_class.on_close()
+        with contextlib.suppress(Exception):
+          extension_class.unpublish()
+        with contextlib.suppress(Exception):
+          extension_class.release_runtime()
+      with contextlib.suppress(Exception):
+        snapshot.rollback()
+      with contextlib.suppress(Exception):
+        modules.abort()
+      claim.release()
+      raise
+
+    running = RunningExtension(
+      name=state.name,
+      version=state.version,
+      association=association,
+      acquired=acquired,
+      extension_class=extension_class,
+      modules=modules,
+      claim=claim,
+    )
+    self.running[state.name] = running
+    self._loaded_versions[state.name] = state.version
+    return running
+
+  async def _stop(self, running: RunningExtension) -> None:
+    await running.extension_class.on_close()
+    running.extension_class.unpublish()
+    running.modules.unload()
+    running.extension_class.release_runtime()
+    running.claim.release()
+    self.running.pop(running.name, None)
+
+  async def _force_stop(self, running: RunningExtension) -> typing.List[Exception]:
+    failures: list[Exception] = []
+    try:
+      await running.extension_class.on_close()
+    except Exception as error:
+      failures.append(error)
+    try:
+      running.extension_class.unpublish()
+    except Exception as error:
+      failures.append(error)
+    try:
+      running.modules.abort()
+    except Exception as error:
+      failures.append(error)
+    finally:
+      running.extension_class.release_runtime()
+      running.claim.release()
+      self.running.pop(running.name, None)
+    return failures
+
+  async def enable(
+    self,
+    name: str,
+    *,
+    app: fastapi.FastAPI | None = None,
+  ) -> ExtensionState:
+    validate_coordinate(name)
+    runtime_app = app or self.fastapi_app
+    if runtime_app is None:
+      raise ExtensionRuntimeError("FastAPI app is required to enable an Extension")
+    self.fastapi_app = runtime_app
+    peer_id = PeerManager.get_current_peer_ref()
+    async with self._runtime_lock:
+      state = self.get(name)
+      running = await self._start(runtime_app, state)
+      if peer_id in state.enabled:
+        return state
+      try:
+        persisted = self.store.set_peer_enabled(name, peer_id, True)
+      except Exception as persistence_error:
+        failures = await self._force_stop(running)
+        if failures:
+          raise ExceptionGroup(
+            "Enable persistence and runtime compensation failed",
+            [persistence_error, *failures],
+          ) from persistence_error
+        raise
+      if persisted.version == running.version:
+        if running.extension_class.peer_inbounds():
+          PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+        return persisted
+
+      conflict = ExtensionStateConflictError(
+        f"{name} changed from {running.version} to {persisted.version} during enable"
+      )
+      compensation_failures: list[Exception] = []
+      try:
+        self.store.set_peer_enabled(name, peer_id, False)
+      except Exception as error:
+        compensation_failures.append(error)
+      compensation_failures.extend(await self._force_stop(running))
+      if compensation_failures:
+        raise ExceptionGroup(
+          "Concurrent version change and enable compensation failed",
+          [conflict, *compensation_failures],
+        ) from conflict
+      raise conflict
+
+  async def disable(self, name: str) -> ExtensionState:
+    validate_coordinate(name)
+    peer_id = PeerManager.get_current_peer_ref()
+    async with self._runtime_lock:
+      state = self.get(name)
+      if peer_id not in state.enabled:
+        return state
+      running = self.running.get(name)
+      published_peer_inbounds = (
+        bool(running.extension_class.peer_inbounds()) if running is not None else False
+      )
+      if running is not None:
+        await self._stop(running)
+      try:
+        persisted = self.store.set_peer_enabled(name, peer_id, False)
+        if published_peer_inbounds:
+          PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+        return persisted
+      except Exception as persistence_error:
+        if running is None:
+          raise
+        runtime_app = self.fastapi_app
+        if runtime_app is None:
+          raise ExtensionRuntimeError(
+            "FastAPI app is unavailable for disable compensation"
+          ) from persistence_error
+        try:
+          await self._start_acquired(
+            runtime_app,
+            state,
+            running.association,
+            running.acquired,
+            persist_schema=False,
+          )
+        except Exception as restart_error:
+          raise ExceptionGroup(
+            "Disable persistence and runtime restart failed",
+            [persistence_error, restart_error],
+          ) from persistence_error
+        raise
+
+  async def start_enabled(self, app: fastapi.FastAPI) -> None:
+    """Cold-restore exact enabled intent; failures never rewrite enabled[]."""
+    self.fastapi_app = app
+    peer_id = PeerManager.get_current_peer_ref()
+    failures: list[Exception] = []
+    async with self._runtime_lock:
+      for state in self.store.list():
+        if peer_id not in state.enabled:
+          continue
+        try:
+          await self._start(app, state)
+        except Exception as error:
+          LOGGER.exception("Cold restore failed for %s", state.name)
+          failures.append(error)
+    if len(failures) == 1:
+      raise failures[0]
+    if failures:
+      raise ExceptionGroup("Extension cold restore failed", failures)
+
+  async def close_running(self) -> None:
+    failures: list[Exception] = []
+    async with self._runtime_lock:
+      for running in tuple(self.running.values()):
+        try:
+          await self._stop(running)
+        except Exception as error:
+          failures.append(error)
+    if len(failures) == 1:
+      raise failures[0]
+    if failures:
+      raise ExceptionGroup("Extension shutdown failed", failures)
+
+
+EXTENSION_HOST = ExtensionHost()
+
+
+__all__ = [
+  "EXTENSION_MANAGEMENT_CAPABILITY",
+  "EXTENSION_HOST",
+  "EmptyConfig",
+  "ExtensionBase",
+  "ExtensionDelegationError",
+  "ExtensionHost",
+  "ExtensionHostError",
+  "ExtensionState",
+]

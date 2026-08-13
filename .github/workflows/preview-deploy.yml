@@ -26,7 +26,7 @@ jobs:
     environment: preview
     steps:
       - name: Checkout trusted delivery implementation
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ github.workflow_sha }}
           path: .delivery
@@ -40,7 +40,7 @@ jobs:
           pr_number: ${{ github.event.pull_request.number }}
 
       - name: Checkout isolated pull request source
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: source

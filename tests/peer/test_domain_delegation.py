@@ -3,8 +3,7 @@
 import asyncio
 import uuid
 
-from app.business.extension import ExtensionManager
-from app.business.extension.main import EXTENSION_MANAGEMENT_CAPABILITY
+from app.business.extension import EXTENSION_HOST, EXTENSION_MANAGEMENT_CAPABILITY
 from app.business.lexical_retrieval import (
   LEXICAL_RETRIEVAL_CAPABILITY,
   LexicalRetrievalManager,
@@ -121,7 +120,7 @@ def test_extension_management_is_exact_target_delegation(monkeypatch):
       "status": 200,
       "headers": {},
       "body": {
-        "id": "rss",
+        "name": "inkcre/rss",
         "version": "1.0.0",
         "enabled": [str(target)],
         "nickname": "RSS",
@@ -133,17 +132,17 @@ def test_extension_management_is_exact_target_delegation(monkeypatch):
   monkeypatch.setattr(PeerManager, "delegate", classmethod(delegate))
 
   result = asyncio.run(
-    ExtensionManager.manage(
-      EnableExtensionCommand(action="enable", extension="rss"),
+    EXTENSION_HOST.manage(
+      EnableExtensionCommand(action="enable", extension="inkcre/rss"),
       route_to_peer=target,
     )
   )
 
-  assert result.id == "rss"
+  assert result.name == "inkcre/rss"
   assert captured == {
     "capability": EXTENSION_MANAGEMENT_CAPABILITY,
     "payload": {
-      "body": {"action": "enable", "extension": "rss"},
+      "body": {"action": "enable", "extension": "inkcre/rss"},
     },
     "route_to_peer": target,
   }

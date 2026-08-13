@@ -217,6 +217,20 @@ def _reconcile_object_privileges(cursor) -> None:
     )
   )
   cursor.execute(
+    sql.SQL("REVOKE UPDATE ON TABLE {}.extensions FROM {}").format(
+      sql.Identifier(PROTOCOL_SCHEMA),
+      sql.Identifier(AUTHENTICATED_ROLE),
+    )
+  )
+  cursor.execute(
+    sql.SQL(
+      "GRANT UPDATE (version, nickname, config, config_schema) ON TABLE {}.extensions TO {}"
+    ).format(
+      sql.Identifier(PROTOCOL_SCHEMA),
+      sql.Identifier(AUTHENTICATED_ROLE),
+    )
+  )
+  cursor.execute(
     sql.SQL("GRANT ALL ON ALL SEQUENCES IN SCHEMA {} TO {}").format(
       sql.Identifier(PROTOCOL_SCHEMA),
       sql.Identifier(AUTHENTICATED_ROLE),
