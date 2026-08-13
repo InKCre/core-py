@@ -347,12 +347,22 @@ jobs:
           trap 'docker logs "$restore_id"; docker rm --force "$restore_id"' EXIT
 
           for _ in $(seq 1 30); do
-            if docker exec "$restore_id" pg_isready --username postgres --dbname inkcre; then
+            if docker exec \
+              --env "PGPASSWORD=$restore_password" \
+              "$restore_id" \
+              psql --host 127.0.0.1 --username postgres --dbname inkcre \
+                --tuples-only --no-align --command 'SELECT 1' \
+                >/dev/null 2>&1; then
               break
             fi
             sleep 1
           done
-          docker exec "$restore_id" pg_isready --username postgres --dbname inkcre
+          docker exec \
+            --env "PGPASSWORD=$restore_password" \
+            "$restore_id" \
+            psql --host 127.0.0.1 --username postgres --dbname inkcre \
+              --tuples-only --no-align --command 'SELECT 1' \
+              >/dev/null
           docker exec --interactive \
             --env "PGPASSWORD=$restore_password" \
             "$restore_id" \
