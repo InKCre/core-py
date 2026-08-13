@@ -16,6 +16,9 @@ This repository is a Spoke repo in the SVC optional multi-repo topology. Shared 
 - PRD (`docs/_shared/10-prd/`): owns business intent and observable behavior only.
 - Product TDD (`docs/_shared/20-product-tdd/`): owns cross-unit technical contracts and topology.
 - Unit TDD (`docs/30-unit-tdd/`): owns this repo's internal logic architecture and internal contracts.
+- `SECURITY.md`: owns public vulnerability reporting and routes readers to the security model.
+- `docs/30-unit-tdd/security-model.md`: owns this repo's actors, assets, trust boundaries,
+  security-impact criteria, and proportionality method.
 
 ## Working Protocol
 
@@ -27,6 +30,9 @@ This repository is a Spoke repo in the SVC optional multi-repo topology. Shared 
   subtree.
 - Read shared PRD or Product TDD only when the owning layer demands it, then read the
   relevant local Unit TDD or deployment document.
+- Before making a security-sensitive claim, read the security model and name the actor,
+  capability, asset, boundary, harm, and attack path. Treat missing defense in depth as
+  hardening unless evidence shows a boundary violation.
 - Prepare an Impact Handshake before reference-sensitive, logic-altering, or
   non-obviously-local durable mutation.
 

@@ -40,6 +40,7 @@ jobs:
           - github
           - learn_english
           - mail
+          - memos
           - rss
           - telegram
           - twitter

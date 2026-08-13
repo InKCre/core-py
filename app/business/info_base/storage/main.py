@@ -11,7 +11,7 @@ import sqlmodel
 import typing
 from typing import Optional as Opt
 from app.engine import SessionLocal
-from app.database_contract.profile import BUILTIN_STORAGE_TYPES_BY_ID
+from app.database_contract.profile import BUILTIN_STORAGES, BUILTIN_STORAGE_TYPES_BY_ID
 from app.schemas.info_base.storage import (
   StorageID,
   StorageTypeID,
@@ -53,24 +53,32 @@ class StorageManager:
           config_schema=(
             builtin.config_schema if builtin is not None else storage_cls.__configschema__
           ),
+          writable=issubclass(storage_cls, WritableStorage),
         )
         stmt = stmt.on_conflict_do_update(
           index_elements=[StorageTypesModel.id],
           set_=dict(
             description=stmt.excluded.description,
             config_schema=stmt.excluded.config_schema,
+            writable=stmt.excluded.writable,
           ),
         )
         db.exec(stmt)  # type: ignore
       db.commit()
 
   @classmethod
-  def get_storage(cls, storage_id: StorageID) -> "Storage":
+  def get_storage(
+    cls,
+    storage_id: StorageID,
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> "Storage":
     """Create a storage instance."""
-    with SessionLocal() as db:
-      storage_record = db.exec(
-        sqlmodel.select(StorageModel).where(StorageModel.id == storage_id)
-      ).one()
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_storage(storage_id, owned_session)
+    storage_record = db_session.exec(
+      sqlmodel.select(StorageModel).where(StorageModel.id == storage_id)
+    ).one()
     storage_class = cls._STORAGE_CLASSES.get(storage_record.type)
     if storage_class is None:
       # Dynamically import the storage class
@@ -133,35 +141,14 @@ class StorageManager:
     """
     cls.sync_storage_types()
 
-    builtin_storages = [
-      {
-        "id": -1,
-        "type": "http_image",
-        "nickname": "HTTP Image",
-        "config": {},
-      },
-      {
-        "id": -2,
-        "type": "http_video",
-        "nickname": "HTTP Video",
-        "config": {},
-      },
-      {
-        "id": -3,
-        "type": "http_html",
-        "nickname": "HTTP HTML",
-        "config": {},
-      },
-    ]
-
     with SessionLocal() as db:
-      for storage_data in builtin_storages:
+      for storage in BUILTIN_STORAGES:
         # Use PostgreSQL INSERT ... ON CONFLICT DO UPDATE
         stmt = sqlalchemy.dialects.postgresql.insert(StorageModel).values(
-          id=storage_data["id"],
-          type=storage_data["type"],
-          nickname=storage_data["nickname"],
-          config=storage_data["config"],
+          id=storage.id,
+          type=storage.type,
+          nickname=storage.nickname,
+          config=storage.config,
         )
         stmt = stmt.on_conflict_do_update(
           index_elements=["id"],
@@ -191,23 +178,35 @@ class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
   """Storage type identifier"""
 
   def __init_subclass__(
-    cls, stg_type: StorageTypeID, config_cls: type[ConfigTV] = _EmptyConfig, **kwargs
+    cls,
+    stg_type: StorageTypeID | None = None,
+    config_cls: type[ConfigTV] = _EmptyConfig,
+    **kwargs,
   ) -> None:
     """
     :param stg_type: Unique storage type string
     :param config_cls: Configuration class for the storage
     """
     # ConfigTV is bound by the concrete storage subclass.
-    cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
-    cls.__configschema__ = config_cls.model_json_schema()
-    cls.__stgtype__ = stg_type
-    StorageManager.register_storage(cls)
+    if stg_type is not None:
+      cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
+      cls.__configschema__ = config_cls.model_json_schema()
+      cls.__stgtype__ = stg_type
+      StorageManager.register_storage(cls)
     return super().__init_subclass__(**kwargs)
 
   def __init__(self, storage_record: StorageModel):
+    if storage_record.id is None:
+      raise ValueError("Storage must be persisted before use")
+    self._id = storage_record.id
     self._config = self.__configcls__.model_validate(storage_record.config)
 
     self.__post_init__()
+
+  @property
+  def storage_id(self) -> StorageID:
+    """Return the persisted Storage reference represented by this instance."""
+    return self._id
 
   def __post_init__(self):
     """Post-initialization hook for subclasses."""
@@ -218,3 +217,68 @@ class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
     raise NotImplementedError(
       f"{self.__class__.__name__}.get_raw_content() must be implemented by subclasses."
     )
+
+  def get_transfer_url(self, block_content: str) -> str | None:
+    """Return an optional external byte-transfer hint for AI/provider use.
+
+    The URL is neither content authority nor a promise that every external
+    provider can fetch it. Callers must retain hydrated content as the primary
+    value and treat this result as an optimization hint.
+    """
+    del block_content
+    return None
+
+
+class WritableStorage(Storage[ConfigTV, ContentTV], abc.ABC):
+  """Storage capability for raw content owned by the current deployment."""
+
+  async def get_raw_content(self, block_content: str) -> ContentTV:
+    with SessionLocal() as db_session:
+      return self.read_raw_content(block_content, db_session)
+
+  def create_raw_content(
+    self,
+    content: ContentTV,
+    db_session: sqlmodel.Session,
+  ) -> str:
+    """Write content and return the opaque pointer persisted in ``block.content``."""
+    pointer = self.write_raw_content(content, db_session)
+    return self.serialize_pointer(pointer)
+
+  @abc.abstractmethod
+  def serialize_pointer(self, pointer: typing.Any) -> str:
+    """Encode a storage-owned key as one opaque block pointer string."""
+    ...
+
+  @abc.abstractmethod
+  def read_raw_content(
+    self,
+    block_content: str,
+    db_session: sqlmodel.Session,
+  ) -> ContentTV:
+    """Read through the caller's transaction when command coordination needs it."""
+    ...
+
+  @abc.abstractmethod
+  def write_raw_content(
+    self,
+    content: ContentTV,
+    db_session: sqlmodel.Session,
+  ) -> typing.Any: ...
+
+  @abc.abstractmethod
+  def update_raw_content(
+    self,
+    block_content: str,
+    content: ContentTV,
+    db_session: sqlmodel.Session,
+  ) -> bool:
+    """Replace bytes addressed by an existing pointer without changing it."""
+    ...
+
+  @abc.abstractmethod
+  def delete_raw_content(
+    self,
+    block_content: str,
+    db_session: sqlmodel.Session,
+  ) -> bool: ...

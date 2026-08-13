@@ -27,7 +27,7 @@ from app.business.extension.release import (
 )
 from app.business.extension.state import ExtensionState
 from app.business.extension.runtime import ExtensionRuntimeClaim
-from app.business.client import ClientManager
+from app.business.peer import PeerManager
 
 
 PEER_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
@@ -184,7 +184,7 @@ def clean_runtime(monkeypatch):
   with ExtensionRuntimeClaim._lock:
     ExtensionRuntimeClaim._owners.clear()
   monkeypatch.setattr(host_module, "DistributionModules", FakeModules)
-  monkeypatch.setattr(ClientManager, "get_current_client_id", lambda: PEER_ID)
+  monkeypatch.setattr(PeerManager, "get_current_peer_ref", lambda: PEER_ID)
   yield
   FixtureExtension.fail_close = False
   FixtureExtension.unpublish()

@@ -11,12 +11,14 @@ from .constants import (
   APPLICATION_TABLES,
   CONTRACT_REVISION,
   DATABASE_ENVIRONMENTS,
-  DEVELOPMENT_CLIENT_ID,
-  DEVELOPMENT_CLIENT_NAME,
+  DEVELOPMENT_PEER_ID,
+  DEVELOPMENT_PEER_NAME,
   INTERNAL_SCHEMA,
   PROTOCOL_SCHEMA,
 )
 from .profile import (
+  BUILTIN_AI_DIALECTS,
+  BUILTIN_JOB_TYPES,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
@@ -61,21 +63,59 @@ def reconcile_builtins(database_url: str | None = None) -> None:
   """Upsert artifact-owned catalogs without starting any runtime service."""
   with database_connection(database_url) as connection:
     with connection.cursor() as cursor:
-      for storage_type in BUILTIN_STORAGE_TYPES:
+      for dialect in BUILTIN_AI_DIALECTS:
         cursor.execute(
           sql.SQL(
             """
-            INSERT INTO {}.storage_types (id, description, config_schema)
+            INSERT INTO {}.ai_dialects (id, description, config_schema)
             VALUES (%s, %s, %s)
             ON CONFLICT (id) DO UPDATE
             SET description = EXCLUDED.description,
                 config_schema = EXCLUDED.config_schema
             """
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+          (dialect.id, dialect.description, Jsonb(dialect.config_schema)),
+        )
+
+      for storage_type in BUILTIN_STORAGE_TYPES:
+        cursor.execute(
+          sql.SQL(
+            """
+            INSERT INTO {}.storage_types (id, description, config_schema, writable)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE
+            SET description = EXCLUDED.description,
+                config_schema = EXCLUDED.config_schema,
+                writable = EXCLUDED.writable
+            """
+          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
           (
             storage_type.id,
             storage_type.description,
             Jsonb(storage_type.config_schema),
+            storage_type.writable,
+          ),
+        )
+
+      for job_type in BUILTIN_JOB_TYPES:
+        cursor.execute(
+          sql.SQL(
+            """
+            INSERT INTO {}.job_types (
+              id, description, parameters_schema, default_timeout_seconds
+            )
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE
+            SET description = EXCLUDED.description,
+                parameters_schema = EXCLUDED.parameters_schema,
+                default_timeout_seconds = EXCLUDED.default_timeout_seconds
+            """
+          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+          (
+            job_type.id,
+            job_type.description,
+            Jsonb(job_type.parameters_schema),
+            job_type.default_timeout_seconds,
           ),
         )
 
@@ -83,17 +123,28 @@ def reconcile_builtins(database_url: str | None = None) -> None:
         cursor.execute(
           sql.SQL(
             """
-            INSERT INTO {}.sources_types (id, description, config_schema)
-            VALUES (%s, %s, %s)
+            INSERT INTO {}.sources_types (
+              id, description, config_schema, collect_config_schema,
+              backfill_config_schema
+            )
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE
             SET description = EXCLUDED.description,
-                config_schema = EXCLUDED.config_schema
+                config_schema = EXCLUDED.config_schema,
+                collect_config_schema = EXCLUDED.collect_config_schema,
+                backfill_config_schema = EXCLUDED.backfill_config_schema
             """
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
           (
             source_type.id,
             source_type.description,
             Jsonb(source_type.config_schema),
+            Jsonb(source_type.collect_config_schema),
+            (
+              None
+              if source_type.backfill_config_schema is None
+              else Jsonb(source_type.backfill_config_schema)
+            ),
           ),
         )
 
@@ -125,41 +176,44 @@ def _require_development(cursor) -> None:
 
 
 def seed_development(database_url: str | None = None) -> None:
-  """Upsert the minimum stable development/E2E client baseline."""
+  """Upsert the minimum stable development/E2E Peer baseline."""
   with database_connection(database_url) as connection:
     with connection.cursor() as cursor:
       _require_development(cursor)
       cursor.execute(
         sql.SQL(
           """
-          INSERT INTO {}.clients (
+          INSERT INTO {}.peers (
             id,
             name,
             labels,
-            rest_api_url,
             config,
             config_schema,
+            capabilities,
+            lease_expires_at,
             created_at
           )
           VALUES (
             %s,
             %s,
             ARRAY['development', 'canonical-seed']::text[],
+            jsonb_build_object(),
+            jsonb_build_object(),
+            '[]'::jsonb,
             NULL,
-            jsonb_build_object(),
-            jsonb_build_object(),
             '2000-01-01T00:00:00Z'::timestamptz
           )
           ON CONFLICT (id) DO UPDATE
           SET name = EXCLUDED.name,
               labels = EXCLUDED.labels,
-              rest_api_url = EXCLUDED.rest_api_url,
               config = EXCLUDED.config,
               config_schema = EXCLUDED.config_schema,
+              capabilities = EXCLUDED.capabilities,
+              lease_expires_at = EXCLUDED.lease_expires_at,
               created_at = EXCLUDED.created_at
           """
         ).format(sql.Identifier(PROTOCOL_SCHEMA)),
-        (DEVELOPMENT_CLIENT_ID, DEVELOPMENT_CLIENT_NAME),
+        (DEVELOPMENT_PEER_ID, DEVELOPMENT_PEER_NAME),
       )
 
 
@@ -190,21 +244,36 @@ def development_baseline_fingerprint(
       document: dict[str, object] = {}
       for key, query in (
         (
+          "ai_dialects",
+          sql.SQL(
+            "SELECT id, description, config_schema FROM {}.ai_dialects ORDER BY id"
+          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+        ),
+        (
           "extensions",
           sql.SQL("SELECT name, version, nickname FROM {}.extensions ORDER BY name").format(
             sql.Identifier(PROTOCOL_SCHEMA)
           ),
         ),
         (
+          "job_types",
+          sql.SQL(
+            "SELECT id, description, parameters_schema, default_timeout_seconds "
+            "FROM {}.job_types ORDER BY id"
+          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+        ),
+        (
           "storage_types",
           sql.SQL(
-            "SELECT id, description, config_schema FROM {}.storage_types ORDER BY id"
+            "SELECT id, description, config_schema, writable "
+            "FROM {}.storage_types ORDER BY id"
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
         ),
         (
           "source_types",
           sql.SQL(
-            "SELECT id, description, config_schema FROM {}.sources_types ORDER BY id"
+            "SELECT id, description, config_schema, collect_config_schema, "
+            "backfill_config_schema FROM {}.sources_types ORDER BY id"
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
         ),
         (
@@ -214,16 +283,17 @@ def development_baseline_fingerprint(
           ),
         ),
         (
-          "development_client",
+          "development_peer",
           sql.SQL(
-            "SELECT id::text, name, labels, rest_api_url, config, "
-            "config_schema, created_at::text "
-            "FROM {}.clients WHERE id = %s"
+            "SELECT id::text, name, labels, config, config_schema, capabilities, "
+            "EXTRACT(EPOCH FROM lease_expires_at)::bigint, "
+            "EXTRACT(EPOCH FROM created_at)::bigint "
+            "FROM {}.peers WHERE id = %s"
           ).format(sql.Identifier(PROTOCOL_SCHEMA)),
         ),
       ):
-        if key == "development_client":
-          cursor.execute(query, (DEVELOPMENT_CLIENT_ID,))
+        if key == "development_peer":
+          cursor.execute(query, (DEVELOPMENT_PEER_ID,))
         else:
           cursor.execute(query)
         document[key] = cursor.fetchall()

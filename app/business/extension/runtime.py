@@ -10,11 +10,10 @@ import typing
 import fastapi
 
 from app.business.info_base.resolver.main import Resolver, ResolverManager
-from app.business.source.main import (
-  SourceBase,
-  SourceManager,
-  SourceRuntimeActivation,
-)
+from app.business.peer import PeerManager
+from app.business.peer.contracts import PeerInbound
+from app.business.source.main import SourceBase, SourceManager
+from app.schemas.peer import CapabilityID
 from app.schemas.info_base.block import ResolverType
 
 
@@ -74,7 +73,8 @@ class ExtensionPublication:
   source_types_published: dict[str, type[SourceBase]]
   resolvers_before: dict[ResolverType, type[Resolver]]
   resolvers_published: dict[ResolverType, type[Resolver]]
-  source_runtime_activation: SourceRuntimeActivation | None = None
+  peer_inbounds_before: dict[CapabilityID, PeerInbound]
+  peer_inbounds_published: dict[CapabilityID, PeerInbound]
   restored: bool = False
 
   def _contributed_source_types(self) -> dict[str, type[SourceBase]]:
@@ -85,12 +85,11 @@ class ExtensionPublication:
     }
 
   def activate_source_types(self) -> None:
-    """Persist and schedule only the source types published by this runtime."""
+    """Persist only the source types published by this runtime."""
     contributed = self._contributed_source_types()
     if not contributed:
       return
     SourceManager.sync_source_types(contributed)
-    self.source_runtime_activation = SourceManager.set_up_collect_jobs(contributed)
 
   def restore(self) -> None:
     """Withdraw this publication without disturbing unrelated later routes."""
@@ -101,9 +100,10 @@ class ExtensionPublication:
     self.app.router.routes[:] = [
       route for route in self.app.router.routes if id(route) not in route_ids
     ]
-    if self.source_runtime_activation is not None:
-      SourceManager.withdraw_runtime_activation(self.source_runtime_activation)
-      self.source_runtime_activation = None
+    PeerManager.restore_inbounds(
+      self.peer_inbounds_before,
+      self.peer_inbounds_published,
+    )
     SourceManager.restore_source_types(
       self.source_types_before,
       self.source_types_published,
@@ -124,6 +124,7 @@ class ExtensionPublicationSnapshot:
   route_ids: frozenset[int]
   source_types: dict[str, type[SourceBase]]
   resolvers: dict[ResolverType, type[Resolver]]
+  peer_inbounds: dict[CapabilityID, PeerInbound]
 
   @classmethod
   def capture(cls, app: fastapi.FastAPI) -> ExtensionPublicationSnapshot:
@@ -132,6 +133,7 @@ class ExtensionPublicationSnapshot:
       route_ids=frozenset(id(route) for route in app.router.routes),
       source_types=SourceManager.snapshot_source_types(),
       resolvers=ResolverManager.snapshot_resolvers(),
+      peer_inbounds=PeerManager.snapshot_inbounds(),
     )
 
   def finish(self) -> ExtensionPublication:
@@ -144,6 +146,8 @@ class ExtensionPublicationSnapshot:
       source_types_published=SourceManager.snapshot_source_types(),
       resolvers_before=self.resolvers,
       resolvers_published=ResolverManager.snapshot_resolvers(),
+      peer_inbounds_before=self.peer_inbounds,
+      peer_inbounds_published=PeerManager.snapshot_inbounds(),
     )
     self.app.openapi_schema = None
     return publication

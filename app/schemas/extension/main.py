@@ -1,6 +1,7 @@
 import typing
 import uuid
 
+import pydantic
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
@@ -16,6 +17,34 @@ EXTENSION_SEMVER_PATTERN = (
   r"(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
   r"([.](0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$"
 )
+
+
+class EnableExtensionCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["enable"]
+  extension: ExtensionName
+
+
+class DisableExtensionCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["disable"]
+  extension: ExtensionName
+
+
+class PatchExtensionConfigCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["patch_config"]
+  extension: ExtensionName
+  patch: dict[str, typing.Any]
+
+
+ExtensionManagementCommand: typing.TypeAlias = typing.Annotated[
+  EnableExtensionCommand | DisableExtensionCommand | PatchExtensionConfigCommand,
+  pydantic.Field(discriminator="action"),
+]
 
 
 class ExtensionModel(sqlmodel.SQLModel, table=True):

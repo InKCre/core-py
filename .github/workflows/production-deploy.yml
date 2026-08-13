@@ -106,8 +106,6 @@ jobs:
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ vars.HEROKU_APP_NAME }}
           jwt_secret: ${{ secrets.JWT_SECRET }}
-          llm_sp_ak: ${{ secrets.LLM_SP_AK }}
-          llm_sp_base_url: ${{ secrets.LLM_SP_BASE_URL }}
           neon_api_key: ${{ secrets.NEON_API_KEY }}
           neon_branch_id: ${{ vars.NEON_BRANCH_ID }}
           neon_parent_branch_id: ${{ vars.NEON_PARENT_BRANCH_ID }}

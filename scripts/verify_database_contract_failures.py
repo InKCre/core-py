@@ -15,7 +15,7 @@ from app.database_contract.connection import database_connection
 from app.database_contract.constants import (
   ANONYMOUS_ROLE,
   AUTHENTICATED_ROLE,
-  DEVELOPMENT_CLIENT_ID,
+  DEVELOPMENT_PEER_ID,
   INTERNAL_SCHEMA,
   PROTOCOL_SCHEMA,
   RESET_CONFIRMATION,
@@ -77,7 +77,7 @@ def verify_failure_modes() -> list[str]:
     with database_connection() as connection:
       with connection.cursor() as cursor:
         cursor.execute(
-          sql.SQL("REVOKE SELECT ON {}.clients FROM {}").format(
+          sql.SQL("REVOKE SELECT ON {}.peers FROM {}").format(
             sql.Identifier(PROTOCOL_SCHEMA),
             sql.Identifier(AUTHENTICATED_ROLE),
           )
@@ -131,10 +131,10 @@ def verify_failure_modes() -> list[str]:
     with database_connection() as connection:
       with connection.cursor() as cursor:
         cursor.execute(
-          sql.SQL("DELETE FROM {}.clients WHERE id = %s").format(
+          sql.SQL("DELETE FROM {}.peers WHERE id = %s").format(
             sql.Identifier(PROTOCOL_SCHEMA)
           ),
-          (DEVELOPMENT_CLIENT_ID,),
+          (DEVELOPMENT_PEER_ID,),
         )
     _require_failure("seed")
     checks.append("seed")

@@ -1,47 +1,60 @@
 __all__ = [
-  "CollectAt",
   "SourceID",
   "SourceModel",
   "SourceTypesModel",
+  "SourceCollectParameters",
+  "SourceBackfillParameters",
 ]
 
-import apscheduler.triggers.cron
+import datetime
+import pydantic
 import sqlalchemy
-import typing
 import sqlalchemy.dialects
 import sqlalchemy.dialects.postgresql
 import sqlmodel
+import typing
 from typing import Optional as Opt
 
+from app.schemas.info_base.block import BlockID
+from app.schemas.info_base.storage import StorageID
 
 SourceID: typing.TypeAlias = int
 
 
 class CollectAt(sqlmodel.SQLModel):
-  day_of_week: Opt[int] = sqlmodel.Field(default=None, ge=0, le=6)
-  """0-6, where 0 is Monday
+  """Historical migration-only value retained for the append-only baseline."""
 
-    None means run every day.
-    """
-  hour: int = sqlmodel.Field(default=0, ge=0, le=23)
-  minute: int = sqlmodel.Field(default=0, ge=0, le=59)
-
-  def to_trigger(self) -> apscheduler.triggers.cron.CronTrigger:
-    return apscheduler.triggers.cron.CronTrigger(
-      day_of_week=self.day_of_week,
-      hour=self.hour,
-      minute=self.minute,
-    )
+  day_of_week: int | None = None
+  hour: int = 0
+  minute: int = 0
 
 
 class CollectAtType(sqlmodel.TypeDecorator):
+  """Historical migration-only PostgreSQL type; not a current Source field."""
+
   impl = sqlalchemy.dialects.postgresql.JSONB
+  cache_ok = True
 
   def process_bind_param(self, value, dialect):
+    del dialect
     return value.model_dump() if isinstance(value, CollectAt) else value
 
   def process_result_value(self, value, dialect):
+    del dialect
     return CollectAt.model_validate(value) if value else None
+
+
+class SourceCollectParameters(pydantic.BaseModel):
+  """Parameters of the exact ordinary Source Job type."""
+
+  model_config = pydantic.ConfigDict(extra="forbid")
+
+  source: SourceID
+  config: dict[str, typing.Any] = pydantic.Field(default_factory=dict)
+
+
+class SourceBackfillParameters(SourceCollectParameters):
+  """Parameters of the exact historical Source Job type."""
 
 
 class SourceTypesModel(sqlmodel.SQLModel, table=True):
@@ -61,6 +74,21 @@ class SourceTypesModel(sqlmodel.SQLModel, table=True):
       nullable=False,
     ),
     default=dict,
+  )
+  collect_config_schema: dict = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.dialects.postgresql.JSONB,
+      server_default=sqlalchemy.text("'{}'::jsonb"),
+      nullable=False,
+    ),
+    default=dict,
+  )
+  backfill_config_schema: dict | None = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.dialects.postgresql.JSONB,
+      nullable=True,
+    ),
+    default=None,
   )
 
 
@@ -94,14 +122,23 @@ class SourceModel(sqlmodel.SQLModel, table=True):
     ),
     default=dict,
   )
-  collect_at: Opt[CollectAt] = sqlmodel.Field(
-    sa_column=sqlalchemy.Column(CollectAtType),
+  storage: Opt[StorageID] = sqlmodel.Field(
     default=None,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.Integer,
+      sqlalchemy.ForeignKey("storages.id", onupdate="CASCADE", ondelete="RESTRICT"),
+      nullable=True,
+    ),
   )
-  """When to run collect method of this source.
-
-    None for disabled.
-    """
+  block: Opt[BlockID] = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.Integer,
+      sqlalchemy.ForeignKey("blocks.id", onupdate="CASCADE", ondelete="SET NULL"),
+      nullable=True,
+      unique=True,
+    ),
+  )
   state: dict = sqlmodel.Field(
     sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,
@@ -112,3 +149,19 @@ class SourceModel(sqlmodel.SQLModel, table=True):
   )
   """Store source-specific state (e.g., last_uid for mail,
     latest_tweet_id for twitter)."""
+  created_at: datetime.datetime = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.TIMESTAMP(timezone=True),
+      nullable=False,
+      server_default=sqlalchemy.text("CURRENT_TIMESTAMP"),
+    ),
+  )
+  updated_at: datetime.datetime = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.TIMESTAMP(timezone=True),
+      nullable=False,
+      server_default=sqlalchemy.text("CURRENT_TIMESTAMP"),
+    ),
+  )

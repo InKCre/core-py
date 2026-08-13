@@ -30,14 +30,16 @@ class TweetPhoto(sqlmodel.SQLModel):
 
 class Tweet(sqlmodel.SQLModel):
   id: TweetID
-  user_id: str
+  user_id: str | None = None
+  conversation_id: TweetID | None = None
+  quote: TweetID | None = None
   text: str
   """推文文本
     
   - 移除回复提及
   - 用 `[photo]`、`[video]`、`[link]` 占位媒体、网页链接
   """
-  attachments: Opt[list[bytes]] = None
+  attachments: Opt[list[typing.Any]] = None
   """Media attachments associated with the tweet.
 
   Contains raw binary data of the attachments.
@@ -47,3 +49,4 @@ class Tweet(sqlmodel.SQLModel):
     - Empty list: Has been resolved but contains no attachments.
     - Populated list: The actual attachment data.
   """
+  links: Opt[list[str]] = None

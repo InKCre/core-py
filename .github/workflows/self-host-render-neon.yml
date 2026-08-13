@@ -1,0 +1,147 @@
+name: Deploy self-hosted InKCre
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-host-render-neon-${{ github.repository }}
+  cancel-in-progress: false
+
+env:
+  PDM_CHECK_UPDATE: "false"
+
+jobs:
+  deploy:
+    name: Converge Render and Neon deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact selected commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate required fork settings
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_OWNER_ID: ${{ vars.RENDER_OWNER_ID }}
+          RENDER_SERVICE_PREFIX: ${{ vars.RENDER_SERVICE_PREFIX }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" != "branch" ]; then
+            echo "Self-host deployment must be dispatched from a branch" >&2
+            exit 1
+          fi
+          for name in \
+            JWT_SECRET \
+            NEON_API_KEY \
+            NEON_PROJECT_ID \
+            RENDER_API_KEY \
+            RENDER_OWNER_ID \
+            RENDER_SERVICE_PREFIX; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing GitHub setting: $name" >&2
+              exit 1
+            fi
+          done
+          if [[ ! "$RENDER_SERVICE_PREFIX" =~ ^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$ ]]; then
+            echo "RENDER_SERVICE_PREFIX must be 3-40 lowercase letters, digits, or internal hyphens" >&2
+            exit 1
+          fi
+          python - <<'PY'
+          import os
+          if len(os.environ["JWT_SECRET"].encode()) < 32:
+            raise SystemExit("JWT_SECRET must be at least 32 bytes")
+          PY
+
+      - name: Set up Python and PDM
+        uses: pdm-project/setup-pdm@v4.5
+        with:
+          python-version-file: .python-version
+          version: 2.27.0
+          cache: true
+
+      - name: Install locked runtime dependencies
+        run: pdm install --prod --no-editable --frozen-lockfile
+
+      - name: Resolve the Neon default branch owner coordinates
+        id: neon
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          cli=(npx --yes neonctl@2.36.0)
+          branches_json="$(
+            "${cli[@]}" branches list \
+              --project-id "$NEON_PROJECT_ID" \
+              --output json \
+              --no-analytics \
+              --no-color
+          )"
+          matches="$(jq -c '[.[] | select(.default == true)]' <<<"$branches_json")"
+          if [ "$(jq 'length' <<<"$matches")" != 1 ]; then
+            echo "Expected exactly one Neon default branch" >&2
+            exit 1
+          fi
+          branch_id="$(jq -r '.[0].id' <<<"$matches")"
+          source_database_url="$(
+            "${cli[@]}" connection-string "$branch_id" \
+              --project-id "$NEON_PROJECT_ID" \
+              --role-name neondb_owner \
+              --database-name neondb \
+              --pooled \
+              --no-color
+          )"
+          migration_database_url="$(
+            "${cli[@]}" connection-string "$branch_id" \
+              --project-id "$NEON_PROJECT_ID" \
+              --role-name neondb_owner \
+              --database-name neondb \
+              --no-pooled \
+              --no-color
+          )"
+          echo "::add-mask::$source_database_url"
+          echo "::add-mask::$migration_database_url"
+          echo "source_database_url=$source_database_url" >> "$GITHUB_OUTPUT"
+          echo "migration_database_url=$migration_database_url" >> "$GITHUB_OUTPUT"
+
+      - name: Converge exact self-host deployment
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_OWNER_ID: ${{ vars.RENDER_OWNER_ID }}
+          RENDER_SERVICE_PREFIX: ${{ vars.RENDER_SERVICE_PREFIX }}
+          SOURCE_DATABASE_URL: ${{ steps.neon.outputs.source_database_url }}
+        run: |
+          set -euo pipefail
+          pdm run python scripts/deploy_render_neon.py \
+            --repository "https://github.com/$GITHUB_REPOSITORY" \
+            --branch "$GITHUB_REF_NAME" \
+            --commit "$GITHUB_SHA" \
+            --service-prefix "$RENDER_SERVICE_PREFIX" \
+            --result-file "$RUNNER_TEMP/render-neon.json"
+
+      - name: Publish non-secret deployment coordinates
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/render-neon.json"
+          test "$(jq -r '.status' "$result")" = ok
+          {
+            echo "### Self-hosted InKCre on Render + Neon"
+            echo
+            echo "- Commit: \`$(jq -r '.commit' "$result")\`"
+            echo "- Core service: \`$(jq -r '.core_service' "$result")\`"
+            echo "- Core URL: $(jq -r '.core_url' "$result")"
+            echo "- PostgREST service: \`$(jq -r '.postgrest_service' "$result")\`"
+            echo "- PostgREST URL: $(jq -r '.postgrest_url' "$result")"
+            echo "- Peer ID: \`$(jq -r '.peer_id' "$result")\`"
+            echo "- Admission: private JWT secret from this repository"
+          } >> "$GITHUB_STEP_SUMMARY"

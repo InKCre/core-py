@@ -1,11 +1,9 @@
 """Machine-readable, read-only verification of the peer database contract."""
 
 from dataclasses import dataclass
-from pathlib import Path
+import datetime
 from typing import Any
 
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from psycopg import sql
 
 from .connection import database_connection
@@ -17,19 +15,22 @@ from .constants import (
   CONTRACT_FORMAT,
   CONTRACT_REVISION,
   CORE_RUNTIME_ROLE,
-  DEVELOPMENT_CLIENT_ID,
-  DEVELOPMENT_CLIENT_NAME,
+  DEVELOPMENT_PEER_ID,
+  DEVELOPMENT_PEER_NAME,
   INTERNAL_SCHEMA,
   PROTOCOL_SCHEMA,
 )
 from .profile import (
+  BUILTIN_AI_DIALECTS,
+  BUILTIN_JOB_TYPES,
   BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
 )
+from .migration import get_repository_heads
+from .protocol import PROTOCOL_FUNCTIONS, protocol_database_function_signatures
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TABLE_PRIVILEGES = {
   "DELETE",
   "INSERT",
@@ -78,12 +79,6 @@ class ContractReadiness:
       },
       **self.components,
     }
-
-
-def get_repository_heads() -> tuple[str, ...]:
-  """Return the immutable migration heads recorded by this artifact."""
-  config = Config(PROJECT_ROOT / "alembic.ini")
-  return tuple(sorted(ScriptDirectory.from_config(config).get_heads()))
 
 
 def _role_component(cursor) -> dict[str, Any]:
@@ -300,7 +295,18 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
   protocol_functions = _function_acl_rows(cursor, PROTOCOL_SCHEMA)
   cursor.execute(
     """
-    SELECT procedure.proname
+    SELECT
+      procedure.proname,
+      procedure.proargnames,
+      ARRAY(
+        SELECT format_type(argument.type_oid, NULL)
+        FROM unnest(procedure.proargtypes::oid[]) WITH ORDINALITY
+          AS argument(type_oid, position)
+        ORDER BY argument.position
+      ),
+      format_type(procedure.prorettype, NULL),
+      procedure.proretset,
+      procedure.provolatile
     FROM pg_proc AS procedure
     JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
     WHERE namespace.nspname = %s
@@ -308,12 +314,30 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
     """,
     (PROTOCOL_SCHEMA,),
   )
-  protocol_function_names = [row[0] for row in cursor.fetchall()]
-  if protocol_function_names != [
-    "set_extension_peer_enabled",
-    "update_updated_at_column",
-  ]:
+  protocol_function_rows = cursor.fetchall()
+  protocol_function_names = [row[0] for row in protocol_function_rows]
+  expected_function_signatures = protocol_database_function_signatures()
+  actual_function_signatures = {
+    function_name: (
+      tuple(argument_names or ()),
+      tuple(argument_types),
+      return_type,
+      returns_set,
+      volatility,
+    )
+    for (
+      function_name,
+      argument_names,
+      argument_types,
+      return_type,
+      returns_set,
+      volatility,
+    ) in protocol_function_rows
+  }
+  if protocol_function_names != sorted(PROTOCOL_FUNCTIONS):
     problems.append("protocol_functions")
+  elif actual_function_signatures != expected_function_signatures:
+    problems.append("protocol_function_signatures")
   for function_name in protocol_function_names:
     if protocol_functions.get((function_name, AUTHENTICATED_ROLE)) != {"EXECUTE"}:
       problems.append(f"function_acl:{function_name}")
@@ -351,11 +375,12 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
     problems.append("extension_state_authority_signature")
 
   internal_functions = _function_acl_rows(cursor, INTERNAL_SCHEMA)
-  if internal_functions.get(("check_jwt", AUTHENTICATED_ROLE)) != {"EXECUTE"}:
-    problems.append("jwt_function_acl")
-  for denied in ("PUBLIC", ANONYMOUS_ROLE, AUTHENTICATOR_ROLE):
-    if internal_functions.get(("check_jwt", denied)):
-      problems.append(f"jwt_function_acl:{denied}")
+  for function_name in ("check_jwt", "update_updated_at_column"):
+    if internal_functions.get((function_name, AUTHENTICATED_ROLE)) != {"EXECUTE"}:
+      problems.append(f"internal_function_acl:{function_name}")
+    for denied in ("PUBLIC", ANONYMOUS_ROLE, AUTHENTICATOR_ROLE):
+      if internal_functions.get((function_name, denied)):
+        problems.append(f"internal_function_acl:{function_name}:{denied}")
 
   cursor.execute(
     """
@@ -420,20 +445,60 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
 def _catalog_component(cursor) -> dict[str, Any]:
   problems: list[str] = []
 
-  for table_name, profiles in (
-    ("storage_types", BUILTIN_STORAGE_TYPES),
-    ("sources_types", BUILTIN_SOURCE_TYPES),
-  ):
-    for profile in profiles:
-      cursor.execute(
-        sql.SQL("SELECT description, config_schema FROM {}.{} WHERE id = %s").format(
-          sql.Identifier(PROTOCOL_SCHEMA),
-          sql.Identifier(table_name),
-        ),
-        (profile.id,),
-      )
-      if cursor.fetchone() != (profile.description, profile.config_schema):
-        problems.append(f"{table_name}:{profile.id}")
+  for profile in BUILTIN_AI_DIALECTS:
+    cursor.execute(
+      sql.SQL("SELECT description, config_schema FROM {}.ai_dialects WHERE id = %s").format(
+        sql.Identifier(PROTOCOL_SCHEMA)
+      ),
+      (profile.id,),
+    )
+    if cursor.fetchone() != (profile.description, profile.config_schema):
+      problems.append(f"ai_dialects:{profile.id}")
+
+  for profile in BUILTIN_STORAGE_TYPES:
+    cursor.execute(
+      sql.SQL(
+        "SELECT description, config_schema, writable FROM {}.storage_types WHERE id = %s"
+      ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+      (profile.id,),
+    )
+    if cursor.fetchone() != (
+      profile.description,
+      profile.config_schema,
+      profile.writable,
+    ):
+      problems.append(f"storage_types:{profile.id}")
+
+  for profile in BUILTIN_JOB_TYPES:
+    cursor.execute(
+      sql.SQL(
+        "SELECT description, parameters_schema, default_timeout_seconds "
+        "FROM {}.job_types WHERE id = %s"
+      ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+      (profile.id,),
+    )
+    if cursor.fetchone() != (
+      profile.description,
+      profile.parameters_schema,
+      profile.default_timeout_seconds,
+    ):
+      problems.append(f"job_types:{profile.id}")
+
+  for profile in BUILTIN_SOURCE_TYPES:
+    cursor.execute(
+      sql.SQL(
+        "SELECT description, config_schema, collect_config_schema, "
+        "backfill_config_schema FROM {}.sources_types WHERE id = %s"
+      ).format(sql.Identifier(PROTOCOL_SCHEMA)),
+      (profile.id,),
+    )
+    if cursor.fetchone() != (
+      profile.description,
+      profile.config_schema,
+      profile.collect_config_schema,
+      profile.backfill_config_schema,
+    ):
+      problems.append(f"sources_types:{profile.id}")
 
   for storage in BUILTIN_STORAGES:
     cursor.execute(
@@ -456,23 +521,29 @@ def _seed_component(cursor, profile: str) -> dict[str, Any]:
     return {"status": "not_required"}
   cursor.execute(
     sql.SQL(
-      "SELECT name, labels, rest_api_url, config, config_schema, created_at::text "
-      "FROM {}.clients WHERE id = %s"
+      "SELECT name, labels, config, config_schema, capabilities, "
+      "lease_expires_at, created_at, updated_at "
+      "FROM {}.peers WHERE id = %s"
     ).format(sql.Identifier(PROTOCOL_SCHEMA)),
-    (DEVELOPMENT_CLIENT_ID,),
+    (DEVELOPMENT_PEER_ID,),
   )
   row = cursor.fetchone()
   expected = (
-    DEVELOPMENT_CLIENT_NAME,
+    DEVELOPMENT_PEER_NAME,
     ["development", "canonical-seed"],
+    {},
+    {},
+    [],
     None,
-    {},
-    {},
-    "2000-01-01 00:00:00+00",
+    datetime.datetime(2000, 1, 1, tzinfo=datetime.UTC),
   )
+  stable_row = row[:-1] if row is not None else None
+  updated_at = row[-1] if row is not None else None
   return {
-    "status": "ok" if row == expected else "error",
-    "problems": [] if row == expected else ["development_client"],
+    "status": "ok" if stable_row == expected and updated_at is not None else "error",
+    "problems": (
+      [] if stable_row == expected and updated_at is not None else ["development_peer"]
+    ),
   }
 
 

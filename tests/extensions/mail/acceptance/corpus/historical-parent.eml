@@ -1,0 +1,16 @@
+From: Leslie Lamport <leslie@example.test>
+To: Systems Notebook <notes@inkcre.test>
+Subject: State the safety property before choosing the mechanism
+Date: Sat, 1 Aug 2026 09:00:00 +0000
+Message-ID: <safety-property-historical@inkcre.acceptance>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+A distributed design becomes easier to review when its safety property is
+written before locks, leases, queues, or retries are chosen.  For a scheduler,
+the property might be: one schedule occurrence creates at most one durable job.
+
+That statement leaves implementation freedom while giving every proposed
+mechanism a precise burden of proof.  It also exposes which failures are merely
+missed opportunities and which ones corrupt authority.
