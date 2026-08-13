@@ -64,3 +64,10 @@ def test_manifest_rejects_non_protocol_schema_and_unknown_lineage():
     validate_manifest_application_tables(
       set(APPLICATION_TABLES), set(APPLICATION_TABLES), {"unknown"}
     )
+
+
+def test_transition_rejects_a_different_artifact_lineage():
+  after = manifest()
+  after["alembic_heads"] = ["different"]
+  with pytest.raises(ValueError, match="after_alembic_heads"):
+    verify_manifest_transition(manifest(), after)

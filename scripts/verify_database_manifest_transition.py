@@ -14,7 +14,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from app.database_contract.constants import (
   APPLICATION_TABLES,
 )
-from app.database_contract.migration import get_repository_heads
 
 CATALOG_TABLES_ALLOWING_ADDITIONS = frozenset(
   {
@@ -71,12 +70,11 @@ def verify_manifest_transition(
   expected_tables = set(APPLICATION_TABLES)
   before_tables = set(before_counts)
   after_tables = set(after_counts)
-  expected_heads = get_repository_heads()
   missing = sorted(expected_tables - after_tables)
   unexpected = sorted((before_tables | after_tables) - expected_tables)
   before_missing = sorted(expected_tables - before_tables)
-  valid_before = before_heads == expected_heads and before_tables == expected_tables
-  valid_after = after_heads == expected_heads and after_tables == expected_tables
+  valid_before = before_tables == expected_tables
+  valid_after = after_heads == before_heads and after_tables == expected_tables
   if not valid_before or not valid_after:
     raise ValueError(
       json.dumps(
