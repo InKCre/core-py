@@ -40,7 +40,10 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-281–D-290](D281-D290.md) | Mail adapter command ownership → writable Source targets |
 | [D-291–D-300](D291-D300.md) | Singular graph reads without duplicate-policy promotion → current edge |
 | [D-301–D-310](D301-D310.md) | Cron coalescing/activation semantics → current edge |
-| [D-311–D-320](D311-D320.md) | Mail access-context continuity → Mail Acceptance closure |
+| [D-311–D-320](D311-D320.md) | Mail access-context continuity → retrieval capability/unit distinction |
+| [D-321–D-330](D321-D330.md) | Lexical document-body completeness → current edge |
+| [D-331–D-340](D331-D340.md) | Media-interpretation convergence → multimodal AI、maintenance Jobs and Render self-host profile |
+| [D-341–D-350](D341-D350.md) | Self-host/canonical-production separation → manual preview-backed black-box acceptance |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -54,7 +57,7 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-315](D311-D320.md)。
-- Active unit: [Mail Extension](../units/mail-extension/packet.md)。
-- Active surface: Mail product、technical、Acceptance and R5 implementation planning are closed through D-315；perform the
-  final Impact Handshake and wait for explicit implementation start。
+- Latest confirmed decision: [D-340](D331-D340.md)。
+- Active unit: [feature-retrieval](../units/feature-retrieval/packet.md)。
+- Active surface: verify/promote the implemented lexical retrieval increment；perceptual retrieval remains later work inside
+  the same Unit，while graph-navigation owns relationship recall and hybrid composition follows the primitive capabilities。

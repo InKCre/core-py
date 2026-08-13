@@ -11,6 +11,12 @@ from .main import (
   SemanticRetrievalManager,
   SemanticRetrievalNotConfiguredError,
 )
+from .job import (
+  SEMANTIC_MAINTAIN_JOB_TYPE,
+  SEMANTIC_REBUILD_JOB_TYPE,
+  SemanticMaintainJobHandler,
+  SemanticRebuildJobHandler,
+)
 
 __all__ = [
   "EmbeddingProfileNotFoundError",
@@ -22,4 +28,8 @@ __all__ = [
   "SemanticRetrievalError",
   "SemanticRetrievalManager",
   "SemanticRetrievalNotConfiguredError",
+  "SEMANTIC_MAINTAIN_JOB_TYPE",
+  "SEMANTIC_REBUILD_JOB_TYPE",
+  "SemanticMaintainJobHandler",
+  "SemanticRebuildJobHandler",
 ]

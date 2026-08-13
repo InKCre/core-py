@@ -2,8 +2,8 @@
   "format": 1,
   "environment": "production",
   "database_contract": {
-    "revision": "mail-source-job-runtime-v1",
-    "migration_head": "77cd53ad8080",
+    "revision": "lexical-retrieval-runtime-v1",
+    "migration_head": "1e4c7a9b2d5f",
     "protocol_schema": "inkcre"
   },
   "peer": {

@@ -1,5 +1,7 @@
 """Organization rumination configuration, inbound, and Agent Tool forms."""
 
+import typing
+
 import pydantic
 
 from app.schemas.ai import JSONValue
@@ -13,6 +15,40 @@ class RuminationConfig(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   agent: int
+
+
+class MediaInterpretationConfig(pydantic.BaseModel):
+  """Deployment selection of independent modality-oriented Agents."""
+
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  image_agent: int
+  audio_agent: int
+  video_agent: int
+
+
+class MediaInterpretationJobParameters(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+
+class MediaInterpretationDiagnostic(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  block: int
+  modality: typing.Literal["image", "audio", "video"]
+  outcome: typing.Literal["unavailable", "failed", "no_output"]
+  reason: str
+
+
+class MediaInterpretationReport(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  selected: int = 0
+  interpreted: int = 0
+  unavailable: int = 0
+  failed: int = 0
+  no_output: int = 0
+  diagnostics: tuple[MediaInterpretationDiagnostic, ...] = ()
 
 
 class RuminationRequest(pydantic.BaseModel):

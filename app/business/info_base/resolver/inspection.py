@@ -1,6 +1,7 @@
 """Bounded implementation helpers shared by exact core content resolvers."""
 
 from dataclasses import dataclass
+from collections.abc import Iterable
 import codecs
 import re
 
@@ -91,3 +92,13 @@ def require_bytes(content: object, resolver_id: str) -> bytes:
   if not isinstance(content, bytes):
     raise ResolverContentError(resolver_id, "byte-oriented content must be storage-backed")
   return content
+
+
+def format_lexical_facts(
+  kind: str,
+  facts: Iterable[tuple[str, object | None]],
+) -> str:
+  """Format bounded Resolver-owned metadata without serializing arbitrary objects."""
+  lines = [kind]
+  lines.extend(f"{label}: {value}" for label, value in facts if value is not None)
+  return "\n".join(lines)

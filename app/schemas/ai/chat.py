@@ -1,6 +1,7 @@
 """Canonical AI chat, Tool and ToolResult contracts."""
 
 import typing
+from urllib.parse import urlsplit
 
 import pydantic
 
@@ -57,11 +58,99 @@ class SystemMessage(pydantic.BaseModel):
   content: str
 
 
-class UserMessage(pydantic.BaseModel):
+class TextContentPart(pydantic.BaseModel):
+  """One authored text item in an ordered multimodal User message."""
+
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
+  type: typing.Literal["text"] = "text"
+  text: str = pydantic.Field(min_length=1)
+
+
+class _MediaContentPart(pydantic.BaseModel):
+  """AI-owned media transfer value, independent of Block and Storage identity."""
+
+  model_config = pydantic.ConfigDict(
+    extra="forbid",
+    frozen=True,
+    ser_json_bytes="base64",
+    val_json_bytes="base64",
+  )
+
+  data: bytes = pydantic.Field(min_length=1)
+  mime_type: str = pydantic.Field(min_length=1)
+  transfer_url: str | None = None
+
+  @pydantic.field_validator("mime_type")
+  @classmethod
+  def normalized_mime_type(cls, value: str) -> str:
+    normalized = value.partition(";")[0].strip().lower()
+    if "/" not in normalized or any(character.isspace() for character in normalized):
+      raise ValueError("mime_type must be one concrete media type")
+    return normalized
+
+  @pydantic.field_validator("transfer_url")
+  @classmethod
+  def http_transfer_url(cls, value: str | None) -> str | None:
+    if value is None:
+      return None
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+      raise ValueError("transfer_url must be one absolute HTTP(S) URL")
+    if parsed.username is not None or parsed.password is not None:
+      raise ValueError("transfer_url must not contain user-info credentials")
+    return value
+
+
+class ImageContentPart(_MediaContentPart):
+  type: typing.Literal["image"] = "image"
+
+  @pydantic.field_validator("mime_type")
+  @classmethod
+  def image_mime_type(cls, value: str) -> str:
+    if not value.startswith("image/"):
+      raise ValueError("ImageContentPart requires an image MIME type")
+    return value
+
+
+class AudioContentPart(_MediaContentPart):
+  type: typing.Literal["audio"] = "audio"
+
+  @pydantic.field_validator("mime_type")
+  @classmethod
+  def audio_mime_type(cls, value: str) -> str:
+    if not value.startswith("audio/"):
+      raise ValueError("AudioContentPart requires an audio MIME type")
+    return value
+
+
+class VideoContentPart(_MediaContentPart):
+  type: typing.Literal["video"] = "video"
+
+  @pydantic.field_validator("mime_type")
+  @classmethod
+  def video_mime_type(cls, value: str) -> str:
+    if not value.startswith("video/"):
+      raise ValueError("VideoContentPart requires a video MIME type")
+    return value
+
+
+UserContentPart: typing.TypeAlias = typing.Annotated[
+  TextContentPart | ImageContentPart | AudioContentPart | VideoContentPart,
+  pydantic.Field(discriminator="type"),
+]
+
+
+class UserMessage(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(
+    extra="forbid",
+    frozen=True,
+    ser_json_bytes="base64",
+    val_json_bytes="base64",
+  )
+
   type: typing.Literal["user"] = "user"
-  content: str
+  content: tuple[UserContentPart, ...] = pydantic.Field(min_length=1)
 
 
 class AssistantMessage(pydantic.BaseModel):

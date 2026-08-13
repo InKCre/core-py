@@ -218,6 +218,16 @@ class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
       f"{self.__class__.__name__}.get_raw_content() must be implemented by subclasses."
     )
 
+  def get_transfer_url(self, block_content: str) -> str | None:
+    """Return an optional external byte-transfer hint for AI/provider use.
+
+    The URL is neither content authority nor a promise that every external
+    provider can fetch it. Callers must retain hydrated content as the primary
+    value and treat this result as an optimization hint.
+    """
+    del block_content
+    return None
+
 
 class WritableStorage(Storage[ConfigTV, ContentTV], abc.ABC):
   """Storage capability for raw content owned by the current deployment."""

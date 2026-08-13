@@ -6,6 +6,7 @@ import run
 
 from app.business.extension import EXTENSION_MANAGEMENT_CAPABILITY
 from app.business.info_base.storage import StorageManager
+from app.business.lexical_retrieval import LEXICAL_RETRIEVAL_CAPABILITY
 from app.business.organization import RUMINATION_CAPABILITY
 from app.business.semantic_retrieval import SEMANTIC_RETRIEVAL_CAPABILITY
 
@@ -32,6 +33,7 @@ def test_bootstrap_publishes_all_fixed_inbounds_before_scheduling(monkeypatch):
     SEMANTIC_RETRIEVAL_CAPABILITY,
     RUMINATION_CAPABILITY,
     EXTENSION_MANAGEMENT_CAPABILITY,
+    LEXICAL_RETRIEVAL_CAPABILITY,
   }
   peer.refresh_self.assert_called_once_with(run.settings.peer_lease_ttl_seconds)
   refresh_job = next(
@@ -46,3 +48,4 @@ def test_bootstrap_publishes_all_fixed_inbounds_before_scheduling(monkeypatch):
   scheduled = {call.kwargs["id"]: call for call in scheduler.add_job.call_args_list}
   assert scheduled["jobs.check"].args[0] is jobs.check
   assert scheduled["crons.check"].args[0] is crons.check
+  assert "semantic_retrieval.maintain_default" not in scheduled

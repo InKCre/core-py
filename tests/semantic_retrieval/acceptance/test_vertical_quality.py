@@ -34,6 +34,7 @@ from app.business.organization import (
 )
 from app.business.semantic_retrieval import SemanticRetrievalManager
 from app.business.job import JobManager
+from app.business.lexical_retrieval import LexicalRetrievalManager
 from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
 from app.engine import SessionLocal
 from app.schemas import AgentDefinitionModel
@@ -45,6 +46,7 @@ from app.schemas.ai import (
   ChatCapability,
   EmbeddingCapability,
   EmbeddingProfileModel,
+  TextContentPart,
   ToolCall,
   ToolResultMessage,
   UserMessage,
@@ -58,6 +60,7 @@ from app.schemas.semantic_retrieval import (
   VectorRetrievalOptions,
 )
 from app.schemas.job import JobModel, JobStatus
+from app.schemas.lexical_retrieval import LexicalMaintenanceOptions
 from app.schemas.source import SourceModel
 from extensions.memos import Extension as MemosExtension
 from extensions.rss import Extension as RSSExtension
@@ -253,6 +256,22 @@ def _ingest_memo(manifest: CorpusManifest) -> tuple[int, int]:
     return memo_id, _resource_id(comment.json()["name"])
 
 
+def _ingest_text_memo(content: str) -> int:
+  with _memos_client() as client:
+    response = client.post(
+      "/memos/api/v1/memos",
+      headers={"Authorization": f"Bearer {PAT}"},
+      json={
+        "content": content,
+        "visibility": "PRIVATE",
+        "createTime": "2026-08-07T08:02:00Z",
+        "attachments": [],
+      },
+    )
+  assert response.status_code == 200, response.text
+  return _resource_id(response.json()["name"])
+
+
 def _create_source(source_type: str, config: FeedSourceConfig) -> int:
   with SessionLocal() as db:
     source = SourceModel(
@@ -316,6 +335,7 @@ async def _ingest_corpus(manifest: CorpusManifest) -> CorpusRun:
   RSSExtension._init_resolvers()
   RSSExtension._init_sources()
   SourceManager.sync_source_types()
+  JobManager.sync_job_types()
 
   server = CorpusHTTPDouble(manifest)
   run = CorpusRun(manifest=manifest, server=server)
@@ -496,6 +516,45 @@ def test_real_producers_create_the_authoritative_corpus_graph():
     run = await _ingest_corpus(manifest)
     try:
       _assert_ingested_graph(run)
+    finally:
+      await _close_corpus(run)
+
+  asyncio.run(journey())
+
+
+@pytest.mark.skipif(
+  not os.getenv("INKCRE_TEST_DATABASE_URL"),
+  reason="requires an explicitly selected migrated PostgreSQL runtime",
+)
+def test_real_producer_corpus_supports_exact_and_chinese_lexical_recall():
+  manifest = load_manifest()
+  verify_document_digests(manifest)
+
+  async def journey() -> None:
+    run = await _ingest_corpus(manifest)
+    try:
+      target = await asyncio.to_thread(
+        _ingest_text_memo,
+        "部署演练记录了星间链路故障注入的触发顺序。",
+      )
+      distractor = await asyncio.to_thread(
+        _ingest_text_memo,
+        "部署演练记录了卫星通信异常的排查过程。",
+      )
+      run.roots.update((target, distractor))
+
+      report = await LexicalRetrievalManager.maintain(
+        LexicalMaintenanceOptions(max_records=500)
+      )
+      assert report.failed == 0
+
+      technical = LexicalRetrievalManager.retrieve_local("sqlite3_prepare_v2")
+      assert technical.matches[0].block.id == run.aliases["sqlite.architecture-source"]
+      assert technical.matches[0].evidence in {"label_substring", "text_substring"}
+
+      chinese = LexicalRetrievalManager.retrieve_local("链路故障注入")
+      assert chinese.matches[0].block.id == target
+      assert distractor not in {match.block.id for match in chinese.matches}
     finally:
       await _close_corpus(run)
 
@@ -786,7 +845,9 @@ def test_vertical_quality_control_flow_with_deterministic_ai(monkeypatch):
       graph = copy.deepcopy(last.results[0].content)
       assert isinstance(graph, dict)
       user = next(message for message in messages if isinstance(message, UserMessage))
-      focal_id = json.loads(user.content)["focal_block"]["id"]
+      context = user.content[0]
+      assert isinstance(context, TextContentPart)
+      focal_id = json.loads(context.text)["focal_block"]["id"]
       relations = graph["relations"]
       assert isinstance(relations, list)
       relations.append(

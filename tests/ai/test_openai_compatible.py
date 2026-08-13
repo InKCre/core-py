@@ -11,6 +11,7 @@ from app.schemas.ai import (
   AssistantMessage,
   FunctionTool,
   NamedToolChoice,
+  TextContentPart,
   ToolCall,
   ToolResult,
   ToolResultMessage,
@@ -123,7 +124,7 @@ def test_chat_maps_canonical_tool_batches_and_nullable_choice():
       ),
       "chat-model",
       (
-        UserMessage(content="ruminate"),
+        UserMessage(content=(TextContentPart(text="ruminate"),)),
         preceding,
         ToolResultMessage(
           results=(
@@ -161,6 +162,10 @@ def test_chat_maps_canonical_tool_batches_and_nullable_choice():
     "function": {"name": "submit_graph"},
   }
   assert request["tools"][0]["function"]["parameters"] == {"type": "object"}
+  assert request["messages"][0] == {
+    "role": "user",
+    "content": [{"type": "text", "text": "ruminate"}],
+  }
   assert request["messages"][-1] == {
     "role": "tool",
     "tool_call_id": "call-before",

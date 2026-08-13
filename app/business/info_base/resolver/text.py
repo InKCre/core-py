@@ -4,7 +4,7 @@ import pydantic
 
 from .inspection import decode_unicode_bytes
 from .label import format_label
-from .main import Resolver
+from .main import Resolver, TextProjectionContext
 
 
 class TextDraftInput(pydantic.BaseModel):
@@ -44,9 +44,11 @@ class TextResolver(Resolver[str, str | bytes], rso_type="core.text.v1"):
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
+    del context
     return await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,

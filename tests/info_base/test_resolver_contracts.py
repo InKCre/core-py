@@ -7,6 +7,7 @@ from app.business.info_base.resolver import (
   DuplicateResolverRegistrationError,
   Resolver,
   ResolverManager,
+  TextProjectionContext,
   UnknownResolverError,
   UnsupportedResolverCapability,
   register_core_resolvers,
@@ -23,9 +24,11 @@ class _ProjectionResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str | None:
+    del context
     content = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,

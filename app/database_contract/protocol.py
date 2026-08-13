@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 import sqlalchemy
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.sql.schema import Column, ForeignKeyConstraint, Table
 from sqlalchemy.sql.type_api import TypeEngine
 
@@ -116,6 +116,8 @@ def _type_document(column_type: TypeEngine[Any]) -> dict[str, object]:
     return {"kind": "string", "format": "date-time"}
   if isinstance(column_type, sqlalchemy.LargeBinary):
     return {"kind": "string", "format": "bytea"}
+  if isinstance(column_type, TSVECTOR):
+    return {"kind": "string", "format": "tsvector"}
   if isinstance(column_type, sqlalchemy.Boolean):
     return {"kind": "boolean"}
   if isinstance(

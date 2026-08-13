@@ -19,12 +19,13 @@ from app.business.info_base.resolver import (
 )
 from app.business.peer import PeerManager
 from app.engine import SessionLocal
-from app.schemas.ai import JSONValue, UserMessage
+from app.schemas.ai import JSONValue, TextContentPart, UserMessage
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.organization import (
   DraftGraphInput,
   GetDraftGraphSchemaInput,
+  MediaInterpretationReport,
   RuminationConfig,
   RuminationRequest,
   SubmitGraphInput,
@@ -195,6 +196,18 @@ class OrganizationManager:
   """Own the explicit organization entry while keeping rumination a small approach."""
 
   @classmethod
+  def can_interpret_media(cls) -> bool:
+    from app.business.organization_media import can_handle_media_interpretation
+
+    return can_handle_media_interpretation()
+
+  @classmethod
+  async def interpret_missing_media(cls) -> MediaInterpretationReport:
+    from app.business.organization_media import interpret_missing_media
+
+    return await interpret_missing_media()
+
+  @classmethod
   async def ruminate(
     cls,
     block_id: int,
@@ -333,11 +346,15 @@ class OrganizationManager:
       ],
     }
     return UserMessage(
-      content=json.dumps(
-        context,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
+      content=(
+        TextContentPart(
+          text=json.dumps(
+            context,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+          )
+        ),
       )
     )
 

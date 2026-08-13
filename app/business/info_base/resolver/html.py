@@ -7,7 +7,7 @@ from lxml import html as lxml_html
 
 from .inspection import decode_html_bytes
 from .label import format_label
-from .main import Resolver
+from .main import Resolver, TextProjectionContext
 
 
 class HTMLResolver(Resolver[str, str | bytes], rso_type="core.html.v1"):
@@ -35,9 +35,11 @@ class HTMLResolver(Resolver[str, str | bytes], rso_type="core.html.v1"):
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
+    del context
     source = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,

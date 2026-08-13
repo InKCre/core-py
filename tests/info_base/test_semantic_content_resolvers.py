@@ -129,6 +129,18 @@ def test_real_image_audio_video_and_pdf_facts(monkeypatch):
   ) == ("1.3", 1, False, "InKCre semantic content", None)
 
 
+def test_real_video_exposes_source_native_subtitle_text(monkeypatch):
+  resolver, _ = _storage_backed_resolver(
+    monkeypatch,
+    "core.video.v1",
+    "video-subtitled.mkv",
+  )
+
+  solved = asyncio.run(resolver.get_solved_content())
+
+  assert solved.subtitles == ("Flight software integration rehearsal",)
+
+
 def test_real_epub_zip_and_generic_file_facts(monkeypatch):
   epub, _ = _storage_backed_resolver(monkeypatch, "core.epub.v1", "book.epub")
   epub_solved = asyncio.run(epub.get_solved_content())
@@ -246,7 +258,10 @@ def test_claimed_formats_reject_malformed_storage_bytes(monkeypatch, resolver_id
     asyncio.run(resolver.get_solved_content())
 
 
-@pytest.mark.parametrize("resolver_id", CORE_RESOLVER_IDS[2:])
+@pytest.mark.parametrize(
+  "resolver_id",
+  tuple(resolver for resolver in CORE_RESOLVER_IDS[2:] if resolver != "core.pdf.v1"),
+)
 def test_byte_resolvers_explicitly_reject_text_projection(
   monkeypatch,
   resolver_id,
@@ -255,6 +270,18 @@ def test_byte_resolvers_explicitly_reject_text_projection(
 
   with pytest.raises(UnsupportedResolverCapability):
     asyncio.run(resolver.get_text())
+
+
+def test_pdf_exposes_body_capability_and_block_local_lexical_metadata(monkeypatch):
+  resolver, _ = _storage_backed_resolver(monkeypatch, "core.pdf.v1", "document.pdf")
+
+  body = "Deterministic recovery requires an authoritative write-ahead log."
+  assert asyncio.run(resolver.get_text()) == body
+  lexical = asyncio.run(resolver.get_text(context="lexical", materialize_missing=False))
+  assert lexical is not None
+  assert "title: InKCre semantic content" in lexical
+  assert "pages: 1" in lexical
+  assert body in lexical
 
 
 def test_explicit_bootstrap_registers_exactly_the_nine_core_ids(monkeypatch):

@@ -32,6 +32,7 @@ from app.schemas.ai import (
   AssistantMessage,
   ChatCapability,
   JSONValue,
+  TextContentPart,
   ToolCall,
   ToolResultMessage,
 )
@@ -86,7 +87,9 @@ def test_context_preserves_direction_and_draft_submit_maps_local_ids():
 
     message = asyncio.run(OrganizationManager._build_initial_message(focal.id))
     assert message is not None
-    context = json.loads(message.content)
+    text_part = message.content[0]
+    assert isinstance(text_part, TextContentPart)
+    context = json.loads(text_part.text)
     assert context["focal_block"] == {
       "id": focal.id,
       "resolver": "core.text.v1",
@@ -239,7 +242,7 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(monkey
       assert {tool.id for tool in tools} == {DRAFT_GRAPH_TOOL, SUBMIT_GRAPH_TOOL}
       assert tool_choice == "auto"
       if model_calls % 3 == 1:
-        context = json.loads(messages[-1].content)
+        context = json.loads(messages[-1].content[0].text)
         assert context["focal_block"]["id"] == focal.id
         return AssistantMessage(
           tool_calls=(

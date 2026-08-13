@@ -5,7 +5,11 @@ from __future__ import annotations
 from lxml import html as lxml_html
 
 from app.business.info_base.block import BlockManager
-from app.business.info_base.resolver import Resolver, ResolverManager
+from app.business.info_base.resolver import (
+  Resolver,
+  ResolverManager,
+  TextProjectionContext,
+)
 from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm
 from app.schemas.info_base.main import StarsGraphForm
@@ -75,9 +79,11 @@ class FeedResolver(Resolver[CanonicalFeed, str], rso_type=FEED_RESOLVER_ID):
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str | None:
+    del context
     feed = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,
@@ -170,6 +176,7 @@ class FeedItemResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str | None:
@@ -177,11 +184,13 @@ class FeedItemResolver(
       refresh=refresh,
       materialize_missing=materialize_missing,
     )
-    full_text = await self._full_text(
-      solved,
-      refresh=refresh,
-      materialize_missing=materialize_missing,
-    )
+    full_text = None
+    if context == "default":
+      full_text = await self._full_text(
+        solved,
+        refresh=refresh,
+        materialize_missing=materialize_missing,
+      )
     parts = [
       _plain_text(solved.root.title),
       _plain_text(solved.root.summary, "text/html"),
@@ -251,9 +260,11 @@ class EnclosureResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str | None:
+    del context
     solved = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,

@@ -31,6 +31,8 @@
 
 ## Active Slice
 
-当前没有 active application ownership unit。[Semantic retrieval](../units/semantic-retrieval/packet.md) 已完成。
-[Mail extension](../units/mail-extension/packet.md) 可以因真实邮件 journey 推动必要的 basic use/query、semantic
-retrieval 或 graph navigation 改进，但这些横向结果不自动关闭 feature/graph-navigation ownership units。
+当前 active application Unit 是 [Feature retrieval](../units/feature-retrieval/packet.md)。它通过内部 increments 推进：
+lexical retrieval 是第一项必做工作，perceptual retrieval 属于同一 Unit 的后续工作；graph relationship recall 与
+hybrid composition 不纳入这一 increment。
+[Semantic retrieval](../units/semantic-retrieval/packet.md) 与 [Mail extension](../units/mail-extension/packet.md) 已完成；
+它们的 corpus 和 use pressure 是本轮 evidence，不接管 future unit ownership。

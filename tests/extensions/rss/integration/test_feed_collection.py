@@ -655,6 +655,7 @@ def test_rss_collection_reconciliation_watermark_conditional_and_manual_enclosur
   Extension._init_resolvers()
   Extension._init_sources()
   SourceManager.sync_source_types()
+  JobManager.sync_job_types()
   StorageManager.setup_builtin_storages()
   asyncio.run(_exercise_rss())
 
@@ -664,5 +665,6 @@ def test_atom_family_failure_and_automatic_enclosure_materialization():
   Extension._init_resolvers()
   Extension._init_sources()
   SourceManager.sync_source_types()
+  JobManager.sync_job_types()
   StorageManager.setup_builtin_storages()
   asyncio.run(_exercise_atom_and_failures())

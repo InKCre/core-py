@@ -1,7 +1,7 @@
 import json
 from typing import Optional as Opt
 
-from app.business.info_base.resolver import Resolver
+from app.business.info_base.resolver import Resolver, TextProjectionContext
 from app.business.info_base.resolver.label import format_label
 from app.business.info_base.block import BlockManager
 from app.schemas.info_base.block import BlockForm
@@ -48,10 +48,12 @@ class TweetResolver(Resolver[Tweet, str], rso_type="extensions.twitter.tweet.v1"
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
     """Return the text of the tweet."""
+    del context
     solved = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,

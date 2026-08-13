@@ -15,11 +15,13 @@ def test_expected_snapshot_is_exact_and_normalizes_base_url():
   snapshot = expected_capability_snapshot("https://core.example.test/")
   assert [item["id"] for item in snapshot] == [
     "core.extension.management.v1",
+    "core.feature_retrieval.lexical.v1",
     "core.organization.rumination.v1",
     "core.semantic_retrieval.v1",
   ]
   assert [item["inbound"]["parameters"]["url"] for item in snapshot] == [
     "https://core.example.test/extension-management",
+    "https://core.example.test/lexical-retrieval",
     "https://core.example.test/organization/ruminate",
     "https://core.example.test/semantic-retrieval",
   ]

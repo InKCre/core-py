@@ -3,16 +3,43 @@
 import asyncio
 from dataclasses import dataclass
 from io import BytesIO
+import typing
 
 from PIL import Image, UnidentifiedImageError
+import pydantic
 
+from app.business.deployment_config import DeploymentConfigManager
+from app.schemas.ai import ImageContentPart
 from app.schemas.info_base.block import BlockForm
 from app.schemas.info_base.main import OutArcForm, StarsGraphForm
 from app.schemas.info_base.relation import RelationForm
 
-from .contracts import ResolverContentError, UnsupportedResolverCapability
-from .inspection import ByteContentFacts, detect_media_type, require_bytes
+from .contracts import (
+  ResolverContentError,
+  TextProjectionContext,
+  UnsupportedResolverCapability,
+)
+from .inspection import (
+  ByteContentFacts,
+  detect_media_type,
+  format_lexical_facts,
+  require_bytes,
+)
 from .main import Resolver
+from .materialization import try_materialize_model_text
+
+
+IMAGE_RESOLVER_CONFIG_KEY = "core.resolver.image"
+IMAGE_RESOLVER_CONFIG_SCHEMA = "core.resolver.image.config.v1"
+
+
+class ImageResolverConfig(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  text_model: int
+
+
+DeploymentConfigManager.register_schema(IMAGE_RESOLVER_CONFIG_SCHEMA, ImageResolverConfig)
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,11 +106,47 @@ class ImageResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
-  ) -> None:
-    del refresh, materialize_missing
-    raise UnsupportedResolverCapability(self.__rsotype__, "text")
+  ) -> str:
+    if context == "default":
+      raise UnsupportedResolverCapability(self.__rsotype__, "text")
+    solved = await self.get_solved_content(refresh=refresh, materialize_missing=False)
+    if materialize_missing:
+      config = typing.cast(
+        ImageResolverConfig | None,
+        DeploymentConfigManager.get(IMAGE_RESOLVER_CONFIG_KEY),
+      )
+      if config is not None:
+        media_type = solved.detected_media_type or (
+          f"image/{solved.format}" if solved.format is not None else None
+        )
+        if media_type is not None:
+          await try_materialize_model_text(
+            block_id=self.block_id,
+            role="text",
+            model=config.text_model,
+            instruction=(
+              "Transcribe only written text visibly present in the image. "
+              "Return plain text with no explanation; return no content when none exists."
+            ),
+            media=ImageContentPart(
+              data=solved.content,
+              mime_type=media_type,
+              transfer_url=self.get_transfer_url(),
+            ),
+          )
+    return format_lexical_facts(
+      "image",
+      (
+        ("media type", solved.detected_media_type),
+        ("format", solved.format),
+        ("width", solved.width),
+        ("height", solved.height),
+        ("frames", solved.frame_count),
+      ),
+    )
 
   async def get_label(self, *, refresh: bool = False) -> str:
     del refresh

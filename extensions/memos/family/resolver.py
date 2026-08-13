@@ -1,6 +1,6 @@
 """Versioned CanonicalMemo decoder and graph resolver."""
 
-from app.business.info_base.resolver import Resolver
+from app.business.info_base.resolver import Resolver, TextProjectionContext
 from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm
 
@@ -70,10 +70,11 @@ class MemoResolver(Resolver[SolvedMemo, str], rso_type=MEMO_RESOLVER):
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
-    del materialize_missing
+    del context, materialize_missing
     if refresh:
       self._canonical = CanonicalMemo.from_block_content(
         await self.get_raw_content(refresh=True)

@@ -1,6 +1,6 @@
 """Telegram message resolver for handling Telegram message blocks."""
 
-from app.business.info_base.resolver import Resolver
+from app.business.info_base.resolver import Resolver, TextProjectionContext
 from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm
 from app.schemas.info_base.main import StarsGraphForm
@@ -44,6 +44,7 @@ class TelegramMessageResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str | None:
@@ -51,6 +52,7 @@ class TelegramMessageResolver(
 
     Returns the message text or caption if available.
     """
+    del context
     solved_content = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,

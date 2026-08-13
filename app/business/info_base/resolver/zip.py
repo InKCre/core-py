@@ -5,8 +5,12 @@ from dataclasses import dataclass
 from io import BytesIO
 import zipfile
 
-from .contracts import ResolverContentError, UnsupportedResolverCapability
-from .inspection import ByteContentFacts, require_bytes
+from .contracts import (
+  ResolverContentError,
+  TextProjectionContext,
+  UnsupportedResolverCapability,
+)
+from .inspection import ByteContentFacts, format_lexical_facts, require_bytes
 from .main import Resolver
 
 
@@ -58,11 +62,24 @@ class ZIPResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
-  ) -> None:
-    del refresh, materialize_missing
-    raise UnsupportedResolverCapability(self.__rsotype__, "text")
+  ) -> str:
+    if context == "default":
+      raise UnsupportedResolverCapability(self.__rsotype__, "text")
+    del materialize_missing
+    solved = await self.get_solved_content(refresh=refresh, materialize_missing=False)
+    return format_lexical_facts(
+      "ZIP",
+      (
+        ("media type", solved.detected_media_type),
+        ("members", solved.member_count),
+        ("compressed bytes", solved.total_compressed_bytes),
+        ("uncompressed bytes", solved.total_uncompressed_bytes),
+        ("encrypted members", solved.encrypted_member_count),
+      ),
+    )
 
   async def get_label(self, *, refresh: bool = False) -> str:
     del refresh

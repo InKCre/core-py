@@ -1,7 +1,7 @@
 """LearnEnglish's Resolvers"""
 
 from app.business.info_base.resolver.label import format_label
-from app.business.info_base.resolver.main import Resolver
+from app.business.info_base.resolver.main import Resolver, TextProjectionContext
 from app.schemas.info_base.block import BlockForm
 from app.schemas.info_base.main import StarsGraphForm
 
@@ -56,9 +56,11 @@ class LexicalResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
+    del context
     return (
       await self.get_solved_content(
         refresh=refresh,

@@ -4,7 +4,7 @@ import uuid
 
 
 CONTRACT_FORMAT = 1
-CONTRACT_REVISION = "mail-source-job-runtime-v1"
+CONTRACT_REVISION = "lexical-retrieval-runtime-v1"
 
 PROTOCOL_SCHEMA = "inkcre"
 INTERNAL_SCHEMA = "inkcre_internal"
@@ -33,6 +33,7 @@ APPLICATION_TABLES = (
   "ai_models",
   "ai_providers",
   "block_embeddings",
+  "block_lexical_records",
   "blocks",
   "peers",
   "configs",

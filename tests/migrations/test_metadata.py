@@ -2,6 +2,7 @@ import typing
 
 import pgvector.sqlalchemy
 import sqlalchemy
+import sqlalchemy.dialects.postgresql
 
 from app.database_contract import PROTOCOL_SCHEMA
 from migrations.metadata import get_target_metadata, include_protocol_object
@@ -13,6 +14,7 @@ EXPECTED_APPLICATION_TABLES = {
   "ai_models",
   "ai_providers",
   "block_embeddings",
+  "block_lexical_records",
   "blocks",
   "peers",
   "configs",
@@ -189,6 +191,24 @@ def test_embedding_records_are_profile_scoped_variable_vectors():
   )
   assert block_vector.dim is None
   assert relation_vector.dim is None
+
+
+def test_lexical_records_are_block_keyed_text_search_projections():
+  record = _table("block_lexical_records")
+
+  assert record.primary_key.columns.keys() == ["block"]
+  assert isinstance(record.columns["label"].type, sqlalchemy.Text)
+  assert isinstance(record.columns["text"].type, sqlalchemy.Text)
+  assert isinstance(
+    record.columns["search_vector"].type,
+    sqlalchemy.dialects.postgresql.TSVECTOR,
+  )
+  assert all(index.table is record for index in record.indexes)
+  assert {index.name for index in record.indexes} == {
+    "block_lexical_records_search_vector_idx",
+    "block_lexical_records_label_trgm_idx",
+    "block_lexical_records_text_trgm_idx",
+  }
 
 
 def test_storage_blobs_own_only_uuid_pointer_and_binary_bytes():

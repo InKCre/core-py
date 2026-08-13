@@ -14,7 +14,7 @@ import sqlalchemy.dialects.postgresql
 import sqlalchemy.orm
 import sqlmodel
 
-from app.business.ai import AIManager
+from app.business.ai import AIExecutionRequirement, AIManager
 from app.business.deployment_config import DeploymentConfigManager
 from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import (
@@ -173,6 +173,22 @@ class SemanticRetrievalManager:
     if result is None:
       raise EmbeddingProfileNotFoundError(f"Embedding Profile {profile_id} does not exist")
     return result
+
+  @classmethod
+  def can_maintain(cls, profile: EmbeddingProfileID | None = None) -> bool:
+    """Return static local Job eligibility without probing the provider."""
+    try:
+      selected = cls._load_profile(profile)
+    except (SemanticRetrievalNotConfiguredError, EmbeddingProfileNotFoundError):
+      return False
+    return AIManager.can_execute(
+      selected.ai_model,
+      AIExecutionRequirement(
+        capability="embedding",
+        input_modalities=frozenset({"text"}),
+        output_modalities=frozenset({"vector"}),
+      ),
+    )
 
   @classmethod
   async def retrieve(

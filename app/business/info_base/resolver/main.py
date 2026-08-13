@@ -14,6 +14,7 @@ from app.schemas.info_base.storage import StorageID
 
 from .contracts import (
   DuplicateResolverRegistrationError,
+  TextProjectionContext,
   UnknownDraftResolverError,
   UnknownResolverError,
 )
@@ -35,6 +36,32 @@ class ResolverManager:
 
   Map ResolverType to Resolver class
   """
+
+  @classmethod
+  def snapshot_resolvers(cls) -> dict[ResolverType, type["Resolver"]]:
+    """Capture the Resolver publication surface for reversible startup."""
+    return dict(cls.RESOLVER_CLS)
+
+  @classmethod
+  def restore_resolvers(
+    cls,
+    before: dict[ResolverType, type["Resolver"]],
+    published: dict[ResolverType, type["Resolver"]],
+  ) -> None:
+    """Undo only Resolver registrations made by one extension publication."""
+    missing = object()
+    for resolver_type in before.keys() | published.keys():
+      previous = before.get(resolver_type, missing)
+      publication = published.get(resolver_type, missing)
+      if previous is publication:
+        continue
+      current = cls.RESOLVER_CLS.get(resolver_type, missing)
+      if current is not publication:
+        continue
+      if previous is missing:
+        cls.RESOLVER_CLS.pop(resolver_type, None)
+      else:
+        cls.RESOLVER_CLS[resolver_type] = typing.cast(type[Resolver], previous)
 
   @classmethod
   def register_resolver(cls, resolver_cls: type["Resolver"]) -> None:
@@ -194,6 +221,15 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
       await self._block.get_hydrated_content(refresh=refresh),
     )
 
+  def get_transfer_url(self) -> str | None:
+    """Return an optional Storage-owned transfer hint for this exact pointer."""
+    if self._block.storage is None:
+      return None
+    from app.business.info_base.storage import StorageManager
+
+    storage = StorageManager.get_storage(self._block.storage)
+    return storage.get_transfer_url(self._block.content)
+
   async def get_solved_content(
     self,
     *,
@@ -276,10 +312,11 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str | None:
-    """Get block content in text format."""
+    """Return a Block-local text projection for one stable use context."""
     ...
 
   @abc.abstractmethod

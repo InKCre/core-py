@@ -4,7 +4,7 @@ from typing import Optional as Opt
 
 from sqlmodel import Session
 import sqlmodel
-from app.business.info_base.resolver import Resolver
+from app.business.info_base.resolver import Resolver, TextProjectionContext
 from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.relation import RelationForm
@@ -84,10 +84,12 @@ class GithubRepoResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
     """Return one complete reusable textual projection of the repository."""
+    del context
     content = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,
@@ -148,6 +150,7 @@ class GithubUserResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
@@ -155,6 +158,7 @@ class GithubUserResolver(
 
     Returns the display name and login, or just login if no name.
     """
+    del context
     content = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,

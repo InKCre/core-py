@@ -44,10 +44,18 @@ class HTTPStorage(
 ):
   """Fetch opaque bytes over HTTP(S) without assigning content semantics."""
 
-  async def get_raw_content(self, block_content: str) -> bytes:
+  @staticmethod
+  def _url(block_content: str) -> str:
     url = block_content.strip()
     if not url.lower().startswith(("http://", "https://")):
       raise ValueError("HTTP storage pointer must use http:// or https://")
+    return url
+
+  def get_transfer_url(self, block_content: str) -> str:
+    return self._url(block_content)
+
+  async def get_raw_content(self, block_content: str) -> bytes:
+    url = self._url(block_content)
 
     timeout = aiohttp.ClientTimeout(total=self._config.timeout)
     async with aiohttp.ClientSession(

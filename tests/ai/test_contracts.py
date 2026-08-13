@@ -10,6 +10,7 @@ from app.schemas.ai import (
   ToolCall,
   ToolResult,
   ToolResultMessage,
+  TextContentPart,
   UserMessage,
   normalize_capabilities,
   validate_message_history,
@@ -65,9 +66,10 @@ def test_message_history_requires_one_exact_adjacent_result_batch():
     )
   )
 
-  history = validate_message_history((UserMessage(content="go"), assistant, results))
+  user = UserMessage(content=(TextContentPart(text="go"),))
+  history = validate_message_history((user, assistant, results))
 
-  assert history == (UserMessage(content="go"), assistant, results)
+  assert history == (user, assistant, results)
 
 
 def test_message_history_rejects_unclosed_or_mismatched_tool_calls():

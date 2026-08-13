@@ -12,13 +12,17 @@ from app.business.organization import (
   OrganizationManager,
   OrganizationNotConfiguredError,
 )
-from app.schemas.ai import UserMessage
+from app.schemas.ai import TextContentPart, UserMessage
 from app.schemas.organization import RuminationConfig
 
 
 class _Thread:
   def __init__(self, turn):
     self.current_turn = turn
+
+
+def _user(text: str) -> UserMessage:
+  return UserMessage(content=(TextContentPart(text=text),))
 
 
 def _stub_context(monkeypatch, value: UserMessage | None):
@@ -56,7 +60,7 @@ def test_cannot_understand_completes_without_config_or_agent(monkeypatch):
 
 def test_missing_config_and_dangling_agent_are_distinct(monkeypatch):
   async def scenario():
-    _stub_context(monkeypatch, UserMessage(content="context"))
+    _stub_context(monkeypatch, _user("context"))
     monkeypatch.setattr(
       DeploymentConfigManager,
       "get",
@@ -94,7 +98,7 @@ def test_turn_completion_is_shallow_and_budget_is_one_failure(
   expected_error,
 ):
   async def scenario():
-    _stub_context(monkeypatch, UserMessage(content="context"))
+    _stub_context(monkeypatch, _user("context"))
     monkeypatch.setattr(
       DeploymentConfigManager,
       "get",
@@ -104,7 +108,7 @@ def test_turn_completion_is_shallow_and_budget_is_one_failure(
 
     async def run(_cls, agent, message):
       assert agent == 3
-      assert message.content == "context"
+      assert message == _user("context")
       return _Thread(turn)
 
     monkeypatch.setattr(AgentManager, "run", classmethod(run))
@@ -119,7 +123,7 @@ def test_turn_completion_is_shallow_and_budget_is_one_failure(
 
 def test_caller_cancellation_propagates_to_active_turn(monkeypatch):
   async def scenario():
-    _stub_context(monkeypatch, UserMessage(content="context"))
+    _stub_context(monkeypatch, _user("context"))
     monkeypatch.setattr(
       DeploymentConfigManager,
       "get",

@@ -8,6 +8,7 @@ import pytest
 
 from app.business.ai import (
   AIDialectAdapter,
+  AIExecutionRequirement,
   AIFeatureUnavailableError,
   AIManager,
   AIOutputContractError,
@@ -21,6 +22,7 @@ from app.schemas.ai import (
   EmbeddingCapability,
   FunctionTool,
   Message,
+  TextContentPart,
   ToolChoice,
   UserMessage,
 )
@@ -33,6 +35,10 @@ class _Config(pydantic.BaseModel):
 
 class _Adapter(AIDialectAdapter):
   supported_features = {"chat": frozenset({"tool_calling"})}
+  supported_input_modalities = {
+    "embedding": frozenset({"text"}),
+    "chat": frozenset({"text"}),
+  }
 
   def __init__(self, vectors: tuple[Vector, ...] = ((0.1, 0.2),)) -> None:
     self.vectors = vectors
@@ -118,9 +124,45 @@ def test_chat_requires_joint_tool_calling_support(monkeypatch):
     asyncio.run(
       AIManager.chat(
         2,
-        (UserMessage(content="go"),),
+        (UserMessage(content=(TextContentPart(text="go"),)),),
         tools=(
           FunctionTool(id="tool", description="tool", input_schema={"type": "object"}),
         ),
       )
     )
+
+
+def test_can_execute_requires_joint_model_and_dialect_support(monkeypatch):
+  monkeypatch.setattr(
+    AIManager,
+    "_load_target",
+    classmethod(lambda _cls, _model: _target(_Adapter())),
+  )
+
+  assert AIManager.can_execute(
+    2,
+    AIExecutionRequirement(
+      capability="chat",
+      input_modalities=frozenset({"text"}),
+      output_modalities=frozenset({"text"}),
+      features=frozenset({"tool_calling"}),
+      tool_choice="auto",
+    ),
+  )
+  assert not AIManager.can_execute(
+    2,
+    AIExecutionRequirement(
+      capability="chat",
+      input_modalities=frozenset({"text", "image"}),
+      output_modalities=frozenset({"text"}),
+    ),
+  )
+  assert not AIManager.can_execute(
+    2,
+    AIExecutionRequirement(
+      capability="chat",
+      input_modalities=frozenset({"text"}),
+      output_modalities=frozenset({"text"}),
+      tool_choice="required",
+    ),
+  )

@@ -3,8 +3,13 @@
 import asyncio
 from dataclasses import dataclass
 
-from .contracts import UnsupportedResolverCapability
-from .inspection import ByteContentFacts, detect_media_type, require_bytes
+from .contracts import TextProjectionContext, UnsupportedResolverCapability
+from .inspection import (
+  ByteContentFacts,
+  detect_media_type,
+  format_lexical_facts,
+  require_bytes,
+)
 from .main import Resolver
 
 
@@ -41,11 +46,18 @@ class FileResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
-  ) -> None:
-    del refresh, materialize_missing
-    raise UnsupportedResolverCapability(self.__rsotype__, "text")
+  ) -> str:
+    if context == "default":
+      raise UnsupportedResolverCapability(self.__rsotype__, "text")
+    del materialize_missing
+    solved = await self.get_solved_content(refresh=refresh, materialize_missing=False)
+    return format_lexical_facts(
+      "file",
+      (("media type", solved.detected_media_type), ("bytes", solved.byte_size)),
+    )
 
   async def get_label(self, *, refresh: bool = False) -> str:
     del refresh

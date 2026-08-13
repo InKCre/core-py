@@ -19,6 +19,7 @@ FastAPI 路由注册层，将业务逻辑暴露为 REST API 端点。
 | [deployment_config.py](deployment_config.py) | `/configs` | DeploymentConfigManager | GET, PUT, PATCH |
 | [info_base.py](info_base.py) | `/graph` | InfoBaseManager | PUT |
 | [semantic_retrieval.py](semantic_retrieval.py) | `/semantic-retrieval` | SemanticRetrievalManager | POST + Peer inbound |
+| [lexical_retrieval.py](lexical_retrieval.py) | `/lexical-retrieval` | LexicalRetrievalManager | POST + Peer inbound |
 | [organization.py](organization.py) | `/organization/ruminate` | OrganizationManager | POST → 204 + Peer inbound |
 
 ### 其他路由
@@ -61,7 +62,7 @@ async def get_resource(resource_id: ResourceID) -> ResourceModel:
 
 在 [run.py](../../run.py) 中的注册顺序：
 1. Middleware（CORS, Logging, JWT）
-2. Core routes（block, relation, source, extension, configs, graph, organization, semantic retrieval）
+2. Core routes（block, relation, source, extension, configs, graph, organization, semantic retrieval, lexical retrieval）
 3. Extension routes（动态注册）
 
 ### API 文档

@@ -1,5 +1,6 @@
 """OpenAI-compatible AI dialect across embedding and chat capabilities."""
 
+import base64
 from collections.abc import Callable, Sequence
 import json
 import typing
@@ -9,20 +10,26 @@ from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 import pydantic
 
 from app.schemas.ai import (
+  AudioContentPart,
   AssistantMessage,
   FunctionTool,
+  ImageContentPart,
   Message,
   NamedToolChoice,
   SystemMessage,
+  TextContentPart,
   ToolCall,
   ToolChoice,
   ToolResultMessage,
   UserMessage,
+  VideoContentPart,
 )
 from app.schemas.info_base.main import Vector
 
-from ..contracts import AIDialectAdapter, AIOutputContractError
+from ..contracts import AIDialectAdapter, AIInputUnavailableError, AIOutputContractError
 from ..main import AIManager
+
+INLINE_MEDIA_MAX_BYTES = 7 * 1024 * 1024
 
 
 class OpenAICompatibleConfig(pydantic.BaseModel):
@@ -46,6 +53,10 @@ class OpenAICompatibleDialect(AIDialectAdapter):
   """Translate canonical AI contracts through the OpenAI Python SDK."""
 
   supported_features = {"chat": frozenset({"tool_calling"})}
+  supported_input_modalities = {
+    "embedding": frozenset({"text"}),
+    "chat": frozenset({"text", "image", "audio"}),
+  }
 
   def __init__(self, client_factory: OpenAIClientFactory | None = None) -> None:
     self._client_factory = client_factory or self._create_client
@@ -88,13 +99,94 @@ class OpenAICompatibleDialect(AIDialectAdapter):
     return tuple(by_index[index] for index in range(len(inputs)))
 
   @staticmethod
-  def _message_params(messages: Sequence[Message]) -> list[ChatCompletionMessageParam]:
+  def _data_url(mime_type: str, data: bytes) -> str:
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
+
+  @classmethod
+  def _url_or_inline_data(
+    cls,
+    *,
+    mime_type: str,
+    data: bytes,
+    transfer_url: str | None,
+  ) -> str:
+    if len(data) <= INLINE_MEDIA_MAX_BYTES:
+      return cls._data_url(mime_type, data)
+    if transfer_url is not None:
+      return transfer_url
+    raise AIInputUnavailableError(
+      "Media exceeds the inline transfer bound and has no transfer URL"
+    )
+
+  @staticmethod
+  def _audio_format(mime_type: str) -> str:
+    formats = {
+      "audio/mpeg": "mp3",
+      "audio/mp3": "mp3",
+      "audio/wav": "wav",
+      "audio/x-wav": "wav",
+    }
+    try:
+      return formats[mime_type]
+    except KeyError as error:
+      raise AIInputUnavailableError(
+        f"OpenAI Chat input_audio does not support {mime_type!r}"
+      ) from error
+
+  @classmethod
+  def _user_content_params(cls, message: UserMessage) -> list[dict[str, typing.Any]]:
+    result: list[dict[str, typing.Any]] = []
+    for part in message.content:
+      if isinstance(part, TextContentPart):
+        result.append({"type": "text", "text": part.text})
+      elif isinstance(part, ImageContentPart):
+        result.append(
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": cls._url_or_inline_data(
+                mime_type=part.mime_type,
+                data=part.data,
+                transfer_url=part.transfer_url,
+              )
+            },
+          }
+        )
+      elif isinstance(part, AudioContentPart):
+        if len(part.data) > INLINE_MEDIA_MAX_BYTES:
+          raise AIInputUnavailableError(
+            "OpenAI Chat input_audio cannot use a transfer URL and exceeds the "
+            "inline transfer bound"
+          )
+        result.append(
+          {
+            "type": "input_audio",
+            "input_audio": {
+              "data": base64.b64encode(part.data).decode("ascii"),
+              "format": cls._audio_format(part.mime_type),
+            },
+          }
+        )
+      elif isinstance(part, VideoContentPart):
+        raise AIInputUnavailableError(
+          "OpenAI Chat does not define a canonical video input part"
+        )
+    return result
+
+  @classmethod
+  def _message_params(cls, messages: Sequence[Message]) -> list[ChatCompletionMessageParam]:
     result: list[ChatCompletionMessageParam] = []
     for message in messages:
       if isinstance(message, SystemMessage):
         result.append({"role": "system", "content": message.content})
       elif isinstance(message, UserMessage):
-        result.append({"role": "user", "content": message.content})
+        result.append(
+          typing.cast(
+            ChatCompletionMessageParam,
+            {"role": "user", "content": cls._user_content_params(message)},
+          )
+        )
       elif isinstance(message, AssistantMessage):
         result.append(
           {
@@ -165,6 +257,31 @@ class OpenAICompatibleDialect(AIDialectAdapter):
       "required",
     }
 
+  @staticmethod
+  def _assistant_message(message: typing.Any) -> AssistantMessage:
+    calls: list[ToolCall] = []
+    for call in message.tool_calls or ():
+      if call.type != "function":
+        raise AIOutputContractError(
+          f"Unsupported OpenAI-compatible ToolCall type: {call.type!r}"
+        )
+      try:
+        parsed_arguments = json.loads(call.function.arguments)
+      except (TypeError, json.JSONDecodeError) as error:
+        raise AIOutputContractError(
+          f"ToolCall {call.id!r} arguments are not valid JSON"
+        ) from error
+      if not isinstance(parsed_arguments, dict):
+        raise AIOutputContractError(f"ToolCall {call.id!r} arguments must be a JSON object")
+      calls.append(
+        ToolCall(
+          id=call.id,
+          tool=call.function.name,
+          arguments=parsed_arguments,
+        )
+      )
+    return AssistantMessage(content=message.content, tool_calls=tuple(calls))
+
   async def chat(
     self,
     config: pydantic.BaseModel,
@@ -194,26 +311,4 @@ class OpenAICompatibleDialect(AIDialectAdapter):
 
     if not response.choices:
       raise AIOutputContractError("OpenAI-compatible chat response has no choices")
-    message = response.choices[0].message
-    calls: list[ToolCall] = []
-    for call in message.tool_calls or ():
-      if call.type != "function":
-        raise AIOutputContractError(
-          f"Unsupported OpenAI-compatible ToolCall type: {call.type!r}"
-        )
-      try:
-        parsed_arguments = json.loads(call.function.arguments)
-      except (TypeError, json.JSONDecodeError) as error:
-        raise AIOutputContractError(
-          f"ToolCall {call.id!r} arguments are not valid JSON"
-        ) from error
-      if not isinstance(parsed_arguments, dict):
-        raise AIOutputContractError(f"ToolCall {call.id!r} arguments must be a JSON object")
-      calls.append(
-        ToolCall(
-          id=call.id,
-          tool=call.function.name,
-          arguments=parsed_arguments,
-        )
-      )
-    return AssistantMessage(content=message.content, tool_calls=tuple(calls))
+    return self._assistant_message(response.choices[0].message)

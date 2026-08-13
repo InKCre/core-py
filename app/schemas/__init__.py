@@ -16,6 +16,7 @@ __all__ = [
   "EmbeddingProfileModel",
   "RelationEmbeddingModel",
   "BlockEmbeddingModel",
+  "BlockLexicalRecordModel",
   "AgentDefinitionModel",
   "PeerModel",
   "DeploymentConfigModel",
@@ -48,3 +49,4 @@ from .ai import (
 from .agent import AgentDefinitionModel
 from .peer import PeerModel
 from .deployment_config import DeploymentConfigModel
+from .lexical_retrieval import BlockLexicalRecordModel

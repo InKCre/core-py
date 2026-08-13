@@ -5,6 +5,10 @@ import uuid
 
 from app.business.extension import ExtensionManager
 from app.business.extension.main import EXTENSION_MANAGEMENT_CAPABILITY
+from app.business.lexical_retrieval import (
+  LEXICAL_RETRIEVAL_CAPABILITY,
+  LexicalRetrievalManager,
+)
 from app.business.organization import OrganizationManager, RUMINATION_CAPABILITY
 from app.business.peer import PeerManager
 from app.business.semantic_retrieval import (
@@ -49,6 +53,36 @@ def test_semantic_retrieval_delegates_typed_request_to_exact_peer(monkeypatch):
   assert body["options"]["limit"] == 20
   assert body["options"]["min_score"] is None
   assert set(body["options"]["entity_types"]) == {"block", "relation"}
+
+
+def test_lexical_retrieval_delegates_atomic_request_to_exact_peer(monkeypatch):
+  target = uuid.uuid4()
+  captured = {}
+
+  async def delegate(_cls, capability, payload, *, route_to_peer=None):
+    captured.update(
+      capability=capability,
+      payload=payload,
+      route_to_peer=route_to_peer,
+    )
+    return {"status": 200, "headers": {}, "body": {"matches": []}}
+
+  monkeypatch.setattr(PeerManager, "delegate", classmethod(delegate))
+
+  result = asyncio.run(
+    LexicalRetrievalManager.retrieve(
+      "exact_identifier",
+      limit=7,
+      route_to_peer=target,
+    )
+  )
+
+  assert result.matches == ()
+  assert captured == {
+    "capability": LEXICAL_RETRIEVAL_CAPABILITY,
+    "payload": {"body": {"query": "exact_identifier", "limit": 7}},
+    "route_to_peer": target,
+  }
 
 
 def test_rumination_delegates_and_accepts_only_empty_204(monkeypatch):

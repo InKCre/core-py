@@ -8,8 +8,12 @@ import zipfile
 
 from lxml import etree
 
-from .contracts import ResolverContentError, UnsupportedResolverCapability
-from .inspection import ByteContentFacts, require_bytes
+from .contracts import (
+  ResolverContentError,
+  TextProjectionContext,
+  UnsupportedResolverCapability,
+)
+from .inspection import ByteContentFacts, format_lexical_facts, require_bytes
 from .label import format_label
 from .main import Resolver
 
@@ -186,11 +190,26 @@ class EPUBResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
-  ) -> None:
-    del refresh, materialize_missing
-    raise UnsupportedResolverCapability(self.__rsotype__, "text")
+  ) -> str:
+    if context == "default":
+      raise UnsupportedResolverCapability(self.__rsotype__, "text")
+    del materialize_missing
+    solved = await self.get_solved_content(refresh=refresh, materialize_missing=False)
+    return format_lexical_facts(
+      "EPUB",
+      (
+        ("media type", solved.detected_media_type),
+        ("title", solved.title),
+        ("creators", ", ".join(solved.creators) or None),
+        ("languages", ", ".join(solved.languages) or None),
+        ("EPUB version", solved.epub_version),
+        ("manifest items", solved.manifest_count),
+        ("spine items", solved.spine_count),
+      ),
+    )
 
   async def get_label(self, *, refresh: bool = False) -> str:
     solved = await self.get_solved_content(

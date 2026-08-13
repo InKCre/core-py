@@ -49,8 +49,9 @@ RelationManager projection ---+----> RelationEmbedding
 projects and embeds outside a database transaction, then upserts only a complete valid provider batch in a short
 transaction. A provider failure writes no partial batch.
 
-`rebuild()` uses its invocation timestamp as a cutoff and replaces records older than that snapshot. Neither operation
-creates a job, dirty table, retry loop, lease, or hidden collection hook.
+`rebuild()` uses its invocation timestamp as a cutoff and replaces records older than that snapshot. The methods do not
+create a job, dirty table, retry loop, lease, or hidden collection hook. Exact typed maintain/rebuild Job handlers call the
+same methods and persist bounded reports in Job state；Cron may materialize those Jobs from ordinary templates。
 
 A Block record is usable only when its timestamp is at least the Profile and Block timestamps and its vector has the exact
 Profile dimension. A Relation record must additionally be at least both endpoint Block timestamps. This is best-effort
@@ -107,7 +108,7 @@ vectors, and generated graph rows are never committed as authority.
 
 ## Explicit Non-Goals
 
-- ANN/HNSW indexes, pagination, cross-profile score fusion, hybrid feature retrieval, and graph-navigation retrieval
+- ANN/HNSW indexes, pagination, cross-profile score fusion, hybrid retrieval, and graph-navigation retrieval
 - Chat/RAG answer generation or a generic AI proxy
 - transient chunk/segment persistence
 - generic capability invocation endpoints or delegation jobs

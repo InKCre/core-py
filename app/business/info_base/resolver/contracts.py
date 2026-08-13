@@ -3,6 +3,9 @@
 from typing import Literal, TypeAlias
 
 
+TextProjectionContext: TypeAlias = Literal["default", "lexical"]
+
+
 CoreResolverID: TypeAlias = Literal[
   "core.text.v1",
   "core.html.v1",

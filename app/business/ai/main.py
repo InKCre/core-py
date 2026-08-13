@@ -20,8 +20,13 @@ from app.schemas.ai import (
   AIProviderModel,
   AssistantMessage,
   FunctionTool,
+  ImageContentPart,
   Message,
+  AudioContentPart,
+  TextContentPart,
   ToolChoice,
+  UserMessage,
+  VideoContentPart,
   validate_message_history,
 )
 from app.schemas.info_base.main import Vector
@@ -29,7 +34,9 @@ from app.schemas.info_base.main import Vector
 from .contracts import (
   AICapabilityUnavailableError,
   AIDialectAdapter,
+  AIExecutionRequirement,
   AIFeatureUnavailableError,
+  AIInputUnavailableError,
   AIModelDisabledError,
   AIModelNotFoundError,
   AIOutputContractError,
@@ -192,6 +199,49 @@ class AIManager:
       )
 
   @classmethod
+  def can_execute(
+    cls,
+    model: AIModelID,
+    requirement: AIExecutionRequirement,
+  ) -> bool:
+    """Return static peer-local eligibility without probing a remote provider."""
+    try:
+      target = cls._load_target(model)
+      capability = cls._capability(target.model, requirement.capability)
+    except (
+      AIModelNotFoundError,
+      AIModelDisabledError,
+      AIProviderNotFoundError,
+      AIProviderDisabledError,
+      UnknownAIDialectError,
+      InvalidAIProviderConfigError,
+      AICapabilityUnavailableError,
+    ):
+      return False
+    requested_inputs = requirement.input_modalities
+    requested_outputs = requirement.output_modalities
+    requested_features = requirement.features
+    if not requested_inputs <= set(capability.input_modalities):
+      return False
+    if not requested_outputs <= set(capability.output_modalities):
+      return False
+    if not requested_features <= set(capability.features):
+      return False
+    if any(
+      not target.adapter.supports_input_modality(requirement.capability, modality)
+      for modality in requested_inputs
+    ):
+      return False
+    if any(
+      not target.adapter.supports_feature(requirement.capability, feature)
+      for feature in requested_features
+    ):
+      return False
+    return requirement.tool_choice is None or target.adapter.supports_tool_choice(
+      requirement.tool_choice
+    )
+
+  @classmethod
   async def embed(
     cls,
     model: AIModelID,
@@ -244,12 +294,32 @@ class AIManager:
     history = validate_message_history(messages)
     target = cls._load_target(model)
     capability = cls._capability(target.model, "chat")
-    cls._require_modalities(
-      target.model,
-      capability,
-      input_="text",
-      output="text",
-    )
+    # System instructions, Tool schemas/results and Assistant history all travel
+    # through the textual chat channel even when the latest User turn is media-only.
+    input_modalities: set[str] = {"text"}
+    for message in history:
+      if not isinstance(message, UserMessage):
+        continue
+      for part in message.content:
+        if isinstance(part, TextContentPart):
+          input_modalities.add("text")
+        elif isinstance(part, ImageContentPart):
+          input_modalities.add("image")
+        elif isinstance(part, AudioContentPart):
+          input_modalities.add("audio")
+        elif isinstance(part, VideoContentPart):
+          input_modalities.add("video")
+    for modality in sorted(input_modalities):
+      cls._require_modalities(
+        target.model,
+        capability,
+        input_=modality,
+        output="text",
+      )
+      if not target.adapter.supports_input_modality("chat", modality):
+        raise AIInputUnavailableError(
+          f"AI dialect {target.provider.dialect!r} cannot convey chat modality {modality!r}"
+        )
 
     tool_ids = tuple(tool.id for tool in tools)
     if len(tool_ids) != len(set(tool_ids)):

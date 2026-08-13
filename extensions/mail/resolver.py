@@ -9,7 +9,11 @@ import sqlmodel
 
 from app.business.info_base.block import BlockManager
 from app.business.info_base.main import InfoBaseManager
-from app.business.info_base.resolver import Resolver, ResolverManager
+from app.business.info_base.resolver import (
+  Resolver,
+  ResolverManager,
+  TextProjectionContext,
+)
 from app.business.info_base.resolver.inspection import detect_media_type
 from app.business.info_base.resolver.label import format_label
 from app.business.info_base.storage import WritableStorage
@@ -172,6 +176,7 @@ class EmailResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
@@ -181,16 +186,20 @@ class EmailResolver(
     )
     if isinstance(solved, CanonicalEmail):
       return solved.subject or solved.message_id or "email"
-    body_texts = [
-      text
-      for body in solved.bodies
-      if (
-        text := await ResolverManager.get(body.block).get_text(
-          refresh=refresh,
-          materialize_missing=False,
+    body_texts = (
+      []
+      if context == "lexical"
+      else [
+        text
+        for body in solved.bodies
+        if (
+          text := await ResolverManager.get(body.block).get_text(
+            refresh=refresh,
+            materialize_missing=False,
+          )
         )
-      )
-    ]
+      ]
+    )
     return "\n\n".join(item for item in (solved.root.subject, *body_texts) if item) or (
       solved.root.message_id or "email"
     )
@@ -212,8 +221,14 @@ class MailboxResolver(
     del materialize_missing
     return CanonicalMailbox.model_validate_json(await self.get_raw_content(refresh=refresh))
 
-  async def get_text(self, *, refresh=False, materialize_missing=True) -> str:
-    del materialize_missing
+  async def get_text(
+    self,
+    *,
+    context: TextProjectionContext = "default",
+    refresh=False,
+    materialize_missing=True,
+  ) -> str:
+    del context, materialize_missing
     mailbox = await self.get_solved_content(refresh=refresh)
     roles = ", ".join(mailbox.special_uses)
     return mailbox.name if not roles else f"{mailbox.name}\nSpecial uses: {roles}"
@@ -237,8 +252,14 @@ class EmailAddressResolver(
       await self.get_raw_content(refresh=refresh)
     )
 
-  async def get_text(self, *, refresh=False, materialize_missing=True) -> str:
-    del materialize_missing
+  async def get_text(
+    self,
+    *,
+    context: TextProjectionContext = "default",
+    refresh=False,
+    materialize_missing=True,
+  ) -> str:
+    del context, materialize_missing
     return (await self.get_solved_content(refresh=refresh)).address
 
   async def get_label(self, *, refresh=False) -> str:
@@ -260,8 +281,14 @@ class MailFlagResolver(
       await self.get_raw_content(refresh=refresh)
     )
 
-  async def get_text(self, *, refresh=False, materialize_missing=True) -> str:
-    del materialize_missing
+  async def get_text(
+    self,
+    *,
+    context: TextProjectionContext = "default",
+    refresh=False,
+    materialize_missing=True,
+  ) -> str:
+    del context, materialize_missing
     flag = await self.get_solved_content(refresh=refresh)
     return flag.name if flag.description is None else f"{flag.name}: {flag.description}"
 
@@ -411,9 +438,11 @@ class MailMimePartResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
+    del context, materialize_missing
     root = CanonicalMimePart.model_validate_json(
       await self.get_raw_content(refresh=refresh)
     )

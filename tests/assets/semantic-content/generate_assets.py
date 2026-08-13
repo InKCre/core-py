@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from pathlib import Path
 import wave
 import zipfile
@@ -10,6 +11,7 @@ import zipfile
 import av
 from PIL import Image
 from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 
 ASSET_DIRECTORY = Path(__file__).parent
@@ -44,9 +46,58 @@ def _write_video() -> None:
       container.mux(packet)
 
 
+def _write_subtitled_video() -> None:
+  subtitle_source = BytesIO(
+    b"WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nFlight software integration rehearsal\n"
+  )
+  with (
+    av.open(subtitle_source, mode="r", format="webvtt") as subtitle_container,
+    av.open(str(ASSET_DIRECTORY / "video-subtitled.mkv"), mode="w") as container,
+  ):
+    video = container.add_stream("mpeg4", rate=1)
+    video.width = 16
+    video.height = 16
+    video.pix_fmt = "yuv420p"
+    subtitle_input = subtitle_container.streams.subtitles[0]
+    subtitle_output = container.add_stream_from_template(subtitle_input)
+
+    frame = av.VideoFrame(width=16, height=16, format="yuv420p")
+    for plane in frame.planes:
+      plane.update(bytes(plane.buffer_size))
+    for packet in video.encode(frame):
+      container.mux(packet)
+    for packet in video.encode():
+      container.mux(packet)
+    for packet in subtitle_container.demux(subtitle_input):
+      if packet.dts is None:
+        continue
+      packet.stream = subtitle_output
+      container.mux(packet)
+
+
 def _write_pdf() -> None:
   writer = PdfWriter()
-  writer.add_blank_page(width=72, height=72)
+  page = writer.add_blank_page(width=420, height=240)
+  font = DictionaryObject(
+    {
+      NameObject("/Type"): NameObject("/Font"),
+      NameObject("/Subtype"): NameObject("/Type1"),
+      NameObject("/BaseFont"): NameObject("/Helvetica"),
+    }
+  )
+  page[NameObject("/Resources")] = DictionaryObject(
+    {
+      NameObject("/Font"): DictionaryObject(
+        {NameObject("/F1"): writer._add_object(font)}  # pyrefly: ignore[missing-attribute]
+      )
+    }
+  )
+  content = DecodedStreamObject()
+  content.set_data(
+    b"BT /F1 12 Tf 24 120 Td "
+    b"(Deterministic recovery requires an authoritative write-ahead log.) Tj ET"
+  )
+  page[NameObject("/Contents")] = writer._add_object(content)  # pyrefly: ignore[missing-attribute]
   writer.add_metadata({"/Title": "InKCre semantic content"})
   with (ASSET_DIRECTORY / "document.pdf").open("wb") as output:
     writer.write(output)
@@ -128,6 +179,7 @@ def main() -> None:
   _write_image()
   _write_audio()
   _write_video()
+  _write_subtitled_video()
   _write_pdf()
   _write_epub()
   _write_zip()

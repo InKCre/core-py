@@ -191,11 +191,17 @@ def test_process_global_settings_instance():
     "JWT_SECRET": TEST_JWT_SECRET,
     "OBSRV__LOGGING_BACKEND": "none",
   }
-  with patch.dict(os.environ, environment, clear=True):
-    reloaded = reload(settings_module)
+  try:
+    with patch.dict(os.environ, environment, clear=True):
+      reloaded = reload(settings_module)
 
-  assert reloaded.settings.database_url == TEST_DATABASE_URL
-  assert reloaded.settings.jwt_secret == TEST_JWT_SECRET
+    assert reloaded.settings.database_url == TEST_DATABASE_URL
+    assert reloaded.settings.jwt_secret == TEST_JWT_SECRET
+  finally:
+    # The module owns a process-global settings snapshot. Restore it from the
+    # surrounding pytest environment so later lazy imports see their selected
+    # database rather than this test's fixture URL.
+    reload(settings_module)
 
 
 def test_pytest_disables_dotenv_loading():
@@ -210,10 +216,14 @@ def test_engine_uses_process_global_settings():
     "DATABASE_SCALE_0": "true",
     "OBSRV__LOGGING_BACKEND": "none",
   }
-  with patch.dict(os.environ, environment, clear=True):
+  import app.engine as engine_module
+
+  try:
+    with patch.dict(os.environ, environment, clear=True):
+      reload(settings_module)
+      reloaded_engine = reload(engine_module)
+
+    assert reloaded_engine.DATABASE_URL == TEST_DATABASE_URL
+  finally:
     reload(settings_module)
-    import app.engine as engine_module
-
-    reloaded_engine = reload(engine_module)
-
-  assert reloaded_engine.DATABASE_URL == TEST_DATABASE_URL
+    reload(engine_module)

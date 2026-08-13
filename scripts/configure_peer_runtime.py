@@ -22,6 +22,7 @@ from app.schemas.peer import CorePeerConfig, PEER_HTTP_PROTOCOL
 
 CAPABILITY_PATHS = {
   "core.extension.management.v1": "/extension-management",
+  "core.feature_retrieval.lexical.v1": "/lexical-retrieval",
   "core.organization.rumination.v1": "/organization/ruminate",
   "core.semantic_retrieval.v1": "/semantic-retrieval",
 }

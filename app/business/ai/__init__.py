@@ -3,7 +3,9 @@
 from .contracts import (
   AICapabilityUnavailableError,
   AIDialectAdapter,
+  AIExecutionRequirement,
   AIFeatureUnavailableError,
+  AIInputUnavailableError,
   AIModelDisabledError,
   AIModelNotFoundError,
   AIOutputContractError,
@@ -16,18 +18,25 @@ from .contracts import (
 from .main import AIManager
 
 # Import installed core dialects only after AIManager exists so decorators register.
-from .dialects import OpenAICompatibleConfig, OpenAICompatibleDialect
+from .dialects import (
+  AlibabaModelStudioDialect,
+  OpenAICompatibleConfig,
+  OpenAICompatibleDialect,
+)
 
 __all__ = [
   "AICapabilityUnavailableError",
   "AIDialectAdapter",
+  "AIExecutionRequirement",
   "AIFeatureUnavailableError",
+  "AIInputUnavailableError",
   "AIManager",
   "AIModelDisabledError",
   "AIModelNotFoundError",
   "AIOutputContractError",
   "AIProviderDisabledError",
   "AIProviderNotFoundError",
+  "AlibabaModelStudioDialect",
   "DuplicateAIDialectRegistrationError",
   "InvalidAIProviderConfigError",
   "OpenAICompatibleConfig",

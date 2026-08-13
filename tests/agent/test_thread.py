@@ -19,10 +19,15 @@ from app.schemas.ai import (
   AssistantMessage,
   FunctionTool,
   SystemMessage,
+  TextContentPart,
   ToolCall,
   ToolResultMessage,
   UserMessage,
 )
+
+
+def _user(text: str) -> UserMessage:
+  return UserMessage(content=(TextContentPart(text=text),))
 
 
 class _ValueInput(pydantic.BaseModel):
@@ -65,7 +70,7 @@ def test_natural_completion_persists_user_and_assistant(monkeypatch):
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
     thread, _backend = await _thread()
-    outcome = await thread.start_turn(UserMessage(content="begin"))
+    outcome = await thread.start_turn(_user("begin"))
 
     assert outcome == TurnTermination.COMPLETED
     assert [message.type for message in thread.messages] == [
@@ -102,7 +107,7 @@ def test_tool_calls_execute_concurrently_and_commit_one_closed_pair(monkeypatch)
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
     thread, _backend = await _thread(tools=(tool,), max_model_calls=1)
-    outcome = await thread.start_turn(UserMessage(content="begin"))
+    outcome = await thread.start_turn(_user("begin"))
 
     assert outcome == TurnTermination.MAX_MODEL_CALLS
     assert [message.type for message in thread.messages] == [
@@ -139,7 +144,7 @@ def test_completed_tool_batch_continues_to_the_next_model_call(monkeypatch):
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
     thread, _backend = await _thread(tools=(tool,), max_model_calls=2)
-    outcome = await thread.start_turn(UserMessage(content="begin"))
+    outcome = await thread.start_turn(_user("begin"))
 
     assert outcome == TurnTermination.COMPLETED
     assert model_calls == 2
@@ -177,7 +182,7 @@ def test_tool_failures_are_isolated_and_reported_per_call(monkeypatch):
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
     thread, _backend = await _thread(tools=(owned, unexpected), max_model_calls=1)
-    await thread.start_turn(UserMessage(content="begin"))
+    await thread.start_turn(_user("begin"))
 
     result_message = thread.messages[-1]
     assert isinstance(result_message, ToolResultMessage)
@@ -212,7 +217,7 @@ def test_turn_cancellation_cancels_tools_without_persisting_half_pair(monkeypatc
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
     thread, _backend = await _thread(tools=(tool,))
-    turn = thread.start_turn(UserMessage(content="begin"))
+    turn = thread.start_turn(_user("begin"))
     await started.wait()
     turn.cancel()
     with pytest.raises(asyncio.CancelledError):
@@ -235,7 +240,7 @@ def test_new_turn_recovers_one_incomplete_trailing_tool_message(monkeypatch):
       return AssistantMessage(content="recovered")
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
-    outcome = await thread.start_turn(UserMessage(content="new input"))
+    outcome = await thread.start_turn(_user("new input"))
 
     assert outcome == TurnTermination.COMPLETED
     assert [message.type for message in thread.messages] == [
@@ -257,9 +262,9 @@ def test_thread_rejects_a_second_active_turn(monkeypatch):
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
     thread, _backend = await _thread()
-    first = thread.start_turn(UserMessage(content="first"))
+    first = thread.start_turn(_user("first"))
     with pytest.raises(AgentTurnActiveError):
-      thread.start_turn(UserMessage(content="second"))
+      thread.start_turn(_user("second"))
     release.set()
     await first
 

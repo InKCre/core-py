@@ -2,6 +2,7 @@
 
 import abc
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import pydantic
 
@@ -13,6 +14,17 @@ from app.schemas.ai import (
   ToolChoice,
 )
 from app.schemas.info_base.main import Vector
+
+
+@dataclass(frozen=True)
+class AIExecutionRequirement:
+  """Static capability shape used for peer-local execution eligibility."""
+
+  capability: AICapabilityType
+  input_modalities: frozenset[str]
+  output_modalities: frozenset[str]
+  features: frozenset[str] = frozenset()
+  tool_choice: ToolChoice | None = None
 
 
 class DuplicateAIDialectRegistrationError(ValueError):
@@ -51,6 +63,10 @@ class AIFeatureUnavailableError(RuntimeError):
   """Effective model/adapter support lacks a requested feature."""
 
 
+class AIInputUnavailableError(RuntimeError):
+  """A canonical input cannot be conveyed through the selected dialect."""
+
+
 class AIOutputContractError(RuntimeError):
   """A provider response violated the canonical capability result contract."""
 
@@ -59,6 +75,7 @@ class AIDialectAdapter(abc.ABC):
   """Graph-blind provider config/client construction and wire translation."""
 
   supported_features: dict[AICapabilityType, frozenset[str]] = {}
+  supported_input_modalities: dict[AICapabilityType, frozenset[str]] = {}
 
   @abc.abstractmethod
   async def embed(
@@ -81,6 +98,13 @@ class AIDialectAdapter(abc.ABC):
 
   def supports_feature(self, capability: AICapabilityType, feature: str) -> bool:
     return feature in self.supported_features.get(capability, frozenset())
+
+  def supports_input_modality(
+    self,
+    capability: AICapabilityType,
+    modality: str,
+  ) -> bool:
+    return modality in self.supported_input_modalities.get(capability, frozenset())
 
   def supports_tool_choice(self, tool_choice: ToolChoice) -> bool:
     del tool_choice

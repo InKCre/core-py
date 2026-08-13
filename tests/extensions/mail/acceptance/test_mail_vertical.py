@@ -16,6 +16,7 @@ import sqlmodel
 from app.business.info_base.resolver import ResolverManager, register_core_resolvers
 from app.business.info_base.storage import StorageManager
 from app.business.job import JobManager
+from app.business.lexical_retrieval import LexicalRetrievalManager
 from app.business.source import (
   SOURCE_BACKFILL_JOB_TYPE,
   SOURCE_COLLECT_JOB_TYPE,
@@ -27,6 +28,7 @@ from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageBlobModel
 from app.schemas.job import JobModel, JobStatus
+from app.schemas.lexical_retrieval import LexicalMaintenanceOptions
 from app.schemas.source import SourceModel
 from extensions.mail import Extension
 from extensions.mail.repository import (
@@ -363,6 +365,21 @@ def test_mail_collection_backfill_and_materialization(dovecot: DovecotHarness) -
     attachment = next(
       block for _, block, value in components if value["role"] == "attachment"
     )
+    lexical = await LexicalRetrievalManager.maintain(
+      LexicalMaintenanceOptions(max_records=500)
+    )
+    assert lexical.failed == 0
+    attachment_match = LexicalRetrievalManager.retrieve_local("deep-module-field-note.pdf")
+    assert attachment_match.matches[0].block.id == attachment.id
+    with SessionLocal() as db:
+      assert len(db.exec(sqlmodel.select(StorageBlobModel)).all()) == 0
+      assert not db.exec(
+        sqlmodel.select(RelationModel).where(
+          RelationModel.from_ == attachment.id,
+          RelationModel.content == "content",
+        )
+      ).all()
+
     inline_root = CanonicalMimePart.model_validate_json(inline.content)
     assert inline_root.content_id == "architecture-map@inkcre.acceptance"
     materialized = await ResolverManager.get(inline).get_solved_content()

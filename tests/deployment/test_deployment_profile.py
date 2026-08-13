@@ -22,9 +22,9 @@ def test_production_profile_projects_the_executable_contract():
 
   assert profile["format"] == 1
   assert profile["environment"] == "production"
-  assert contract["migration_heads"] == ["77cd53ad8080"]
+  assert contract["migration_heads"] == ["1e4c7a9b2d5f"]
   assert profile["database_contract"] == {
-    "migration_head": "77cd53ad8080",
+    "migration_head": "1e4c7a9b2d5f",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }
@@ -45,6 +45,7 @@ def test_contract_publishes_the_complete_protocol_projection():
     "ai_models",
     "ai_providers",
     "block_embeddings",
+    "block_lexical_records",
     "blocks",
     "peers",
     "configs",
@@ -125,6 +126,9 @@ def test_contract_publishes_the_complete_protocol_projection():
     "kind": "array",
     "items": {"kind": "number"},
   }
+  assert protocol["relations"]["block_lexical_records"]["columns"]["search_vector"][
+    "type"
+  ] == {"kind": "string", "format": "tsvector"}
   assert protocol["relations"]["storage_blobs"]["columns"]["data"]["type"] == {
     "kind": "string",
     "format": "bytea",

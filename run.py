@@ -34,6 +34,8 @@ from app.routes.extension import ROUTER as extension_router
 from app.routes.source import ROUTER as source_router
 from app.routes.deployment_config import ROUTER as deployment_config_router
 from app.routes.info_base import ROUTER as info_base_router
+from app.routes.lexical_retrieval import PEER_INBOUND as lexical_retrieval_peer_inbound
+from app.routes.lexical_retrieval import ROUTER as lexical_retrieval_router
 from app.routes.organization import PEER_INBOUND as organization_peer_inbound
 from app.routes.organization import ROUTER as organization_router
 from app.routes.semantic_retrieval import PEER_INBOUND as semantic_retrieval_peer_inbound
@@ -44,8 +46,9 @@ from app.business.job import JobManager
 from app.business.extension import ExtensionManager
 from app.business.peer import PeerManager
 from app.business.ai import AIManager
-from app.business.semantic_retrieval import SemanticRetrievalManager
-from app.schemas.semantic_retrieval import EmbeddingMaintenanceOptions
+
+# Import core-owned Job contracts before their catalog is synchronized.
+from app.business.organization_job import MediaInterpretationJobHandler  # noqa: F401
 from app.middleware import LoggingMiddleware, require_peer_jwt
 from app.schemas.peer import PEER_EXECUTION_HEADER
 from app.health import check_database_readiness
@@ -65,6 +68,7 @@ def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   PeerManager.register_self()
   PeerManager.setup_builtin_outbounds()
   PeerManager.register_inbound(semantic_retrieval_peer_inbound)
+  PeerManager.register_inbound(lexical_retrieval_peer_inbound)
   PeerManager.register_inbound(organization_peer_inbound)
   PeerManager.register_inbound(extension_peer_inbound)
 
@@ -111,20 +115,6 @@ def bootstrap_runtime(app: fastapi.FastAPI) -> None:
     "interval",
     seconds=30,
     id="crons.check",
-    replace_existing=True,
-  )
-  scheduler.add_job(
-    SemanticRetrievalManager.maintain_default,
-    "interval",
-    seconds=settings.semantic_retrieval_maintenance_interval_seconds,
-    kwargs={
-      "options": EmbeddingMaintenanceOptions(
-        max_embeddings=settings.semantic_retrieval_maintenance_max_embeddings,
-        batch_size=settings.semantic_retrieval_maintenance_batch_size,
-        scan_page_size=settings.semantic_retrieval_maintenance_scan_page_size,
-      )
-    },
-    id="semantic_retrieval.maintain_default",
     replace_existing=True,
   )
 
@@ -226,6 +216,7 @@ core_router.include_router(deployment_config_router)
 core_router.include_router(info_base_router)
 core_router.include_router(organization_router)
 core_router.include_router(semantic_retrieval_router)
+core_router.include_router(lexical_retrieval_router)
 api_app.include_router(core_router)
 
 if __name__ == "__main__":

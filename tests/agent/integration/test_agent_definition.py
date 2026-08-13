@@ -24,6 +24,7 @@ from app.schemas.ai import (
   AssistantMessage,
   ChatCapability,
   NamedToolChoice,
+  TextContentPart,
   UserMessage,
 )
 
@@ -141,7 +142,7 @@ def test_agent_definition_round_trip_and_active_thread_snapshot(monkeypatch):
       monkeypatch.setattr(AIManager, "chat", classmethod(chat))
       thread = await _IntegrationAgentManager.run(
         agent_id,
-        UserMessage(content="initial input"),
+        UserMessage(content=(TextContentPart(text="initial input"),)),
       )
       assert thread.current_turn is not None
       assert await thread.current_turn == TurnTermination.COMPLETED

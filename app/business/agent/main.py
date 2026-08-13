@@ -8,6 +8,7 @@ import typing
 
 import pydantic
 
+from app.business.ai import AIExecutionRequirement, AIManager
 from app.engine import SessionLocal
 from app.schemas import AgentDefinitionModel
 from app.schemas.agent import AgentID
@@ -67,6 +68,29 @@ class AgentManager:
 
   _TOOLS: dict[str, _ToolRegistration] = {}
   _persistence: ThreadPersistenceBackend = InMemoryThreadPersistenceBackend()
+
+  @classmethod
+  def can_execute(cls, agent_id: AgentID, input_modality: str) -> bool:
+    """Return static local eligibility for one Agent and canonical input modality."""
+    with SessionLocal() as db:
+      definition = db.get(AgentDefinitionModel, agent_id)
+    if definition is None:
+      return False
+    try:
+      cls._bind_tools(definition.tools)
+    except MissingAgentToolError:
+      return False
+    requires_tools = bool(definition.tools) or definition.tool_choice is not None
+    return AIManager.can_execute(
+      definition.model,
+      AIExecutionRequirement(
+        capability="chat",
+        input_modalities=frozenset({"text", input_modality}),
+        output_modalities=frozenset({"text"}),
+        features=frozenset({"tool_calling"}) if requires_tools else frozenset(),
+        tool_choice=definition.tool_choice,
+      ),
+    )
 
   @classmethod
   def tool(

@@ -62,10 +62,12 @@
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
   Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
   消费该 exact shared truth。该 implementable unit 已关闭。
-- **Next Step**: [Mail extension](units/mail-extension/packet.md) 已于 2026-08-11 完成 implementation、real
-  Dovecot/PostgreSQL J1–J3、built-browser/Peer J4、Hub `067c60a` promotion、两个 Spoke implementation commits 与纯
-  shared-ref bumps；post-bump repository gates 均通过。当前没有 active implementable unit；下一步回到 program
-  selection gate，基于用户价值与 remaining pressures 选择新 unit，不自动沿旧队列推进。
+- **Next Step**: [feature retrieval](units/feature-retrieval/packet.md) 的 lexical increment 已完成本地实现与主要验收：
+  core derived records/Jobs/Peer capability、multimodal Resolver + Organization paths 和 client InfoBaseListView 均已落地，
+  real NASA/DashScope vertical 与本地完整 contracts 已通过。D-340 关闭 public-JWT 分叉，self-host signing authority
+  保持 owner-private；
+  Render controller/workflow 已实现，真实 host probe 等账号可用后补。当前进入 durable promotion、owner review，随后在
+  Sir 独立授权下按 owner 提交/push 并等待 core/client exact preview closure。
 
 ## Program Boundary
 
@@ -81,8 +83,12 @@
 
 ## Active Implementable Unit
 
-当前没有 active implementable unit。[Mail extension](units/mail-extension/packet.md) 的 Product、Technical、
-Acceptance、Implementation、Verify、Promote 与 owner-separated delivery 均已关闭。
+当前 active implementable Unit 是 [Feature retrieval](units/feature-retrieval/packet.md)。Unit 边界容纳 lexical 与
+perceptual features；当前只推进第一个可独立设计、实现和验收的 lexical retrieval increment。Graph relationship
+recall 与 hybrid composition 分别由 graph-navigation 和后续组合层承担。
+
+[Mail extension](units/mail-extension/packet.md) 的 Product、Technical、Acceptance、Implementation、Verify、Promote
+与 owner-separated delivery 均已关闭。
 本轮保留 extension identity，把旧实现当作需求与失败证据；先建立可信 collection baseline，再由真实邮件
 场景推动 organization、info-base basic use/query 与 client-web 的必要演进。MVP / MLP 由用户 job、价值与
 可接受代价决定，不以协议完整性或 feature checklist 代替产品判断（D-198/D-199）。
@@ -112,6 +118,10 @@ Product contract
   → Verify / Promote
 ```
 
+- **Experimental task-wide discussion loop**：current model reconciliation → authority/scope/lifecycle classification →
+  topology and/or multi-execution sequence when behavior crosses owners or time → dominated-option removal → at most one
+  credible human fork。A question is an output of unresolved model pressure，not the unit of discussion progress。This protocol
+  is under Sir's experiential review and is not a law；see [design taste](design-taste.md)。
 - Product 明确用户旅程、范围、非目标、成功和可观察失败。
 - Technical 明确 owner、topology、data/API contract、compatibility 与 failure/partial-effect semantics。
 - Acceptance 在实现前固定 public/runtime input、持久 graph、resolver/native output、错误与重复执行

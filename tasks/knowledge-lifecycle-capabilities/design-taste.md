@@ -1,8 +1,29 @@
 # Design Taste and Discussion Filter
 
-> Active working-memory control，not durable product/technical truth。Canonical common-pattern descriptions remain in
+> **Status: experimental，task-wide，not law.** This is active working-memory control，not durable product/technical truth。
+> Sir will judge and revise it through actual discussion experience。Canonical common-pattern descriptions remain in
 > [documentation promotion](documentation-promotion.md)；this file keeps the small set needed before proposing architecture or
 > asking Sir for a decision。
+
+## Experimental Discussion Model
+
+The unit of progress is a more coherent、evidence-backed current system model，not another answered question or a longer
+decision register。Sir's preference to ask one question at a time is an upper bound on simultaneous human review，not a
+requirement to manufacture one question after every answer。
+
+Before turning an unresolved point into a human question：
+
+1. reconcile the latest accepted decision with the owning Product/Technical model and derive its natural consequences；
+2. classify each proposed value by authority、scope/cardinality and lifecycle。When several owners/lifecycles interact，draw a
+   small topology before designing their interfaces；
+3. when behavior is recurring、asynchronous、partial or state-dependent，replay at least two executions in a sequence/state
+   model and identify the persisted fact that makes the second execution different；
+4. eliminate choices already dominated by confirmed constraints and marginal utility；
+5. if one coherent answer remains，record/present the derived result without asking。Only surviving credible forks enter human
+   review，one at a time。
+
+This workflow is deliberately experimental。Topology and sequence models are tools selected when they expose the relevant
+dependency or time behavior，not compulsory diagram artifacts for every small naming or mechanical decision。
 
 ## Before Escalating a Design Question
 
@@ -29,6 +50,12 @@ Mail ordinary collection had already persisted valid graph facts。Making a fail
 checkpoint would repeatedly re-fetch the delta、possibly pin progress on a permanent external error and couple collection
 authority to a workflow convenience。The isolated harm—one message remains unseen and the Job reports a diagnostic—is cheaper
 and recoverable。This was a dominated proposal and should never have been escalated as a product decision。
+
+Media-interpretation routing exposed the deeper discussion failure：after accepting per-modality Agents，the next response
+treated “produce another decision question” as progress and mechanically projected modality into Cron/Job parameters。The
+existing facts already implied one parameterless convergence Job：Cron owns a static template，Organization derives modality per
+candidate，and graph state changes the next candidate set。A topology plus two-occurrence sequence would have made that
+implication explicit，but the root correction is to make model reconciliation—not question production—the work unit。
 
 ## Scope Discipline
 

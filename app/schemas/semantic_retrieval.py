@@ -118,3 +118,12 @@ class EmbeddingMaintenanceReport(pydantic.BaseModel):
   unavailable: int = 0
   failed: int = 0
   diagnostics: tuple[EmbeddingMaintenanceDiagnostic, ...] = ()
+
+
+class EmbeddingMaintenanceJobParameters(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  profile: EmbeddingProfileID | None = None
+  options: EmbeddingMaintenanceOptions = pydantic.Field(
+    default_factory=EmbeddingMaintenanceOptions
+  )

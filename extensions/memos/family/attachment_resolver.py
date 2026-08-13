@@ -1,7 +1,7 @@
 """Versioned attachment metadata and owner resolver."""
 
 from app.business.info_base.block import BlockManager
-from app.business.info_base.resolver import Resolver, ResolverManager
+from app.business.info_base.resolver import Resolver, ResolverManager, TextProjectionContext
 from app.business.info_base.resolver.label import format_label
 
 from .graph import ATTACHMENT_RELATION_PREFIX, ATTACHMENT_RESOLVER, CONTENT_RELATION
@@ -58,10 +58,11 @@ class AttachmentResolver(
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
-    del materialize_missing
+    del context, materialize_missing
     if refresh:
       self._canonical = CanonicalAttachment.from_block_content(self._block.content)
     return self._canonical.filename

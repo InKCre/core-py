@@ -3,7 +3,7 @@
 import pydantic
 
 from app.business.info_base.resolver.label import format_label
-from app.business.info_base.resolver.main import Resolver
+from app.business.info_base.resolver.main import Resolver, TextProjectionContext
 
 
 SOURCE_RESOLVER_ID = "core.source.v1"
@@ -30,9 +30,11 @@ class SourceResolver(Resolver[SourceContent, str], rso_type=SOURCE_RESOLVER_ID):
   async def get_text(
     self,
     *,
+    context: TextProjectionContext = "default",
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
+    del context
     source = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,

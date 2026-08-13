@@ -64,7 +64,7 @@
 
 ### 5. Application Owns Retrieval Support；AI Execution Is Graph-Blind
 
-- application/use capability 负责 graph projection、embedding-record lifecycle、ranking 与结果合同。
+- application/use capability 负责 graph projection、derived retrieval-record lifecycle、ranking 与结果合同。
 - `AIManager` 只把 typed embedding/chat 请求路由到 AIModel → AIProvider → dialect adapter；它不理解
   Block、Relation、Resolver、organization 或 retrieval policy。
 - `AgentManager` 把一个 persisted Agent definition（system prompt、model、Tool set、nullable tool choice、per-turn
@@ -77,19 +77,27 @@
 - `SemanticRetrievalManager` 是 projection/profile/record/ranking owner。Block semantic input 只来自 Resolver
   `get_text()`；Relation semantic input 由 RelationManager 组合 from-label、exact relation content 与 to-label，保留
   `to is from's property` 的方向语义。AIManager 只接收最终 typed text batch。
-- `maintain` 只扫描 missing/stale records，并越过 unavailable entity；`rebuild` 以调用开始时间为 cutoff。两者都
-  不建立 job/dirty/lease/retry lifecycle，且 projection/provider work 不持有数据库 transaction；完整有效 batch
-  才短事务 upsert。
+- semantic `maintain` 只扫描 missing/stale records，并越过 unavailable entity；`rebuild` 以调用开始时间为 cutoff。
+  Manager method 不创建 job/dirty/lease/retry lifecycle，且 projection/provider work 不持有数据库 transaction；完整
+  有效 batch 才短事务 upsert。Exact typed Job Handler 可调用同一 method 并把 bounded report 写入 Job state。
 - `retrieve` 只比较 timestamp-fresh、dimension-compatible、non-zero records，返回一个全局排序的真实
   Block/Relation 列表；它不隐式维护 records，也不生成答案。
 - Block/Relation 写入不隐式生成或删除 embedding records。Profile-scoped records 是 derived support，freshness 由
   owning use capability 根据 database-owned timestamps 判断。
+- `LexicalRetrievalManager` 只为 Block 建立 `label + optional text` record。`context="lexical"` 是 non-recursive
+  Block-local Resolver projection；parent 不复制完整 child text。literal/substring/`simple` term ranking 返回真实 Blocks
+  与 bounded evidence，不生成 transient search entities。
+- lexical maintain 允许 Resolver 在 exact capability 内 materialize missing faithful text child，但 record owner 不取得
+  OCR/ASR、Storage 或 graph-write ownership。media description/summary 属于 Organization interpretation；Organization
+  只改变 graph，后续 lexical maintain 才更新 derived records。
+- semantic 与 lexical maintain/rebuild 都有 exact typed Job Handler。Manager method 本身仍不创建 Job；Cron 只通过
+  generic Job template 产生 occurrence。
 
 ### 6. Organization Improves The Existing Info-Base Explicitly
 
 - organization 是为后续 use 改善既有 info-base 的能力，不是 collection lifecycle 或信息状态。Block CRUD、source
   collection 和 extension protocol ingestion 都不会隐式触发 organization。
-- 当前唯一具体 approach 是 `OrganizationManager.ruminate(block_id)`。它从 focal Resolver `get_text()` 与全部 direct
+- 当前 explicit focal approach 是 `OrganizationManager.ruminate(block_id)`。它从 focal Resolver `get_text()` 与全部 direct
   Relations 构造 bounded context；other endpoint 只投影正数 Block reference、resolver ID 与 `get_label()`，不递归读取。
 - deployment config `core.organization.rumination` 通过 schema `core.organization.rumination.config.v1` 选择一个 persisted
   Agent。缺少 config 与悬空 Agent reference 在 use 时分别失败；config relation 不取得 Agent 生命周期所有权。
@@ -100,6 +108,9 @@
 - rumination 是一次显式、additive、best-effort attempt。不能理解或模型诚实 no-op 都浅层完成；model-call budget
   exhaustion 成为一个 organization-level failure，caller cancellation 传导到 Turn。没有 retry、rollback、run record、
   job、scheduler、freshness skip 或自动 deduplication。
+- `OrganizationManager.interpret_missing_media()` 是独立 system-driven approach。它扫描尚无 `interpretation` relation 的
+  image/audio/video Blocks，按 modality 选择 deployment-owned Agent，把 solved media 作为 canonical AI content part 交给
+  Agent，并只接受现有 graph Tool 的 additive result。它不写 lexical records，也不是 Resolver faithful materialization。
 
 ### 7. Peer Discovery Routes Heterogeneous Runtime Capabilities
 
@@ -107,7 +118,7 @@
   registries、full-snapshot publication、database-time liveness filtering and one-shot delegation；it does not understand
   capability payloads。
 - Business owners retain typed codecs and non-delegating local seams。Current exact inbounds are
-  `core.semantic_retrieval.v1`、`core.organization.rumination.v1` and exact-target
+  `core.semantic_retrieval.v1`、`core.feature_retrieval.lexical.v1`、`core.organization.rumination.v1` and exact-target
   `core.extension.management.v1`。
 - `core.peer.protocol.http.v1` owns normalized query/headers/body envelopes、Peer JWT and HTTP response projection。
   Generic failover occurs only after pre-dispatch failure or exact `InkCre-Peer-Execution: not-executed`；a normal domain
@@ -158,3 +169,5 @@ Memos 的已验证实现合同由 [memos-extension.md](memos-extension.md) 负�
 RSS/Atom source vertical 由 [rss-extension.md](rss-extension.md) 负责。
 Semantic retrieval、embedding records 与 rumination 的内部合同由
 [semantic-retrieval.md](semantic-retrieval.md) 负责。
+Lexical feature retrieval、media textualization/interpretation boundary 与 lexical records 由
+[lexical-retrieval.md](lexical-retrieval.md) 负责。
