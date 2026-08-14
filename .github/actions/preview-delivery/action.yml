@@ -11,6 +11,9 @@ inputs:
   heroku_api_key:
     description: Heroku authorization for preview app lifecycle
     required: true
+  jwt_secret:
+    description: Repository signing secret shared by canonical deployments
+    required: true
   neon_api_key:
     description: Neon authorization for resolving the preview connection
     required: true
@@ -19,9 +22,6 @@ inputs:
     required: true
   postgrest_database_password:
     description: Preview PostgREST authenticator role password
-    required: true
-  preview_jwt_seed:
-    description: Root secret used to derive one stable signing key per repository PR
     required: true
   pr_number:
     description: Pull request number
@@ -270,10 +270,10 @@ runs:
         HAS_POSTGREST_RELEASE: ${{ steps.heroku.outputs.has_postgrest_release }}
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
+        JWT_SECRET: ${{ inputs.jwt_secret }}
         PR_NUMBER: ${{ inputs.pr_number }}
         POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
         POSTGREST_DATABASE_URL: ${{ steps.database.outputs.postgrest_database_url }}
-        PREVIEW_JWT_SEED: ${{ inputs.preview_jwt_seed }}
         WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: |
         wait_for_release() {
@@ -397,12 +397,6 @@ runs:
           fi
         }
 
-        JWT_SECRET="$(
-          python \
-            "$GITHUB_ACTION_PATH/../../../scripts/derive_preview_jwt_secret.py" \
-            --repository "$GITHUB_REPOSITORY" \
-            --pr-number "$PR_NUMBER"
-        )"
         test -n "$JWT_SECRET"
         echo "::add-mask::$JWT_SECRET"
 

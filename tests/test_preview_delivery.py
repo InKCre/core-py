@@ -20,8 +20,10 @@ def test_preview_builds_releases_probes_and_cleans_postgrest():
   assert "--scheme postgresql" in delivery
   assert "PGRST_DB_PRE_REQUEST=inkcre_internal.check_jwt" in delivery
   assert "PGRST_JWT_AUD=inkcre-api" in delivery
-  assert "derive_preview_jwt_secret.py" in delivery
-  assert "PREVIEW_JWT_SEED" in workflow
+  assert "jwt_secret: ${{ secrets.JWT_SECRET }}" in workflow
+  assert "JWT_SECRET: ${{ inputs.jwt_secret }}" in delivery
+  assert "PREVIEW_JWT_SEED" not in workflow
+  assert "derive_preview_jwt_secret.py" not in delivery
   assert "registry.heroku.com/$POSTGREST_APP_NAME/web" in delivery
   assert 'heroku ps:scale web=1:eco --app "$POSTGREST_APP_NAME"' in delivery
   assert "scripts/verify_postgrest_contract.py" in delivery
@@ -36,7 +38,7 @@ def test_preview_keeps_database_principals_separated():
   ]
   postgrest_config = delivery[
     delivery.index("configure_postgrest() {") : delivery.index(
-      'JWT_SECRET="$(',
+      'test -n "$JWT_SECRET"',
       delivery.index("configure_postgrest() {"),
     )
   ]
@@ -48,10 +50,12 @@ def test_preview_keeps_database_principals_separated():
   assert "MIGRATION_DATABASE_URL" not in postgrest_config
 
 
-def test_preview_jwt_identity_survives_app_recreation():
+def test_preview_uses_repository_jwt_authority_directly():
+  workflow = (PROJECT_ROOT / ".github/workflows/preview-deploy.yml").read_text()
   delivery = (PROJECT_ROOT / ".github/actions/preview-delivery/action.yml").read_text()
 
   assert 'JWT_SECRET="$(heroku config:get JWT_SECRET' not in delivery
   assert "openssl rand -hex" not in delivery
-  assert '--repository "$GITHUB_REPOSITORY"' in delivery
-  assert '--pr-number "$PR_NUMBER"' in delivery
+  assert "preview_jwt_seed" not in delivery
+  assert "jwt_secret: ${{ secrets.JWT_SECRET }}" in workflow
+  assert "JWT_SECRET: ${{ inputs.jwt_secret }}" in delivery

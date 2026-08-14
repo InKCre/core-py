@@ -46,11 +46,11 @@ portable-runtime, and branch checks pass for the exact PR SHA, preview delivery:
 7. forces both formations to `web=1:eco`, probes Core `/livez` plus `/readyz`, and
    verifies authenticated PostgREST read/write plus anonymous and wrong-secret denial.
 
-The `preview` environment owns a root `PREVIEW_JWT_SEED`. Delivery derives the actual
-signing key with HMAC-SHA256 over the repository and PR number. The key is therefore stable
-across app redeployments or destruction/recreation, isolated between PRs, and never stored in
-source or copied from production. Both preview apps are converged to that exact derived key on
-every delivery.
+The repository-level `JWT_SECRET` is the single signing-key authority for canonical
+production and same-repository previews. Delivery passes that value directly to both Preview
+apps on every run, so Core and PostgREST remain aligned across redeployments or app
+recreation. The value stays in GitHub Secrets and never enters source, artifacts, logs, or
+workflow summaries.
 
 The owner URL never enters preview Heroku config. The Core app receives only the
 `inkcre_core` URL; the PostgREST app receives only the `authenticator` URL. PR close destroys
@@ -132,21 +132,21 @@ and audience validation.
 
 ## Secret Boundary
 
-The GitHub `preview` environment owns its Heroku authorization, LLM inputs, the two
-database-role passwords, and `PREVIEW_JWT_SEED`. `NEON_API_KEY` remains a repository secret
-and `NEON_PROJECT_ID` a repository variable.
+The GitHub `preview` environment owns its Heroku authorization, LLM inputs, and the two
+database-role passwords. `JWT_SECRET` and `NEON_API_KEY` remain repository secrets, while
+`NEON_PROJECT_ID` remains a repository variable.
 
 The GitHub `production` environment independently owns:
 
 - dedicated Heroku authorization;
-- JWT signing secret;
 - LLM inputs;
 - `CORE_DATABASE_PASSWORD`;
 - `POSTGREST_DATABASE_PASSWORD`.
 
 It records exact non-secret app and Neon branch identities, the fresh recovery branch, and
 the one-time bootstrap revision. Production admits deployments from `main` only and does
-not reuse preview authorization, database passwords, or JWT secret.
+not reuse preview authorization or database passwords. Preview and production deliberately
+share only the repository signing-key authority.
 
 The preview Heroku authorization named `GitHub InKCre/core-py preview CD` was created with a
 365-day lifetime on 2026-07-23. Rotate it no later than 2027-07-23 and revoke the superseded
