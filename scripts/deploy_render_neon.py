@@ -481,6 +481,22 @@ def _probe_core(url: str, *, wait_seconds: float) -> None:
     time.sleep(5)
 
 
+def _probe_postgrest(url: str, *, wait_seconds: float) -> None:
+  """Wait until Render routes requests to the configured PostgREST runtime."""
+  deadline = time.monotonic() + wait_seconds
+  endpoint = f"{url.rstrip('/')}/peers?select=id&limit=1"
+  while True:
+    try:
+      response = httpx.get(endpoint, timeout=15)
+      if response.status_code == 401:
+        return
+    except httpx.HTTPError:
+      pass
+    if time.monotonic() >= deadline:
+      raise RuntimeError("Render PostgREST availability probe timed out")
+    time.sleep(5)
+
+
 def _validate_inputs(
   *,
   service_prefix: str,
@@ -632,6 +648,7 @@ def deploy_render_neon(
     wait_seconds=request.wait_seconds,
   )
   _probe_core(core.url, wait_seconds=request.wait_seconds)
+  _probe_postgrest(postgrest.url, wait_seconds=request.wait_seconds)
   configure_peer_runtime(
     core_database_url,
     peer_id,
