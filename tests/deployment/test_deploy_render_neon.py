@@ -5,12 +5,14 @@ from __future__ import annotations
 import httpx
 import pytest
 
+import scripts.deploy_render_neon as deployment
 from scripts.deploy_render_neon import (
   RenderAPIError,
   RenderClient,
   RenderService,
   RenderServiceSpec,
   _deploy_exact_commit,
+  _probe_postgrest,
   _role_password,
   _validate_inputs,
 )
@@ -325,6 +327,28 @@ def test_initial_non_exact_deploy_is_followed_by_exact_commit():
     ("POST", "/v1/services/srv-core/deploys"),
     ("GET", "/v1/services/srv-core/deploys/dep-exact"),
   ]
+
+
+def test_postgrest_probe_waits_for_render_to_route_the_runtime(monkeypatch):
+  statuses = iter((404, 502, 401))
+  requests: list[tuple[str, int]] = []
+  sleeps: list[int] = []
+
+  def get(url: str, *, timeout: int) -> httpx.Response:
+    requests.append((url, timeout))
+    return httpx.Response(next(statuses))
+
+  monkeypatch.setattr(deployment.httpx, "get", get)
+  monkeypatch.setattr(deployment.time, "sleep", sleeps.append)
+
+  _probe_postgrest("https://selfhost-postgrest.onrender.com/", wait_seconds=60)
+
+  assert requests == [
+    ("https://selfhost-postgrest.onrender.com/peers?select=id&limit=1", 15),
+    ("https://selfhost-postgrest.onrender.com/peers?select=id&limit=1", 15),
+    ("https://selfhost-postgrest.onrender.com/peers?select=id&limit=1", 15),
+  ]
+  assert sleeps == [5, 5]
 
 
 @pytest.mark.parametrize(
