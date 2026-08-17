@@ -42,14 +42,15 @@ context-free requirements.
 If `docs/_shared/` is missing, run `git submodule update --init --recursive` before following shared-doc links.
 
 - Agent operating guide: [AGENTS.md](AGENTS.md)
-- Working protocol: run `svc status . --json` and query the installed SVC 10.0.1 corpus.
+- Working protocol: run `svc status . --json`, then read `index.md` with
+  `svc lookup --path`; the adopted SVC corpus is 14.0.0. Load
+  `sub-agents/index.md`, `verification/index.md`, or
+  `task-packet/index.md` only when their stated pressure exists.
 - Shared Hub/Spoke operations: [docs/_shared/00-meta/](docs/_shared/00-meta/)
 - Shared product truth: [docs/_shared/10-prd/index.md](docs/_shared/10-prd/index.md)
 - Shared product glossary: [docs/_shared/10-prd/glossary.md](docs/_shared/10-prd/glossary.md)
 - Shared cross-unit technical truth: [docs/_shared/20-product-tdd/](docs/_shared/20-product-tdd/)
-- Local unit architecture: [docs/30-unit-tdd/business-pipeline-and-authority.md](docs/30-unit-tdd/business-pipeline-and-authority.md)
-- Memos extension architecture: [docs/30-unit-tdd/memos-extension.md](docs/30-unit-tdd/memos-extension.md)
-- Core security model: [docs/30-unit-tdd/security-model.md](docs/30-unit-tdd/security-model.md)
+- Local unit design and security model: [docs/30-unit-tdd/README.md](docs/30-unit-tdd/README.md)
 - Deployment and runtime truth: [docs/40-deployment/README.md](docs/40-deployment/README.md)
 - Agent-owned volatile task workspaces: [tasks/](tasks/)
 

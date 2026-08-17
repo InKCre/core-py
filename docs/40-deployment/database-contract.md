@@ -1,5 +1,9 @@
 # Executable Database Contract
 
+Shared Peer, capability, and wire semantics are owned by `../_shared/20-product-tdd/`. This document
+owns how core-py's database roles, lifecycle commands, readiness, and deployed profiles realize those
+contracts. A cross-unit semantic change must update the Hub owner before this runtime projection.
+
 ## Authority Boundary
 
 `core-py` owns the executable PostgreSQL protocol artifact without becoming a privileged central backend. Native
