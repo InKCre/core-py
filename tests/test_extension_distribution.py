@@ -37,18 +37,11 @@ from app.business.extension.release import (
 )
 from app.version import CORE_VERSION
 from scripts.extension_distribution import read_project, verify_wheel
+from scripts.extension_release import discover_projects
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-EXTENSIONS = (
-  "github",
-  "learn_english",
-  "mail",
-  "memos",
-  "rss",
-  "telegram",
-  "twitter",
-)
+EXTENSIONS = tuple(project.key for project in discover_projects())
 
 
 def release_and_association():
@@ -173,7 +166,6 @@ def test_all_first_party_projects_build_pep420_entry_point_wheels(tmp_path: Path
     assert f"extensions/{extension}/__init__.py" in members
 
   assert read_project(PROJECT_ROOT / "extensions/twitter").version == "0.2.0"
-
   venv = tmp_path / "lifecycle-venv"
   subprocess.run(  # noqa: S603 -- fixed interpreter and disposable venv
     [sys.executable, "-m", "venv", "--system-site-packages", str(venv)],
@@ -506,18 +498,18 @@ def test_failed_site_packages_mutation_makes_consumer_globally_restart_required(
   assert len(commands) == command_count
 
 
-def test_extension_publish_workflow_gates_immutable_versions_by_changed_path():
+def test_extension_publish_workflow_gates_immutable_versions_by_release_intent():
   workflow = (PROJECT_ROOT / ".github/workflows/extension-publish.yml").read_text()
 
   assert "github.event.workflow_run.check_suite_id" in workflow
   assert "--jq .before" in workflow
-  assert 'git diff --quiet "$before" HEAD -- "extensions/$EXTENSION"' in workflow
   assert 'git merge-base --is-ancestor "$before" HEAD' in workflow
+  assert "scripts/extension_release.py version-changed" in workflow
   assert "Verify source belongs to current main history" in workflow
   assert "git merge-base --is-ancestor HEAD origin/main" in workflow
-  assert 'git diff --quiet HEAD origin/main -- "extensions/$EXTENSION"' in workflow
+  assert "scripts/extension_release.py verify-artifact-unchanged" in workflow
   assert workflow.index(
-    "Revalidate Extension subtree before remote mutation"
+    "Revalidate Extension artifact input before remote mutation"
   ) < workflow.index("Prepare exact native Release association")
   assert "Record unchanged Extension no-op" in workflow
   assert "curl --fail-with-body" in workflow

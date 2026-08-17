@@ -1,6 +1,6 @@
 # extensions/ - First-party native wheels
 
-这里保存六个 first-party Extension 的生产源码，但 Core application image 不复制本目录。
+这里保存七个 first-party Extension 的生产源码，但 Core application image 不复制本目录。
 每个子目录是一个独立 PEP 420 wheel producer。
 
 ## 必须满足的 wheel 形状
@@ -20,8 +20,9 @@
 ## 发布与版本
 
 `scripts/extension_distribution.py` 构建期核对 wheel metadata、完整依赖、entry point、PEP 420
-形状及 producer metadata。`.github/workflows/extension-publish.yml` 仅在 exact-main checks 成功后，
-按 changed Extension directory 独立 prepare、上传、publish。Release name/version 不可复用；源码
-或 Distribution bytes 变化必须先提升该 Extension 版本。
+形状及 producer metadata。`scripts/extension_release.py` 自动发现本目录的 producer，并检查 Changie、
+changelog、project version 与 Git transition。`.github/workflows/extension-publish.yml` 仅在 exact-main
+checks 成功后，为 new or changed Release version 独立 prepare、上传、publish。Release name/version
+不可复用；artifact input 变化必须先通过 Changie 提升该 Extension 版本。
 
-本目录当前 producer：`github`、`learn_english`、`mail`、`rss`、`telegram`、`twitter`。
+本目录当前 producer：`github`、`learn_english`、`mail`、`memos`、`rss`、`telegram`、`twitter`。

@@ -88,6 +88,8 @@ test = "python -m pytest -q"
 "test:migrations" = "python -m pytest -q tests/migrations"
 "check:migrations" = { composite = ["lint:migrations", "test:migrations", "alembic heads"] }
 "check:migration-history" = "python scripts/check_migration_history.py {args}"
+"check:extension-releases" = "python scripts/extension_release.py check {args}"
+"release:extension" = "python scripts/extension_release.py prepare {args}"
 "lint:settings" = "ruff check --no-cache tests/app/test_settings.py"
 "test:settings" = "python -m pytest -q tests/app/test_settings.py"
 "check:foundation" = { composite = ["doctor", "check:lock", "check:migrations", "lint:settings", "test:settings"] }
