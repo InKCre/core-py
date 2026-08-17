@@ -53,7 +53,14 @@ def snapshot_is_ready(
   lease_is_live: bool,
   expected: list[dict[str, typing.Any]],
 ) -> bool:
-  return lease_is_live and capabilities == expected
+  if not lease_is_live or not isinstance(capabilities, list):
+    return False
+  published = {
+    capability.get("id"): capability
+    for capability in capabilities
+    if isinstance(capability, dict) and isinstance(capability.get("id"), str)
+  }
+  return all(published.get(capability["id"]) == capability for capability in expected)
 
 
 def configure_peer_runtime(
