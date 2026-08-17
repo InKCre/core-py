@@ -37,18 +37,11 @@ from app.business.extension.release import (
 )
 from app.version import CORE_VERSION
 from scripts.extension_distribution import read_project, verify_wheel
+from scripts.extension_release import discover_projects
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-EXTENSIONS = (
-  "github",
-  "learn_english",
-  "mail",
-  "memos",
-  "rss",
-  "telegram",
-  "twitter",
-)
+EXTENSIONS = tuple(project.key for project in discover_projects())
 
 
 def release_and_association():
@@ -171,8 +164,6 @@ def test_all_first_party_projects_build_pep420_entry_point_wheels(tmp_path: Path
       members = set(archive.namelist())
     assert "extensions/__init__.py" not in members
     assert f"extensions/{extension}/__init__.py" in members
-
-  assert read_project(PROJECT_ROOT / "extensions/twitter").version == "0.1.1"
 
   venv = tmp_path / "lifecycle-venv"
   subprocess.run(  # noqa: S603 -- fixed interpreter and disposable venv
@@ -495,99 +486,6 @@ def test_failed_site_packages_mutation_makes_consumer_globally_restart_required(
   with pytest.raises(ExtensionRestartRequiredError, match="mutation began"):
     consumer.acquire(release, association)
   assert len(commands) == command_count
-
-
-def test_extension_publish_workflow_gates_immutable_versions_by_changed_path():
-  workflow = (PROJECT_ROOT / ".github/workflows/extension-publish.yml").read_text()
-
-  assert "github.event.workflow_run.check_suite_id" in workflow
-  assert "--jq .before" in workflow
-  assert 'git diff --quiet "$before" HEAD -- "extensions/$EXTENSION"' in workflow
-  assert 'git merge-base --is-ancestor "$before" HEAD' in workflow
-  assert "Verify source belongs to current main history" in workflow
-  assert "git merge-base --is-ancestor HEAD origin/main" in workflow
-  assert 'git diff --quiet HEAD origin/main -- "extensions/$EXTENSION"' in workflow
-  assert workflow.index(
-    "Revalidate Extension subtree before remote mutation"
-  ) < workflow.index("Prepare exact native Release association")
-  assert "Record unchanged Extension no-op" in workflow
-  assert "curl --fail-with-body" in workflow
-  assert '--build-id "${{ github.run_id }}"' in workflow
-  assert "github.run_attempt" not in workflow
-  assert "INITIAL_ONLY" in workflow
-  assert "recovery must rerun the original publication run" in workflow
-  assert workflow.count("steps.selection.outputs.selected == 'true'") >= 6
-
-
-def test_extension_publish_unrelated_commit_is_an_explicit_noop():
-  changed_paths = {"README.md", "app/settings.py"}
-
-  assert not any(path.startswith("extensions/github/") for path in changed_paths)
-
-
-def test_older_checked_publication_survives_unrelated_main_but_not_same_subtree(
-  tmp_path: Path,
-):
-  repository = tmp_path / "repository"
-  repository.mkdir()
-
-  def git(*arguments: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 -- fixed git command and disposable repository
-      ["git", *arguments],
-      cwd=repository,
-      check=False,
-      capture_output=True,
-      text=True,
-    )
-
-  assert git("init", "--initial-branch=main").returncode == 0
-  assert git("config", "user.name", "Extension Test").returncode == 0
-  assert git("config", "user.email", "extension@example.test").returncode == 0
-  rss = repository / "extensions/rss"
-  rss.mkdir(parents=True)
-  (rss / "pyproject.toml").write_text("version = '0.1.0'\n")
-  assert git("add", ".").returncode == 0
-  assert git("commit", "-m", "change rss").returncode == 0
-  checked_rss = git("rev-parse", "HEAD").stdout.strip()
-
-  (repository / "README.md").write_text("docs only\n")
-  assert git("add", ".").returncode == 0
-  assert git("commit", "-m", "docs").returncode == 0
-  docs_head = git("rev-parse", "HEAD").stdout.strip()
-  assert git("merge-base", "--is-ancestor", checked_rss, docs_head).returncode == 0
-  assert (
-    git("diff", "--quiet", checked_rss, docs_head, "--", "extensions/rss").returncode == 0
-  )
-
-  (rss / "pyproject.toml").write_text("version = '0.1.1'\n")
-  assert git("add", ".").returncode == 0
-  assert git("commit", "-m", "bump rss").returncode == 0
-  rss_head = git("rev-parse", "HEAD").stdout.strip()
-  assert git("merge-base", "--is-ancestor", checked_rss, rss_head).returncode == 0
-  assert (
-    git("diff", "--quiet", checked_rss, rss_head, "--", "extensions/rss").returncode == 1
-  )
-  assert git("diff", "--quiet", docs_head, rss_head, "--", "extensions/rss").returncode == 1
-
-
-def test_extension_publish_changed_source_uses_the_bumped_release_version():
-  changed_paths = {"extensions/twitter/api.py", "extensions/twitter/pyproject.toml"}
-  producer = read_project(PROJECT_ROOT / "extensions/twitter")
-
-  assert any(path.startswith("extensions/twitter/") for path in changed_paths)
-  assert producer.version == "0.1.1"
-
-
-def test_extension_publish_changed_source_same_version_keeps_registry_conflict_fatal():
-  workflow = (PROJECT_ROOT / ".github/workflows/extension-publish.yml").read_text()
-  changed_paths = {"extensions/rss/rss.py"}
-
-  assert any(path.startswith("extensions/rss/") for path in changed_paths)
-  assert "curl --fail-with-body" in workflow
-  assert "continue-on-error" not in workflow
-  assert workflow.index("Prepare exact native Release association") < workflow.index(
-    "Upload wheel through native PyPI protocol"
-  )
 
 
 def test_local_simple_installs_and_discovers_a_real_first_party_contribution(

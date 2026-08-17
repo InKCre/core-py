@@ -1,7 +1,8 @@
 # InKCre Extensions
 
-Extensions are checked-in capability packages loaded by the core runtime。Folder name is the extension ID；extensions
-are disabled by default。Runtime installation does not download arbitrary code。
+First-party Extension producer sources live here。Folder name is the extension ID；extensions are disabled by
+default。The Extension Host consumes exact Registry Releases as ordinary wheels；it does not resolve or download
+arbitrary untrusted code。
 
 Shared extension/graph/resolver/storage contracts live in the Hub Product TDD。This guide owns the current core-py
 package seams；Memos and RSS details live in their Unit TDDs。
@@ -15,11 +16,34 @@ extensions/<extension_id>/
   source.py        optional SourceBase implementation
   resolver.py      optional exact resolver contract
   api.py           optional extension-owned HTTP surface
-  pyproject.toml   optional extension metadata/dependencies
+  pyproject.toml   Distribution identity, version, dependencies, and build metadata
+  CHANGELOG.md     generated Python Distribution release history
 ```
 
 Dependencies admitted by an extension must also be frozen in the owning root profile/lock；an isolated extension lock
 is not enough for the production artifact。
+
+## First-party release preparation
+
+Every immediate Extension project declaring `[tool.inkcre-extension]` is an independent Python Distribution producer。
+Its `pyproject.toml [project].version` is the Python association's version authority；the root Core version and a web
+association have independent lifecycles。
+
+Install the repository-pinned Changie `v1.25.2`，then record and prepare one producer change：
+
+```bash
+changie new --projects rss
+pdm run release:extension rss
+pdm run check:extension-releases --base origin/main
+```
+
+`release:extension` batches the unreleased project fragments，regenerates `extensions/<id>/CHANGELOG.md`，and replaces
+that project's `pyproject.toml` version。Correct a released note in `.changes/<id>/<version>.md` and rerun
+`changie merge`；do not make the changelog a second authority。
+
+Pull-request CI discovers the complete producer set and rejects an artifact-input change without a version advance，
+an unregistered Changie project，invalid fragments，or a manifest/changelog mismatch。Post-main delivery selects only
+new projects and changed versions；a changelog-only correction is a publication no-op。
 
 ## Extension Lifecycle
 

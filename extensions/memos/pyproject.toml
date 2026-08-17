@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=80,<81"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inkcre-ext-memos"
-version = "0.1.0"
+version = "0.1.1"
 description = "Memo-family collection extension for InKCre"
 authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 dependencies = [

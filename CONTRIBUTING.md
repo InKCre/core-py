@@ -37,6 +37,22 @@ pdm run check:foundation
 The test harness sets `INKCRE_ENV_FILE=""` before application imports. Tests do not read a
 developer `.env` or use its database and API credentials.
 
+## First-Party Extension Releases
+
+Changing a first-party Extension's Python Distribution input requires explicit release intent.
+Install Changie `v1.25.2`, create a project-scoped change, and prepare that project before opening
+the pull request:
+
+```bash
+changie new --projects <extension-id>
+pdm run release:extension <extension-id>
+pdm run check:extension-releases --base origin/main
+```
+
+The generated version entry and changelog travel with the source change. CI verifies all discovered
+producers and rejects source changes that retain the prior version; Registry publication remains a
+post-main workflow with production credentials.
+
 ## Database Migrations
 
 Generate a candidate revision only after changing model metadata:
@@ -73,9 +89,9 @@ python scripts/container.py ready
 ```
 
 `web` honors `$PORT`; `migrate` only applies checked-in revisions; `ready` performs a
-read-only connectivity and Alembic-head check. Checked-in extensions and their root-locked
-dependencies are immutable image content. The running service never downloads extension
-code.
+read-only connectivity and Alembic-head check. The Core image owns the supported dependency
+baseline and excludes first-party Extension source. The Extension Host acquires only exact
+published wheels and never resolves or mutates host dependencies while enabling them.
 
 ## Shared Docs And Skill Discovery
 

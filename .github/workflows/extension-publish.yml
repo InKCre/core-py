@@ -8,6 +8,10 @@ on:
       - completed
   workflow_dispatch:
     inputs:
+      extension:
+        description: Exact first-party Extension project to publish initially
+        required: true
+        type: string
       initial_publication:
         description: Type INITIAL_ONLY; recovery must rerun the original publication run
         required: true
@@ -24,26 +28,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish ${{ matrix.extension }}
+  discover:
+    name: Discover first-party Extensions
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.projects.outputs.projects }}
+    steps:
+      - name: Checkout exact main source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up project Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version-file: .python-version
+
+      - name: Discover exact producer set
+        id: projects
+        env:
+          REQUESTED_EXTENSION: ${{ inputs.extension }}
+        run: |
+          projects="$(python scripts/extension_release.py projects --json)"
+          if test "${{ github.event_name }}" = workflow_dispatch; then
+            python scripts/extension_release.py projects |
+              grep --fixed-strings --line-regexp -- "$REQUESTED_EXTENSION"
+          fi
+          echo "projects=$projects" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish ${{ matrix.extension }}
+    needs: discover
+    if: needs.discover.result == 'success'
+    runs-on: ubuntu-latest
     environment: production
     strategy:
       fail-fast: false
       matrix:
-        extension:
-          - github
-          - learn_english
-          - mail
-          - memos
-          - rss
-          - telegram
-          - twitter
+        extension: ${{ fromJSON(needs.discover.outputs.projects) }}
     env:
       INKCRE_EXTENSION_REGISTRY_TOKEN: ${{ secrets.INKCRE_EXTENSION_REGISTRY_TOKEN }}
       INKCRE_EXTENSION_REGISTRY_URL: >-
@@ -62,16 +90,24 @@ jobs:
           git fetch --no-tags origin main
           git merge-base --is-ancestor HEAD origin/main
 
-      - name: Select changed Extension
+      - name: Set up release selector Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version-file: .python-version
+
+      - name: Select new Extension version
         id: selection
         env:
           EXTENSION: ${{ matrix.extension }}
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_EXTENSION: ${{ inputs.extension }}
         run: |
           selected=false
           if test "${{ github.event_name }}" = workflow_dispatch; then
             test "${{ inputs.initial_publication }}" = INITIAL_ONLY
-            selected=true
+            if test "$EXTENSION" = "$REQUESTED_EXTENSION"; then
+              selected=true
+            fi
           else
             before="$(
               gh api \
@@ -85,16 +121,18 @@ jobs:
               selected=true
             else
               git merge-base --is-ancestor "$before" HEAD
-              if ! git diff --quiet "$before" HEAD -- "extensions/$EXTENSION"; then
-                selected=true
-              fi
+              selected="$(
+                python scripts/extension_release.py version-changed \
+                  --project "$EXTENSION" \
+                  --base "$before"
+              )"
             fi
           fi
           echo "selected=$selected" >> "$GITHUB_OUTPUT"
 
       - name: Record unchanged Extension no-op
         if: steps.selection.outputs.selected != 'true'
-        run: echo "No source change for ${{ matrix.extension }}; publication is a no-op."
+        run: echo "No new ${{ matrix.extension }} version; publication is a no-op."
 
       - name: Set up frozen publisher
         if: steps.selection.outputs.selected == 'true'
@@ -137,17 +175,17 @@ jobs:
           echo "metadata=$metadata" >> "$GITHUB_OUTPUT"
           echo "wheel=$wheel" >> "$GITHUB_OUTPUT"
 
-      - name: Revalidate Extension subtree before remote mutation
+      - name: Revalidate Extension artifact input before remote mutation
         if: steps.selection.outputs.selected == 'true'
         env:
           EXTENSION: ${{ matrix.extension }}
         run: |
           git fetch --no-tags origin main
           git merge-base --is-ancestor HEAD origin/main
-          if ! git diff --quiet HEAD origin/main -- "extensions/$EXTENSION"; then
-            echo "Extension source changed after this checked run; refusing publication." >&2
-            exit 1
-          fi
+          python scripts/extension_release.py verify-artifact-unchanged \
+            --project "$EXTENSION" \
+            --from HEAD \
+            --to origin/main
 
       - name: Prepare exact native Release association
         if: steps.selection.outputs.selected == 'true'

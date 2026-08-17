@@ -1,0 +1,75 @@
+changesDir: .changes
+unreleasedDir: unreleased
+headerPath: header.tpl.md
+versionExt: md
+versionFormat: '## {{.Version}} - {{.Time.Format "2006-01-02"}}'
+kindFormat: '### {{.Kind}}'
+changeFormat: '* {{.Body}}'
+kinds:
+  - label: Added
+    auto: minor
+  - label: Changed
+    auto: patch
+  - label: Deprecated
+    auto: minor
+  - label: Removed
+    auto: major
+  - label: Fixed
+    auto: patch
+  - label: Security
+    auto: patch
+newlines:
+  afterChangelogHeader: 1
+  beforeChangelogVersion: 1
+  endOfVersion: 1
+projectsVersionSeparator: '-'
+projects:
+  - label: GitHub Extension
+    key: github
+    changelog: extensions/github/CHANGELOG.md
+    replacements:
+      - path: extensions/github/pyproject.toml
+        find: '^version = ".*"$'
+        replace: 'version = "{{.VersionNoPrefix}}"'
+  - label: Learn English Extension
+    key: learn_english
+    changelog: extensions/learn_english/CHANGELOG.md
+    replacements:
+      - path: extensions/learn_english/pyproject.toml
+        find: '^version = ".*"$'
+        replace: 'version = "{{.VersionNoPrefix}}"'
+  - label: Mail Extension
+    key: mail
+    changelog: extensions/mail/CHANGELOG.md
+    replacements:
+      - path: extensions/mail/pyproject.toml
+        find: '^version = ".*"$'
+        replace: 'version = "{{.VersionNoPrefix}}"'
+  - label: Memos Extension
+    key: memos
+    changelog: extensions/memos/CHANGELOG.md
+    replacements:
+      - path: extensions/memos/pyproject.toml
+        find: '^version = ".*"$'
+        replace: 'version = "{{.VersionNoPrefix}}"'
+  - label: RSS Extension
+    key: rss
+    changelog: extensions/rss/CHANGELOG.md
+    replacements:
+      - path: extensions/rss/pyproject.toml
+        find: '^version = ".*"$'
+        replace: 'version = "{{.VersionNoPrefix}}"'
+  - label: Telegram Extension
+    key: telegram
+    changelog: extensions/telegram/CHANGELOG.md
+    replacements:
+      - path: extensions/telegram/pyproject.toml
+        find: '^version = ".*"$'
+        replace: 'version = "{{.VersionNoPrefix}}"'
+  - label: Twitter Extension
+    key: twitter
+    changelog: extensions/twitter/CHANGELOG.md
+    replacements:
+      - path: extensions/twitter/pyproject.toml
+        find: '^version = ".*"$'
+        replace: 'version = "{{.VersionNoPrefix}}"'

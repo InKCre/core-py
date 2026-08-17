@@ -50,8 +50,25 @@ jobs:
           version: 2.27.0
           cache: true
 
+      - name: Set up exact Changie release tool
+        uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
+        with:
+          version: v1.25.2
+
       - name: Install locked dependencies
         run: pdm install -G dev --frozen-lockfile
+
+      - name: Enforce first-party Extension release intent
+        env:
+          BASE_REVISION: >-
+            ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          arguments=()
+          if [[ "$BASE_REVISION" =~ ^[0-9a-f]{40}$ ]] &&
+             test "$BASE_REVISION" != 0000000000000000000000000000000000000000; then
+            arguments+=(--base "$BASE_REVISION")
+          fi
+          pdm run check:extension-releases "${arguments[@]}"
 
       - name: Run repository contract
         run: pdm run check
@@ -60,7 +77,7 @@ jobs:
         env:
           SOURCE_DATE_EPOCH: "315532800"
         run: |
-          for extension in github learn_english mail rss telegram twitter; do
+          for extension in $(pdm run python scripts/extension_release.py projects); do
             output="$RUNNER_TEMP/wheels/$extension"
             mkdir --parents "$output"
             pdm run python -m build \
