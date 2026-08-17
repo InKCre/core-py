@@ -28,19 +28,29 @@ Peer enablement is mutated only by the atomic PostgREST function
 precedes enable persistence. Runtime stop precedes disable persistence; if that persistence fails,
 Core restarts the exact prior runtime while leaving durable intent unchanged.
 
-The six first-party Extensions are independent PEP 420 wheels with the standard entry-point group
-and producer metadata in their `pyproject.toml`. `.github/workflows/extension-publish.yml` prepares
-the native association with source provenance, uploads through `/legacy/`, and publishes the exact
-Release. Automatic runs obtain `before_sha` from the verified CI check suite and diff the complete
-direct-push range; unchanged Extension matrix entries are explicit no-ops, and an unprovable
-lineage or immutable prepare conflict fails the job. A checked commit may be older than current
-`main` only while it remains an ancestor. Immediately before the first Registry mutation, each
-selected job fetches `main` again and requires its own `extensions/<id>` subtree to be unchanged
-across `HEAD..origin/main`. A later docs-only or different-Extension commit therefore does not
-discard a valid build; a later change to the same Extension stops the older job and leaves
-publication to the newer checked job.
+The seven first-party Extensions are independent PEP 420 wheels with the standard entry-point group
+and producer metadata in their `pyproject.toml`. That project version is the Python association's
+Release authority. One Changie project per producer owns the generated version entry, changelog,
+and mechanical `pyproject.toml` replacement; it does not publish. Repository CI discovers the
+producer set and rejects missing Changie coverage, generated-state drift, invalid fragments, or an
+artifact-input change that does not advance the version. A changelog-only correction is explicitly
+outside the artifact-input surface.
 
-`workflow_dispatch` is an `INITIAL_ONLY` lane for versions that do not yet exist. Because public
+`.github/workflows/extension-publish.yml` prepares the Python association with source provenance,
+uploads through `/legacy/`, and publishes the exact Release. Automatic runs obtain `before_sha`
+from the verified CI check suite and select only new projects or changed project versions;
+unchanged matrix entries are explicit no-ops. The matrix and repository wheel checks consume the
+same discovery result rather than separate project lists. An unprovable lineage or immutable
+prepare conflict fails the job.
+
+A checked commit may be older than current `main` only while it remains an ancestor. Immediately
+before the first Registry mutation, each selected job fetches `main` again and requires its
+artifact-input surface to be unchanged across `HEAD..origin/main`. A generated changelog-only or
+different-Extension commit therefore does not discard a valid build; a later change to the same
+artifact input stops the older job and leaves publication to the newer checked job.
+
+`workflow_dispatch` selects one exact discovered producer and is an `INITIAL_ONLY` lane for a
+version that does not yet exist. Because public
 descriptors intentionally omit private producer provenance, a new workflow run cannot safely
 resume an existing version: recovery must rerun the original Extension publication run so its
 stable `github.run_id` build identity is preserved.
