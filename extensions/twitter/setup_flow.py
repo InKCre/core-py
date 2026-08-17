@@ -19,27 +19,33 @@ import fastapi
 from fastapi.responses import HTMLResponse
 import httpx
 import pydantic
-import sqlmodel
-
-from app.business.cron import CronManager
-from app.business.job import JobManager
 from app.business.peer import PeerHTTPInbound, PeerManager
-from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
-from app.engine import SessionLocal
 from app.middleware import require_peer_jwt
-from app.schemas.cron import CronForm, CronModel
-from app.schemas.source import SourceModel
 
 
 if typing.TYPE_CHECKING:
   from . import TwitterExtensionConfig
 
 
-TWITTER_SETUP_CAPABILITY = "inkcre.twitter.setup.v1"
-TWITTER_SETUP_INBOUND = PeerHTTPInbound(
-  capability=TWITTER_SETUP_CAPABILITY,
-  method="POST",
-  path="/twitter/setup",
+TWITTER_SETUP_STATUS_CAPABILITY = "inkcre.twitter.setup.status.v1"
+TWITTER_OAUTH_APP_CONFIGURE_CAPABILITY = "inkcre.twitter.oauth-app.configure.v1"
+TWITTER_OAUTH_BEGIN_CAPABILITY = "inkcre.twitter.oauth.begin.v1"
+TWITTER_OAUTH_TRANSACTION_READ_CAPABILITY = "inkcre.twitter.oauth.transaction.read.v1"
+TWITTER_OAUTH_DISCONNECT_CAPABILITY = "inkcre.twitter.oauth.disconnect.v1"
+TWITTER_SETUP_INBOUNDS = (
+  PeerHTTPInbound(TWITTER_SETUP_STATUS_CAPABILITY, "GET", "/twitter/setup"),
+  PeerHTTPInbound(
+    TWITTER_OAUTH_APP_CONFIGURE_CAPABILITY, "PUT", "/twitter/setup/oauth-app"
+  ),
+  PeerHTTPInbound(
+    TWITTER_OAUTH_BEGIN_CAPABILITY, "POST", "/twitter/setup/oauth-transactions"
+  ),
+  PeerHTTPInbound(
+    TWITTER_OAUTH_TRANSACTION_READ_CAPABILITY,
+    "POST",
+    "/twitter/setup/oauth-transaction",
+  ),
+  PeerHTTPInbound(TWITTER_OAUTH_DISCONNECT_CAPABILITY, "DELETE", "/twitter/setup/account"),
 )
 AUTHORIZE_URL = "https://x.com/i/oauth2/authorize"
 TOKEN_URL = "https://api.x.com/2/oauth2/token"  # noqa: S105
@@ -48,7 +54,6 @@ SCOPES = ("tweet.read", "users.read", "bookmark.read", "offline.access")
 TRANSACTION_LIFETIME = datetime.timedelta(minutes=10)
 TERMINAL_RETENTION = datetime.timedelta(minutes=10)
 MAX_TRANSACTIONS = 8
-BOOKMARK_SOURCE_TYPE = "extensions.twitter.bookmark.Source"
 
 
 def _now() -> datetime.datetime:
@@ -81,39 +86,6 @@ class OAuthTransaction(pydantic.BaseModel):
 class TwitterExtensionState(pydantic.BaseModel):
   account: TwitterAccount | None = None
   oauth_transactions: dict[str, OAuthTransaction] = pydantic.Field(default_factory=dict)
-  bookmark_source_id: int | None = None
-  bookmark_cron_id: int | None = None
-
-
-class SetupCollectAt(pydantic.BaseModel):
-  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
-
-  day_of_week: int | None = pydantic.Field(default=None, ge=0, le=6)
-  hour: int = pydantic.Field(default=0, ge=0, le=23)
-  minute: int = pydantic.Field(default=0, ge=0, le=59)
-
-  def cron_schedule(self) -> str:
-    day = "*" if self.day_of_week is None else str(self.day_of_week)
-    return f"{self.minute} {self.hour} * * {day}"
-
-  @classmethod
-  def from_cron_schedule(cls, schedule: str) -> SetupCollectAt | None:
-    parts = schedule.split()
-    if len(parts) != 5 or parts[2:4] != ["*", "*"]:
-      return None
-    try:
-      return cls(
-        minute=int(parts[0]),
-        hour=int(parts[1]),
-        day_of_week=None if parts[4] == "*" else int(parts[4]),
-      )
-    except (ValueError, pydantic.ValidationError):
-      return None
-
-
-class BookmarkSourceView(pydantic.BaseModel):
-  source_id: int
-  nickname: str
 
 
 class OAuthTransactionView(pydantic.BaseModel):
@@ -134,60 +106,16 @@ class TwitterSetupStatus(pydantic.BaseModel):
   handle: str | None = None
   scopes: tuple[str, ...] = ()
   reconnect_required: bool = False
-  bookmark_source_id: int | None = None
-  bookmark_cron_id: int | None = None
-  bookmark_sources: tuple[BookmarkSourceView, ...] = ()
-  collect_at: SetupCollectAt = pydantic.Field(default_factory=SetupCollectAt)
-  bookmark_source_ready: bool = False
-  ready: bool = False
 
 
-class GetStatusCommand(pydantic.BaseModel):
-  action: typing.Literal["get_status"]
-
-
-class SaveOAuthAppCommand(pydantic.BaseModel):
-  action: typing.Literal["save_oauth_app"]
+class SaveOAuthAppRequest(pydantic.BaseModel):
   client_id: str = pydantic.Field(min_length=1, max_length=256)
   client_secret: str = pydantic.Field(min_length=1, max_length=1024)
   confirm_account_reset: bool = False
 
 
-class BeginOAuthCommand(pydantic.BaseModel):
-  action: typing.Literal["begin_oauth"]
-
-
-class GetOAuthTransactionCommand(pydantic.BaseModel):
-  action: typing.Literal["get_oauth_transaction"]
+class OAuthTransactionRequest(pydantic.BaseModel):
   transaction_id: str
-
-
-class DisconnectAccountCommand(pydantic.BaseModel):
-  action: typing.Literal["disconnect_account"]
-
-
-class ConfigureBookmarkSourceCommand(pydantic.BaseModel):
-  action: typing.Literal["configure_bookmark_source"]
-  source_id: int | None = None
-  nickname: str = pydantic.Field(default="Twitter Bookmarks", min_length=1, max_length=120)
-  collect_at: SetupCollectAt = pydantic.Field(default_factory=SetupCollectAt)
-
-
-class FinishSetupCommand(pydantic.BaseModel):
-  action: typing.Literal["finish"]
-
-
-TwitterSetupCommand: typing.TypeAlias = typing.Annotated[
-  GetStatusCommand
-  | SaveOAuthAppCommand
-  | BeginOAuthCommand
-  | GetOAuthTransactionCommand
-  | DisconnectAccountCommand
-  | ConfigureBookmarkSourceCommand
-  | FinishSetupCommand,
-  pydantic.Field(discriminator="action"),
-]
-TwitterSetupResult: typing.TypeAlias = TwitterSetupStatus | OAuthTransactionView
 
 
 class TwitterSetupError(RuntimeError): ...
@@ -297,26 +225,6 @@ def _invalidate_mismatched_oauth_state(
   return state, changed
 
 
-def _disable_bookmark_schedule(state: TwitterExtensionState) -> None:
-  """Stop setup-owned collection while retaining its reusable Source and Cron."""
-  if state.bookmark_cron_id is None:
-    return
-  with SessionLocal() as db:
-    cron = db.get(CronModel, state.bookmark_cron_id)
-  if cron is None or not cron.enabled:
-    return
-  CronManager.update(
-    state.bookmark_cron_id,
-    CronForm(
-      schedule=cron.schedule,
-      enabled=False,
-      job_type=cron.job_type,
-      job_parameters=dict(cron.job_parameters),
-      job_timeout_seconds=cron.job_timeout_seconds,
-    ),
-  )
-
-
 def _reconcile_oauth_state() -> TwitterExtensionState:
   """Reconcile direct deployment config writes before setup becomes reachable."""
   config = _config()
@@ -328,7 +236,6 @@ def _reconcile_oauth_state() -> TwitterExtensionState:
   )
   if not changed:
     return state
-  _disable_bookmark_schedule(state)
 
   def reconcile(config_model, state_model):
     from . import TwitterExtensionConfig
@@ -346,72 +253,9 @@ def _reconcile_oauth_state() -> TwitterExtensionState:
   return TwitterExtensionState.model_validate(reconciled)
 
 
-def _bookmark_source_status(
-  state: TwitterExtensionState,
-) -> tuple[
-  int | None,
-  int | None,
-  tuple[BookmarkSourceView, ...],
-  SetupCollectAt,
-  bool,
-]:
-  with SessionLocal() as db:
-    sources = db.exec(
-      sqlmodel.select(SourceModel)
-      .where(SourceModel.type == BOOKMARK_SOURCE_TYPE)
-      .order_by(sqlmodel.col(SourceModel.id))
-    ).all()
-    views = tuple(
-      BookmarkSourceView(
-        source_id=source.id,
-        nickname=source.nickname or "Twitter Bookmarks",
-      )
-      for source in sources
-      if source.id is not None
-    )
-    source = next(
-      (item for item in sources if item.id == state.bookmark_source_id),
-      None,
-    )
-    cron = (
-      None if state.bookmark_cron_id is None else db.get(CronModel, state.bookmark_cron_id)
-    )
-
-  collect_at = (
-    SetupCollectAt.from_cron_schedule(cron.schedule) if cron is not None else None
-  ) or SetupCollectAt()
-  account = state.account
-  expected_parameters = (
-    None
-    if source is None or account is None
-    else {
-      "source": source.id,
-      "config": {
-        "full": False,
-        "result_limit": 40,
-        "authorization_id": account.authorization_id,
-      },
-    }
-  )
-  ready = (
-    cron is not None
-    and cron.enabled
-    and cron.job_type == SOURCE_COLLECT_JOB_TYPE
-    and cron.job_parameters == expected_parameters
-  )
-  return (
-    source.id if source is not None else None,
-    cron.id if cron is not None else None,
-    views,
-    collect_at,
-    ready,
-  )
-
-
 def get_setup_status() -> TwitterSetupStatus:
   config = _config()
   state = _reconcile_oauth_state()
-  source_id, cron_id, sources, collect_at, source_ready = _bookmark_source_status(state)
   configured = bool(config.client_id and config.client_secret)
   account = state.account
   connected = (
@@ -430,16 +274,10 @@ def get_setup_status() -> TwitterSetupStatus:
     handle=account.handle if connected and account is not None else None,
     scopes=account.scopes if connected and account is not None else (),
     reconnect_required=bool(account and account.reconnect_required),
-    bookmark_source_id=source_id,
-    bookmark_cron_id=cron_id,
-    bookmark_sources=sources,
-    collect_at=collect_at,
-    bookmark_source_ready=source_ready,
-    ready=connected and source_ready,
   )
 
 
-def save_oauth_app(body: SaveOAuthAppCommand) -> TwitterSetupStatus:
+def save_oauth_app(body: SaveOAuthAppRequest) -> TwitterSetupStatus:
   current_config = _config()
   current_state = _state()
   next_config = current_config.model_copy(
@@ -458,8 +296,6 @@ def save_oauth_app(body: SaveOAuthAppCommand) -> TwitterSetupStatus:
     raise TwitterSetupConflict(
       "Replacing the OAuth App requires confirmation because it disconnects the account"
     )
-  if fingerprint_changed:
-    _disable_bookmark_schedule(current_state)
 
   def update(config_model, state_model):
     from . import TwitterExtensionConfig
@@ -769,8 +605,6 @@ async def oauth_callback(
 
 
 def disconnect_account() -> TwitterSetupStatus:
-  _disable_bookmark_schedule(_state())
-
   def disconnect(model: pydantic.BaseModel) -> pydantic.BaseModel:
     state = TwitterExtensionState.model_validate(model)
     state.account = None
@@ -786,144 +620,6 @@ def disconnect_account() -> TwitterSetupStatus:
   return get_setup_status()
 
 
-def _bookmark_job_parameters(
-  source_id: int, authorization_id: str
-) -> dict[str, typing.Any]:
-  return {
-    "source": source_id,
-    "config": {
-      "full": False,
-      "result_limit": 40,
-      "authorization_id": authorization_id,
-    },
-  }
-
-
-def configure_bookmark_source(body: ConfigureBookmarkSourceCommand) -> TwitterSetupStatus:
-  state = _state()
-  account = state.account
-  if account is None or account.reconnect_required:
-    raise TwitterSetupConflict("Connect a Twitter account first")
-  if body.source_id is not None:
-    with SessionLocal() as db:
-      source = db.get(SourceModel, body.source_id)
-    if source is None or source.type != BOOKMARK_SOURCE_TYPE:
-      raise TwitterSetupConflict("Bookmark Source does not exist")
-  else:
-    source = SourceManager.create(
-      BOOKMARK_SOURCE_TYPE,
-      nickname=body.nickname,
-    )
-  source_id = source.id
-  if source_id is None:
-    raise TwitterSetupError("Bookmark Source has no identifier")
-  try:
-    form = CronForm(
-      schedule=body.collect_at.cron_schedule(),
-      enabled=False,
-      job_type=SOURCE_COLLECT_JOB_TYPE,
-      job_parameters=_bookmark_job_parameters(source_id, account.authorization_id),
-    )
-    cron = (
-      CronManager.create(form)
-      if state.bookmark_cron_id is None
-      else CronManager.update(state.bookmark_cron_id, form)
-    )
-  except ValueError as error:
-    raise TwitterSetupConflict(str(error)) from error
-  if cron.id is None:
-    raise TwitterSetupError("Bookmark schedule has no identifier")
-
-  def select(model: pydantic.BaseModel) -> pydantic.BaseModel:
-    selected = TwitterExtensionState.model_validate(model)
-    if (
-      selected.account is None
-      or selected.account.authorization_id != account.authorization_id
-    ):
-      raise TwitterSetupConflict("Twitter account changed during setup")
-    selected.bookmark_source_id = source_id
-    selected.bookmark_cron_id = cron.id
-    return selected
-
-  _extension().mutate_state(select)
-  return get_setup_status()
-
-
-async def finish_setup() -> TwitterSetupStatus:
-  from .api import OfficialAPI
-
-  state = _state()
-  account = state.account
-  if account is None or account.reconnect_required:
-    raise TwitterSetupConflict("Connect a Twitter account first")
-  if state.bookmark_source_id is None or state.bookmark_cron_id is None:
-    raise TwitterSetupConflict("Configure a Bookmark Source first")
-  api = OfficialAPI.from_extension(expected_authorization_id=account.authorization_id)
-  try:
-    user_id, handle = await api.get_user()
-  finally:
-    await api.close()
-
-  with SessionLocal() as db:
-    source = db.get(SourceModel, state.bookmark_source_id)
-    cron = db.get(CronModel, state.bookmark_cron_id)
-  if source is None or source.type != BOOKMARK_SOURCE_TYPE or cron is None:
-    raise TwitterSetupConflict("Bookmark collection resources no longer exist")
-  source_id = source.id
-  if source_id is None:
-    raise TwitterSetupConflict("Bookmark Source has no identifier")
-  schedule = cron.schedule
-  rebound = CronManager.update(
-    state.bookmark_cron_id,
-    CronForm(
-      schedule=schedule,
-      enabled=True,
-      job_type=SOURCE_COLLECT_JOB_TYPE,
-      job_parameters=_bookmark_job_parameters(source_id, account.authorization_id),
-      job_timeout_seconds=cron.job_timeout_seconds,
-    ),
-  )
-
-  def update_identity(model: pydantic.BaseModel) -> pydantic.BaseModel:
-    current = TwitterExtensionState.model_validate(model)
-    if (
-      current.account is None
-      or current.account.authorization_id != account.authorization_id
-      or current.bookmark_source_id != source_id
-      or current.bookmark_cron_id != rebound.id
-    ):
-      raise TwitterSetupConflict("Twitter setup changed during Finish")
-    current.account.user_id = user_id
-    current.account.handle = handle
-    return current
-
-  _extension().mutate_state(update_identity)
-  if rebound.id is None:
-    raise TwitterSetupError("Bookmark schedule has no identifier")
-  job = CronManager.run_now(rebound.id)
-  if job.id is not None:
-    await JobManager.check()
-  return get_setup_status()
-
-
-async def execute_setup_command(command: TwitterSetupCommand) -> TwitterSetupResult:
-  if isinstance(command, GetStatusCommand):
-    return get_setup_status()
-  if isinstance(command, SaveOAuthAppCommand):
-    return save_oauth_app(command)
-  if isinstance(command, BeginOAuthCommand):
-    return begin_oauth()
-  if isinstance(command, GetOAuthTransactionCommand):
-    return get_oauth_transaction(command.transaction_id)
-  if isinstance(command, DisconnectAccountCommand):
-    return disconnect_account()
-  if isinstance(command, ConfigureBookmarkSourceCommand):
-    return configure_bookmark_source(command)
-  if isinstance(command, FinishSetupCommand):
-    return await finish_setup()
-  typing.assert_never(command)
-
-
 def _http_error(error: TwitterSetupError) -> typing.NoReturn:
   if str(error) == "OAuth transaction not found":
     status = fastapi.status.HTTP_404_NOT_FOUND
@@ -937,10 +633,38 @@ def _http_error(error: TwitterSetupError) -> typing.NoReturn:
 def register_setup_routes(router: fastapi.APIRouter) -> None:
   protected = fastapi.APIRouter(dependencies=[fastapi.Depends(require_peer_jwt)])
 
-  @protected.post("/setup", response_model=TwitterSetupResult)
-  async def setup_command(command: TwitterSetupCommand):
+  @protected.get("/setup", response_model=TwitterSetupStatus)
+  async def setup_status():
     try:
-      return await execute_setup_command(command)
+      return get_setup_status()
+    except TwitterSetupError as failure:
+      _http_error(failure)
+
+  @protected.put("/setup/oauth-app", response_model=TwitterSetupStatus)
+  async def configure_oauth_app(body: SaveOAuthAppRequest):
+    try:
+      return save_oauth_app(body)
+    except TwitterSetupError as failure:
+      _http_error(failure)
+
+  @protected.post("/setup/oauth-transactions", response_model=OAuthTransactionView)
+  async def create_oauth_transaction():
+    try:
+      return begin_oauth()
+    except TwitterSetupError as failure:
+      _http_error(failure)
+
+  @protected.post("/setup/oauth-transaction", response_model=OAuthTransactionView)
+  async def read_oauth_transaction(body: OAuthTransactionRequest):
+    try:
+      return get_oauth_transaction(body.transaction_id)
+    except TwitterSetupError as failure:
+      _http_error(failure)
+
+  @protected.delete("/setup/account", response_model=TwitterSetupStatus)
+  async def delete_account():
+    try:
+      return disconnect_account()
     except TwitterSetupError as failure:
       _http_error(failure)
 

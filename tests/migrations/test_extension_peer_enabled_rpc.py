@@ -440,7 +440,6 @@ def test_setup_source_and_cron_use_simple_core_owned_operations(
       "config": {
         "full": False,
         "result_limit": 40,
-        "authorization_id": "authorization-1",
       },
     },
   )
@@ -450,21 +449,8 @@ def test_setup_source_and_cron_use_simple_core_owned_operations(
   repeated_job = CronManager.run_now(cron.id)
   assert repeated_job.id != first_job.id
 
-  rebound = CronManager.update(
-    cron.id,
-    form.model_copy(
-      update={
-        "job_parameters": {
-          **form.job_parameters,
-          "config": {
-            **form.job_parameters["config"],
-            "authorization_id": "authorization-2",
-          },
-        }
-      }
-    ),
-  )
-  assert rebound.job_parameters["config"]["authorization_id"] == "authorization-2"
+  rebound = CronManager.update(cron.id, form.model_copy(update={"enabled": False}))
+  assert rebound.enabled is False
 
 
 def test_core_runtime_owns_state_writes_without_exposing_them_to_browser_peers(
