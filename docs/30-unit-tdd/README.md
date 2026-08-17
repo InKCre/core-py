@@ -1,0 +1,15 @@
+# Core-Py Unit Design
+
+This directory owns expensive internal design truth for logical units delivered by this repository. Code, schemas, tests, assertions, and automation remain authoritative when they can prevent drift directly. Shared Product behavior and cross-unit contracts remain read-only Hub truth under `../_shared/`.
+
+| Document | Local owner and admission |
+| --- | --- |
+| [business-pipeline-and-authority.md](business-pipeline-and-authority.md) | Stable authority and dependency direction across core-py business units |
+| [semantic-retrieval.md](semantic-retrieval.md) | Internal projection, maintenance, ranking, and Agent composition mechanics |
+| [lexical-retrieval.md](lexical-retrieval.md) | Internal lexical projection, feature extraction, maintenance, and ranking mechanics |
+| [mail-extension.md](mail-extension.md) | Mail identity, MIME materialization, collection, graph, and failure boundaries |
+| [memos-extension.md](memos-extension.md) | Memos adapter identity, graph grammar, persistence, and failure boundaries |
+| [rss-extension.md](rss-extension.md) | RSS adapter identity, collection lifecycle, reconciliation, and materialization |
+| [security-model.md](security-model.md) | Core-py actors, assets, trust boundaries, security harms, and proportionality |
+
+Do not add a document for a directory inventory, a fact cheaply recovered from code, a one-off decision, or a cross-unit contract already owned by `../_shared/20-product-tdd/`. Put repeated physical-subtree hazards in the nearest `AGENTS.md`; put runtime, rollout, recovery, and environment truth in `../40-deployment/`.

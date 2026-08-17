@@ -1,5 +1,9 @@
 # Semantic Retrieval
 
+Shared capability names, external behavior, Peer interoperability, and wire contracts are owned by
+`../_shared/20-product-tdd/`. This document owns only core-py's internal implementation and derived
+projection mechanics; if the two disagree, fix the shared owner first and then this local projection.
+
 ## Purpose
 
 This unit lets a caller rank existing info-base entities by semantic similarity. It returns real `BlockModel` and
