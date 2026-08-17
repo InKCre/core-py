@@ -119,6 +119,17 @@ class PeerManager:
     return settings.peer_id
 
   @classmethod
+  def get_current_config(cls) -> CorePeerConfig:
+    """Load the current Peer owner's complete validated configuration."""
+    peer = cls.get(cls.get_current_peer_ref())
+    if peer is None:
+      raise RuntimeError("Current Peer must be registered before reading config")
+    try:
+      return cls._config_contract.validate(peer.config)
+    except pydantic.ValidationError as error:
+      raise ValueError("Current Peer config is invalid") from error
+
+  @classmethod
   def get(cls, peer: PeerRef) -> PeerModel | None:
     with SessionLocal() as db:
       return db.get(PeerModel, peer)

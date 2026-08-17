@@ -42,6 +42,7 @@ TABLE_PRIVILEGES = {
 }
 EXTENSIONS_TABLE_PRIVILEGES = TABLE_PRIVILEGES - {"UPDATE"}
 EXTENSIONS_UPDATE_COLUMNS = {"config", "config_schema", "nickname", "version"}
+CORE_EXTENSIONS_UPDATE_COLUMNS = {"state"}
 SEQUENCE_PRIVILEGES = {"SELECT", "UPDATE", "USAGE"}
 
 
@@ -200,7 +201,7 @@ def _function_acl_rows(cursor, schema_name: str) -> dict[tuple[str, str], set[st
   return rows
 
 
-def _extension_update_column_acl(cursor) -> set[str]:
+def _extension_update_column_acl(cursor, role: str) -> set[str]:
   cursor.execute(
     """
     SELECT column_name
@@ -210,7 +211,7 @@ def _extension_update_column_acl(cursor) -> set[str]:
       AND grantee = %s
       AND privilege_type = 'UPDATE'
     """,
-    (PROTOCOL_SCHEMA, AUTHENTICATED_ROLE),
+    (PROTOCOL_SCHEMA, role),
   )
   return {row[0] for row in cursor.fetchall()}
 
@@ -268,8 +269,13 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
     for denied in ("PUBLIC", ANONYMOUS_ROLE, AUTHENTICATOR_ROLE):
       if table_acls.get((table_name, denied)):
         problems.append(f"table_acl:{table_name}:{denied}")
-  if _extension_update_column_acl(cursor) != EXTENSIONS_UPDATE_COLUMNS:
+  if _extension_update_column_acl(cursor, AUTHENTICATED_ROLE) != EXTENSIONS_UPDATE_COLUMNS:
     problems.append("column_acl:extensions:update")
+  if (
+    _extension_update_column_acl(cursor, CORE_RUNTIME_ROLE)
+    != CORE_EXTENSIONS_UPDATE_COLUMNS
+  ):
+    problems.append("column_acl:extensions:core_runtime_update")
 
   sequence_acls = _relation_acl_rows(cursor, "S")
   cursor.execute(

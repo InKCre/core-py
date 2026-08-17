@@ -60,6 +60,10 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
       f"version ~ '{EXTENSION_SEMVER_PATTERN}'",
       name="extensions_version_canonical",
     ),
+    sqlalchemy.CheckConstraint(
+      "jsonb_typeof(state) = 'object'",
+      name="extensions_state_object",
+    ),
   )
 
   name: ExtensionName = sqlmodel.Field(
@@ -83,6 +87,14 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
     sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=True),
   )
   config: dict = sqlmodel.Field(
+    default_factory=dict,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.dialects.postgresql.JSONB,
+      server_default=sqlalchemy.text("'{}'::jsonb"),
+      nullable=False,
+    ),
+  )
+  state: dict = sqlmodel.Field(
     default_factory=dict,
     sa_column=sqlalchemy.Column(
       sqlalchemy.dialects.postgresql.JSONB,

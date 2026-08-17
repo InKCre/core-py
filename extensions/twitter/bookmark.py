@@ -25,6 +25,7 @@ class CollectConfig(pydantic.BaseModel):
 
   full: bool = False
   result_limit: int = pydantic.Field(default=40, ge=5, le=100)
+  authorization_id: str = pydantic.Field(min_length=1)
 
 
 def _video_url(video) -> str | None:
@@ -103,7 +104,9 @@ class Source(
 
     page = job.state.get("page") if job.state else None
 
-    api_client = TwitterAPI.new()
+    api_client = TwitterAPI.new(
+      expected_authorization_id=collect_config.authorization_id,
+    )
     bookmarks_res = await api_client.get_bookmarks(page=page, max_results=result_limit)
 
     # find new tweets start point

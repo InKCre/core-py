@@ -21,10 +21,17 @@
 - enable 先启动 runtime，再调用 atomic enabled RPC；返回 version 不一致时移除 peer 并停止旧 runtime。
 - disable 先停止 runtime，再调用 RPC；RPC 失败时重启 exact prior runtime，durable intent 不变。
 - cold restore 失败不得删除 `enabled[]`；bootstrap/readiness 明确报告 durable intent 尚未运行。
+- `ExtensionBase` 向 Extension 提供 fresh validated config 读写与 typed deployment-wide state
+  mutation；Extension 不接触 SQLModel，数据库行锁与并发语义仍由 Core store 实现。
+- Extension-specific setup 通过 running Extension 发布的 typed Peer inbound 实现；Host 不提供
+  generic setup/wizard protocol。公开 OAuth callback 必须是 lifecycle-bound exact route claim。
+- Registry origin 每次 operation 按 executing Peer override、deployment config、process fallback
+  解析一次，并由 exact Release 与 Distribution consumer 共用该 snapshot。
 
 ## 权限和持久化
 
-`state.py` 是唯一 DB adapter。`enabled[]` 只能通过
+`state.py` 是唯一 DB adapter。`extensions.state` 是 deployment-wide Extension-produced state；
+`enabled[]` 只能通过
 `inkcre.set_extension_peer_enabled(p_name text,p_peer_id uuid,p_enabled boolean)` 变更，禁止
 read-modify-write。SQLModel 不应泄露成 Host 的稳定接口。
 
