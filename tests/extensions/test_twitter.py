@@ -334,6 +334,95 @@ def test_provider_denial_does_not_reflect_the_callback_description(monkeypatch):
   assert terminal.error == "Twitter authorization was declined"
 
 
+@pytest.mark.parametrize(
+  ("status_code", "expected"),
+  [
+    (401, "Twitter current-user lookup failed (HTTP 401)"),
+    (
+      402,
+      "Twitter current-user lookup requires X API credits or project access (HTTP 402)",
+    ),
+    (403, "Twitter current-user lookup failed (HTTP 403)"),
+    (429, "Twitter current-user lookup failed (HTTP 429)"),
+    (503, "Twitter current-user lookup failed (HTTP 503)"),
+  ],
+)
+def test_exchange_code_reports_safe_current_user_http_status(
+  monkeypatch,
+  status_code,
+  expected,
+):
+  class ProviderClient:
+    async def fetch_token(self, *args, **kwargs):
+      return {"access_token": "provider-token"}
+
+    async def get(self, url):
+      return httpx.Response(
+        status_code,
+        json={"secret_provider_detail": "must not escape"},
+        request=httpx.Request("GET", url),
+      )
+
+    async def aclose(self):
+      return None
+
+  monkeypatch.setattr(setup, "AsyncOAuth2Client", lambda *args, **kwargs: ProviderClient())
+
+  with pytest.raises(setup.TwitterProviderError) as failure:
+    asyncio.run(
+      setup._exchange_code(
+        TwitterExtensionConfig(client_id="test-client", client_secret="test-secret"),
+        setup.OAuthTransaction(
+          status="pending",
+          provider_state="provider-state",
+          pkce_verifier="pkce-verifier",
+          app_fingerprint="app-fingerprint",
+          redirect_uri="https://core.example/twitter/auth/callback",
+          created_at=setup._now(),
+          expires_at=setup._now() + setup.TRANSACTION_LIFETIME,
+        ),
+        "authorization-code",
+      )
+    )
+
+  assert str(failure.value) == expected
+  assert "secret_provider_detail" not in str(failure.value)
+
+
+def test_exchange_code_distinguishes_token_transport_failure(monkeypatch):
+  class ProviderClient:
+    async def fetch_token(self, *args, **kwargs):
+      raise httpx.ConnectError(
+        "sensitive transport detail",
+        request=httpx.Request("POST", setup.TOKEN_URL),
+      )
+
+    async def aclose(self):
+      return None
+
+  monkeypatch.setattr(setup, "AsyncOAuth2Client", lambda *args, **kwargs: ProviderClient())
+
+  with pytest.raises(
+    setup.TwitterProviderError,
+    match="^Twitter token exchange request failed$",
+  ):
+    asyncio.run(
+      setup._exchange_code(
+        TwitterExtensionConfig(client_id="test-client", client_secret="test-secret"),
+        setup.OAuthTransaction(
+          status="pending",
+          provider_state="provider-state",
+          pkce_verifier="pkce-verifier",
+          app_fingerprint="app-fingerprint",
+          redirect_uri="https://core.example/twitter/auth/callback",
+          created_at=setup._now(),
+          expires_at=setup._now() + setup.TRANSACTION_LIFETIME,
+        ),
+        "authorization-code",
+      )
+    )
+
+
 def test_provider_access_fails_before_network_when_authorization_changed(monkeypatch):
   _, state = attach_runtime(
     TwitterExtensionConfig(client_id="test-client", client_secret="test-secret"),

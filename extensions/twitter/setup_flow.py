@@ -591,26 +591,51 @@ async def _exchange_code(
         code=code,
         code_verifier=transaction.pkce_verifier,
       )
+    except OAuthError:
+      raise TwitterProviderError("Twitter rejected the token exchange") from None
+    except httpx.TimeoutException:
+      raise TwitterProviderError("Twitter token exchange timed out") from None
+    except httpx.HTTPStatusError as failure:
+      raise TwitterProviderError(
+        f"Twitter token exchange failed (HTTP {failure.response.status_code})"
+      ) from None
+    except httpx.HTTPError:
+      raise TwitterProviderError("Twitter token exchange request failed") from None
+
+    try:
       response = await typing.cast(httpx.AsyncClient, client).get(CURRENT_USER_URL)
       response.raise_for_status()
+    except httpx.TimeoutException:
+      raise TwitterProviderError("Twitter current-user lookup timed out") from None
+    except httpx.HTTPStatusError as failure:
+      status_code = failure.response.status_code
+      if status_code == 402:
+        message = (
+          "Twitter current-user lookup requires X API credits or project access (HTTP 402)"
+        )
+      else:
+        message = f"Twitter current-user lookup failed (HTTP {status_code})"
+      raise TwitterProviderError(message) from None
+    except httpx.HTTPError:
+      raise TwitterProviderError("Twitter current-user lookup request failed") from None
+
+    try:
       payload = response.json()
       if not isinstance(payload, dict) or not isinstance(payload.get("data"), dict):
-        raise TwitterProviderError("Twitter returned an invalid account response")
+        raise TwitterProviderError(
+          "Twitter current-user lookup returned an invalid response"
+        )
       user = payload["data"]
       user_id = user.get("id")
       handle = user.get("username")
       if not isinstance(user_id, str) or not isinstance(handle, str):
-        raise TwitterProviderError("Twitter user response is incomplete")
+        raise TwitterProviderError(
+          "Twitter current-user lookup returned an incomplete response"
+        )
       return dict(token), user_id, handle
-    except OAuthError:
-      raise TwitterProviderError("Twitter rejected the authorization exchange") from None
-    except httpx.TimeoutException:
-      raise TwitterProviderError("Twitter authorization timed out") from None
-    except httpx.HTTPError:
-      raise TwitterProviderError("Twitter authorization request failed") from None
     except (TypeError, ValueError):
       raise TwitterProviderError(
-        "Twitter returned an invalid authorization response"
+        "Twitter current-user lookup returned an invalid response"
       ) from None
   finally:
     await typing.cast(httpx.AsyncClient, client).aclose()
