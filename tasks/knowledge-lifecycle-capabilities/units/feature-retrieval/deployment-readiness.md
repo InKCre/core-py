@@ -160,12 +160,22 @@ is not required to obtain that evidence。
 - free-host cold start and missed scheduled work are stated limits，not silently represented as full Peer equivalence；
 - canonical InKCre deployment retains its stricter exact identity/lineage checks。
 
-## Remaining Operational Evidence
+## Operational Execution Evidence
 
 Public signing-key publication is withdrawn for this increment。Self-host deployments and the canonical public-demo environment
 both keep signing authority private by default；an owner may still share a JWT privately during a live demonstration。Public
 read-only admission and Cloudflare-native Peer execution remain separate follow-up design problems。
 
-The controller、workflow、README journey and simulated Render API contract are implemented。The real Render account and required
-GitHub settings are now available；exact service creation、Free cold-start behavior and host-side `/readyz`/PostgREST probes
-remain an explicit execution gate，independent from canonical preview regression。
+The controller、workflow、README journey and simulated Render API contract are implemented。A real public fork at exact core
+commit `4b180467dd8ca79a28a241fa5e38333692bcb4d3` completed workflow run `31875608739` against fresh Neon project
+`patient-sky-13885177` and the new `inkcre-fork-xiaoland-v2` Render namespace。Fresh migration、exact service creation、Core
+readiness、Peer publication and the one-shot PostgREST contract passed。The host returned Core `200 ready` and PostgREST's
+expected anonymous `401` independently。
+
+After more than 16 minutes without traffic，Core's first `/readyz` request took 54.086s and returned ready；PostgREST then took
+12.927s and returned its expected `401` from `postgrest/14.15`。Core renewed the previously sleeping Peer's lease after wake。
+This closes the operational execution gate while confirming，rather than weakening，the documented Free-host availability limit。
+
+One earlier run stopped at Neon project lookup before provider mutation because the configured API key and project belonged to
+different organizations。The user-facing guide now states the cross-setting invariant。The successful run's logs expose only
+masked secrets and non-authorizing deployment coordinates。

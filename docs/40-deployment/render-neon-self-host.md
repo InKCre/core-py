@@ -26,8 +26,9 @@ different role name beside the same signing key does not reduce the key holder's
 No local clone is required.
 
 1. Fork this repository and enable GitHub Actions for the fork.
-2. Create a Neon project. Its default branch must retain the standard `neondb` database and
-   `neondb_owner` role. Copy the project ID from Neon.
+2. Create a Neon project and an API key that can access the project's account or organization.
+   Its default branch must retain the standard `neondb` database and `neondb_owner` role.
+   Copy the project ID from Neon.
 3. Create a Render workspace and API key. Copy the workspace ID from the workspace Settings
    page. The fork must be publicly readable by Render, or the Render workspace must already
    be authorized to access it.
@@ -36,7 +37,7 @@ No local clone is required.
 
 | Kind | Exact name | Meaning |
 | --- | --- | --- |
-| Secret | `NEON_API_KEY` | Can resolve and mutate the selected Neon project |
+| Secret | `NEON_API_KEY` | Can resolve and mutate `NEON_PROJECT_ID` in its account or organization |
 | Secret | `RENDER_API_KEY` | Can create and configure services in the selected workspace |
 | Secret | `JWT_SECRET` | At least 32 bytes; owner-only Peer signing authority |
 | Variable | `NEON_PROJECT_ID` | Target Neon project identity |
@@ -66,12 +67,18 @@ direct and pooled owner URLs, then invokes that controller. In order, it:
 5. creates or updates two auto-deploy-disabled Render Free Docker services without replacing
    unrelated owner-authored environment variables;
 6. waits for an exact-commit deployment of each service;
-7. probes core readiness, converges the core Peer's public inbound advertisement, and runs
-   the authenticated PostgREST read/write/deny contract.
+7. probes core readiness, then waits until an anonymous PostgREST request reaches the runtime
+   and returns the expected `401` admission boundary;
+8. converges the core Peer's public inbound advertisement and runs the authenticated
+   PostgREST read/write/deny contract once.
 
 The database owner URL and standalone role passwords are never placed in a Render service.
 Only role-specific runtime URLs are retained there. Workflow output and summaries contain
 only public service coordinates and source identity.
+
+The PostgREST availability probe is safe to retry while Render is still routing a new
+hostname. The complete verifier remains one-shot because an interrupted read/write contract
+may already have produced partial writes.
 
 Rerunning the workflow is convergence, not credential rotation. If an existing managed
 service has lost its role-specific URL, the controller stops instead of silently changing

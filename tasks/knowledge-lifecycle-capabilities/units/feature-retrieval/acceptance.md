@@ -159,8 +159,43 @@ does not close the Unit。
 - the exact PDM 2.27.0 hermetic core contract passes after the `origin/main` extension-registry integration with 445 tests、41
   explicitly external skips and zero lint/type diagnostics；a fresh PostgreSQL database also passes migration、init and
   development readiness against the merge revision。
-- client-web's complete test/lint/type/build contract passes with the new facade and InfoBaseListView。Generated cross-repo
-  database/OpenAPI artifacts remain pending an immutable pushed core source rather than being fabricated from a dirty worktree。
-- Render service/API behavior is covered by a mocked official-wire controller test and actionlint。The required private GitHub
-  secrets and public variables are now configured；real service creation、Free cold wake and deployed probes remain pending and
-  do not substitute for the final PR preview gates。
+- client-web's complete test/lint/type/build contract passes with the new facade and InfoBaseListView。At this local checkpoint，
+  generated cross-repo database/OpenAPI artifacts intentionally awaited an immutable pushed core source；the delivery evidence
+  below closes that boundary rather than fabricating artifacts from a dirty worktree。
+- Render service/API behavior first passed a mocked official-wire controller test and actionlint；real provider execution then
+  proceeded under the separate delivery gate recorded below rather than being inferred from those checks。
+
+## Delivery Execution Evidence（2026-08-13—15）
+
+- core-py PR #45 and its delivery follow-ups are merged。The final delivery-race fix is PR #63 at merge commit
+  `4b180467dd8ca79a28a241fa5e38333692bcb4d3`；its exact-head repository、portable-runtime、Neon preview and Heroku preview
+  checks passed。The same merge commit passed push CI、runtime/Extension publication and canonical production deployment；the
+  immutable runtime is `ghcr.io/inkcre/core-py@sha256:d990badb4ce140fef6b13c73e802caeb6b6e7651eaa13719d62cfce527ccb33f`。
+- client-web PR #50 exact head `6d9611bb69c1d8633408b1a1507f69b99732c526` passed all eight owning CI jobs；Cloudflare
+  preview run `31728559690` remains live at `https://preview-client-web-pr-50.inkcre-client-web.pages.dev/`。The manual J7
+  journey used that built client、a live delegated lexical capability and ordinary Block navigation；query/result state survived
+  Inspector and solved-content navigation plus two browser Back operations，with no console errors。
+- Sir explicitly authorized merging core before final integrated acceptance，so the original matching core PR preview no longer
+  existed when J7 ran。J7 therefore used the production-admitted core feature line while the core PR preview、core production and
+  client PR preview were each proven independently。This named execution-order substitution does not claim that one matching-
+  preview session occurred。
+- the real fork `xiaoland/core-py` fast-forwarded to the exact core merge and，after provider settings were made internally
+  consistent，workflow run `31875608739` created a fresh PostgreSQL 17 Neon project plus two new Render Free services in one
+  4m44s run。It migrated from empty state to `3f7a9c2d5e1b`，published one live four-capability Peer and completed the one-shot
+  PostgREST read/write/deny verifier。A preceding run failed at Neon project lookup before database、Render or controller mutation
+  because its API key belonged to a different organization；the onboarding guide now makes that cross-setting invariant explicit。
+- independent deployed probes returned Core `200 ready` and PostgREST `401` from `postgrest/14.15`。After more than 16 minutes
+  without traffic，the same Core request cold-started to ready in 54.086s；the still-independent PostgREST service woke to its
+  expected `401` in 12.927s。The Core wake renewed Peer `8c77be1b-b030-5f03-a80f-c75eb78cdede` to a live database lease，which
+  proves the documented wake-Core-first journey without representing the Free profile as continuously available。
+- workflow logs expose only masked GitHub secrets and non-authorizing service coordinates；no database URL、role password、JWT
+  signing key or provider authorization appeared in the inspected output。
+
+All product and technical acceptance surfaces are green；the authorized core-first execution-order substitution is recorded
+above rather than hidden。Client-web PR #50 later passed fresh required checks and squash-merged as `9b5c870`；its main CI also
+passed。The first Pages attempt then exposed a delivery-boundary permission defect while installing private `@inkcre/ui-web`
+（run `32017501336`）。Client-web PR #75 added only the missing job-level `packages: read`；exact-main Client checks run
+`32024516290` and Pages delivery run `32024731957` both passed for merge
+`17160ae5e9a49d89fa60d35cee86223f41972c0b`。The deployed `https://app.inkcre.dev/` returned HTTP 200 and referenced the
+new static entry `/assets/index-4dhPC3GP.js`。This closes app delivery without folding the defect into Feature retrieval or
+the independently completed native Extension release。
