@@ -165,7 +165,7 @@ def test_all_first_party_projects_build_pep420_entry_point_wheels(tmp_path: Path
     assert "extensions/__init__.py" not in members
     assert f"extensions/{extension}/__init__.py" in members
 
-  assert read_project(PROJECT_ROOT / "extensions/twitter").version == "0.2.0"
+  assert read_project(PROJECT_ROOT / "extensions/twitter").version == "0.2.1"
   venv = tmp_path / "lifecycle-venv"
   subprocess.run(  # noqa: S603 -- fixed interpreter and disposable venv
     [sys.executable, "-m", "venv", "--system-site-packages", str(venv)],
@@ -576,7 +576,7 @@ def test_extension_publish_changed_source_uses_the_bumped_release_version():
   producer = read_project(PROJECT_ROOT / "extensions/twitter")
 
   assert any(path.startswith("extensions/twitter/") for path in changed_paths)
-  assert producer.version == "0.2.0"
+  assert producer.version == "0.2.1"
 
 
 def test_extension_publish_changed_source_same_version_keeps_registry_conflict_fatal():

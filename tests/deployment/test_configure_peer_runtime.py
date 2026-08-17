@@ -32,11 +32,11 @@ def test_expected_snapshot_is_exact_and_normalizes_base_url():
     [
       *snapshot,
       {
-        "id": "inkcre.twitter.setup.v1",
+        "id": "inkcre.twitter.setup.status.v1",
         "inbound": {
           "protocol": "core.peer.protocol.http.v1",
           "parameters": {
-            "method": "POST",
+            "method": "GET",
             "url": "https://core.example.test/twitter/setup",
           },
         },

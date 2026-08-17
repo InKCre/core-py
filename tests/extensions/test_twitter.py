@@ -12,17 +12,15 @@ import pytest
 from app.business.extension.runtime import ExtensionRuntimeRecord, PublicHTTPRouteClaim
 from app.business.peer import PeerManager
 from app.business.source import SourceManager
-from app.schemas.cron import CronModel
 from app.schemas.job import JobModel
 from app.schemas.peer import CorePeerConfig
-from app.schemas.source import SourceModel
 from extensions.twitter import Extension, TwitterExtensionConfig
 from extensions.twitter.api import OfficialAPI, TwikitAPI, TwitterAPI
 import extensions.twitter.bookmark as bookmark
 from extensions.twitter.bookmark import CollectConfig, Source as BookmarkSource
 import extensions.twitter.setup_flow as setup
 from extensions.twitter.setup_flow import (
-  SaveOAuthAppCommand,
+  SaveOAuthAppRequest,
   TwitterAccount,
   TwitterExtensionState,
   TwitterSetupConflict,
@@ -161,26 +159,14 @@ def test_new_oauth_supersedes_and_scrubs_the_previous_transaction(monkeypatch):
 
 def test_replacing_oauth_app_requires_explicit_account_reset_confirmation(monkeypatch):
   configure_peer_base(monkeypatch)
-  monkeypatch.setattr(
-    setup,
-    "_bookmark_source_status",
-    lambda state: (state.bookmark_source_id, None, (), setup.SetupCollectAt(), False),
-  )
   config, state = attach_runtime(
     TwitterExtensionConfig(client_id="first-client", client_secret="first-secret"),
-    connected_state().model_copy(update={"bookmark_cron_id": 9}),
-  )
-  disabled: list[int | None] = []
-  monkeypatch.setattr(
-    setup,
-    "_disable_bookmark_schedule",
-    lambda current: disabled.append(current.bookmark_cron_id),
+    connected_state(),
   )
 
   with pytest.raises(TwitterSetupConflict, match="requires confirmation"):
     setup.save_oauth_app(
-      SaveOAuthAppCommand(
-        action="save_oauth_app",
+      SaveOAuthAppRequest(
         client_id="next-client",
         client_secret="next-secret",
       )
@@ -190,8 +176,7 @@ def test_replacing_oauth_app_requires_explicit_account_reset_confirmation(monkey
   assert TwitterExtensionState.model_validate(state).account is not None
 
   status = setup.save_oauth_app(
-    SaveOAuthAppCommand(
-      action="save_oauth_app",
+    SaveOAuthAppRequest(
       client_id="next-client",
       client_secret="next-secret",
       confirm_account_reset=True,
@@ -200,87 +185,19 @@ def test_replacing_oauth_app_requires_explicit_account_reset_confirmation(monkey
 
   assert config["client_id"] == "next-client"
   assert TwitterExtensionState.model_validate(state).account is None
-  assert disabled == [9]
   assert status.callback_url == "https://core.example/twitter/auth/callback"
 
 
 def test_direct_oauth_config_change_reconciles_state_before_setup(monkeypatch):
-  stale = connected_state().model_copy(update={"bookmark_cron_id": 9})
+  stale = connected_state()
   _, state = attach_runtime(
     TwitterExtensionConfig(client_id="next-client", client_secret="next-secret"),
     stale,
   )
-  disabled: list[int | None] = []
-  monkeypatch.setattr(
-    setup,
-    "_disable_bookmark_schedule",
-    lambda current: disabled.append(current.bookmark_cron_id),
-  )
-
   reconciled = setup._reconcile_oauth_state()
 
   assert reconciled.account is None
   assert TwitterExtensionState.model_validate(state).account is None
-  assert disabled == [9]
-
-
-def test_disconnect_stops_bookmark_collection_before_clearing_account(monkeypatch):
-  initial = connected_state().model_copy(update={"bookmark_cron_id": 9})
-  _, state = attach_runtime(
-    TwitterExtensionConfig(client_id="test-client", client_secret="test-secret"),
-    initial,
-  )
-  disabled: list[int | None] = []
-  monkeypatch.setattr(
-    setup,
-    "_disable_bookmark_schedule",
-    lambda current: disabled.append(current.bookmark_cron_id),
-  )
-  monkeypatch.setattr(setup, "get_setup_status", lambda: None)
-
-  setup.disconnect_account()
-
-  assert disabled == [9]
-  assert TwitterExtensionState.model_validate(state).account is None
-
-
-def test_disabling_bookmark_schedule_preserves_its_reusable_template(monkeypatch):
-  cron = CronModel(
-    id=9,
-    schedule="30 6 * * *",
-    enabled=True,
-    job_type=setup.SOURCE_COLLECT_JOB_TYPE,
-    job_parameters=setup._bookmark_job_parameters(25, "authorization-current"),
-    job_timeout_seconds=180,
-  )
-
-  class Session:
-    def __enter__(self):
-      return self
-
-    def __exit__(self, *args):
-      return None
-
-    def get(self, model, identifier):
-      return cron if model is CronModel and identifier == 9 else None
-
-  saved = []
-  monkeypatch.setattr(setup, "SessionLocal", Session)
-  monkeypatch.setattr(
-    setup.CronManager,
-    "update",
-    lambda cron_id, form: saved.append((form, cron_id)),
-  )
-
-  setup._disable_bookmark_schedule(
-    connected_state().model_copy(update={"bookmark_cron_id": 9})
-  )
-
-  form, cron_id = saved[0]
-  assert cron_id == 9
-  assert form.enabled is False
-  assert form.schedule == "30 6 * * *"
-  assert form.job_parameters == cron.job_parameters
 
 
 def test_callback_persists_account_and_scrubs_provider_transaction(monkeypatch):
@@ -529,7 +446,7 @@ class _EmptySession:
     return None
 
 
-def test_bookmark_collection_requires_the_scheduled_authorization(monkeypatch):
+def test_bookmark_collection_uses_current_extension_authorization(monkeypatch):
   captured: list[str | None] = []
 
   class API:
@@ -549,152 +466,37 @@ def test_bookmark_collection_requires_the_scheduled_authorization(monkeypatch):
   asyncio.run(
     BookmarkSource(_id=1).collect(
       job,
-      CollectConfig(
-        full=True,
-        authorization_id="authorization-current",
-      ),
+      CollectConfig(full=True),
     )
   )
 
-  assert captured == ["authorization-current"]
-
-
-def test_setup_projects_bookmark_choice_to_source_and_cron_authorities(monkeypatch):
-  _, state = attach_runtime(
-    TwitterExtensionConfig(client_id="test-client", client_secret="test-secret"),
-    connected_state("authorization-current"),
-  )
-  source = SourceModel(
-    id=25,
-    type=setup.BOOKMARK_SOURCE_TYPE,
-    nickname="Twitter Bookmarks",
-    config={},
-  )
-  captured = []
-
-  monkeypatch.setattr(SourceManager, "create", lambda *args, **kwargs: source)
-
-  def create_cron(form):
-    captured.append(("create", form, None))
-    return CronModel(id=9, **form.model_dump())
-
-  monkeypatch.setattr(setup.CronManager, "create", create_cron)
-  monkeypatch.setattr(
-    setup,
-    "get_setup_status",
-    lambda: setup.TwitterSetupStatus(
-      backend="official",
-      callback_url="https://core.example/twitter/auth/callback",
-      oauth_app_configured=True,
-      connected=True,
-    ),
-  )
-
-  setup.configure_bookmark_source(
-    setup.ConfigureBookmarkSourceCommand(
-      action="configure_bookmark_source",
-      collect_at=setup.SetupCollectAt(hour=6, minute=30),
-    )
-  )
-
-  persisted = TwitterExtensionState.model_validate(state)
-  assert persisted.bookmark_source_id == 25
-  assert persisted.bookmark_cron_id == 9
-  operation, form, previous_id = captured[0]
-  assert operation == "create"
-  assert previous_id is None
-  assert form.schedule == "30 6 * * *"
-  assert form.enabled is False
-  assert form.job_parameters == {
-    "source": 25,
-    "config": {
-      "full": False,
-      "result_limit": 40,
-      "authorization_id": "authorization-current",
-    },
-  }
-
-
-def test_finish_cannot_commit_readiness_after_account_reconnect(monkeypatch):
-  initial = connected_state("authorization-old").model_copy(
-    update={"bookmark_source_id": 25, "bookmark_cron_id": 9}
-  )
-  _, state = attach_runtime(
-    TwitterExtensionConfig(client_id="test-client", client_secret="test-secret"),
-    initial,
-  )
-  source = SourceModel(
-    id=25,
-    type=setup.BOOKMARK_SOURCE_TYPE,
-    nickname="Twitter Bookmarks",
-    config={},
-  )
-  cron = CronModel(
-    id=9,
-    schedule="0 6 * * *",
-    enabled=True,
-    job_type=setup.SOURCE_COLLECT_JOB_TYPE,
-    job_parameters=setup._bookmark_job_parameters(25, "authorization-old"),
-  )
-
-  class API:
-    async def get_user(self):
-      state["account"]["authorization_id"] = "authorization-new"
-      return "42", "inkcre"
-
-    async def close(self):
-      return None
-
-  class Session:
-    def __enter__(self):
-      return self
-
-    def __exit__(self, *args):
-      return None
-
-    def get(self, model, identifier):
-      if model is SourceModel and identifier == 25:
-        return source
-      if model is CronModel and identifier == 9:
-        return cron
-      return None
-
-  monkeypatch.setattr(OfficialAPI, "from_extension", lambda **kwargs: API())
-  monkeypatch.setattr(setup, "SessionLocal", Session)
-  monkeypatch.setattr(
-    setup.CronManager,
-    "update",
-    lambda cron_id, form: CronModel(id=cron_id, **form.model_dump()),
-  )
-  monkeypatch.setattr(
-    setup.CronManager,
-    "run_now",
-    lambda _cron_id: pytest.fail("stale authorization must not schedule a Job"),
-  )
-
-  with pytest.raises(TwitterSetupConflict, match="changed during Finish"):
-    asyncio.run(setup.finish_setup())
+  assert captured == [None]
 
 
 def test_twitter_public_callback_and_setup_capability_follow_publication(monkeypatch):
   monkeypatch.setattr(SourceManager, "sync_source_types", lambda _types: None)
   published = publish_extension(Extension)
   try:
-    assert (
-      published.client.post("/twitter/setup", json={"action": "get_status"}).status_code
-      == 401
-    )
+    assert published.client.get("/twitter/setup").status_code == 401
     assert published.client.get("/twitter/auth/callback").status_code == 400
     assert PublicHTTPRouteClaim.permits("GET", "/twitter/auth/callback")
     assert set(published.app.openapi()["paths"]) >= {
       "/twitter/setup",
+      "/twitter/setup/oauth-app",
+      "/twitter/setup/oauth-transactions",
+      "/twitter/setup/oauth-transaction",
+      "/twitter/setup/account",
       "/twitter/auth/callback",
     }
     assert [(item.method, item.path) for item in Extension.public_http_routes()] == [
       ("GET", "/auth/callback")
     ]
     assert [item.capability for item in Extension.peer_inbounds()] == [
-      setup.TWITTER_SETUP_CAPABILITY
+      setup.TWITTER_SETUP_STATUS_CAPABILITY,
+      setup.TWITTER_OAUTH_APP_CONFIGURE_CAPABILITY,
+      setup.TWITTER_OAUTH_BEGIN_CAPABILITY,
+      setup.TWITTER_OAUTH_TRANSACTION_READ_CAPABILITY,
+      setup.TWITTER_OAUTH_DISCONNECT_CAPABILITY,
     ]
   finally:
     published.unpublish()

@@ -75,9 +75,9 @@ class Extension(
 
   @classmethod
   def peer_inbounds(cls) -> tuple[typing.Any, ...]:
-    from .setup_flow import TWITTER_SETUP_INBOUND
+    from .setup_flow import TWITTER_SETUP_INBOUNDS
 
-    return (TWITTER_SETUP_INBOUND,)
+    return TWITTER_SETUP_INBOUNDS
 
   @classmethod
   def public_http_routes(cls) -> tuple[PublicHTTPRoute, ...]:
