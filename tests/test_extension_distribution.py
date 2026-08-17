@@ -172,7 +172,7 @@ def test_all_first_party_projects_build_pep420_entry_point_wheels(tmp_path: Path
     assert "extensions/__init__.py" not in members
     assert f"extensions/{extension}/__init__.py" in members
 
-  assert read_project(PROJECT_ROOT / "extensions/twitter").version == "0.1.1"
+  assert read_project(PROJECT_ROOT / "extensions/twitter").version == "0.2.0"
 
   venv = tmp_path / "lifecycle-venv"
   subprocess.run(  # noqa: S603 -- fixed interpreter and disposable venv
@@ -236,16 +236,25 @@ def test_all_first_party_projects_build_pep420_entry_point_wheels(tmp_path: Path
       assert runtime_root in Path(module.__file__).resolve().parents
 
       persisted = []
+      state = {{}}
       schemas = []
       app = fastapi.FastAPI()
       extension.on_start(
         app,
-        ExtensionRuntimeRecord(name, {{}}, persisted.append, schemas.append),
+        ExtensionRuntimeRecord(
+          extension_id=name,
+          config={{}},
+          read_config=lambda: {{}},
+          persist_config=persisted.append,
+          read_state=lambda: dict(state),
+          mutate_state=lambda mutation: state.update(mutation(dict(state))) or dict(state),
+          mutate_config_and_state=lambda mutation: mutation({{}}, dict(state)),
+          persist_config_schema=schemas.append,
+        ),
       )
       assert extension.runtime_active()
       assert schemas
       asyncio.run(extension.on_close())
-      assert persisted
       extension.unpublish()
       assert not extension.runtime_active()
       extension.release_runtime()
@@ -575,7 +584,7 @@ def test_extension_publish_changed_source_uses_the_bumped_release_version():
   producer = read_project(PROJECT_ROOT / "extensions/twitter")
 
   assert any(path.startswith("extensions/twitter/") for path in changed_paths)
-  assert producer.version == "0.1.1"
+  assert producer.version == "0.2.0"
 
 
 def test_extension_publish_changed_source_same_version_keeps_registry_conflict_fatal():

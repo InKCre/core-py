@@ -12,6 +12,10 @@
   SemVer range。
 - Extension class 继承 `ExtensionBase`，可直接 import `app`、`libs`、`utils` 等 Core API。
 - `_init_sources()` / `_init_resolvers()` 必须可被同一进程的 disable/re-enable 撤销和重建。
+- Extension config/state 只能通过 `ExtensionBase` 的 validated API 访问；不得持有或泄漏
+  `ExtensionModel`。config 是 owner-authored，state 是 Extension-produced，二者都可 deployment-wide。
+- Extension-specific setup 可以发布 typed Peer inbound 与 exact public callback route；不得要求
+  Host 提供 generic wizard protocol，也不得把 Source/Cron/Job authority复制进 Extension state。
 
 ## 发布与版本
 

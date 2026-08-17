@@ -78,6 +78,7 @@ def test_production_required_columns_are_not_nullable():
     ("extensions", "config"),
     ("extensions", "enabled"),
     ("extensions", "name"),
+    ("extensions", "state"),
     ("extensions", "version"),
     ("logs", "timestamp"),
     ("sources", "config"),

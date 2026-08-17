@@ -4,13 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "inkcre-ext-twitter"
-version = "0.1.1"
+version = "0.2.0"
 description = "Twitter extension for InKCre"
 authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 dependencies = [
+  "authlib>=1.7.2,<2.0.0",
   "aiohttp>=3.14.1,<4.0.0",
   "datadot>=1.0.0,<2.0.0",
   "fastapi>=0.139.2,<0.140.0",
+  "httpx>=0.28.1,<0.29.0",
   "sqlmodel>=0.0.24,<0.0.25",
   "twikit>=2.3.3,<3.0.0",
 ]
@@ -24,7 +26,7 @@ twitter = "extensions.twitter:Extension"
 name = "inkcre/twitter"
 nickname = "Twitter"
 host-sdk = "core-py"
-host-sdk-version = ">=0.1.0 <0.2.0"
+host-sdk-version = ">=0.1.1 <0.2.0"
 
 [tool.setuptools]
 packages = ["extensions.twitter"]

@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:90905db6c6e9ab7ad7096423b6cfbcfe35cbd3b716b8b6d01f267f9d73e1a5a8"
+content_hash = "sha256:06b5a6fc489e12af5df4496b70c95c925ed59e59371d7f48f25aa03b8be430f2"
 
 [[metadata.targets]]
 requires_python = ">=3.12,<3.13"
@@ -187,6 +187,21 @@ groups = ["default"]
 files = [
     {file = "attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"},
     {file = "attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32"},
+]
+
+[[package]]
+name = "authlib"
+version = "1.7.2"
+requires_python = ">=3.10"
+summary = "The ultimate Python library in building OAuth and OpenID Connect servers and clients."
+groups = ["default"]
+dependencies = [
+    "cryptography",
+    "joserfc>=1.6.0",
+]
+files = [
+    {file = "authlib-1.7.2-py2.py3-none-any.whl", hash = "sha256:3e1faedc9d87e7d56a164eca3ccb6ace0d61b94abe83e92242f8dc8bba9b4a9f"},
+    {file = "authlib-1.7.2.tar.gz", hash = "sha256:2cea25fefcd4e7173bdf1372c0afc265c8034b23a8cd5dcb6a9164b826c64231"},
 ]
 
 [[package]]
@@ -790,6 +805,20 @@ files = [
     {file = "jiter-0.16.0-cp312-cp312-win_amd64.whl", hash = "sha256:1878349266f8ee36ecb1375cc5ba2f115f35fd9f0a1a4119e725e379126647f7"},
     {file = "jiter-0.16.0-cp312-cp312-win_arm64.whl", hash = "sha256:2ed5738ae4af18271a51a528b8811b0cbfa4a1858de9d83359e4169855d6a331"},
     {file = "jiter-0.16.0.tar.gz", hash = "sha256:7b24c3492c5f4f84a37946ad9cf504910cf6a782d6a4e0689b6673c5894b4a1c"},
+]
+
+[[package]]
+name = "joserfc"
+version = "1.7.4"
+requires_python = ">=3.10"
+summary = "The ultimate Python library for JOSE RFCs, including JWS, JWE, JWK, JWA, JWT"
+groups = ["default"]
+dependencies = [
+    "cryptography>=45.0.1",
+]
+files = [
+    {file = "joserfc-1.7.4-py3-none-any.whl", hash = "sha256:32d46c2cd5e3203c13e87a6c61333cab310b1ba80cd54b4c4f386a848a122463"},
+    {file = "joserfc-1.7.4.tar.gz", hash = "sha256:b3bc561672ae541b17a9237053b48a03dacddd92d68047b3ecdfb4b5714a88ed"},
 ]
 
 [[package]]

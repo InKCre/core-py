@@ -17,6 +17,85 @@ from app.schemas.peer import CapabilityID
 from app.schemas.info_base.block import ResolverType
 
 
+@dataclass(frozen=True)
+class PublicHTTPRoute:
+  """One exact Extension route intentionally published without Peer JWT."""
+
+  method: typing.Literal["GET", "POST"]
+  path: str
+
+  def __post_init__(self) -> None:
+    if (
+      not self.path.startswith("/")
+      or self.path == "/"
+      or "{" in self.path
+      or "}" in self.path
+      or "*" in self.path
+      or "?" in self.path
+      or "#" in self.path
+    ):
+      raise ValueError("Public Extension route must be an exact relative path")
+
+
+class PublicHTTPRouteClaim:
+  """Process authority for exact public routes contributed by a runtime."""
+
+  _lock = threading.Lock()
+  _owners: dict[tuple[str, str], object] = {}
+
+  def __init__(self, routes: frozenset[tuple[str, str]], token: object) -> None:
+    self.routes = routes
+    self._token = token
+    self._released = False
+
+  @classmethod
+  def acquire(
+    cls,
+    extension_id: str,
+    declarations: tuple[PublicHTTPRoute, ...],
+    published_routes: tuple[typing.Any, ...],
+  ) -> PublicHTTPRouteClaim | None:
+    if not declarations:
+      return None
+    available = {
+      (method, route.path)
+      for route in published_routes
+      for method in (getattr(route, "methods", None) or ())
+      if isinstance(getattr(route, "path", None), str)
+    }
+    absolute = frozenset(
+      (declaration.method, f"/{extension_id}{declaration.path}")
+      for declaration in declarations
+    )
+    missing = absolute - available
+    if missing:
+      raise ValueError(f"Public Extension routes were not published: {sorted(missing)}")
+    token = object()
+    with cls._lock:
+      conflicts = absolute & cls._owners.keys()
+      if conflicts:
+        raise ExtensionRuntimeClaimConflictError(
+          f"Public Extension route already claimed: {sorted(conflicts)}"
+        )
+      for route in absolute:
+        cls._owners[route] = token
+    return cls(absolute, token)
+
+  @classmethod
+  def permits(cls, method: str, path: str) -> bool:
+    with cls._lock:
+      return (method.upper(), path) in cls._owners
+
+  def release(self) -> None:
+    if self._released:
+      return
+    with self._lock:
+      for route in self.routes:
+        if self._owners.get(route) is self._token:
+          self._owners.pop(route)
+      self._released = True
+
+
 class ExtensionRuntimeClaimConflictError(RuntimeError):
   """Raised when another manager already owns an Extension runtime ID."""
 
@@ -59,7 +138,22 @@ class ExtensionRuntimeRecord:
 
   extension_id: str
   config: dict[str, typing.Any]
+  read_config: Callable[[], dict[str, typing.Any]]
   persist_config: Callable[[dict[str, typing.Any]], None]
+  read_state: Callable[[], dict[str, typing.Any]]
+  mutate_state: Callable[
+    [Callable[[dict[str, typing.Any]], dict[str, typing.Any]]],
+    dict[str, typing.Any],
+  ]
+  mutate_config_and_state: Callable[
+    [
+      Callable[
+        [dict[str, typing.Any], dict[str, typing.Any]],
+        tuple[dict[str, typing.Any], dict[str, typing.Any]],
+      ]
+    ],
+    tuple[dict[str, typing.Any], dict[str, typing.Any]],
+  ]
   persist_config_schema: Callable[[dict[str, typing.Any]], None]
 
 
@@ -75,6 +169,7 @@ class ExtensionPublication:
   resolvers_published: dict[ResolverType, type[Resolver]]
   peer_inbounds_before: dict[CapabilityID, PeerInbound]
   peer_inbounds_published: dict[CapabilityID, PeerInbound]
+  public_http_claim: PublicHTTPRouteClaim | None = None
   restored: bool = False
 
   def _contributed_source_types(self) -> dict[str, type[SourceBase]]:
@@ -104,6 +199,9 @@ class ExtensionPublication:
       self.peer_inbounds_before,
       self.peer_inbounds_published,
     )
+    if self.public_http_claim is not None:
+      self.public_http_claim.release()
+      self.public_http_claim = None
     SourceManager.restore_source_types(
       self.source_types_before,
       self.source_types_published,

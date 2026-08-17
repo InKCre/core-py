@@ -10,7 +10,7 @@ import sqlmodel
 from app.business.deployment_config import DeploymentConfigManager
 from app.business.job import JobManager
 from app.engine import SessionLocal
-from app.schemas.cron import CronID, CronModel
+from app.schemas.cron import CronForm, CronID, CronModel
 from app.schemas.job import JobModel, JobStatus
 from libs.obsrv.main import get_logger
 
@@ -132,3 +132,34 @@ class CronManager:
       db_session.commit()
       db_session.refresh(job)
       return job
+
+  @classmethod
+  def create(cls, form: CronForm) -> CronModel:
+    """Validate and create one Cron template."""
+    if not croniter.croniter.is_valid(form.schedule):
+      raise ValueError("Cron schedule must be a valid five-field UNIX expression")
+    with SessionLocal() as db_session:
+      cron = CronModel(**form.model_dump())
+      db_session.add(cron)
+      db_session.commit()
+      db_session.refresh(cron)
+      return cron
+
+  @classmethod
+  def update(cls, cron_id: CronID, form: CronForm) -> CronModel:
+    """Validate and replace the editable fields of one Cron template."""
+    if not croniter.croniter.is_valid(form.schedule):
+      raise ValueError("Cron schedule must be a valid five-field UNIX expression")
+    with SessionLocal() as db_session:
+      cron = db_session.get(CronModel, cron_id)
+      if cron is None:
+        raise ValueError(f"Cron {cron_id} does not exist")
+      cron.schedule = form.schedule
+      cron.enabled = form.enabled
+      cron.job_type = form.job_type
+      cron.job_parameters = dict(form.job_parameters)
+      cron.job_timeout_seconds = form.job_timeout_seconds
+      db_session.add(cron)
+      db_session.commit()
+      db_session.refresh(cron)
+      return cron

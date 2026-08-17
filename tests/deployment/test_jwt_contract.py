@@ -10,7 +10,8 @@ from app.database_contract.constants import (
   JWT_MAX_LIFETIME_SECONDS,
   JWT_ROLE,
 )
-from app.middleware import decode_peer_jwt
+from app.middleware import decode_peer_jwt, logged_query_params
+from starlette.requests import Request
 
 
 SECRET = "test-only-jwt-secret-at-least-32-bytes"  # noqa: S105
@@ -71,3 +72,21 @@ def test_peer_jwt_requires_every_canonical_claim(missing):
 def test_peer_jwt_rejects_wrong_secret():
   with pytest.raises(jwt.exceptions.InvalidTokenError):
     decode_peer_jwt(_encode(_claims(), WRONG_SECRET), SECRET, now=NOW)
+
+
+def test_request_logging_redacts_oauth_query_material():
+  request = Request(
+    {
+      "type": "http",
+      "method": "GET",
+      "path": "/twitter/auth/callback",
+      "query_string": b"code=authorization-code&state=provider-state&locale=en",
+      "headers": [],
+    }
+  )
+
+  logged = logged_query_params(request)
+
+  assert logged == "code=<redacted>&state=<redacted>&locale=en"
+  assert "authorization-code" not in logged
+  assert "provider-state" not in logged
