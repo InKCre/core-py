@@ -73,10 +73,35 @@ class _SelfAuthenticatedExtension(
 
 
 def _record(extension_id: str) -> ExtensionRuntimeRecord:
+  config: dict = {}
+  state: dict = {}
+
+  def persist_config(value):
+    config.clear()
+    config.update(value)
+
+  def mutate_state(transform):
+    next_state = transform(dict(state))
+    state.clear()
+    state.update(next_state)
+    return dict(state)
+
+  def mutate_config_and_state(transform):
+    next_config, next_state = transform(dict(config), dict(state))
+    config.clear()
+    config.update(next_config)
+    state.clear()
+    state.update(next_state)
+    return dict(config), dict(state)
+
   return ExtensionRuntimeRecord(
     extension_id=extension_id,
-    config={},
-    persist_config=lambda _config: None,
+    config=dict(config),
+    read_config=lambda: dict(config),
+    persist_config=persist_config,
+    read_state=lambda: dict(state),
+    mutate_state=mutate_state,
+    mutate_config_and_state=mutate_config_and_state,
     persist_config_schema=lambda _schema: None,
   )
 

@@ -1,15 +1,14 @@
 """Middleware for logging and request tracking."""
 
 import time
-import uuid
-import jwt
 from typing import Callable
+import uuid
 
-from fastapi import Request, Response, HTTPException
+from fastapi import HTTPException, Request, Response
+import jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from libs.obsrv.log_record import TRACE_ID
 from app.database_contract.constants import (
   JWT_ALGORITHM,
   JWT_AUDIENCE,
@@ -18,7 +17,21 @@ from app.database_contract.constants import (
   JWT_ROLE,
 )
 from app.settings import settings
+from libs.obsrv.log_record import TRACE_ID
 from libs.obsrv.main import get_logger
+
+
+SENSITIVE_QUERY_PARAMETERS = frozenset(
+  {"access_token", "client_secret", "code", "refresh_token", "state", "token"}
+)
+
+
+def logged_query_params(request: Request) -> str:
+  """Render query diagnostics without persisting OAuth or credential material."""
+  return "&".join(
+    f"{key}={'<redacted>' if key.lower() in SENSITIVE_QUERY_PARAMETERS else value}"
+    for key, value in request.query_params.multi_items()
+  )
 
 
 def decode_peer_jwt(
@@ -144,7 +157,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
       extra={
         "method": request.method,
         "path": request.url.path,
-        "query_params": str(request.query_params),
+        "query_params": logged_query_params(request),
       },
     )
 

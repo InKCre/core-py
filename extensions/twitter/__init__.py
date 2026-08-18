@@ -1,8 +1,10 @@
 import typing
-import sqlmodel
 from typing import Optional as Opt
+
 from fastapi import APIRouter
-from app.business.extension.main import ExtensionBase
+import sqlmodel
+
+from app.business.extension.main import ExtensionBase, PublicHTTPRoute
 from app.business.info_base.resolver import ResolverManager
 from app.business.source import SourceManager
 
@@ -20,10 +22,14 @@ class TwitterExtensionConfig(sqlmodel.SQLModel):
   totp_secret: Opt[str] = None
 
 
+from .setup_flow import TwitterExtensionState
+
+
 class Extension(
   ExtensionBase[TwitterExtensionConfig],
   ext_id="twitter",
   config_cls=TwitterExtensionConfig,
+  state_cls=TwitterExtensionState,
 ):
   @classmethod
   def _init_resolvers(cls):
@@ -57,11 +63,50 @@ class Extension(
 
   @classmethod
   def _register_apis(cls, router: APIRouter):
-    from .api import TwitterAPI
+    from .setup_flow import _reconcile_oauth_state, register_setup_routes
 
-    TwitterAPI.new(api_router=router)
-    router.post("/bookmark")(
-      lambda nickname: SourceManager.create(
-        f"extensions.{cls.__extid__}.bookmark.Source", nickname
-      )
+    _reconcile_oauth_state()
+    register_setup_routes(router)
+
+  @classmethod
+  def api_dependencies(cls) -> list[typing.Any]:
+    """Compose Peer auth only around setup; OAuth callback stays public."""
+    return []
+
+  @classmethod
+  def peer_inbounds(cls) -> tuple[typing.Any, ...]:
+    from .setup_flow import TWITTER_SETUP_INBOUNDS
+
+    return TWITTER_SETUP_INBOUNDS
+
+  @classmethod
+  def public_http_routes(cls) -> tuple[PublicHTTPRoute, ...]:
+    return (PublicHTTPRoute(method="GET", path="/auth/callback"),)
+
+  @classmethod
+  def update_config(
+    cls,
+    new_config: dict[str, typing.Any] | TwitterExtensionConfig,
+  ) -> TwitterExtensionConfig:
+    """Keep generic config writes consistent with setup-owned OAuth state."""
+    from .setup_flow import _fingerprint, _invalidate_mismatched_oauth_state
+
+    validated = (
+      TwitterExtensionConfig.model_validate(new_config)
+      if isinstance(new_config, dict)
+      else new_config
     )
+
+    def update(config_model, state_model):
+      config = TwitterExtensionConfig.model_validate(config_model)
+      state = TwitterExtensionState.model_validate(state_model)
+      if _fingerprint(validated) != _fingerprint(config):
+        state, _ = _invalidate_mismatched_oauth_state(
+          validated,
+          state,
+          reason="OAuth App changed",
+        )
+      return validated, state
+
+    config, _ = cls.mutate_config_and_state(update)
+    return config

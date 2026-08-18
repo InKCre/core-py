@@ -1,21 +1,20 @@
+from __future__ import annotations
+
 import abc
 import asyncio
-import base64
 import datetime
-import os
 from pathlib import Path
 import re
 import typing
-import secrets
-import aiohttp
-import fastapi
+from authlib.integrations.base_client.errors import OAuthError  # pyrefly: ignore[untyped-import]
+from authlib.integrations.httpx_client import AsyncOAuth2Client  # pyrefly: ignore[untyped-import]
+import httpx
+import pydantic
 import sqlmodel
 import twikit
 import twikit.media
-import urllib.parse
 from typing import Optional as Opt
 from dd import dd
-from utils.base import AIOHTTP_CONNECTOR_GETTER
 from utils.datetime_ import get_timestamp
 from .schema import TweetPhoto, TweetVideo, VideoVariant
 from . import Extension
@@ -63,39 +62,32 @@ class TwitterAPI(abc.ABC):
     cls.SINGLETON = None
 
   @classmethod
-  def new(cls, api_router: Opt[fastapi.APIRouter] = None) -> "TwitterAPI":
+  def new(
+    cls,
+    *,
+    expected_authorization_id: str | None = None,
+  ) -> "TwitterAPI":
     """Create an instance of the Twitter API client.
 
     Use `config.backend` to determine which backend to use.
     """
+    config = Extension.get_config()
+    backend_type = config.backend
+    if backend_type == "official":
+      return OfficialAPI.from_extension(expected_authorization_id=expected_authorization_id)
     if cls.SINGLETON is not None:
       return cls.SINGLETON
-    else:
-      backend_type = Extension.config.backend
-      if backend_type == "official":
-        cls.SINGLETON = OfficialAPI(
-          client_id=Extension.config.client_id,
-          client_secret=Extension.config.client_secret,
-        )
-        if api_router:
-          api_router.get("/auth/authorize")(cls.SINGLETON.get_oauth_authorize_url)
-          api_router.get("/auth/callback")(cls.SINGLETON.handle_oauth_callback)
-        else:
-          # log warning
-          pass
-      elif backend_type == "twikit":
-        cls.SINGLETON = TwikitAPI(
-          email=Extension.config.email,
-          username=Extension.config.username,
-          password=Extension.config.password,
-          totp_secret=Extension.config.totp_secret,
-          language=Extension.config.api_language,
-          proxy=Extension.config.proxy,
-        )
-      else:
-        raise ValueError(f"Unknown backend type: {backend_type}")
-
+    if backend_type == "twikit":
+      cls.SINGLETON = TwikitAPI(
+        email=config.email,
+        username=config.username,
+        password=config.password,
+        totp_secret=config.totp_secret,
+        language=config.api_language,
+        proxy=config.proxy,
+      )
       return cls.SINGLETON
+    raise ValueError(f"Unknown backend type: {backend_type}")
 
   async def close(self): ...
 
@@ -126,8 +118,6 @@ class TwitterAPI(abc.ABC):
 class OfficialAPI(TwitterAPI):
   """Official Twitter API client."""
 
-  state = None
-  challenge = None
   request_records: dict[str, tuple[int, datetime.datetime]] = {}
   """How many requests made to each endpoint for last 15 mins.
     """
@@ -135,13 +125,53 @@ class OfficialAPI(TwitterAPI):
   """When the rate limit for each endpoint will reset.
     """
 
-  def __init__(self, client_id: str, client_secret: str):
+  def __init__(  # noqa: PLR0913
+    self,
+    client_id: str,
+    client_secret: str,
+    *,
+    token: dict[str, typing.Any],
+    user_id: str,
+    user_handle: str,
+    authorization_id: str,
+  ):
     self.__client_id = client_id
     self.__client_secret = client_secret
-    self.__access_token: Opt[str] = None
-    self.__refresh_token: Opt[str] = None
-    self.__user_id: Opt[str] = None
-    self.__user_handle: Opt[str] = None
+    self.__token = token
+    self.__user_id = user_id
+    self.__user_handle = user_handle
+    self.__authorization_id = authorization_id
+
+  @classmethod
+  def from_extension(
+    cls,
+    *,
+    expected_authorization_id: str | None = None,
+  ) -> OfficialAPI:
+    from .setup_flow import TwitterExtensionState, TwitterSetupConflict, _fingerprint
+
+    config = Extension.get_config()
+    state = TwitterExtensionState.model_validate(Extension.get_state())
+    account = state.account
+    if (
+      account is None
+      or account.reconnect_required
+      or account.app_fingerprint != _fingerprint(config)
+    ):
+      raise TwitterSetupConflict("Twitter account is not connected")
+    if (
+      expected_authorization_id is not None
+      and account.authorization_id != expected_authorization_id
+    ):
+      raise TwitterSetupConflict("Twitter authorization changed before collection")
+    return cls(
+      config.client_id,
+      config.client_secret,
+      token=dict(account.token),
+      user_id=account.user_id,
+      user_handle=account.handle,
+      authorization_id=account.authorization_id,
+    )
 
   @property
   def user_handle(self) -> str:
@@ -182,19 +212,26 @@ class OfficialAPI(TwitterAPI):
     - Error handling
     - Resopnse body parsing
     """
-    if not self.__access_token:
-      # TODO raise Unauthorized
-      raise ValueError("Access token is not set. Please authorize first.")
+    from .setup_flow import TwitterExtensionState, TwitterSetupConflict, _fingerprint
 
+    latest = TwitterExtensionState.model_validate(Extension.get_state())
+    latest_config = Extension.get_config()
+    if (
+      latest.account is None
+      or latest.account.reconnect_required
+      or latest.account.authorization_id != self.__authorization_id
+      or latest.account.app_fingerprint != _fingerprint(latest_config)
+    ):
+      raise TwitterSetupConflict("Twitter authorization changed before provider access")
+    self.__token = dict(latest.account.token)
+    request_token = dict(self.__token)
     endpoint_with_params = endpoint.format(**path_params) if path_params else endpoint
-    headers = {
-      "Authorization": f"Bearer {self.__access_token}",
-    }
 
     rate_limit_reset_at = self.rate_limit_reset.get(endpoint)
-    if rate_limit_reset_at:
-      await asyncio.sleep((rate_limit_reset_at - get_timestamp()) + 5)
-      del self.request_records[endpoint]
+    if rate_limit_reset_at is not None:
+      await asyncio.sleep(max(0, (rate_limit_reset_at - get_timestamp()) + 5))
+      self.rate_limit_reset.pop(endpoint, None)
+      self.request_records.pop(endpoint, None)
 
     # request_record = cls.request_records.get(endpoint)
     # if request_record:
@@ -214,17 +251,57 @@ class OfficialAPI(TwitterAPI):
     # else:
     #     last_request_count, last_15m_start_at = 0, datetime.datetime.now()
 
-    async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
-      async with session.request(
+    async def update_token(token: dict[str, typing.Any], **_: typing.Any) -> None:
+      from .setup_flow import TwitterExtensionState, TwitterSetupConflict
+
+      def update(model: pydantic.BaseModel) -> pydantic.BaseModel:
+        state = TwitterExtensionState.model_validate(model)
+        if (
+          state.account is None or state.account.authorization_id != self.__authorization_id
+        ):
+          raise TwitterSetupConflict("Twitter authorization changed during refresh")
+        if dict(state.account.token) != request_token:
+          raise TwitterSetupConflict("Twitter token changed during refresh")
+        state.account.token = dict(token)
+        return state
+
+      Extension.mutate_state(update)
+      self.__token = dict(token)
+
+    def require_reconnect() -> None:
+      from .setup_flow import TwitterExtensionState
+
+      def update(model: pydantic.BaseModel) -> pydantic.BaseModel:
+        state = TwitterExtensionState.model_validate(model)
+        if (
+          state.account is not None
+          and state.account.authorization_id == self.__authorization_id
+        ):
+          state.account.reconnect_required = True
+        return state
+
+      Extension.mutate_state(update)
+
+    client = AsyncOAuth2Client(
+      client_id=self.__client_id,
+      client_secret=self.__client_secret,
+      token=self.__token,
+      token_endpoint="https://api.x.com/2/oauth2/token",
+      token_endpoint_auth_method="client_secret_basic",
+      update_token=update_token,
+      timeout=10,
+    )
+    try:
+      response = await client.request(
         method,
         f"https://api.x.com/2{endpoint_with_params}",
         params=query,
-        headers=headers,
-      ) as resp:
-        if resp.status == 429:
-          x_rate_limit_reset = resp.headers.get("x-rate-limit-reset")
-          if x_rate_limit_reset:
-            self.rate_limit_reset[endpoint] = int(x_rate_limit_reset)
+        json=body,
+      )
+      if response.status_code == 429:
+        x_rate_limit_reset = response.headers.get("x-rate-limit-reset")
+        if x_rate_limit_reset:
+          self.rate_limit_reset[endpoint] = int(x_rate_limit_reset)
 
           # # Rate limit exceeded but not expected, set request count to max
           # # and request again when rate limit reset
@@ -233,15 +310,31 @@ class OfficialAPI(TwitterAPI):
           #     datetime.datetime.now()
           # )
 
-          if retried < 3:
-            return await self._request(
-              method, endpoint, path_params, query, body, retried + 1
-            )
-          else:
-            raise RuntimeError("Twitter API rate limit exceeded after retries")
+        if retried < 3:
+          return await self._request(
+            method, endpoint, path_params, query, body, retried + 1
+          )
+        raise RuntimeError("Twitter API rate limit exceeded after retries")
+      response.raise_for_status()
+      payload = response.json()
+      if not isinstance(payload, dict):
+        raise RuntimeError("Twitter API returned an invalid response")
+      return payload
+    except OAuthError:
+      require_reconnect()
+      raise RuntimeError("Twitter authorization requires reconnection") from None
+    except httpx.HTTPStatusError as error:
+      if error.response.status_code == 401:
+        require_reconnect()
+        raise RuntimeError("Twitter authorization requires reconnection") from None
+      raise RuntimeError("Twitter API request failed") from error
+    except httpx.HTTPError as error:
+      raise RuntimeError("Twitter API request failed") from error
+    finally:
+      await typing.cast(httpx.AsyncClient, client).aclose()
 
-        resp.raise_for_status()
-        return await resp.json()
+  async def close(self) -> None:
+    """Official clients are operation-scoped and hold no open transport."""
 
   async def get_user(self) -> tuple[str, str]:
     """Get the user info the token represents and store to state.
@@ -397,112 +490,6 @@ class OfficialAPI(TwitterAPI):
       max_results=max_results,
     )
     return res
-
-  @staticmethod
-  def _get_oauth_redirect_url():
-    return os.getenv("API_BASE_URL", "") + "/twitter/auth/callback"
-
-  def get_oauth_authorize_url(self) -> str:
-    BASE_URL = "https://x.com/i/oauth2/authorize"
-    REDIRECT_URL = self._get_oauth_redirect_url()
-    CLIENT_ID = self.__client_id
-
-    scope = " ".join(
-      [
-        "tweet.read",
-        "users.read",
-        "bookmark.read",
-        "bookmark.write",
-        "offline.access",
-      ]
-    )
-    self.state = secrets.token_urlsafe(16)  # A random string to prevent CSRF attacks
-    self.code_challenge = secrets.token_urlsafe(32)  # Code challenge for PKCE
-
-    params = {
-      "response_type": "code",
-      "client_id": CLIENT_ID,
-      "state": self.state,
-      "code_challenge": self.code_challenge,
-      "code_challenge_method": "plain",
-      "redirect_uri": REDIRECT_URL,
-      "scope": scope,
-    }
-
-    return BASE_URL + "?" + urllib.parse.urlencode(params)
-
-  async def handle_oauth_callback(self, code: str, state: str):
-    """Handle the OAuth2 callback from Twitter.
-
-    Exchange the authorization code for an access token.
-    """
-    # verify state
-    if state != self.state:
-      raise ValueError("Invalid state parameter")
-
-    token_url = "https://api.x.com/2/oauth2/token"  # noqa: S105
-    CLIENT_ID = self.__client_id
-    CLIENT_SECRET = self.__client_secret
-
-    data = {
-      "grant_type": "authorization_code",
-      "code": code,
-      "redirect_uri": self._get_oauth_redirect_url(),
-      "client_id": CLIENT_ID,
-      "code_verifier": self.code_challenge,
-    }
-
-    headers = {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Authorization": f"Basic {
-        base64.b64encode(f'{CLIENT_ID}:{CLIENT_SECRET}'.encode()).decode()
-      }",
-    }
-
-    async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
-      async with session.post(token_url, data=data, headers=headers) as resp:
-        resp.raise_for_status()
-        resp_body = await resp.json()
-        access_token = resp_body.get("access_token")
-        refresh_token = resp_body.get("refresh_token")
-        if not access_token or not refresh_token:
-          raise ValueError("Failed to obtain access token or refresh token")
-        # Extension.state["access_token"] = access_token
-        # Extension.state["refresh_token"] = refresh_token
-        self.__access_token = access_token
-        self.__refresh_token = refresh_token
-
-        self.state = None
-        self.challenge = None
-
-        # Get user info and store to state
-        await self.get_user()
-
-        return resp_body
-
-  async def refresh_access_token(self, refresh_token: str) -> str:
-    """Get a new access token using the refresh token.
-
-    Docs https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code#refresh-tokens
-    """
-    token_url = "https://api.x.com/2/oauth2/token"  # noqa: S105
-    CLIENT_ID = self.__client_id
-
-    data = {
-      "grant_type": "refresh_token",
-      "refresh_token": refresh_token,
-      "client_id": CLIENT_ID,
-    }
-
-    headers = {
-      "Content-Type": "application/x-www-form-urlencoded",
-    }
-
-    async with aiohttp.ClientSession(connector=AIOHTTP_CONNECTOR_GETTER()) as session:
-      async with session.post(token_url, data=data, headers=headers) as resp:
-        resp.raise_for_status()
-        token_response = await resp.json()
-    return token_response
 
 
 class TwikitAPI(TwitterAPI):

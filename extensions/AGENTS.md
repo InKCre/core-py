@@ -5,6 +5,10 @@
 - Each child is a PEP 420 `extensions.<extension_id>` wheel. Never add `extensions/__init__.py`.
 - Each wheel declares complete direct dependencies, exactly one `inkcre.core.extensions` entry point, and the required namespaced product/Host SDK metadata.
 - Extension lifecycle registration must be reversible within one process so disable/re-enable can rebuild sources and resolvers.
+- Extension config/state is accessed through `ExtensionBase` validated APIs; never expose or retain
+  the persistence model in Extension code.
+- Extension-specific setup may publish a typed Peer inbound and exact public callback route. Keep
+  Source/Cron/Job authority in their Core domains instead of duplicating it in Extension state.
 - `scripts/extension_distribution.py` owns build-shape validation; `scripts/extension_release.py`, Changie, and the publish workflow own release admission.
 - Release name/version is immutable. Any changed artifact input requires an admitted version and changelog transition before publication.
 - Resolver IDs remain namespaced and versioned. Source execution uses the ordinary Job path; storage owns opaque pointers and bytes, not semantic interpretation.

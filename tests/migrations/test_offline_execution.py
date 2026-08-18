@@ -32,3 +32,6 @@ def test_offline_upgrade_requires_only_database_url(
   assert "CREATE FUNCTION inkcre.set_extension_peer_enabled" in offline_sql
   assert "REVOKE EXECUTE ON FUNCTION" in offline_sql
   assert "FROM inkcre.clients" in offline_sql
+  assert "FROM inkcre.peers" in offline_sql
+  assert "ADD COLUMN state JSONB" in offline_sql
+  assert "cannot change extension version while state is not empty" in offline_sql

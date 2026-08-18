@@ -22,9 +22,9 @@ def test_production_profile_projects_the_executable_contract():
 
   assert profile["format"] == 1
   assert profile["environment"] == "production"
-  assert contract["migration_heads"] == ["3f7a9c2d5e1b"]
+  assert contract["migration_heads"] == ["c6d7e8f9a0b1"]
   assert profile["database_contract"] == {
-    "migration_head": "3f7a9c2d5e1b",
+    "migration_head": "c6d7e8f9a0b1",
     "protocol_schema": PROTOCOL_SCHEMA,
     "revision": CONTRACT_REVISION,
   }

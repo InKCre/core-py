@@ -56,6 +56,7 @@ class CorePeerConfig(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   http_public_base_url: str | None = None
+  extension_registry_url: str | None = None
 
   @pydantic.field_validator("http_public_base_url")
   @classmethod
@@ -77,6 +78,24 @@ class CorePeerConfig(pydantic.BaseModel):
       )
     path = parts.path.rstrip("/")
     return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
+
+  @pydantic.field_validator("extension_registry_url")
+  @classmethod
+  def valid_extension_registry_origin(cls, value: str | None) -> str | None:
+    if value is None or not value.strip():
+      return None
+    parts = urlsplit(value.strip())
+    if (
+      parts.scheme not in {"http", "https"}
+      or not parts.netloc
+      or parts.username is not None
+      or parts.password is not None
+      or parts.path not in {"", "/"}
+      or parts.query
+      or parts.fragment
+    ):
+      raise ValueError("extension_registry_url must be one HTTP(S) origin")
+    return urlunsplit((parts.scheme, parts.netloc, "", "", ""))
 
 
 class PeerModel(sqlmodel.SQLModel, table=True):

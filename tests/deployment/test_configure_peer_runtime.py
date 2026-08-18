@@ -28,6 +28,26 @@ def test_expected_snapshot_is_exact_and_normalizes_base_url():
   assert snapshot_is_ready(snapshot, True, snapshot)
   assert not snapshot_is_ready(snapshot, False, snapshot)
   assert not snapshot_is_ready(snapshot[:-1], True, snapshot)
+  assert snapshot_is_ready(
+    [
+      *snapshot,
+      {
+        "id": "inkcre.twitter.setup.status.v1",
+        "inbound": {
+          "protocol": "core.peer.protocol.http.v1",
+          "parameters": {
+            "method": "GET",
+            "url": "https://core.example.test/twitter/setup",
+          },
+        },
+      },
+    ],
+    True,
+    snapshot,
+  )
+  mismatched = [dict(item) for item in snapshot]
+  mismatched[0] = {**mismatched[0], "inbound": {}}
+  assert not snapshot_is_ready(mismatched, True, snapshot)
 
 
 def test_delivery_actions_use_peer_identity_and_database_config_projection():
