@@ -8,6 +8,9 @@ inputs:
   head_sha:
     description: Exact pull request head commit to deploy
     required: true
+  extension_registry_url:
+    description: Verified sibling static Registry origin for this preview
+    required: true
   heroku_api_key:
     description: Heroku authorization for preview app lifecycle
     required: true
@@ -266,7 +269,7 @@ runs:
       env:
         APP_NAME: ${{ steps.heroku.outputs.app_name }}
         DATABASE_URL: ${{ steps.database.outputs.runtime_database_url }}
-        HAS_DEPLOYED_RELEASE: ${{ steps.heroku.outputs.has_deployed_release }}
+        EXTENSION_REGISTRY_URL: ${{ inputs.extension_registry_url }}
         HAS_POSTGREST_RELEASE: ${{ steps.heroku.outputs.has_postgrest_release }}
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
@@ -348,6 +351,7 @@ runs:
           heroku config:set --app "$APP_NAME" \
             "DATABASE_SCALE_0=true" \
             "DATABASE_URL=$DATABASE_URL" \
+            "EXTENSION_REGISTRY_URL=$EXTENSION_REGISTRY_URL" \
             "INKCRE_ENV_FILE=" \
             "JWT_SECRET=$JWT_SECRET" \
             "OBSRV__LOGGING_BACKEND=none" \
@@ -398,11 +402,10 @@ runs:
         }
 
         test -n "$JWT_SECRET"
+        test -n "$EXTENSION_REGISTRY_URL"
         echo "::add-mask::$JWT_SECRET"
 
-        if [ "$HAS_DEPLOYED_RELEASE" = false ]; then
-          configure_app
-        fi
+        configure_app
         if [ "$HAS_POSTGREST_RELEASE" = false ]; then
           configure_postgrest
         fi
@@ -432,10 +435,6 @@ runs:
         )"
         if [ "$guard_release" != "$before_guard_release" ]; then
           wait_for_release "$APP_NAME" "$guard_release"
-        fi
-
-        if [ "$HAS_DEPLOYED_RELEASE" = true ]; then
-          configure_app
         fi
 
         before_web_release="$(
