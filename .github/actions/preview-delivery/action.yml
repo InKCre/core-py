@@ -478,6 +478,19 @@ runs:
         PR_NUMBER: ${{ inputs.pr_number }}
         WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: |
+        if ! docker run --rm \
+          --entrypoint python \
+          "inkcre-preview-release:$HEAD_SHA" \
+          -c \
+          'from pathlib import Path; raise SystemExit(0 if Path("/app/scripts/configure_peer_runtime.py").is_file() else 1)'; then
+          {
+            echo "### Preview runtime compatibility"
+            echo
+            echo "- Peer advertisement: skipped for a pre-Peer Client image"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+
         peer_id="$(
           python -c \
             "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, 'inkcre-core-py-pr-$PR_NUMBER'))"

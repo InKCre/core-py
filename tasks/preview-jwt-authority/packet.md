@@ -30,11 +30,14 @@ production and same-repository pull-request previews.
 - The repository Secret, Production Core/PostgREST, PR 52 Core/PostgREST, and the browser
   Preview setting have been converged to the selected key without exposing it in Git.
 - Local focused and full repository contracts pass. The live PostgREST transport probe is
-  independently blocked because the database cleanup removed the Preview relations after
-  Core cached its ready state; PR 52 requires one complete Preview initialization run.
+  independently blocked because PR 52 intentionally uses the pre-Peer Client schema while
+  the current preview controller unconditionally invokes the newer Peer advertisement script.
+- The compatibility fix keeps Peer convergence mandatory for capable images and skips only
+  images that prove they do not contain `scripts/configure_peer_runtime.py`; health and
+  authenticated PostgREST probes remain mandatory in both cases.
 
 ## Next Step
 
-Commit and push the verified source slice after explicit authorization, admit it to `main`,
-rerun PR 52 Preview initialization, verify the live transport, then delete the obsolete
-`PREVIEW_JWT_SEED` environment secret.
+Verify and admit the narrow preview-controller compatibility fix to `main`, rerun PR 52
+Preview initialization, and verify the live authenticated transport against the Client
+baseline.

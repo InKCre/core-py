@@ -26,6 +26,8 @@ def test_preview_builds_releases_probes_and_cleans_postgrest():
   assert "derive_preview_jwt_secret.py" not in delivery
   assert "registry.heroku.com/$POSTGREST_APP_NAME/web" in delivery
   assert 'heroku ps:scale web=1:eco --app "$POSTGREST_APP_NAME"' in delivery
+  assert 'Path("/app/scripts/configure_peer_runtime.py").is_file()' in delivery
+  assert "Peer advertisement: skipped for a pre-Peer Client image" in delivery
   assert "scripts/verify_postgrest_contract.py" in delivery
   assert '--base-url "$POSTGREST_URL"' in delivery
 
