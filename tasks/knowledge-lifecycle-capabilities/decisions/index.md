@@ -43,7 +43,10 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-311–D-320](D311-D320.md) | Mail access-context continuity → retrieval capability/unit distinction |
 | [D-321–D-330](D321-D330.md) | Lexical document-body completeness → current edge |
 | [D-331–D-340](D331-D340.md) | Media-interpretation convergence → multimodal AI、maintenance Jobs and Render self-host profile |
-| [D-341–D-350](D341-D350.md) | Self-host/canonical-production separation → manual preview-backed black-box acceptance |
+| [D-341–D-350](D341-D350.md) | Self-host/canonical-production separation → Graph focus-set / UI ownership boundary |
+| [D-351–D-360](D351-D360.md) | InfoBase View initialization and recall ownership → active-scene navigation |
+| [D-361–D-370](D361-D370.md) | Graph scale/layout/route state → endpoint-closed retrieval outcomes |
+| [D-371–D-380](D371-D380.md) | Random focal/path ownership → concurrent-read and visual Acceptance closure |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -57,7 +60,7 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-340](D331-D340.md)。
-- Active unit: [feature-retrieval](../units/feature-retrieval/packet.md)。
-- Active surface: verify/promote the implemented lexical retrieval increment；perceptual retrieval remains later work inside
-  the same Unit，while graph-navigation owns relationship recall and hybrid composition follows the primitive capabilities。
+- Latest confirmed decision: [D-376](D371-D380.md)。
+- Active unit: [graph-navigation-retrieval](../units/graph-navigation-retrieval/packet.md)。
+- Active surface: Product、Technical、Acceptance、implementation plan and preflight are frozen；Impact Handshake is the
+  final review surface，then execution waits for Sir's new explicit “开始”。

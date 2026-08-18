@@ -4,8 +4,9 @@
 
 `上游需求 → 被打破的假设 → 候选 owner → 影响 → evidence → status`
 
-当前没有 active unit。[Mail extension](units/mail-extension/packet.md) 已完成；其横切压力由真实 user journey、
-acceptance 和实现证据关闭。下列 pressures 保留为 completed-unit provenance，不自动成为 future unit 的设计前提。
+active unit 是 [Graph navigation retrieval](units/graph-navigation-retrieval/packet.md)，当前 Execution baseline 已冻结并
+等待新的明确实施授权。下列 Mail/Feature pressures 保留为 completed-unit provenance，不自动成为 graph navigation
+retrieval 的设计前提；新的横切压力必须来自本 unit 的 user journey、Acceptance 或 implementation evidence。
 
 ## Completed Mail-unit pressures
 

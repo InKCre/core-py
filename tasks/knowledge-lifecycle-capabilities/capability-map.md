@@ -78,7 +78,8 @@ local relations ────────────┘
 | 5 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
 | 6 | [Semantic retrieval](units/semantic-retrieval/packet.md) | **Complete** | real-provider、local/delegated Peer、rumination 与 shared-truth projection 均已验收关闭 |
 | 7 | [Feature retrieval](units/feature-retrieval/packet.md) | **Complete** | Lexical increment 的实现、J1–J7、core/client promotion、真实 fork/cold-start 与 exact-main Pages delivery 均已验收；graph facts 与 hybrid composition 仍由相邻能力承担 |
-| 8 | Other organization/application units | Queued | graph-navigation、breakdown、merge、linking 等仍各自从真实 use/failure evidence 建立合同 |
+| 8 | [Graph navigation retrieval](units/graph-navigation-retrieval/packet.md) | **Active — Execution baseline frozen；awaiting explicit start** | bounded neighborhood/path、peer-local topology、Graph View product surface、Acceptance、implementation plan 与 preflight 已关闭 |
+| 9 | Other organization/application units | Queued | breakdown、merge、linking 等仍各自从真实 use/failure evidence 建立合同；hybrid retrieval 等基础 primitive 完成后再组合 |
 
 这不是永久开发顺序。active unit 结束时，应根据用户价值、已暴露依赖和不确定性重新选择下一个
 unit；不得仅因为表格编号自动启动。

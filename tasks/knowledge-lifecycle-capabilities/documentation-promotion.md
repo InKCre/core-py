@@ -459,6 +459,18 @@ core-py local Unit TDD promotion 已应用，只记录本仓内部 implementatio
   执行并留下有界 diagnostics，而不劫持 progress cursor。只有 side effect 本身属于 correctness boundary 时才允许
   gate。Mail D-310 的 graph/checkpoint 与 `mark_as_seen` 是当前 reference pressure；Memos primary delete + best-effort
   cleanup 提供了较早的同类 evidence。
+- **U-049 — Visual emphasis should spend the fewest sufficient signals**: 当 focus 可以通过 context contrast、清晰
+  hairline、关系线权重与 camera framing 建立时，不再机械叠加尺寸、阴影、halo、z-index 和高饱和色。内容的
+  intrinsic presentation 不应因 selection/focus 被误写成 importance。Graph focal scene 是当前 evidence；是否
+  提升为跨 UI design guidance，等待实际 shell 的实现验收证明，具体 token 数值不在 task packet 中冻结。
+- **U-050 — Deep interfaces optimize caller understanding，not method-count minimalism**: 把不同语义、参数集合和
+  outcome 的操作塞进一个 generic method，只会把 discriminator、合法组合与分支知识推给每个 caller。优先暴露
+  少量但角色清晰、语义内聚的入口，由深模块隐藏查询、路由、分页和结构不变量。Graph 的 Block/Relation
+  neighborhood methods 是当前 evidence；这不是鼓励为每个细节拆方法，而是以 caller 需要理解多少为判断标准。
+- **U-051 — Acceptance must not promote incidental implementation choices**: 当多个输出都满足同一有价值的领域
+  invariant 时，Acceptance 应验证合法结果集合与 observable properties，而不是为了 exact fixture、跨实现逐字
+  相同或某个 consumer 的便利，反向固定数据库 identity、偶然顺序或当前算法。只有唯一选择本身具有产品价值
+  时才进入公共合同；equal-shortest path 是当前 reference pressure。
 
 ## Apply Checklist
 

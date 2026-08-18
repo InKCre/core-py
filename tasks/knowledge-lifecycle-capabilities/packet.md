@@ -62,9 +62,9 @@
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
   Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
   消费该 exact shared truth。该 implementable unit 已关闭。
-- **Next Step**: [feature retrieval](units/feature-retrieval/packet.md) 已完成实现、J1–J7、真实 NASA/DashScope、
-  core/client promotion、独立 Render + Neon fork/cold-start 与 exact-main Pages delivery 验收，该 Unit 已关闭。
-  Native Extension release 也是已完成的独立插曲。返回 implementable-unit selection，不根据队列编号自动启动下一项。
+- **Next Step**: [graph navigation retrieval](units/graph-navigation-retrieval/packet.md) 的 Product、Technical、
+  Acceptance、implementation plan 与 preflight 已冻结；整理最新 `origin/main` 和专用 feat branch 后重新提交 Impact
+  Handshake，随后等待 Sir 新的明确“开始”。Feature retrieval 与 Native Extension release 保持关闭。
 
 ## Program Boundary
 
@@ -80,9 +80,14 @@
 
 ## Active Implementable Unit
 
-当前 active implementable Unit 是 [Feature retrieval](units/feature-retrieval/packet.md)。Unit 边界容纳 lexical 与
-perceptual features；当前只推进第一个可独立设计、实现和验收的 lexical retrieval increment。Graph relationship
-recall 与 hybrid composition 分别由 graph-navigation 和后续组合层承担。
+当前唯一 active implementable Unit 是
+[Graph navigation retrieval](units/graph-navigation-retrieval/packet.md)。它以 bounded、direction-preserving、
+endpoint-closed 的 persisted Blocks/Relations 取得为 application primitive；不与 Resolver interpretation、
+organization 或 Graph View presentation 混称。当前停在 Impact Handshake，尚未获得 Execute 的新授权。
+
+[Feature retrieval](units/feature-retrieval/packet.md) 已完成实现、J1–J7、真实 NASA/DashScope、core/client promotion、
+独立 Render + Neon fork/cold-start 与 exact-main Pages delivery 验收；perceptual/hybrid future pressure 不重新打开其
+已关闭 lexical increment。
 
 [Mail extension](units/mail-extension/packet.md) 的 Product、Technical、Acceptance、Implementation、Verify、Promote
 与 owner-separated delivery 均已关闭。
