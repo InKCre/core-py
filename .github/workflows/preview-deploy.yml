@@ -134,6 +134,7 @@ jobs:
           EXPECTED_URL: >-
             https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_EXTENSION_PREVIEW_PROJECT }}.pages.dev
           PAGES_ALIAS_URL: ${{ steps.extension-registry.outputs.pages-deployment-alias-url }}
+          PREVIEW_REVISION: ${{ github.event.pull_request.head.sha }}
         run: |
           test "${PAGES_ALIAS_URL%/}" = "$EXPECTED_URL"
           find "$GITHUB_WORKSPACE/.extension-preview-registry" \
@@ -150,7 +151,7 @@ jobs:
                   --connect-timeout 5 \
                   --max-time 30 \
                   --output "$remote_file" \
-                  "$EXPECTED_URL/$relative" && cmp "$local_file" "$remote_file"; then
+                  "$EXPECTED_URL/$relative?preview_revision=$PREVIEW_REVISION" && cmp "$local_file" "$remote_file"; then
                   verified=1
                   break
                 fi
