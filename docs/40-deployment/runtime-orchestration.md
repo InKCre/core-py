@@ -4,7 +4,7 @@
 
 Startup and background execution span application bootstrap, scheduler setup, extension lifecycle, source collection, and AI dialect registration. These interactions are easy to misunderstand from one file at a time.
 
-## Cross-Unit Truths
+## Runtime Truths
 
 ### 1. Application bootstrap has an explicit order
 

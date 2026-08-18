@@ -1,5 +1,9 @@
 # Business Pipeline And Authority
 
+Shared Product and cross-unit contracts are owned by `../_shared/10-prd/` and
+`../_shared/20-product-tdd/`. This document owns only core-py's internal unit boundaries and
+implementation direction; it must not redefine Peer wire behavior or shared capability semantics.
+
 ## Purpose
 
 本文件记录 `core-py` 内部一条慢变量结构：

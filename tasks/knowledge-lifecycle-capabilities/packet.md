@@ -62,12 +62,9 @@
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
   Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
   消费该 exact shared truth。该 implementable unit 已关闭。
-- **Next Step**: [feature retrieval](units/feature-retrieval/packet.md) 的 lexical increment 已完成本地实现与主要验收：
-  core derived records/Jobs/Peer capability、multimodal Resolver + Organization paths 和 client InfoBaseListView 均已落地，
-  real NASA/DashScope vertical 与本地完整 contracts 已通过。D-340 关闭 public-JWT 分叉，self-host signing authority
-  保持 owner-private；
-  Render controller/workflow 已实现，真实账号与 GitHub settings 已就绪。Sir 已授权 delivery closure；当前按 owner
-  完成 core/client 主线合并与 push，随后分别以 exact preview 和独立 fork deployment 关闭两条验收线。
+- **Next Step**: [feature retrieval](units/feature-retrieval/packet.md) 已完成实现、J1–J7、真实 NASA/DashScope、
+  core/client promotion、独立 Render + Neon fork/cold-start 与 exact-main Pages delivery 验收，该 Unit 已关闭。
+  Native Extension release 也是已完成的独立插曲。返回 implementable-unit selection，不根据队列编号自动启动下一项。
 
 ## Program Boundary
 

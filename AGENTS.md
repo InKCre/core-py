@@ -1,126 +1,65 @@
 # AGENTS
 
-## Purpose
+Reason in English. Communicate with humans in Chinese. Call the user “Sir”. If a requested shortcut would reduce readability or maintainability, stop and discuss the trade-off.
 
-Durable docs are a selective memory system. Keep them small. Put stable product truth in PRD, stable cross-unit technical truth in Product TDD, runtime truth in deployment docs, and agent-owned volatile work in `tasks/`.
+## Repository And Knowledge Owners
 
-Reason in English. Communicate with humans in Chinese.
+`core-py` is an SVC Spoke. Shared Hub truth is mounted read-only at `docs/_shared/`.
 
-If a requested change would reduce readability or maintainability, stop and discuss the trade-off before proceeding.
+- Product behavior and language: `docs/_shared/10-prd/`
+- Cross-unit contracts and topology: `docs/_shared/20-product-tdd/`
+- Expensive core-py internal design: `docs/30-unit-tdd/`
+- Runtime, packaging, migration, observability, and recovery: `docs/40-deployment/`
+- Vulnerability reporting: `SECURITY.md`; local security boundaries: `docs/30-unit-tdd/security-model.md`
+- Volatile task control: `tasks/`; never treat it as durable truth
+- Mechanically enforceable facts: code, configuration, schemas, tests, assertions, lint, and CI
+- Repeated subtree hazards only: the nearest local `AGENTS.md`
 
-This repository is a Spoke repo in the SVC optional multi-repo topology. Shared Hub truth is consumed through `docs/_shared/`.
+Resolve the semantic owner before adding durable material. A Unit is a logical responsibility boundary, not a folder.
 
-## Minimal Cheat Sheet
+## Working Rules
 
-- Unit: a logical technical boundary and ownership surface; it is not the same thing as a folder.
-- PRD (`docs/_shared/10-prd/`): owns business intent and observable behavior only.
-- Product TDD (`docs/_shared/20-product-tdd/`): owns cross-unit technical contracts and topology.
-- Unit TDD (`docs/30-unit-tdd/`): owns this repo's internal logic architecture and internal contracts.
-- `SECURITY.md`: owns public vulnerability reporting and routes readers to the security model.
-- `docs/30-unit-tdd/security-model.md`: owns this repo's actors, assets, trust boundaries,
-  security-impact criteria, and proportionality method.
+- Run `svc status . --json`; for non-trivial work load `svc lookup --path index.md` and start or recover one Human-facing task packet.
+- Before a reference-sensitive, logic-altering, or non-obviously-local durable mutation, state the exact object, `From -> To`, side effects, blast radius, invariants, verification, and uncertainty.
+- Read the nearest local `AGENTS.md` before changing its subtree. Read shared Product or Product TDD only when that owner is implicated, then the relevant local Unit TDD or Deployment document.
+- Before a security-sensitive claim, read the security model and name actor, capability, asset, boundary, harm, and attack path. Missing defense in depth is hardening unless evidence shows a boundary violation.
+- Exclude `tasks/`, generated output, dependencies, environments, caches, and temporary directories from ordinary source and durable-doc search unless they are the evidence target.
+- Use sub-agents only when bounded isolation or parallel capacity repays assignment, validation, integration, conflict, and residual cost. Primary owns the Human relationship, global integration, and material residual.
 
-## Working Protocol
+Pause for Human input when the requested change conflicts with Product/Technical truth, ownership across durable surfaces remains unclear, evidence cannot support a bug or architecture decision, or the shortcut would damage maintainability.
 
-- SVC 10.0.1 owns the upstream working protocol and implementation judgment. Run
-  `svc status . --json`, then query only the guidance needed with `svc lookup`.
-- This repository owns its product projections, local architecture, runtime truth, task
-  state, and unmarked instructions; generated SVC surfaces are not project truth.
-- Read the active task packet and nearest local `AGENTS.md` before modifying a governed
-  subtree.
-- Read shared PRD or Product TDD only when the owning layer demands it, then read the
-  relevant local Unit TDD or deployment document.
-- Before making a security-sensitive claim, read the security model and name the actor,
-  capability, asset, boundary, harm, and attack path. Treat missing defense in depth as
-  hardening unless evidence shows a boundary violation.
-- Prepare an Impact Handshake before reference-sensitive, logic-altering, or
-  non-obviously-local durable mutation.
+## Multi-Repo Mutation Rules
 
-## Task Packet Guidance
+- Never edit `docs/_shared/**` from this Spoke context.
+- Capture missing shared truth in the active task packet, update and push the Hub source first, then bump the Spoke ref separately.
+- Never mix Hub edits, shared-ref bumps, and Spoke-local changes in one commit.
+- Use `.agents/skills/edit-svc-shared-docs/` to discover the canonical shared-doc workflow.
 
-- Task packets are agent-owned and may be created, updated, split, and reorganized inside the task boundary.
-- Keep each packet human-inspectable and steerable, with a compact control surface for objective, guardrails, verification, current understanding, confirmed constraints, active mode, and next step.
-- Split by collaboration pressure rather than by a fixed folder scheme.
-- Keep packet content non-durable until it passes the promotion test.
+## Repository Map And Development
 
-## Search Guidance
-
-- Exclude `tasks/`, temporary directories, generated output, dependency folders, virtual environments, and tool caches from ordinary source and durable-doc search.
-- Search those surfaces only when the active question targets them, when recovering the active packet, or when reviewing task evidence.
-
-## Multi-Repo Rules
-
-- `core-py` is a Spoke repo. Read shared truth from `docs/_shared/` and treat it as read-only during ordinary local execution.
-- If local work discovers missing shared truth, capture the local pressure in the active task packet before editing the Hub source repo.
-- Never edit `docs/_shared/**` directly from this repo context.
-- Never mix Hub doc edits, shared-ref bumps, and Spoke-local code or local-doc changes in one commit.
-- Shared product truth lives in `docs/_shared/10-prd/` and
-  `docs/_shared/20-product-tdd/`; Hub/Spoke operations live in
-  `docs/_shared/00-meta/`; local structure lives in `docs/30-unit-tdd/`; runtime truth
-  lives in `docs/40-deployment/`; tactical hazards live in the nearest local `AGENTS.md`.
-- When a shared-doc update is required, use the canonical workflow at `docs/_shared/00-meta/skills/edit-svc-shared-docs/` via the repo-root wrapper when needed.
-
-## Impact Handshake
-
-Before any reference-sensitive, logic-altering, or non-obviously-local durable mutation, restate:
-
-- Address and Object: target path, anchor, symbol, or surface.
-- State Diff: objective `From -> To`.
-- Operation: mutation class and expected side effects.
-- Blast Radius Forecast: likely affected files, modules, and downstream surfaces.
-- Invariants Check: scope boundaries, exclusions, and facts that must remain unchanged.
-- Verification: objective proof that bounds side effects.
-- Uncertainty: evidence gaps or assumptions that could change the operation.
-
-If evidence or ownership remains unclear, return to Explore or Diagnose instead of handshaking a guess.
-
-## Negotiation Triggers
-
-Pause and ask for human input when any of these happen:
-
-- the requested change conflicts with an existing product claim or technical contract
-- blast radius crosses multiple durable owners and the correct owner is unclear
-- a shortcut would damage readability, maintainability, or an explicit guardrail
-- evidence is insufficient for a bug fix or architectural decision
-
-## Repository Map
-
-- `run.py`: FastAPI entry point and runtime bootstrap
-- `app/`: application core, routes, schemas, and business logic
-- `extensions/`: built-in extensions
-- `libs/`: shared AI and observability libraries
-- `migrations/`: Alembic migrations
+- `run.py`: FastAPI bootstrap
+- `app/`: application routes, schemas, and business units
+- `extensions/`: built-in extension packages
+- `libs/`: shared libraries
+- `migrations/`: Alembic revisions and integrity baseline
 - `tests/`: automated checks
 
-Read these local guides when working in their areas:
+- Package management: PDM. Run package-dependent Python through `pdm run`.
+- Primary repository gate: `pdm run check`; use narrower declared checks while iterating.
+- Preserve one authority per durable fact. Name semantics directly; spend complexity only for demonstrated return.
+- Extract logic after the third occurrence. Export frequently used package items from `__init__.py`.
+- Commit only on explicit Human command and include only current-task changes by default.
 
-- `app/AGENTS.md`
-- `app/business/AGENTS.md`
-- `app/routes/AGENTS.md`
-- `app/schemas/AGENTS.md`
-- `extensions/AGENTS.md`
-- `libs/AGENTS.md`
-- `migrations/AGENTS.md`
-- `utils/AGENTS.md`
-
-## Local Engineering Rules
-
-- Package management: use PDM.
-- Run Python commands through `pdm run` when they depend on project packages.
-- Preserve one authority for every durable fact, state, relationship, and decision.
-- Classify cross-boundary values as authority facts, stable references, commands or proposals, user-authored values, or derived projections.
-- Name durable semantics directly and consistently.
-- Spend complexity only for clear return; avoid premature optimization, premature abstraction, and over-applied OOP or design patterns.
-- If the same logic appears in more than two places, extract it.
-- Export frequently used package items from `__init__.py`.
-- Keep implementation truth in code, tests, types, assertions, lint, and CI whenever possible.
-
-<!-- svc:begin navigation sha256=01d8643023a40533a997a67c70e920bb0ff0056081d2d18bec59e47324318152 -->
+<!-- svc:begin -->
 ## SVC
 
-This project uses the local Sustainable Vibe Coding CLI. Query framework guidance when it is needed instead of copying framework documents into this repository.
+Use `svc --help` or `svc <command> --help`.
 
-- Use `svc lookup --keyword "<need>"` to find relevant guidance, then `svc lookup --name '<exact-path-regex>'` to read an authoritative document.
-- Use `svc status` before broad process changes. If the installed corpus is newer than the adopted version in `svc.json`, read its migration guidance before `svc adopt`.
-- Treat all unmarked project instructions and documentation as consumer-owned.
-<!-- svc:end navigation -->
+- `svc status`: inspect project state
+- `svc lookup`: read SVC guidance
+- `svc task init`: create a task packet
+- `svc task grow`: inspect packet shape without changing files
+- `svc dev`: manage declared development targets
+
+If `AGENTS.local.md` exists, read it after this file. It is ignored local guidance; shared rules belong here.
+<!-- svc:end -->

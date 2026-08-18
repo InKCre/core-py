@@ -28,6 +28,8 @@ files.
 Trusted same-repository pull requests currently use:
 
 - app names `inkcre-core-py-pr-<number>` and `inkcre-postgrest-pr-<number>`;
+- sibling static Registry alias
+  `https://pr-<number>.inkcre-core-py-extension-registry-preview.pages.dev`;
 - pipeline `inkcre-core`, stage `review`;
 - container stack in the US region;
 - one Eco `web` dyno for each peer transport;
@@ -37,14 +39,27 @@ Trusted same-repository pull requests currently use:
 The branch workflow owns only exact isolated branch creation/deletion. After the repository,
 portable-runtime, and branch checks pass for the exact PR SHA, preview delivery:
 
-1. builds images before receiving deployment secrets;
-2. verifies the exact branch and TTL;
-3. removes inherited provider-created protocol roles only on first bootstrap;
-4. runs the PR artifact's complete preview-profile initialization and readiness;
-5. derives an `inkcre_core` URL without logging it;
-6. configures and releases the Core and PostgREST apps against that exact branch;
-7. forces both formations to `web=1:eco`, probes Core `/livez` plus `/readyz`, and
+1. installs the frozen `extension-preview` PDM group, builds all discovered first-party wheels,
+   and asks `inkcre-ext preview build` for one Python-only static Registry facade;
+2. builds images before receiving deployment secrets;
+3. reverifies the exact PR head, deploys the facade directly to the dedicated Pages project,
+   asserts the deterministic `pr-<number>` alias, and compares every remote descriptor, Simple
+   page, wheel, and PEP 658 metadata file with the exact-head local output;
+4. verifies the exact database branch and TTL;
+5. removes inherited provider-created protocol roles only on first bootstrap;
+6. runs the PR artifact's complete preview-profile initialization and readiness;
+7. derives an `inkcre_core` URL without logging it;
+8. configures `EXTENSION_REGISTRY_URL` to the verified sibling alias before releasing or scaling
+   Core, then configures and releases both apps against the exact database branch;
+9. forces both formations to `web=1:eco`, probes Core `/livez` plus `/readyz`, and
    verifies authenticated PostgREST read/write plus anonymous and wrong-secret denial.
+
+Required preview configuration is the exact non-secret project variable
+`CLOUDFLARE_EXTENSION_PREVIEW_PROJECT=inkcre-core-py-extension-registry-preview`, plus the
+preview-environment `CLOUDFLARE_ACCOUNT_ID` and minimally scoped `CLOUDFLARE_API_TOKEN` secrets.
+Fork pull requests never enter this environment. PR-close delivery replaces the exact Pages
+branch alias with a trusted no-cache tombstone before deleting the two deterministic Heroku apps;
+the independent Neon workflow remains the database-branch cleanup authority.
 
 The repository-level `JWT_SECRET` is the single signing-key authority for canonical
 production and same-repository previews. Delivery passes that value directly to both Preview
@@ -52,10 +67,8 @@ apps on every run, so Core and PostgREST remain aligned across redeployments or 
 recreation. The value stays in GitHub Secrets and never enters source, artifacts, logs, or
 workflow summaries.
 
-The owner URL never enters preview Heroku config. The Core app receives only the
-`inkcre_core` URL; the PostgREST app receives only the `authenticator` URL. PR close destroys
-only the two deterministic apps; the independent Neon workflow deletes only the deterministic
-database branch.
+The owner URL never enters preview Heroku config. The Core app receives only the `inkcre_core`
+URL and public sibling Registry origin; the PostgREST app receives only the `authenticator` URL.
 
 Repository-qualified app and branch identities keep a core-py PR and a client-web PR with
 the same number from addressing the same review resources.
@@ -132,9 +145,9 @@ and audience validation.
 
 ## Secret Boundary
 
-The GitHub `preview` environment owns its Heroku authorization, LLM inputs, and the two
-database-role passwords. `JWT_SECRET` and `NEON_API_KEY` remain repository secrets, while
-`NEON_PROJECT_ID` remains a repository variable.
+The GitHub `preview` environment owns its Heroku and Cloudflare authorization, LLM inputs, and
+the two database-role passwords. `JWT_SECRET` and `NEON_API_KEY` remain repository secrets,
+while `NEON_PROJECT_ID` and `CLOUDFLARE_EXTENSION_PREVIEW_PROJECT` remain repository variables.
 
 The GitHub `production` environment independently owns:
 

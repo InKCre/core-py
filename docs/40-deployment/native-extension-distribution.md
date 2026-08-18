@@ -36,6 +36,14 @@ producer set and rejects missing Changie coverage, generated-state drift, invali
 artifact-input change that does not advance the version. A changelog-only correction is explicitly
 outside the artifact-input surface.
 
+The trusted pull-request preview controller reuses that same discovered producer set. Its dedicated
+PDM `extension-preview` tooling group builds and verifies all seven wheels, then the released
+`inkcre-extension-toolkit` projects one explicit Python inventory into a static sibling Registry.
+The exact-head workflow run deploys that tree directly to the dedicated Cloudflare Pages project;
+required checks neither upload nor hand off wheels or deployable Registry output. The facade exposes
+only exact Release reads, PEP 503 Simple HTML, wheels, and PEP 658 metadata. It adds no Registry
+runtime, mutable lifecycle, token, or Core-hosted static route.
+
 `.github/workflows/extension-publish.yml` prepares the Python association with source provenance,
 uploads through `/legacy/`, and publishes the exact Release. Automatic runs obtain `before_sha`
 from the verified CI check suite and select only new projects or changed project versions;
