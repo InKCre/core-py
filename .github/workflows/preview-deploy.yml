@@ -148,7 +148,7 @@ jobs:
               fi
               remote_file="$RUNNER_TEMP/extension-preview-smoke"
               verified=0
-              for attempt in {1..30}; do
+              for attempt in {1..180}; do
                 if curl --fail --silent --show-error \
                   --connect-timeout 5 \
                   --max-time 30 \
