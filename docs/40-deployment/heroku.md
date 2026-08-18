@@ -28,8 +28,8 @@ files.
 Trusted same-repository pull requests currently use:
 
 - app names `inkcre-core-py-pr-<number>` and `inkcre-postgrest-pr-<number>`;
-- sibling static Registry alias
-  `https://pr-<number>.inkcre-core-py-extension-registry-preview.pages.dev`;
+- an immutable sibling static Registry deployment under
+  `https://<deployment>.inkcre-core-py-extension-registry-preview.pages.dev`;
 - pipeline `inkcre-core`, stage `review`;
 - container stack in the US region;
 - one Eco `web` dyno for each peer transport;
@@ -68,7 +68,9 @@ recreation. The value stays in GitHub Secrets and never enters source, artifacts
 workflow summaries.
 
 The owner URL never enters preview Heroku config. The Core app receives only the `inkcre_core`
-URL and public sibling Registry origin; the PostgREST app receives only the `authenticator` URL.
+URL and the verified immutable sibling Registry deployment origin; the PostgREST app receives
+only the `authenticator` URL. The `pr-<number>` Pages branch alias remains a human-facing
+convenience and cleanup identity, not the machine delivery authority.
 
 Repository-qualified app and branch identities keep a core-py PR and a client-web PR with
 the same number from addressing the same review resources.
