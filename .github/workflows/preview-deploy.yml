@@ -131,7 +131,7 @@ jobs:
       - name: Verify exact sibling Registry deployment and static read surface
         id: extension-registry-smoke
         env:
-          PAGES_DEPLOYMENT_URL: ${{ steps.extension-registry.outputs.pages-deployment-url }}
+          PAGES_DEPLOYMENT_URL: ${{ steps.extension-registry.outputs.deployment-url }}
           PAGES_PROJECT: ${{ vars.CLOUDFLARE_EXTENSION_PREVIEW_PROJECT }}
         run: |
           case "$PAGES_DEPLOYMENT_URL" in
