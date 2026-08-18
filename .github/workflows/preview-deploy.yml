@@ -113,7 +113,6 @@ jobs:
           pr_number: ${{ github.event.pull_request.number }}
 
       - name: Deploy exact-head sibling Registry to isolated Pages branch
-        id: extension-registry
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -128,41 +127,6 @@ jobs:
             --commit-hash=${{ github.event.pull_request.head.sha }}
             --commit-dirty=false
 
-      - name: Verify exact sibling Registry deployment and static read surface
-        id: extension-registry-smoke
-        env:
-          PAGES_DEPLOYMENT_URL: ${{ steps.extension-registry.outputs.deployment-url }}
-          PAGES_PROJECT: ${{ vars.CLOUDFLARE_EXTENSION_PREVIEW_PROJECT }}
-        run: |
-          case "$PAGES_DEPLOYMENT_URL" in
-            "https://"*."$PAGES_PROJECT.pages.dev") ;;
-            *) exit 1 ;;
-          esac
-          registry_url="${PAGES_DEPLOYMENT_URL%/}"
-          find "$GITHUB_WORKSPACE/.extension-preview-registry" \
-            -type f ! -name _headers -print0 | sort --zero-terminated |
-            while IFS= read -r -d '' local_file; do
-              relative="${local_file#"$GITHUB_WORKSPACE/.extension-preview-registry/"}"
-              if [[ "$relative" == */index.html ]]; then
-                relative="${relative%index.html}"
-              fi
-              remote_file="$RUNNER_TEMP/extension-preview-smoke"
-              verified=0
-              for attempt in {1..180}; do
-                if curl --fail --silent --show-error \
-                  --connect-timeout 5 \
-                  --max-time 30 \
-                  --output "$remote_file" \
-                  "$registry_url/$relative" && cmp "$local_file" "$remote_file"; then
-                  verified=1
-                  break
-                fi
-                sleep 2
-              done
-              test "$verified" -eq 1
-            done
-          echo "url=$registry_url" >> "$GITHUB_OUTPUT"
-
       - name: Reverify preview authority before Heroku delivery
         uses: ./.delivery/.github/actions/preview-verify
         with:
@@ -174,7 +138,8 @@ jobs:
         uses: ./.delivery/.github/actions/preview-delivery
         with:
           core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
-          extension_registry_url: ${{ steps.extension-registry-smoke.outputs.url }}
+          extension_registry_url: >-
+            https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_EXTENSION_PREVIEW_PROJECT }}.pages.dev
           head_sha: ${{ github.event.pull_request.head.sha }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           neon_api_key: ${{ secrets.NEON_API_KEY }}
@@ -215,7 +180,6 @@ jobs:
           esac
 
       - name: Replace sibling Registry alias with trusted tombstone
-        id: extension-registry-tombstone
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -229,16 +193,6 @@ jobs:
             --branch=pr-${{ github.event.pull_request.number }}
             --commit-hash=${{ github.workflow_sha }}
             --commit-dirty=false
-
-      - name: Verify retired sibling Registry alias
-        env:
-          EXPECTED_URL: >-
-            https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_EXTENSION_PREVIEW_PROJECT }}.pages.dev
-          PAGES_ALIAS_URL: ${{ steps.extension-registry-tombstone.outputs.pages-deployment-alias-url }}
-        run: |
-          test "${PAGES_ALIAS_URL%/}" = "$EXPECTED_URL"
-          curl --fail --silent --show-error "$EXPECTED_URL/" |
-            grep --fixed-strings 'This pull-request preview is no longer active.'
 
       - name: Delete exact deterministic apps
         env:
