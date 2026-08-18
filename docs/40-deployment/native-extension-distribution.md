@@ -44,6 +44,11 @@ required checks neither upload nor hand off wheels or deployable Registry output
 only exact Release reads, PEP 503 Simple HTML, wheels, and PEP 658 metadata. It adds no Registry
 runtime, mutable lifecycle, token, or Core-hosted static route.
 
+Preview delivery treats a successful Pages deployment command as sufficient delivery evidence. It
+passes the deterministic PR alias to Core without downloading every published file, comparing
+bytes, bypassing caches, or waiting for edge convergence. Consumer acceptance remains a separate
+manual or black-box activity and does not block the Heroku preview from starting.
+
 `.github/workflows/extension-publish.yml` prepares the Python association with source provenance,
 uploads through `/legacy/`, and publishes the exact Release. Automatic runs obtain `before_sha`
 from the verified CI check suite and select only new projects or changed project versions;

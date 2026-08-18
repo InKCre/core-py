@@ -28,8 +28,8 @@ files.
 Trusted same-repository pull requests currently use:
 
 - app names `inkcre-core-py-pr-<number>` and `inkcre-postgrest-pr-<number>`;
-- an immutable sibling static Registry deployment under
-  `https://<deployment>.inkcre-core-py-extension-registry-preview.pages.dev`;
+- a sibling static Registry alias under
+  `https://pr-<number>.inkcre-core-py-extension-registry-preview.pages.dev`;
 - pipeline `inkcre-core`, stage `review`;
 - container stack in the US region;
 - one Eco `web` dyno for each peer transport;
@@ -42,14 +42,12 @@ portable-runtime, and branch checks pass for the exact PR SHA, preview delivery:
 1. installs the frozen `extension-preview` PDM group, builds all discovered first-party wheels,
    and asks `inkcre-ext preview build` for one Python-only static Registry facade;
 2. builds images before receiving deployment secrets;
-3. reverifies the exact PR head, deploys the facade directly to the dedicated Pages project,
-   asserts the deterministic `pr-<number>` alias, and compares every remote descriptor, Simple
-   page, wheel, and PEP 658 metadata file with the exact-head local output;
+3. reverifies the exact PR head and deploys the facade directly to the dedicated Pages project;
 4. verifies the exact database branch and TTL;
 5. removes inherited provider-created protocol roles only on first bootstrap;
 6. runs the PR artifact's complete preview-profile initialization and readiness;
 7. derives an `inkcre_core` URL without logging it;
-8. configures `EXTENSION_REGISTRY_URL` to the verified sibling alias before releasing or scaling
+8. configures `EXTENSION_REGISTRY_URL` to the deterministic sibling alias before releasing or scaling
    Core, then configures and releases both apps against the exact database branch;
 9. forces both formations to `web=1:eco`, probes Core `/livez` plus `/readyz`, and
    verifies authenticated PostgREST read/write plus anonymous and wrong-secret denial.
@@ -68,9 +66,9 @@ recreation. The value stays in GitHub Secrets and never enters source, artifacts
 workflow summaries.
 
 The owner URL never enters preview Heroku config. The Core app receives only the `inkcre_core`
-URL and the verified immutable sibling Registry deployment origin; the PostgREST app receives
-only the `authenticator` URL. The `pr-<number>` Pages branch alias remains a human-facing
-convenience and cleanup identity, not the machine delivery authority.
+URL and the deterministic sibling Registry alias; the PostgREST app receives only the
+`authenticator` URL. The Pages deployment command is sufficient delivery evidence. Public edge
+reads and consumer acceptance are deliberately independent and do not block Core startup.
 
 Repository-qualified app and branch identities keep a core-py PR and a client-web PR with
 the same number from addressing the same review resources.
