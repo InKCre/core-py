@@ -3,7 +3,8 @@
 ## Status
 
 - **Baseline**: Product / Technical contract and Acceptance are accepted for implementation planning.
-- **Mutation state**: no governed source has been changed for this unit yet.
+- **Mutation state**: G0–G6 are implemented in the four owner worktrees；G7 publication、shared-ref consumption、real-producer
+  and preview closure remain pending。
 - **Execution shape**: owner-separated increments with public-contract evidence after each meaningful vertical；no large
   cross-repository atomic commit is attempted.
 
@@ -89,7 +90,7 @@ PostgreSQL evidence contradicts them.
 
 ### Proof
 
-- automated public-manager integration against real PostgreSQL using the shared corpus；include cursor continuity、cycles、
+- manually executed public-manager journey against real PostgreSQL using the shared corpus；include cursor continuity、cycles、
   direction/content pruning、equal-shortest semantic validity and concurrent-authority endpoint closure.
 - `EXPLAIN (ANALYZE, BUFFERS)` on a transaction-local sparse 50k topology confirms each direction-specific query chooses its
   `(endpoint, id DESC)` index；failure to choose an index on tiny fixtures alone is not treated as contrary evidence.

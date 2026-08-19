@@ -127,8 +127,9 @@ Product contract
 - Product 明确用户旅程、范围、非目标、成功和可观察失败。
 - Technical 明确 owner、topology、data/API contract、compatibility 与 failure/partial-effect semantics。
 - Acceptance 在实现前固定 public/runtime input、持久 graph、resolver/native output、错误与重复执行
-  behavior。默认以真实 transport + persistence 的 black-box scenario 证明；white-box fixture 只有在
-  D-049 exception 成立时保留。
+  behavior。优先由静态机制证明可机械检查的事实；需要动态证据时，先以真实 transport + persistence 的手工或
+  脚本化 black-box journey 验证，反复成熟且证明回归收益后才考虑提升为自动化测试。新增自动化测试需要 Sir
+  显式批准；white-box fixture 只有在 D-049 exception 成立时保留。
 - Implementation-plan probe 可以在 Technical/Acceptance 审查中提前展开增量、代码地址、依赖与
   验证顺序，用它暴露遗漏的设计；此时它不授权实现。
 - Preflight 可以在 design probe 后执行，核实版本、地址、运行环境并遍历实现分支；它发现新的

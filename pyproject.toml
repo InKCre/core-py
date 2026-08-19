@@ -66,7 +66,6 @@ dev = [
     "pytest>=9.0.2",
     "python-dotenv>=1.2.2",
     "pre-commit>=4.4.0",
-    "pytest-mock>=3.15.1",
     "ruff>=0.14.10",
     "pyrefly==1.1.1",
     "setuptools>=80.0.0,<81.0.0",
@@ -95,10 +94,8 @@ test = "python -m pytest -q"
 "check:extension-releases" = "python scripts/extension_release.py check {args}"
 "build:extension-preview" = "python scripts/build_extension_preview.py {args}"
 "release:extension" = "python scripts/extension_release.py prepare {args}"
-"lint:settings" = "ruff check --no-cache tests/app/test_settings.py"
-"test:settings" = "python -m pytest -q tests/app/test_settings.py"
-"check:foundation" = { composite = ["doctor", "check:lock", "check:migrations", "lint:settings", "test:settings"] }
-"check" = { composite = ["check:foundation", "format:check", "lint", "typecheck", "test"] }
+"check:foundation" = { composite = ["doctor", "check:lock", "check:migrations"] }
+"check" = { composite = ["check:foundation", "format:check", "lint", "typecheck"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"
 "db:record" = "python scripts/check_migration_history.py --record-new"

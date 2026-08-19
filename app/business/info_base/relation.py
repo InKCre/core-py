@@ -14,6 +14,53 @@ logger = get_logger()
 
 class RelationManager:
   @classmethod
+  def get_by_id(
+    cls,
+    relation_id: RelationID,
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> RelationModel | None:
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_by_id(relation_id, owned_session)
+    return db_session.get(RelationModel, relation_id)
+
+  @classmethod
+  def get_endpoint_page(  # noqa: PLR0913
+    cls,
+    block_ids: typing.Collection[BlockID],
+    *,
+    endpoint: typing.Literal["from", "to"],
+    contents: typing.Collection[str] = (),
+    cursor: RelationID | None = None,
+    limit: int = 21,
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> tuple[RelationModel, ...]:
+    """Read a bounded Relation page for one persisted endpoint direction."""
+    if not block_ids or limit <= 0:
+      return ()
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_endpoint_page(
+          block_ids,
+          endpoint=endpoint,
+          contents=contents,
+          cursor=cursor,
+          limit=limit,
+          db_session=owned_session,
+        )
+    endpoint_column = RelationModel.from_ if endpoint == "from" else RelationModel.to_
+    statement = sqlmodel.select(RelationModel).where(
+      endpoint_column.in_(tuple(block_ids))  # type: ignore[union-attr]
+    )
+    if contents:
+      statement = statement.where(RelationModel.content.in_(tuple(contents)))  # type: ignore[union-attr]
+    relation_id_column = sqlmodel.col(RelationModel.id)
+    if cursor is not None:
+      statement = statement.where(relation_id_column < cursor)
+    statement = statement.order_by(sqlmodel.desc(relation_id_column)).limit(limit)
+    return tuple(db_session.exec(statement).all())
+
+  @classmethod
   async def get_text(
     cls,
     relation: RelationModel,

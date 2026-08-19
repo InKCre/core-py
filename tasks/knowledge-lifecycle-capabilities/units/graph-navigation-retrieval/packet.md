@@ -2,17 +2,52 @@
 
 ## Control
 
-- **State**: Active — Product / Technical / Acceptance baseline complete；implementation plan and preflight complete，Impact
-  Handshake pending。
+- **State**: Active — implementation underway；manager/query、migration、Resolver preview、router and Graph presentation
+  vertical are implemented locally，cross-repo publication and actual-shell closure remain。
 - **Objective**: 让用户或下游能力从一个已定位的 graph entity 出发，取得可理解、可继续沿方向导航的
   既有 Blocks/Relations，而不要求加载整个 info-base graph。
-- **Current work**: review the owner-separated [implementation plan](implementation-plan.md) and freeze the cross-repository
-  Impact Handshake；then execute from shared read contract/query foundations through the actual-shell Graph vertical。
+- **Current work**: complete shared-corpus/real-producer parity，then prepare owner-separated release inputs and preview
+  deployment verification。
 - **Decision authority**: [task decision register](../../decisions/index.md)；本文件只投影当前 unit 状态、
   working hypotheses 与 discussion queue。
-- **Execution gate**: Product primitive、retrieval contract、manager topology、route/scene ownership、Graph interaction、
-  Acceptance、implementation plan and preflight are closed。Impact Handshake remains the final execution gate；no governed
-  source mutation has occurred in this unit。
+- **Execution gate**: passed on 2026-08-18。The approved Impact Handshake covers Hub contract/corpus、peer-local managers、
+  endpoint indexes、Resolver preview hard cut、application routing/Search、Graph View rewrite and proportionate design-system
+  changes。
+
+## Implementation checkpoint — 2026-08-18
+
+- Hub Product TDD and one machine-readable topology corpus are drafted on the dedicated Hub branch；they remain uncommitted
+  until owner-separated review/push。
+- core-py owns the presentation-neutral public manager、read models、endpoint query primitives and endpoint indexes。
+  PostgreSQL integration passes on migration head `50b2c08dd267`；a transaction-local sparse 50k probe selected
+  `relations_from_id_desc_idx` and completed the bounded page in under 1 ms on the development runtime。
+- `@inkcre/core` implements the same contract directly over PostgREST。Its unit corpus and a real PostgREST smoke both pass；
+  the smoke produced a 3-Relation endpoint-closed neighborhood and a 2-hop outgoing path without RPC or Peer delegation。
+- Resolver registration now requires distinct preview/full renderers over the same solved-content authority。Core、Mail and
+  Twitter in-scope registrations have bounded interaction-free previews；old `sink/graph` and app-owned full-graph/community
+  machinery are hard-cut。
+- client-web owns role-named scene routing、application Recall/Search、entity-local inspectors and the rewritten bounded
+  Graph navigation host。The actual local shell now passes random/isolated initialization，4-Block/3-Relation focal
+  navigation，soft outgoing emphasis，3-Block/2-Relation shortest path，modeless Relation/Block/Solved Content outlets and
+  browser-back restoration against the converged PostgREST runtime。
+- design adds only the proven generic `InkPopup.scrim` capability (default remains modal) plus focused evidence and a
+  Changeset。A generic SearchBar was not promoted because the second proven presentation consumer did not justify a stable
+  abstraction yet。
+- Implementation preflight exposed and fixed three delivery-baseline defects needed to run the actual shell：development
+  Compose now builds the artifact-free `runtime` stage；development readiness accepts additional advertised capabilities；
+  readiness/reset explicitly invoke `python scripts/container.py` after the image ENTRYPOINT hard cut。These are deployment
+  contract fixes, not Graph business adaptations。
+- The browser vertical exposed a fourth distributed-runtime defect：a JWT issued at the caller's exact current second can be
+  rejected by a slightly slower PostgREST clock as `JWT issued at future`。The signing boundary now backdates `iat` by five
+  seconds while retaining the existing bounded `exp - iat` contract；path and uncached relational reads no longer leak clock
+  skew into domain callers。
+- Review rejected the accumulated unit/component/helper test baseline rather than only this unit's new tests。client-web and
+  design have removed Vitest/component automation and its test-only dependencies/config；core-py has removed ordinary
+  manager、route、schema、adapter-helper、mock runtime and deployment-helper tests。Only admitted migration integrity，real
+  integration/acceptance and mature Playwright E2E remain，outside the default repository gate unless their existing owner
+  explicitly retains them。The organization-wide authority is now `.github/TESTING.md`；each governed repository only
+  references that policy and records justified local suites/commands。Static enforcement and builds are the default CI
+  proof；new automation requires explicit Sir approval after a manual/scripted black-box journey has matured。
 
 ## Unit Review — 2026-08-18
 

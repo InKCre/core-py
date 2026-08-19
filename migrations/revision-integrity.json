@@ -5,6 +5,7 @@
   "revisions": {
     "1e4c7a9b2d5f_add_block_lexical_records.py": "20cd7c361b0f822811d52beb692a255078e3842fd64d74287ee0c13d0bc8df26",
     "3f7a9c2d5e1b_merge_extension_registry_feature_retrieval.py": "a12ebb2f37a00dcc13b6dea6b7f9be0f6870d57530e8d234eb934c080d027c07",
+    "50b2c08dd267_add_relation_endpoint_indexes.py": "56a0dbfd5e032fa57b125e478940ff89254c167b38fe0a7a98046498577d13e5",
     "77cd53ad8080_add_global_jobs_crons_and_source_runtime.py": "8eda54520a7099c957ee6a1b5e6e48d5ee2b3dbe18b0dea4b6a5246dbef04bd2",
     "a1b2c3d4e5f6_add_clients_modify_extensions_enabled.py": "15292a9fcf834474c8453e3d1d9db962962fb5d729bc0b80053615cf71315b96",
     "a8b9c0d1e2f3_add_ai_registry_and_profiles.py": "4c9346dac54e797ba8cb6fa7dfa8604482a114905bea88d3ff71b32fb9da5246",

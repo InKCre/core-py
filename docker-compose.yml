@@ -5,6 +5,7 @@ x-core-image: &core-image
 
 x-core-build: &core-build
   context: ${INKCRE_BUILD_CONTEXT:-.}
+  target: runtime
   args:
     SOURCE_REVISION: ${INKCRE_SOURCE_REVISION:-local}
 

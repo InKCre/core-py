@@ -25,17 +25,18 @@ pdm run check
 
 `check` is the same hermetic repository gate used by CI. It verifies the lock and
 requirements export, migration configuration and append-only baseline, Ruff formatting,
-repository lint, and the complete unit-test suite. Use narrower commands while iterating:
+repository lint, and static types. Use narrower commands while iterating:
 
 ```bash
 pdm run format:check
 pdm run lint
-pdm run test
 pdm run check:foundation
 ```
 
-The test harness sets `INKCRE_ENV_FILE=""` before application imports. Tests do not read a
-developer `.env` or use its database and API credentials.
+Verification follows the organization-wide
+[Verification and Test Policy](https://github.com/InKCre/.github/blob/main/TESTING.md). The remaining
+migration, integration, and acceptance suites are repository-local admitted exceptions; they do not
+authorize new unit, schema, helper, mocked-manager, or route tests by analogy.
 
 ## First-Party Extension Releases
 

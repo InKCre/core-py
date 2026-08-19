@@ -120,9 +120,10 @@ previews；modeless outlets—rather than comparing pixels to a mock。The rejec
 
 ## Proof allocation
 
-- Deterministic public manager behavior and regressions belong in automated integration/contract checks。
-- A small number of high-value client journeys may extend the existing Playwright database/Core Peer chain；do not create
-  component-helper tests for behavior already covered by type checking or the browser vertical。
+- Schema、types、migration shape and ownership facts belong to static checks。Public-manager behavior first remains a
+  manually executed real-PostgreSQL/PostgREST script or journey；automation requires a later，explicit promotion decision。
+- High-value client journeys remain manual/scripted against the database/Core Peer chain；do not create component-helper
+  tests for behavior already covered by type checking or the browser vertical。
 - Visual calibration、camera feel、drag continuity and reduced-motion quality remain an explicit manual/scripted Acceptance
   checklist until repeated regressions prove that a narrower automated mechanism has positive ROI。
 - No negative-path matrix is required merely for completeness；retain only failures that distinguish a public outcome or

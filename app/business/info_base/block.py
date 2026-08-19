@@ -1,5 +1,6 @@
 __all__ = ["BlockManager"]
 
+import random
 import typing
 import sqlmodel
 from typing import Optional as Opt
@@ -13,7 +14,6 @@ from app.schemas.info_base.block import (
   BlockModel,
   ResolverType,
 )
-from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageID
 
 if typing.TYPE_CHECKING:
@@ -29,6 +29,42 @@ def _new_block(form: BlockForm) -> BlockModel:
 
 
 class BlockManager:
+  @classmethod
+  def get_many(
+    cls,
+    block_ids: typing.Collection[BlockID],
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> tuple[BlockModel, ...]:
+    """Return the existing Blocks from a bounded identity set."""
+    if not block_ids:
+      return ()
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_many(block_ids, owned_session)
+    return tuple(
+      db_session.exec(
+        sqlmodel.select(BlockModel).where(BlockModel.id.in_(tuple(block_ids)))  # type: ignore[union-attr]
+      ).all()
+    )
+
+  @classmethod
+  def get_random(
+    cls,
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> Opt[BlockModel]:
+    """Return one existing Block without transferring all identities."""
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_random(owned_session)
+    block_id_column = sqlmodel.col(BlockModel.id)
+    count = db_session.exec(sqlmodel.select(sqlmodel.func.count(block_id_column))).one()
+    if count == 0:
+      return None
+    offset = random.SystemRandom().randrange(count)
+    return db_session.exec(
+      sqlmodel.select(BlockModel).order_by(block_id_column).offset(offset).limit(1)
+    ).one()
+
   @classmethod
   def get_recent(
     cls, num: int = 10, resolver: Opt[ResolverType] = None
@@ -124,50 +160,6 @@ class BlockManager:
     db_session.flush()
     db_session.refresh(block)
     return block
-
-  @classmethod
-  async def iterate_from_block(
-    cls,
-    block_id: int,
-    max_depth: int = 2,
-    exclude_start_block: bool = True,
-  ):
-    db_session = SessionLocal()
-    depth = 0
-    r_blocks: set[int] = set()
-    r_relations: set[int] = set()
-
-    if not exclude_start_block:
-      r_blocks.add(block_id)
-
-    def iterate_one(inner_block_id: int):
-      nonlocal depth
-
-      relations = db_session.exec(
-        sqlmodel.select(RelationModel).where(RelationModel.from_ == inner_block_id)
-      ).all()
-
-      r_relations.update(relation.id for relation in relations if relation.id is not None)
-
-      for relation in relations:
-        block = db_session.exec(
-          sqlmodel.select(BlockModel).where(BlockModel.id == relation.to_)
-        ).one()
-        persisted_block_id = block.id
-        if persisted_block_id is None:
-          raise RuntimeError("Persisted block is missing its database ID")
-        r_blocks.add(persisted_block_id)
-
-        if depth <= max_depth:
-          iterate_one(persisted_block_id)
-
-      depth += 1
-
-    iterate_one(block_id)
-
-    db_session.close()
-
-    return {"relations": r_relations, "blocks": r_blocks}
 
   @classmethod
   def edit_block(
