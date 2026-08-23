@@ -2,7 +2,8 @@
 
 ## Status
 
-- **Status**: accepted implementation baseline；reopen only when implementation evidence contradicts a public invariant。
+- **Status**: accepted and executed；Preview closure completed on 2026-08-23 against core `d2cac7d` and client-web
+  `5b8071e`。
 - **Evidence principle**: black-box-first。Static checks prove types、migration/index shape and ownership boundaries；they do
   not substitute for manager/database or browser journeys。No pixel snapshot becomes visual authority。
 
@@ -51,8 +52,9 @@ manager。No repository helper or private query method is the assertion surface�
 4. **Concurrent authority changes**
    - a successful neighborhood response remains endpoint-closed if a Relation/endpoint disappears between its internal
      reads；the original continuation cursor remains the page cursor；
-   - a path whose final persisted rows no longer validate fails as an ordinary retrieval/validation error，not fabricated
-     `not_found`、`limit_reached` or hidden retry。
+   - path assembly reuses the Relations observed during traversal；if endpoint closure can no longer be assembled after a
+     concurrent authority change，the result is ordinary `not_found`，with no hidden retry or leaked cross-statement
+     inconsistency。
 5. **Random Block primitive**
    - empty authority returns no Block；non-empty authority returns one existing Block without loading all IDs into the
      browser or asserting distribution quality from a tiny sample。
@@ -117,6 +119,20 @@ existing E2E harness rather than committed to the build。
 Visual review runs in the actual InkCre shell at representative desktop and narrow widths。It judges the accepted state
 hierarchy—restrained、cool、professional、sharp；existing palette；minimal chrome；legible focal/context/direction；intrinsic
 previews；modeless outlets—rather than comparing pixels to a mock。The rejected visual spike is explicitly excluded。
+
+## Executed Preview evidence — 2026-08-23
+
+- core-py exact head `d2cac7d`：repository/artifact、Preview database and Preview app workflows succeeded；local
+  `pdm run check` passed migration integrity、lint、format、type checking and the admitted suites。
+- client-web exact head `5b8071e`：Client checks and Pages Preview workflows succeeded；local `pnpm check` passed。
+- On the actual Pages Preview + Preview PostgREST pair，a temporary four-Block/three-Relation corpus proved random focal、
+  focal replacement、soft direction emphasis、Block Inspector、Solved Content、Relation Inspector and a three-hop path。
+  The path scene contained exactly four Inspectable Blocks and three Inspectable Relations；browser logs contained no error。
+- Inspector outlets preserved the Graph as navigation host：Block Inspect realized `/blocks/2`，Solved Content realized
+  `/blocks/2/content`，browser back returned to the Inspector，and Relation Inspect realized `/relations/2` over the same
+  `focal_block=2` scene state。
+- The temporary Preview corpus was removed after the journey；its generated IDs are evidence only and do not become fixture
+  or product authority。
 
 ## Proof allocation
 

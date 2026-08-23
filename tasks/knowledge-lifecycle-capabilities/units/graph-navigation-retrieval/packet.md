@@ -2,12 +2,11 @@
 
 ## Control
 
-- **State**: Active — implementation underway；manager/query、migration、Resolver preview、router and Graph presentation
-  vertical are implemented locally，cross-repo publication and actual-shell closure remain。
+- **State**: Complete — implementation、owner-separated publication、exact-head CI/CD and actual Preview shell closure
+  completed on 2026-08-23。
 - **Objective**: 让用户或下游能力从一个已定位的 graph entity 出发，取得可理解、可继续沿方向导航的
   既有 Blocks/Relations，而不要求加载整个 info-base graph。
-- **Current work**: complete shared-corpus/real-producer parity，then prepare owner-separated release inputs and preview
-  deployment verification。
+- **Current work**: closed；return to implementable-unit selection。
 - **Decision authority**: [task decision register](../../decisions/index.md)；本文件只投影当前 unit 状态、
   working hypotheses 与 discussion queue。
 - **Execution gate**: passed on 2026-08-18。The approved Impact Handshake covers Hub contract/corpus、peer-local managers、
@@ -52,6 +51,9 @@
   now retains observed Relation rows；a candidate whose endpoint closure can no longer be assembled returns `not_found`
   instead of escalating an internal cross-statement race。Client Graph、Relation Inspector and Recall boundaries retain
   contextual diagnostics while presenting shallow completion messages rather than raw internal exceptions。
+- Exact-head closure passed for core `d2cac7d` and client-web `5b8071e`。The actual Pages Preview + Preview PostgREST journey
+  covered focal navigation、soft direction、Block/Relation inspectors、Solved Content and a four-Block/three-Relation
+  shortest path without browser errors；the temporary Preview corpus was removed afterwards。
 
 ## Unit Review — 2026-08-18
 
