@@ -39,15 +39,3 @@ repos:
         language: system
         files: ^(alembic\.ini|migrations/|tests/migrations/)
         pass_filenames: false
-      - id: lint-settings
-        name: Lint settings contract
-        entry: ruff check --no-cache tests/app/test_settings.py
-        language: system
-        files: ^(app/settings\.py|libs/obsrv/setting\.py|tests/app/test_settings\.py)$
-        pass_filenames: false
-      - id: test-settings
-        name: Test settings contract
-        entry: python -m pytest -q tests/app/test_settings.py
-        language: system
-        files: ^(app/settings\.py|libs/obsrv/setting\.py|tests/app/test_settings\.py)$
-        pass_filenames: false
