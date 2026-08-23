@@ -30,9 +30,10 @@ discard most rows on sparse endpoints.
 
 Shortest-by-hop search is bounded bidirectional BFS. Defaults are four hops and 1,000 explored Blocks;
 hard bounds are eight hops and 10,000 Blocks. Frontier batching is private transport/query mechanics.
-Equal-shortest results have no stable tie-break contract. Once a candidate is found, its persisted rows
-are read again and validated; concurrent authority change is surfaced as an ordinary retrieval error,
-not hidden retry or a fabricated public outcome.
+Equal-shortest results have no stable tie-break contract. Traversal retains the Relation rows it reads
+and assembles a candidate from that operation-local snapshot instead of rereading and rejecting ordinary
+concurrent changes. If candidate endpoint Blocks no longer exist when closure is assembled, the public
+result is `not_found`.
 
 Random focal selection uses count plus a stable-ID offset query. It does not transfer all Block IDs and
 does not promise statistical quality from a small authority.
@@ -42,4 +43,3 @@ does not promise statistical quality from a small authority.
 Public-manager integration runs against migrated PostgreSQL and asserts topology properties rather than
 private SQL or incidental equal-path choice. Sparse transaction-local load probes establish endpoint
 index use. The shared Hub corpus owns aliases and graph shape; production models and methods do not.
-

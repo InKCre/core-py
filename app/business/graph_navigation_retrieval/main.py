@@ -188,6 +188,7 @@ class GraphNavigationRetrievalManager:
     backward_depths = {to_block: 0}
     forward_frontier = {from_block}
     backward_frontier = {to_block}
+    traversed_relations: dict[RelationID, RelationModel] = {}
 
     while forward_frontier and backward_frontier:
       forward_level = forward_depths[next(iter(forward_frontier))]
@@ -206,6 +207,7 @@ class GraphNavigationRetrievalManager:
           own_depths=forward_depths,
           other_depths=backward_depths,
           max_hops=max_hops,
+          traversed_relations=traversed_relations,
           db_session=db_session,
         )
         forward_frontier = next_frontier
@@ -219,6 +221,7 @@ class GraphNavigationRetrievalManager:
           own_depths=backward_depths,
           other_depths=forward_depths,
           max_hops=max_hops,
+          traversed_relations=traversed_relations,
           db_session=db_session,
         )
         backward_frontier = next_frontier
@@ -232,8 +235,7 @@ class GraphNavigationRetrievalManager:
           meeting=meeting,
           forward_parents=forward_parents,
           backward_next=backward_next,
-          direction=direction,
-          contents=contents,
+          traversed_relations=traversed_relations,
           db_session=db_session,
         )
     return PathNotFound()
@@ -250,6 +252,7 @@ class GraphNavigationRetrievalManager:
     own_depths: dict[BlockID, int],
     other_depths: dict[BlockID, int],
     max_hops: int,
+    traversed_relations: dict[RelationID, RelationModel],
     db_session: sqlmodel.Session,
   ) -> tuple[set[BlockID], BlockID | None]:
     next_frontier: set[BlockID] = set()
@@ -266,6 +269,7 @@ class GraphNavigationRetrievalManager:
       )
       for relation in relations:
         relation_id = typing.cast(RelationID, relation.id)
+        traversed_relations[relation_id] = relation
         for current, neighbor in cls._relation_steps(
           relation, frontier=set(chunk), direction=direction, reverse=reverse
         ):
@@ -363,10 +367,9 @@ class GraphNavigationRetrievalManager:
     meeting: BlockID,
     forward_parents: dict[BlockID, tuple[BlockID, RelationID] | None],
     backward_next: dict[BlockID, tuple[BlockID, RelationID] | None],
-    direction: GraphDirection,
-    contents: typing.Collection[str],
+    traversed_relations: dict[RelationID, RelationModel],
     db_session: sqlmodel.Session,
-  ) -> PathFound:
+  ) -> PathResult:
     block_path: list[BlockID] = [meeting]
     relation_path: list[RelationID] = []
     current = meeting
@@ -391,22 +394,12 @@ class GraphNavigationRetrievalManager:
     relations = tuple(
       relation
       for relation_id in relation_path
-      if (relation := RelationManager.get_by_id(relation_id, db_session)) is not None
+      if (relation := traversed_relations.get(relation_id)) is not None
     )
     if {block.id for block in blocks} != set(block_path) or len(relations) != len(
       relation_path
     ):
-      raise RuntimeError("Persisted path changed during retrieval")
-    for index, relation in enumerate(relations):
-      from_path = block_path[index]
-      to_path = block_path[index + 1]
-      direction_valid = (
-        (direction == "both" and {relation.from_, relation.to_} == {from_path, to_path})
-        or (direction == "out" and (relation.from_, relation.to_) == (from_path, to_path))
-        or (direction == "in" and (relation.to_, relation.from_) == (from_path, to_path))
-      )
-      if not direction_valid or (contents and relation.content not in contents):
-        raise RuntimeError("Persisted path changed during retrieval")
+      return PathNotFound()
     return PathFound(
       graph=GraphModel(blocks=blocks, relations=relations),
       block_path=tuple(block_path),

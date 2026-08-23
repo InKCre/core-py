@@ -44,6 +44,18 @@ A human decision question is justified only when at least two **credible、non-d
 and choosing among them materially changes observable product behavior、authority、public contract、irreversible effects or a
 high-cost failure/recovery path。Missing evidence should trigger exploration，not a speculative choice。
 
+## Operational and safety reasoning discipline
+
+1. Do not turn ordinary implementation review into a broad safety or security audit。Safety reasoning starts only from a
+   specific actor、capability、asset、boundary、harm and attack path confirmed to exist in the current scope。
+2. Prefer conventional platform/library controls and their normal verification surfaces。A novel security design or bespoke
+   security verification needs a concrete uncovered attack path and demonstrated return。
+3. Operational safeguards must preserve observability：record actionable internal context even when the public completion
+   semantic is intentionally shallow。
+4. Do not escalate an ordinary edge/state race as `fail-fast` or `fail-closed` work for the Human or caller。Reconcile it at
+   the owning boundary、return the domain's ordinary completion outcome，or expose a repair action only when the caller can
+   meaningfully perform one。
+
 ## Current Failure Reference
 
 Mail ordinary collection had already persisted valid graph facts。Making a failed `mark_as_seen` attempt block the mailbox

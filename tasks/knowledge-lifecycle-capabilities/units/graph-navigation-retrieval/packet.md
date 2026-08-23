@@ -48,6 +48,10 @@
   explicitly retains them。The organization-wide authority is now `.github/TESTING.md`；each governed repository only
   references that policy and records justified local suites/commands。Static enforcement and builds are the default CI
   proof；new automation requires explicit Sir approval after a manual/scripted black-box journey has matured。
+- Operational self-review removed a speculative concurrency validation from both peer-local path implementations。Traversal
+  now retains observed Relation rows；a candidate whose endpoint closure can no longer be assembled returns `not_found`
+  instead of escalating an internal cross-statement race。Client Graph、Relation Inspector and Recall boundaries retain
+  contextual diagnostics while presenting shallow completion messages rather than raw internal exceptions。
 
 ## Unit Review — 2026-08-18
 
@@ -551,8 +555,8 @@ scale、layout、camera、cursor and cache remain runtime scene projections。
   `path_from` + `path_to` as reconstructive Graph query state；Graph realizes the path outcome but owns neither the operation
   nor endpoint picking。Focal、path and `q` seed address forms remain mutually exclusive。
 - D-376 fixes best-effort concurrent-read semantics：successful GraphModels stay endpoint-closed without a cross-statement
-  snapshot claim。Neighborhood omits now-unresolvable Relations；path invariant failure remains an ordinary retrieval error，
-  with no hidden retry or fabricated negative outcome。
+  snapshot claim。Neighborhood omits now-unresolvable Relations；path assembly reuses traversal-observed Relations and maps
+  an endpoint-closure race to ordinary `not_found`，with no hidden retry or caller-visible internal inconsistency。
 
 D-353 accepted this contract and corrected public endpoint names to `from` / `to`，matching Relation direction and avoiding
 ambiguity with the upstream `Source` domain。Python-only syntax may use `from_`/aliases without changing the public term。
