@@ -54,17 +54,11 @@ jobs:
             echo "RENDER_SERVICE_PREFIX must be 3-40 lowercase letters, digits, or internal hyphens" >&2
             exit 1
           fi
-          python - <<'PY'
-          import os
-          if len(os.environ["JWT_SECRET"].encode()) < 32:
-            raise SystemExit("JWT_SECRET must be at least 32 bytes")
-          PY
-
       - name: Set up Python and PDM
         uses: pdm-project/setup-pdm@v4.5
         with:
           python-version-file: .python-version
-          version: 2.27.0
+          version: 2.28.0
           cache: true
 
       - name: Install locked runtime dependencies

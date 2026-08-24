@@ -9,7 +9,7 @@ from _tooling import run_command, run_pdm
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_PYTHON = (3, 12)
-EXPECTED_PDM = "2.27.0"
+EXPECTED_PDM = "2.28.0"
 REQUIRED_FILES = (
   "pdm.lock",
   "pyproject.toml",

@@ -50,7 +50,7 @@ jobs:
         uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
         with:
           python-version-file: source/.python-version
-          version: 2.27.0
+          version: 2.28.0
           cache: true
           cache-dependency-path: source/pdm.lock
 

@@ -58,7 +58,7 @@ disabled extension 可以预配置 PAT。
 
 Enable/start 发布一个 retained extension-owned route set；disable/close 直接从 FastAPI dispatch 与
 OpenAPI surface 撤销这组 routes。Re-enable 重新发布同一 ownership surface，不重复注册。close cleanup
-失败时 routes 已 fail-closed，runtime entry 保留用于 retry。
+失败时 routes 仍保持撤销，runtime entry 保留，后续 close/enable 可以继续完成 reconciliation。
 
 ## Canonical Root And Resolver Contract Version
 
@@ -160,12 +160,8 @@ effect。
 
 ## Verification Authority
 
-- family unit tests：canonical serialization、graph grammar、resolver assembly、query、owned deletion plan。
-- pinned product fixtures：Memos 0.29.1 exact bounded wire 与 MoeMemos deviations。
-- ASGI tests：public/PAT auth、unsupported surface、config replace/revoke、hot disable/re-enable、memo /
-  attachment / comment commands。
-- PostgreSQL integration：HTTP → committed graph → resolver/native response、binary storage、cleanup residue。
-- released-client E2E：MoeMemos Android 2.0.4 login、NORMAL/ARCHIVED multi-page sync、create、attachment
-  upload/read、pin/edit、archive/delete。
-
-Exact fixtures 表示 version-pinned executable subset，不表示完整 Memos server compatibility。
+- schemas、types、migration checks and wheel builds own mechanically enforceable package and persistence facts；
+- the retained PostgreSQL integration journey covers HTTP → committed attachment graph → Resolver/native response and
+  PostgreSQL binary storage；
+- the accepted MoeMemos Android 2.0.4 journey remains historical black-box evidence for login、sync、create、attachment、
+  edit、archive and delete。It is not duplicated as a fixture-shaped unit suite and does not imply full Memos compatibility。

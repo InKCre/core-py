@@ -258,8 +258,10 @@ class GraphNavigationRetrievalManager:
     next_frontier: set[BlockID] = set()
     meeting: BlockID | None = None
     best_hops: int | None = None
+    frontier_items = tuple(frontier)
     for chunk_start in range(0, len(frontier), FRONTIER_QUERY_SIZE):
-      chunk = tuple(frontier)[chunk_start : chunk_start + FRONTIER_QUERY_SIZE]
+      chunk = frontier_items[chunk_start : chunk_start + FRONTIER_QUERY_SIZE]
+      chunk_members = set(chunk)
       relations = cls._frontier_relations(
         chunk,
         direction=direction,
@@ -271,7 +273,7 @@ class GraphNavigationRetrievalManager:
         relation_id = typing.cast(RelationID, relation.id)
         traversed_relations[relation_id] = relation
         for current, neighbor in cls._relation_steps(
-          relation, frontier=set(chunk), direction=direction, reverse=reverse
+          relation, frontier=chunk_members, direction=direction, reverse=reverse
         ):
           if neighbor in own_steps:
             continue

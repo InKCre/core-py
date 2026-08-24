@@ -6,12 +6,12 @@ and process runtime remain distinct states. No first-party rows are seeded or sy
 
 For a new install or version change, Core requires an exact published Registry Release. Enabling
 or cold-restoring an already-installed exact Release may consume a yanked Release, but missing or
-blocked bytes fail closed without rewriting `enabled[]`.
+blocked bytes leave the candidate unavailable without rewriting `enabled[]`.
 
 Python acquisition uses the Release's same-origin `/simple/<normalized-project>/` association.
 Core downloads one compatible exact wheel, then runs `pip install --dry-run --report` with that
 wheel as the only available package source. The Core image owns the supported dependency baseline;
-an Extension whose declared requirements are not already satisfied fails closed instead of
+an Extension whose declared requirements are not already satisfied is rejected instead of
 resolving or mutating dependencies during an HTTP request. Core then performs a normal
 `sys.executable -m pip install` of only the Extension wheel into its virtual environment. The standard
 `inkcre.core.extensions` entry point is discovered globally and every loaded Extension module is

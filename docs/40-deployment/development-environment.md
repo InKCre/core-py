@@ -3,7 +3,7 @@
 ## Local Requirements
 
 - Python 3.12
-- PDM 2.27.0
+- PDM 2.28.0
 - local Docker, or one Docker daemon reachable through an SSH-config alias
 - a populated `.env` file
 

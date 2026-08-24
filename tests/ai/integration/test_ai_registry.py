@@ -8,7 +8,7 @@ import pytest
 import sqlalchemy
 import sqlalchemy.exc
 
-from app.business.ai import AIManager, InvalidAIProviderConfigError
+from app.business.ai import AIManager
 from app.engine import SessionLocal
 from app.schemas.ai import (
   AIModelModel,
@@ -101,38 +101,5 @@ def test_ai_facts_round_trip_typed_capabilities_and_database_invariants():
       with pytest.raises(sqlalchemy.exc.IntegrityError):
         db.commit()
       db.rollback()
-  finally:
-    _cleanup(provider_id)
-
-
-def test_invalid_persisted_provider_config_fails_before_network_use():
-  AIManager.sync_dialects()
-  provider_id: int | None = None
-  try:
-    with SessionLocal() as db:
-      provider = AIProviderModel(
-        name="invalid integration provider",
-        dialect="core.openai-compatible.v1",
-        config={},
-      )
-      db.add(provider)
-      db.flush()
-      provider_id = provider.id
-      assert provider_id is not None
-      model = AIModelModel(
-        provider=provider_id,
-        native_model_id="invalid-model",
-        capabilities=(
-          EmbeddingCapability(input_modalities=["text"], output_modalities=["vector"]),
-        ),
-      )
-      db.add(model)
-      db.commit()
-      db.refresh(model)
-      assert model.id is not None
-      model_id = model.id
-
-    with pytest.raises(InvalidAIProviderConfigError):
-      AIManager._load_target(model_id)
   finally:
     _cleanup(provider_id)

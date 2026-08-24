@@ -89,13 +89,13 @@ test = "python -m pytest -q"
 "check:lock" = "python scripts/check_lock.py"
 "lint:migrations" = "ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_migration_history.py scripts/database_manifest.py scripts/sanitize_preview_base.py tests/migrations"
 "test:migrations" = "python -m pytest -q tests/migrations"
-"check:migrations" = { composite = ["lint:migrations", "test:migrations", "alembic heads"] }
+"check:migrations" = { composite = ["lint:migrations", "check:migration-history"] }
 "check:migration-history" = "python scripts/check_migration_history.py {args}"
 "check:extension-releases" = "python scripts/extension_release.py check {args}"
 "build:extension-preview" = "python scripts/build_extension_preview.py {args}"
 "release:extension" = "python scripts/extension_release.py prepare {args}"
 "check:foundation" = { composite = ["doctor", "check:lock", "check:migrations"] }
-"check" = { composite = ["check:foundation", "format:check", "lint", "typecheck"] }
+"check" = { composite = ["check:foundation", "format:check", "lint", "typecheck", "test"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"
 "db:record" = "python scripts/check_migration_history.py --record-new"
@@ -109,7 +109,6 @@ test = "python -m pytest -q"
 "db:contract" = "python scripts/database.py contract --json"
 "db:schema" = "python scripts/database.py schema --json"
 "db:manifest" = "python scripts/database_manifest.py"
-"db:verify-readiness-failures" = "python scripts/verify_database_contract_failures.py"
 "db:verify-postgrest" = "python scripts/verify_postgrest_contract.py {args}"
 "db:sanitize-preview-base" = "python scripts/sanitize_preview_base.py"
 "db:downgrade" = "alembic downgrade {args}"

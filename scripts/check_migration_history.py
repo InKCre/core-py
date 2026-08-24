@@ -8,6 +8,9 @@ import subprocess
 import sys
 from typing import Any
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIRECTORY = PROJECT_ROOT / "migrations" / "versions"
@@ -102,6 +105,26 @@ def validate_worktree_manifest() -> list[str]:
   return violations
 
 
+def validate_revision_graph() -> list[str]:
+  """Return structural violations in the checked-out Alembic graph."""
+  config = Config(PROJECT_ROOT / "alembic.ini")
+  scripts = ScriptDirectory.from_config(config)
+  violations: list[str] = []
+  bases = scripts.get_bases()
+  heads = scripts.get_heads()
+  if len(bases) != 1:
+    violations.append(f"expected one migration base, found {len(bases)}")
+  if len(heads) != 1:
+    violations.append(f"expected one migration head, found {len(heads)}")
+  revisions = list(scripts.walk_revisions(base="base", head="heads"))
+  revision_ids = [revision.revision for revision in revisions]
+  if not revisions:
+    violations.append("migration graph is empty")
+  if len(revision_ids) != len(set(revision_ids)):
+    violations.append("migration graph contains duplicate revision identifiers")
+  return violations
+
+
 def record_new_revisions() -> int:
   """Append new revision digests without changing the protected baseline."""
   manifest = _worktree_manifest()
@@ -183,6 +206,7 @@ def main() -> int:
   try:
     current = _worktree_manifest()
     violations = validate_worktree_manifest()
+    violations.extend(validate_revision_graph())
     base_ref = sys.argv[1] if len(sys.argv) == 2 else None
     base_result = _base_manifest(base_ref) if base_ref is not None else None
   except (OSError, ValueError) as error:

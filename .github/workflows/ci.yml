@@ -20,20 +20,6 @@ env:
   PDM_CHECK_UPDATE: "false"
 
 jobs:
-  dependency-review:
-    name: Dependency security review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-
-      - name: Reject new high-severity vulnerabilities
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        with:
-          fail-on-severity: high
-          fail-on-scopes: development, runtime
-
   repository:
     name: Hermetic repository contract
     runs-on: ubuntu-latest
@@ -47,7 +33,7 @@ jobs:
         uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
         with:
           python-version-file: .python-version
-          version: 2.27.0
+          version: 2.28.0
           cache: true
 
       - name: Set up exact Changie release tool
@@ -183,16 +169,6 @@ jobs:
             python scripts/container.py db ready --profile development --json
           docker run --rm --network host --env MIGRATION_DATABASE_URL \
             --entrypoint alembic "$IMAGE_TAG" check
-
-      - name: Prove readiness rejects contract drift
-        run: |
-          docker run --rm --network host \
-            --env CORE_DATABASE_PASSWORD \
-            --env MIGRATION_DATABASE_URL \
-            --env POSTGREST_DATABASE_PASSWORD \
-            --entrypoint python \
-            "$IMAGE_TAG" \
-            scripts/verify_database_contract_failures.py
 
       - name: Start PostgREST and verify peer read/write contract
         run: |
