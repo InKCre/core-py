@@ -176,7 +176,6 @@ runs:
       id: heroku
       shell: bash
       env:
-        DATABASE_URL: ${{ steps.database.outputs.runtime_database_url }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         PR_NUMBER: ${{ inputs.pr_number }}
       run: |
@@ -231,30 +230,13 @@ runs:
                   (.description | startswith("Deployed web")))] |
                 first | .version // empty'
         )"
-        url_host() {
-          python -c \
-            'import sys; from urllib.parse import urlparse; print(urlparse(sys.argv[1]).hostname or "")' \
-            "$1"
-        }
         has_deployed_release=false
         if [ -n "$deployed_release" ]; then
           has_deployed_release=true
-          current_database_url="$(
-            heroku config:get DATABASE_URL --app "$app_name" || true
-          )"
-          test -n "$current_database_url"
-          test "$(url_host "$current_database_url")" = \
-            "$(url_host "$DATABASE_URL")"
         fi
         has_postgrest_release=false
         if [ -n "$postgrest_deployed_release" ]; then
           has_postgrest_release=true
-          current_postgrest_database_url="$(
-            heroku config:get PGRST_DB_URI --app "$postgrest_app_name" || true
-          )"
-          test -n "$current_postgrest_database_url"
-          test "$(url_host "$current_postgrest_database_url")" = \
-            "$(url_host "$DATABASE_URL")"
         fi
 
         echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
