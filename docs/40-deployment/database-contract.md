@@ -94,7 +94,8 @@ abrupt loss 等待 lease 自然过期。
 - role attributes、memberships、table/sequence/schema/function ACLs；
 - exact public relation/function set and internal-surface exclusion；
 - admitted RPC argument names/types、return database type、set shape、volatility and transport media type；
-- checked-in built-in catalog；
+- checked-in core-owned catalog；Extension-contributed Source types are published by their runtime and are not readiness
+  prerequisites before activation；
 - fixed development seed when selected。
 
 只检查 function names/EXECUTE 权限不足以证明 wire contract。Readiness errors remain component-level and never expose

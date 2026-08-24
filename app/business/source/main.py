@@ -7,7 +7,6 @@ import typing
 from typing import Optional as Opt
 
 from app.engine import SessionLocal
-from app.database_contract.profile import BUILTIN_SOURCE_TYPES_BY_ID
 from app.business.info_base.block import BlockManager
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.job import JobModel
@@ -168,30 +167,15 @@ class SourceManager:
     registered = cls._SOURCE_CLASSES if source_classes is None else source_classes
     with SessionLocal() as db:
       for source_type, source_cls in registered.items():
-        builtin = BUILTIN_SOURCE_TYPES_BY_ID.get(source_type)
         stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
           id=source_type,
-          description=(
-            builtin.description
-            if builtin is not None
-            else source_cls.__doc__ or "No description."
-          ),
-          config_schema=(
-            builtin.config_schema if builtin is not None else source_cls.__configschema__
-          ),
-          collect_config_schema=(
-            builtin.collect_config_schema
-            if builtin is not None
-            else source_cls.__collectconfigcls__.model_json_schema()
-          ),
+          description=source_cls.__doc__ or "No description.",
+          config_schema=source_cls.__configschema__,
+          collect_config_schema=source_cls.__collectconfigcls__.model_json_schema(),
           backfill_config_schema=(
-            builtin.backfill_config_schema
-            if builtin is not None
-            else (
-              None
-              if source_cls.__backfillconfigcls__ is None
-              else source_cls.__backfillconfigcls__.model_json_schema()
-            )
+            None
+            if source_cls.__backfillconfigcls__ is None
+            else source_cls.__backfillconfigcls__.model_json_schema()
           ),
         )
         stmt = stmt.on_conflict_do_update(

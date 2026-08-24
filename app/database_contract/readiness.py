@@ -23,7 +23,6 @@ from .constants import (
 from .profile import (
   BUILTIN_AI_DIALECTS,
   BUILTIN_JOB_TYPES,
-  BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
 )
@@ -483,22 +482,6 @@ def _catalog_component(cursor) -> dict[str, Any]:
       profile.default_timeout_seconds,
     ):
       problems.append(f"job_types:{profile.id}")
-
-  for profile in BUILTIN_SOURCE_TYPES:
-    cursor.execute(
-      sql.SQL(
-        "SELECT description, config_schema, collect_config_schema, "
-        "backfill_config_schema FROM {}.sources_types WHERE id = %s"
-      ).format(sql.Identifier(PROTOCOL_SCHEMA)),
-      (profile.id,),
-    )
-    if cursor.fetchone() != (
-      profile.description,
-      profile.config_schema,
-      profile.collect_config_schema,
-      profile.backfill_config_schema,
-    ):
-      problems.append(f"sources_types:{profile.id}")
 
   for storage in BUILTIN_STORAGES:
     cursor.execute(

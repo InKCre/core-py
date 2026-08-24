@@ -25,6 +25,9 @@ Current bootstrap flow in `run.py`:
 11. start the scheduler and register Peer refresh、Cron materialization and pending-Job checks
 12. report readiness as true
 
+Source classes are the sole schema authority for Extension-contributed Source types。Database initialization does not seed
+disabled Extension Source schemas；Extension startup publishes them before step 7 persists the complete runtime registry。
+
 Database waiting is retryable and does not block `/livez`. A failure after the database
 preflight moves runtime state to `failed`; it is observable through `/readyz` and is not
 silently retried because extension startup can have partial effects.

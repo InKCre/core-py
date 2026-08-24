@@ -16,8 +16,9 @@ source schedule/manual command
   -> optional full-text/enclosure materialization
 ```
 
-共享的 collection、graph、storage、resolver、effect vocabulary 与 authority 合同属于 Hub Product TDD；
-这里拥有 Python package、exact IDs、config/state shape、relation grammar、事务与测试边界。
+Hub Product TDD 只拥有 generic collection、graph、storage、resolver、effect vocabulary 与 authority 合同；
+本文拥有完整的 RSS/Atom-specific product/technical contract，包括 Python package、exact IDs、config/state shape、
+relation grammar、事务与 acceptance 边界。
 
 ## Delivery Boundary
 

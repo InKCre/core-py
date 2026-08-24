@@ -20,8 +20,9 @@ Mail MIME Resolver
   -> semantic content Block + content Relation
 ```
 
-共享的 Source、Job/Cron、graph、Storage、Resolver、Peer 与 InfoBase route contracts 属于 Hub Product TDD；本文只拥有
-Python package topology、exact IDs、Mail schemas、IMAP checkpoint policy、graph grammar 与本 repo acceptance boundary。
+Hub Product TDD 只拥有 generic Source、Job/Cron、graph、Storage、Resolver、Peer 与 InfoBase route contracts；本文拥有
+完整的 Mail-specific product/technical contract，包括 Python package topology、exact IDs、Mail schemas、IMAP
+checkpoint policy、graph grammar 与 acceptance boundary。
 
 ## Package Topology
 

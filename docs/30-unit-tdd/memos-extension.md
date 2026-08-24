@@ -3,9 +3,9 @@
 ## Purpose
 
 本文件记录 core-py `memos` extension 的稳定本地架构。它实现 memo-family authority，并以
-Memos-compatible backend 作为首个 access mode。共享的 collection / organization / application、
-graph、resolver、storage 与 extension protocol contract 属于 Hub Product TDD；这里拥有 Python
-package、resolver ID、relation grammar、API version、transaction 和测试边界。
+Memos-compatible backend 作为首个 access mode。Hub Product TDD 只拥有 generic collection / organization /
+application、graph、resolver、storage 与 Extension contracts；本文拥有完整的 Memos-specific product/technical
+contract，包括 Python package、resolver ID、relation grammar、API version、transaction 和 acceptance 边界。
 
 ## Current Delivery Boundary
 
