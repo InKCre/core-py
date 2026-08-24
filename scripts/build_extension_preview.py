@@ -9,8 +9,6 @@ from pathlib import Path
 import subprocess
 import sys
 
-from inkcre_extension_toolkit.python_distribution import finalize_wheel
-
 from extension_release import PROJECT_ROOT, discover_projects
 
 
@@ -52,6 +50,39 @@ def _build_wheel(project_directory: Path, output_directory: Path) -> Path:
   return wheels[0]
 
 
+def _finalize_wheel(project_directory: Path, wheel: Path, output_directory: Path) -> Path:
+  result = subprocess.run(  # noqa: S603 -- arguments are structured and never use a shell
+    [
+      "inkcre-ext",
+      "python",
+      "wheel",
+      "finalize",
+      "--project",
+      str(project_directory / "pyproject.toml"),
+      "--wheel",
+      str(wheel),
+      "--output-dir",
+      str(output_directory),
+    ],
+    cwd=PROJECT_ROOT,
+    check=False,
+    capture_output=True,
+    text=True,
+  )
+  if result.returncode != 0:
+    detail = (result.stderr or result.stdout).strip()
+    raise PreviewBuildError(
+      f"could not finalize {project_directory.name}: "
+      f"{detail or f'exit {result.returncode}'}"
+    )
+  wheels = tuple(sorted(output_directory.glob("*.whl")))
+  if len(wheels) != 1:
+    raise PreviewBuildError(
+      f"{project_directory.name} finalized {len(wheels)} wheels instead of exactly one"
+    )
+  return wheels[0]
+
+
 def build_preview_inputs(output_directory: Path) -> Path:
   """Build the discovered producer set into a fresh explicit Python inventory."""
 
@@ -62,8 +93,8 @@ def build_preview_inputs(output_directory: Path) -> Path:
   distributions: list[dict[str, str]] = []
   for project in discover_projects():
     raw_wheel = _build_wheel(project.directory, output_directory / "raw" / project.key)
-    wheel = finalize_wheel(
-      project.directory / "pyproject.toml",
+    wheel = _finalize_wheel(
+      project.directory,
       raw_wheel,
       output_directory / "wheels" / project.key,
     )
