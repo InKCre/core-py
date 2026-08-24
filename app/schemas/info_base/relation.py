@@ -28,6 +28,18 @@ class RelationCreateForm(RelationForm):
 
 class RelationModel(RelationForm, table=True):
   __tablename__ = "relations"  # type: ignore
+  __table_args__ = (
+    sqlalchemy.Index(
+      "relations_from_id_desc_idx",
+      "from_",
+      sqlalchemy.desc("id"),
+    ),
+    sqlalchemy.Index(
+      "relations_to_id_desc_idx",
+      "to_",
+      sqlalchemy.desc("id"),
+    ),
+  )
 
   id: Opt[RelationID] = sqlmodel.Field(
     sa_column=sqlmodel.Column(sqlmodel.Integer, primary_key=True, autoincrement=True),

@@ -42,10 +42,12 @@ Pause for Human input when the requested change conflicts with Product/Technical
 - `extensions/`: built-in extension packages
 - `libs/`: shared libraries
 - `migrations/`: Alembic revisions and integrity baseline
-- `tests/`: automated checks
+- `tests/`: admitted migration integrity and mature integration/acceptance checks only
 
 - Package management: PDM. Run package-dependent Python through `pdm run`.
 - Primary repository gate: `pdm run check`; use narrower declared checks while iterating.
+- Follow the organization-wide [Verification and Test Policy](https://github.com/InKCre/.github/blob/main/TESTING.md).
+  Repository-local admitted suites do not authorize new automation by analogy.
 - Preserve one authority per durable fact. Name semantics directly; spend complexity only for demonstrated return.
 - Extract logic after the third occurrence. Export frequently used package items from `__init__.py`.
 - Commit only on explicit Human command and include only current-task changes by default.

@@ -3,7 +3,7 @@
   "environment": "production",
   "database_contract": {
     "revision": "extension-registry-feature-retrieval-v1",
-    "migration_head": "3f7a9c2d5e1b",
+    "migration_head": "50b2c08dd267",
     "protocol_schema": "inkcre"
   },
   "peer": {

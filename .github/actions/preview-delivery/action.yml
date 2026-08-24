@@ -517,7 +517,7 @@ runs:
               echo
               echo "- App: \`$APP_NAME\`"
               echo "- URL: $WEB_URL"
-              echo "- PostgREST app: `$POSTGREST_APP_NAME`"
+              echo "- PostgREST app: $POSTGREST_APP_NAME"
               echo "- PostgREST URL: $POSTGREST_URL"
               echo "- Liveness: ready"
               echo "- Readiness: ready"

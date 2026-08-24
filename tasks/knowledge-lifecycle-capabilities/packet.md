@@ -62,9 +62,9 @@
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
   Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
   消费该 exact shared truth。该 implementable unit 已关闭。
-- **Next Step**: [feature retrieval](units/feature-retrieval/packet.md) 已完成实现、J1–J7、真实 NASA/DashScope、
-  core/client promotion、独立 Render + Neon fork/cold-start 与 exact-main Pages delivery 验收，该 Unit 已关闭。
-  Native Extension release 也是已完成的独立插曲。返回 implementable-unit selection，不根据队列编号自动启动下一项。
+- **Next Step**: [graph navigation retrieval](units/graph-navigation-retrieval/packet.md) 的 Product、Technical、
+  Acceptance、implementation plan 与 preflight 已冻结；整理最新 `origin/main` 和专用 feat branch 后重新提交 Impact
+  Handshake，随后等待 Sir 新的明确“开始”。Feature retrieval 与 Native Extension release 保持关闭。
 
 ## Program Boundary
 
@@ -80,9 +80,14 @@
 
 ## Active Implementable Unit
 
-当前 active implementable Unit 是 [Feature retrieval](units/feature-retrieval/packet.md)。Unit 边界容纳 lexical 与
-perceptual features；当前只推进第一个可独立设计、实现和验收的 lexical retrieval increment。Graph relationship
-recall 与 hybrid composition 分别由 graph-navigation 和后续组合层承担。
+当前唯一 active implementable Unit 是
+[Graph navigation retrieval](units/graph-navigation-retrieval/packet.md)。它以 bounded、direction-preserving、
+endpoint-closed 的 persisted Blocks/Relations 取得为 application primitive；不与 Resolver interpretation、
+organization 或 Graph View presentation 混称。当前停在 Impact Handshake，尚未获得 Execute 的新授权。
+
+[Feature retrieval](units/feature-retrieval/packet.md) 已完成实现、J1–J7、真实 NASA/DashScope、core/client promotion、
+独立 Render + Neon fork/cold-start 与 exact-main Pages delivery 验收；perceptual/hybrid future pressure 不重新打开其
+已关闭 lexical increment。
 
 [Mail extension](units/mail-extension/packet.md) 的 Product、Technical、Acceptance、Implementation、Verify、Promote
 与 owner-separated delivery 均已关闭。
@@ -122,8 +127,9 @@ Product contract
 - Product 明确用户旅程、范围、非目标、成功和可观察失败。
 - Technical 明确 owner、topology、data/API contract、compatibility 与 failure/partial-effect semantics。
 - Acceptance 在实现前固定 public/runtime input、持久 graph、resolver/native output、错误与重复执行
-  behavior。默认以真实 transport + persistence 的 black-box scenario 证明；white-box fixture 只有在
-  D-049 exception 成立时保留。
+  behavior。优先由静态机制证明可机械检查的事实；需要动态证据时，先以真实 transport + persistence 的手工或
+  脚本化 black-box journey 验证，反复成熟且证明回归收益后才考虑提升为自动化测试。新增自动化测试需要 Sir
+  显式批准；white-box fixture 只有在 D-049 exception 成立时保留。
 - Implementation-plan probe 可以在 Technical/Acceptance 审查中提前展开增量、代码地址、依赖与
   验证顺序，用它暴露遗漏的设计；此时它不授权实现。
 - Preflight 可以在 design probe 后执行，核实版本、地址、运行环境并遍历实现分支；它发现新的

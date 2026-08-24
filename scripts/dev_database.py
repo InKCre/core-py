@@ -347,7 +347,7 @@ def _peer_snapshot_ready(peer: Mapping[str, Any], core_url: str) -> bool:
     for capability in capabilities
     if isinstance(capability, dict)
   }
-  if set(advertisements) != set(DEVELOPMENT_CAPABILITIES):
+  if not set(DEVELOPMENT_CAPABILITIES).issubset(advertisements):
     return False
   for capability, path in DEVELOPMENT_CAPABILITIES.items():
     inbound = advertisements[capability].get("inbound")
@@ -424,6 +424,8 @@ def _readiness(state: Mapping[str, Any]) -> dict[str, Any]:
         "--rm",
         "--no-deps",
         "init",
+        "python",
+        "scripts/container.py",
         "db",
         "ready",
         "--profile",
@@ -573,6 +575,8 @@ def reset(instance: str, confirmed: bool) -> dict[str, Any]:
       "--rm",
       "--no-deps",
       "init",
+      "python",
+      "scripts/container.py",
       "db",
       "reset-dev",
       "--confirm",

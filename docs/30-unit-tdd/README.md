@@ -7,6 +7,7 @@ This directory owns expensive internal design truth for logical units delivered 
 | [business-pipeline-and-authority.md](business-pipeline-and-authority.md) | Stable authority and dependency direction across core-py business units |
 | [semantic-retrieval.md](semantic-retrieval.md) | Internal projection, maintenance, ranking, and Agent composition mechanics |
 | [lexical-retrieval.md](lexical-retrieval.md) | Internal lexical projection, feature extraction, maintenance, and ranking mechanics |
+| [graph-navigation-retrieval.md](graph-navigation-retrieval.md) | Internal bounded neighborhood, path, endpoint-closure, and query mechanics |
 | [mail-extension.md](mail-extension.md) | Mail identity, MIME materialization, collection, graph, and failure boundaries |
 | [memos-extension.md](memos-extension.md) | Memos adapter identity, graph grammar, persistence, and failure boundaries |
 | [rss-extension.md](rss-extension.md) | RSS adapter identity, collection lifecycle, reconciliation, and materialization |
