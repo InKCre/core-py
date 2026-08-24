@@ -1,151 +1,95 @@
-"""GitHub resolver for handling GitHub blocks."""
+"""Canonical GitHub Block producers and use-time projections."""
 
-from typing import Optional as Opt
+from __future__ import annotations
 
-from sqlmodel import Session
+import typing
+
 import sqlmodel
+
 from app.business.info_base.resolver import Resolver, TextProjectionContext
 from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm, BlockModel
+from app.schemas.info_base.main import InArcForm, OutArcForm, StarsGraphForm
 from app.schemas.info_base.relation import RelationForm
-from app.schemas.info_base.main import InArcForm, StarsGraphForm
-from utils.sql import find_by_json_contains
-from .schema import GithubRepo, GithubUser
+from utils.sql import find_by_json_field
+
+from .schema import GitHubAccount, GitHubList, GitHubRepository
 
 
-class GithubRepoResolver(
-  Resolver[GithubRepo, str],
-  rso_type="extensions.github.repo.v1",
-):
-  """Resolver for GitHub repository blocks."""
+ACCOUNT_RESOLVER_ID = "extensions.github.account.v1"
+REPOSITORY_RESOLVER_ID = "extensions.github.repository.v1"
+LIST_RESOLVER_ID = "extensions.github.list.v1"
+
+
+class GitHubGraphIntegrityError(RuntimeError):
+  """Exact GitHub graph identity is ambiguous or malformed."""
+
+
+class _GitHubResolverMixin:
+  content_model: typing.ClassVar[type[GitHubAccount | GitHubRepository | GitHubList]]
 
   def __post_init__(self, raw_content: str | None = None) -> None:
-    if raw_content is None:
-      raise ValueError("GitHub repository blocks require inline JSON content")
-    self._content = GithubRepo.model_validate_json(raw_content)
-    self.set_solved_content(self._content)
+    if raw_content is not None:
+      resolver = typing.cast(Resolver[typing.Any, str], self)
+      resolver.set_solved_content(self.content_model.model_validate_json(raw_content))
 
   async def _get_solved_content(
     self,
     *,
     refresh: bool = False,
     materialize_missing: bool = True,
-  ) -> GithubRepo:
+  ) -> typing.Any:
     del materialize_missing
-    self._content = GithubRepo.model_validate_json(
-      await self.get_raw_content(refresh=refresh)
+    resolver = typing.cast(Resolver[typing.Any, str], self)
+    return self.content_model.model_validate_json(
+      await resolver.get_raw_content(refresh=refresh)
     )
-    return self._content
 
   @classmethod
-  def create_graph(
-    cls,
-    repo: GithubRepo,
-    owner: Opt[GithubUser] = None,
-  ) -> StarsGraphForm:
-    """Create a StarGraphForm from GitHub repository data.
-
-    :param repo: GitHub repository
-    :param owner: Repository owner (GitHub user), optional
-    :return: StarGraphForm representing the repository graph
-    ```mermaid
-    graph TD
-        A[GitHub User] -->|owns| B[GitHub Repo]
-    ```
-    """
-    in_relations = ()
-    if owner:
-      in_relations = (
-        InArcForm(
-          relation=RelationForm(content="owns"),
-          from_graph=GithubUserResolver.create_graph(owner),
-        ),
-      )
-
-    return StarsGraphForm(
-      in_arcs=in_relations,
-      block=BlockForm(
-        resolver=cls.__rsotype__,
-        content=repo.model_dump_json(),
-      ),
-      out_arcs=(),
-    )
-
-  def get_existing(self, db_session: Session) -> BlockModel | None:
-    """Check for existing GitHub repo by ID."""
-    existing_block = db_session.exec(
-      sqlmodel.select(BlockModel).where(
-        BlockModel.resolver == self._block.resolver,
-        find_by_json_contains(BlockModel.content, {"id": self._content.id}),
-      )
-    ).one_or_none()
-    return existing_block
-
-  async def get_text(
-    self,
-    *,
-    context: TextProjectionContext = "default",
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> str:
-    """Return one complete reusable textual projection of the repository."""
-    del context
-    content = await self.get_solved_content(
-      refresh=refresh,
-      materialize_missing=materialize_missing,
-    )
-    parts = [content.full_name]
-    if content.description:
-      parts.append(content.description)
-    if content.language:
-      parts.append(f"Language: {content.language}")
-    if content.topics:
-      parts.append(f"Topics: {', '.join(content.topics)}")
-    return "\n".join(parts)
-
-  async def get_label(self, *, refresh: bool = False) -> str:
-    content = await self.get_solved_content(
-      refresh=refresh,
-      materialize_missing=False,
-    )
-    return format_label("github repository", content.full_name)
-
-
-class GithubUserResolver(
-  Resolver[GithubUser, str],
-  rso_type="extensions.github.user.v1",
-):
-  """Resolver for GitHub user blocks."""
-
-  def __post_init__(self, raw_content: str | None = None) -> None:
-    if raw_content is None:
-      raise ValueError("GitHub user blocks require inline JSON content")
-    self._content = GithubUser.model_validate_json(raw_content)
-    self.set_solved_content(self._content)
-
-  async def _get_solved_content(
-    self,
-    *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
-  ) -> GithubUser:
-    del materialize_missing
-    self._content = GithubUser.model_validate_json(
-      await self.get_raw_content(refresh=refresh)
-    )
-    return self._content
-
-  @classmethod
-  def create_block(cls, content: GithubUser | dict, storage=None) -> BlockForm:
+  def create_block(cls, content, storage=None) -> BlockForm:
+    canonical = cls.content_model.model_validate(content)
     return BlockForm(
-      resolver=cls.__rsotype__,
-      content=GithubUser.model_validate(content).model_dump_json(),
+      resolver=typing.cast(typing.Any, cls).__rsotype__,
+      content=canonical.model_dump_json(),
       storage=storage,
     )
 
   @classmethod
-  def create_graph(cls, user: GithubUser | dict) -> StarsGraphForm:
-    return StarsGraphForm(block=cls.create_block(user))
+  def create_graph(cls, content) -> StarsGraphForm:
+    return StarsGraphForm(block=cls.create_block(content))
+
+  @classmethod
+  def find_existing(
+    cls,
+    node_id: str,
+    db_session: sqlmodel.Session,
+  ) -> BlockModel | None:
+    matches = db_session.exec(
+      sqlmodel.select(BlockModel).where(
+        BlockModel.resolver == typing.cast(typing.Any, cls).__rsotype__,
+        find_by_json_field(BlockModel.content, "node_id", node_id),
+      )
+    ).all()
+    if len(matches) > 1:
+      raise GitHubGraphIntegrityError(
+        f"GitHub node {node_id!r} resolves to multiple Blocks"
+      )
+    return matches[0] if matches else None
+
+  def get_existing(self, db_session: sqlmodel.Session) -> BlockModel | None:
+    resolver = typing.cast(Resolver[typing.Any, str], self)
+    content = self.content_model.model_validate_json(resolver._block.content)
+    return self.find_existing(content.node_id, db_session)
+
+
+class GitHubAccountResolver(
+  _GitHubResolverMixin,
+  Resolver[GitHubAccount, str],
+  rso_type=ACCOUNT_RESOLVER_ID,
+):
+  """Resolve one GitHub user or organization account."""
+
+  content_model = GitHubAccount
 
   async def get_text(
     self,
@@ -154,32 +98,138 @@ class GithubUserResolver(
     refresh: bool = False,
     materialize_missing: bool = True,
   ) -> str:
-    """Get text representation of the GitHub user.
-
-    Returns the display name and login, or just login if no name.
-    """
     del context
-    content = await self.get_solved_content(
+    account = await self.get_solved_content(
       refresh=refresh,
       materialize_missing=materialize_missing,
     )
-    if content.name:
-      return f"{content.name} (@{content.login})"
-    return f"@{content.login}"
+    return f"{account.name} (@{account.login})" if account.name else f"@{account.login}"
 
   async def get_label(self, *, refresh: bool = False) -> str:
-    content = await self.get_solved_content(
-      refresh=refresh,
-      materialize_missing=False,
-    )
-    return format_label("github user", content.login)
+    account = GitHubAccount.model_validate_json(await self.get_raw_content(refresh=refresh))
+    return format_label(f"github {account.kind}", account.login)
 
-  def get_existing(self, db_session: Session) -> BlockModel | None:
-    """Check for existing GitHub user by ID."""
-    existing_block = db_session.exec(
-      sqlmodel.select(BlockModel).where(
-        BlockModel.resolver == self._block.resolver,
-        find_by_json_contains(BlockModel.content, {"id": self._content.id}),
+
+class GitHubRepositoryResolver(
+  _GitHubResolverMixin,
+  Resolver[GitHubRepository, str],
+  rso_type=REPOSITORY_RESOLVER_ID,
+):
+  """Resolve one GitHub Repository."""
+
+  content_model = GitHubRepository
+
+  @classmethod
+  def create_graph(
+    cls,
+    content: GitHubRepository,
+    owner: GitHubAccount | None = None,
+  ) -> StarsGraphForm:
+    incoming = (
+      (
+        InArcForm(
+          relation=RelationForm(content="owns"),
+          from_graph=GitHubAccountResolver.create_graph(owner),
+        ),
       )
-    ).one_or_none()
-    return existing_block
+      if owner is not None
+      else ()
+    )
+    return StarsGraphForm(block=cls.create_block(content), in_arcs=incoming)
+
+  async def get_text(
+    self,
+    *,
+    context: TextProjectionContext = "default",
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    del context
+    repository = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
+    parts = [repository.name_with_owner]
+    if repository.description:
+      parts.append(repository.description)
+    if repository.primary_language:
+      parts.append(f"Language: {repository.primary_language}")
+    if repository.topics:
+      parts.append(f"Topics: {', '.join(repository.topics)}")
+    return "\n".join(parts)
+
+  async def get_label(self, *, refresh: bool = False) -> str:
+    repository = GitHubRepository.model_validate_json(
+      await self.get_raw_content(refresh=refresh)
+    )
+    return format_label("github repository", repository.name_with_owner)
+
+
+class GitHubListResolver(
+  _GitHubResolverMixin,
+  Resolver[GitHubList, str],
+  rso_type=LIST_RESOLVER_ID,
+):
+  """Resolve one GitHub List independently of current membership."""
+
+  content_model = GitHubList
+
+  @classmethod
+  def create_graph(
+    cls,
+    content: GitHubList,
+    *,
+    owner: GitHubAccount | None = None,
+    repositories: typing.Iterable[GitHubRepository] = (),
+  ) -> StarsGraphForm:
+    incoming = (
+      (
+        InArcForm(
+          relation=RelationForm(content="owns"),
+          from_graph=GitHubAccountResolver.create_graph(owner),
+        ),
+      )
+      if owner is not None
+      else ()
+    )
+    outgoing = tuple(
+      OutArcForm(
+        relation=RelationForm(content="contains"),
+        to_graph=GitHubRepositoryResolver.create_graph(repository),
+      )
+      for repository in repositories
+    )
+    return StarsGraphForm(
+      block=cls.create_block(content),
+      in_arcs=incoming,
+      out_arcs=outgoing,
+    )
+
+  async def get_text(
+    self,
+    *,
+    context: TextProjectionContext = "default",
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    del context
+    list_ = await self.get_solved_content(
+      refresh=refresh,
+      materialize_missing=materialize_missing,
+    )
+    return "\n".join(part for part in (list_.name, list_.description) if part)
+
+  async def get_label(self, *, refresh: bool = False) -> str:
+    list_ = GitHubList.model_validate_json(await self.get_raw_content(refresh=refresh))
+    return format_label("github list", list_.name)
+
+
+__all__ = [
+  "ACCOUNT_RESOLVER_ID",
+  "GitHubAccountResolver",
+  "GitHubGraphIntegrityError",
+  "GitHubListResolver",
+  "GitHubRepositoryResolver",
+  "LIST_RESOLVER_ID",
+  "REPOSITORY_RESOLVER_ID",
+]

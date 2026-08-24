@@ -1,41 +1,36 @@
 # GitHub Extension for InKCre
 
-This extension provides GitHub Stars source functionality for InKCre.
+The GitHub Extension synchronizes the authenticated account's current Stars and GitHub Lists into the InKCre info-base。
 
-## Features
+## Collected graph
 
-- Collect starred repositories from GitHub
-- Track repository metadata (stars, forks, languages, topics)
-- Automatic tracking of processed stars
-- Support for incremental updates
+```text
+Source --collects--> GitHub Account
+GitHub Account --stars--> Repository
+GitHub Account --owns--> GitHub List
+GitHub List --contains--> Repository
+GitHub Account --owns--> Repository
+```
+
+Repository、Account and List metadata remain reusable Blocks。When a Star or List membership disappears remotely，ordinary
+collection removes the corresponding Relation without deleting those Blocks。
 
 ## Configuration
 
-The extension requires the following configuration:
+Create a Source of type `extensions.github.stars.Source` with：
 
-- `github_token`: GitHub personal access token for API access
-  - Create one at https://github.com/settings/tokens
-  - Required scopes: `public_repo` (or `repo` for private starred repos)
-- `username`: GitHub username to fetch starred repos for
-- `include_private`: Whether to include private repositories (default: `false`)
-
-## Usage
-
-1. Install the extension in the InKCre database
-2. Configure GitHub settings with your token and username
-3. Create a GitHub Stars source via the API endpoint: `POST /github/stars`
-4. Stars will be collected based on the configured schedule
-
-## Dependencies
-
-This extension requires the `PyGithub` package:
-```bash
-pip install PyGithub
+```json
+{
+  "github_token": "<personal access token>"
+}
 ```
 
-## Notes
+The token determines the authenticated account and visible data。The Source does not accept a separate username or private
+repository filter。Changing credentials for the same account is supported；credentials that resolve to another account require
+a new Source。
 
-- The extension tracks the last processed star ID to avoid duplicates
-- Repository data includes owner information, description, topics, and statistics
-- Respects GitHub API rate limits with built-in delays
-- For accessing private starred repositories, ensure your token has appropriate permissions
+## Collection
+
+Dispatch the ordinary `core.source.collect.v1` Job through the generic Source/Job surface。Each run fetches a complete current
+Stars and Lists snapshot before reconciling graph facts。There is no extension-specific collection endpoint、incremental
+cursor、`full` option or historical backfill mode。
