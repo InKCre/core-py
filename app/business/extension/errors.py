@@ -1,34 +1,32 @@
-class ExtensionHostError(RuntimeError):
-  """Base error for the Core Extension Host."""
+"""Core facade for the independently released Runtime error taxonomy."""
 
+from inkcre_extension_runtime_core_py.errors import (
+  ExtensionAcquisitionError,
+  ExtensionCompatibilityError,
+  ExtensionEntryPointError,
+  ExtensionLifecycleError,
+  ExtensionNotInstalledError,
+  ExtensionRegistryError,
+  ExtensionRuntimeError,
+  ExtensionStateConflictError,
+)
 
-class ExtensionNotInstalledError(ExtensionHostError):
-  pass
-
-
-class ExtensionStateConflictError(ExtensionHostError):
-  pass
-
-
-class ExtensionRegistryError(ExtensionHostError):
-  pass
-
-
-class ExtensionCompatibilityError(ExtensionHostError):
-  pass
-
-
-class ExtensionAcquisitionError(ExtensionHostError):
-  pass
-
-
-class ExtensionEntryPointError(ExtensionHostError):
-  pass
-
-
-class ExtensionRuntimeError(ExtensionHostError):
-  pass
+ExtensionHostError = ExtensionRuntimeError
 
 
 class ExtensionRestartRequiredError(ExtensionStateConflictError):
-  pass
+  """The loaded Distribution can only be replaced after process restart."""
+
+
+__all__ = [
+  "ExtensionAcquisitionError",
+  "ExtensionCompatibilityError",
+  "ExtensionEntryPointError",
+  "ExtensionHostError",
+  "ExtensionLifecycleError",
+  "ExtensionNotInstalledError",
+  "ExtensionRegistryError",
+  "ExtensionRestartRequiredError",
+  "ExtensionRuntimeError",
+  "ExtensionStateConflictError",
+]

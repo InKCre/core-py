@@ -7,7 +7,31 @@ import fastapi
 from fastapi.testclient import TestClient
 
 from app.business.extension import ExtensionBase
-from app.business.extension.runtime import ExtensionRuntimeRecord
+
+
+@dataclass
+class _TestActiveModel:
+  name: str
+  config: dict[str, typing.Any]
+  state: dict[str, typing.Any]
+
+  def update_config(self, value):
+    self.config = dict(value)
+    return self
+
+  def update_config_schema(self, _schema):
+    return self
+
+  def read_state(self):
+    return dict(self.state)
+
+  def mutate_state(self, transform):
+    self.state = transform(dict(self.state))
+    return dict(self.state)
+
+  def mutate_config_and_state(self, transform):
+    self.config, self.state = transform(dict(self.config), dict(self.state))
+    return dict(self.config), dict(self.state)
 
 
 @dataclass
@@ -18,6 +42,7 @@ class PublishedExtension:
 
   def unpublish(self) -> None:
     self.extension.unpublish()
+    self.extension.unbind()
     self.extension.release_runtime()
 
 
@@ -32,39 +57,17 @@ def publish_extension(
   runtime_config = dict(config or {})
   runtime_state: dict[str, typing.Any] = {}
 
-  def persist_config(value: dict[str, typing.Any]) -> None:
-    runtime_config.clear()
-    runtime_config.update(value)
-
-  def mutate_state(transform):
-    next_state = transform(dict(runtime_state))
-    runtime_state.clear()
-    runtime_state.update(next_state)
-    return dict(runtime_state)
-
-  def mutate_config_and_state(transform):
-    next_config, next_state = transform(dict(runtime_config), dict(runtime_state))
-    runtime_config.clear()
-    runtime_config.update(next_config)
-    runtime_state.clear()
-    runtime_state.update(next_state)
-    return dict(runtime_config), dict(runtime_state)
-
   extension.unpublish()
+  extension.unbind()
   extension.release_runtime()
-  extension.on_start(
-    runtime_app,
-    ExtensionRuntimeRecord(
-      extension_id=extension.__extid__,
-      config=dict(runtime_config),
-      read_config=lambda: dict(runtime_config),
-      persist_config=persist_config,
-      read_state=lambda: dict(runtime_state),
-      mutate_state=mutate_state,
-      mutate_config_and_state=mutate_config_and_state,
-      persist_config_schema=lambda _schema: None,
-    ),
+  extension.bind(
+    _TestActiveModel(
+      name=f"inkcre/{extension.__extid__}",
+      config=runtime_config,
+      state=runtime_state,
+    )
   )
+  extension.on_start(runtime_app)
   return PublishedExtension(
     runtime_app,
     extension,

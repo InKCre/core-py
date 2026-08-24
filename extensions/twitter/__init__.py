@@ -86,15 +86,13 @@ class Extension(
   @classmethod
   def update_config(
     cls,
-    new_config: dict[str, typing.Any] | TwitterExtensionConfig,
+    value: dict[str, typing.Any] | TwitterExtensionConfig,
   ) -> TwitterExtensionConfig:
     """Keep generic config writes consistent with setup-owned OAuth state."""
     from .setup_flow import _fingerprint, _invalidate_mismatched_oauth_state
 
     validated = (
-      TwitterExtensionConfig.model_validate(new_config)
-      if isinstance(new_config, dict)
-      else new_config
+      TwitterExtensionConfig.model_validate(value) if isinstance(value, dict) else value
     )
 
     def update(config_model, state_model):

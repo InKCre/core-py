@@ -14,7 +14,7 @@
     "b9c0d1e2f3a4_add_agent_definitions.py": "59529e759610193da3427c5b18e0c9be25e46e5e2419a3237bcf9ef88c263fa3",
     "c0d1e2f3a4b5_adopt_peer_capability_delegation.py": "7474fcda0b55fe2ce2047f761579459385aac9f43e7359ced881b8eb1fc6c265",
     "c4e8a7b6d5f0_converge_production_schema.py": "fb5687ad523c64297fe101d109918af2501bec26219de78353944a762eadfe4e",
-    "c6d7e8f9a0b1_add_extension_setup_state.py": "5aab0d1dda6932fbac53f5a6adf4b504f994e8c860833b64fc21fb9cb8d8fc3e",
+    "c6d7e8f9a0b1_add_extension_setup_state.py": "d55bbb8eb18d4ffac58d2813a7a67f33790640a8d3a24b6c30ddcd825cc36b41",
     "c9d2e3f4a5b6_move_trigger_helper_internal.py": "6fab826c66cef1b16540142ae3d17ff953dc2ca49c79a4cffea95d4520701e6e",
     "d0e3f4a5b6c7_add_octet_stream_handler.py": "0d7127d340b878243d894e27f8b97d5982aa01c757703528d3982eb89ae9219e",
     "d9f4e2a1b7c3_adopt_peer_database_protocol.py": "9a163533b5a0619e51bfb94ba7ad0c5c3d168fba5808b08f67531fd8f7e5f263",

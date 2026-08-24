@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import abc
 import asyncio
 import contextlib
 from dataclasses import dataclass
 import typing
 
 import fastapi
+from inkcre_extension_runtime_core_py import EmptyConfig
+from inkcre_extension_runtime_core_py import ExtensionBase as RuntimeExtensionBase
 import pydantic
 import sqlmodel
 
@@ -21,7 +22,6 @@ from app.schemas.extension import (
 )
 from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
 from app.settings import settings
-from app.middleware import require_peer_jwt
 from libs.obsrv.main import get_logger
 
 from .distribution import (
@@ -42,18 +42,15 @@ from .errors import (
 from .release import (
   PythonReleaseDescriptor,
   RegistryReleaseClient,
+  ReleaseState,
   ReleaseResolver,
   require_python_association,
   validate_coordinate,
 )
 from .runtime import (
-  ExtensionPublication,
-  ExtensionPublicationSnapshot,
   PublicHTTPRoute,
-  PublicHTTPRouteClaim,
   ExtensionRuntimeClaim,
   ExtensionRuntimeClaimConflictError,
-  ExtensionRuntimeRecord,
 )
 from .state import ExtensionStore, InstalledExtension, SQLExtensionStore
 
@@ -66,234 +63,66 @@ class ExtensionDelegationError(RuntimeError):
   """The selected Peer did not return the Extension management contract."""
 
 
-class EmptyConfig(sqlmodel.SQLModel): ...
+class ExtensionBase(RuntimeExtensionBase, ext_id="_facade"):
+  """Core import facade retaining the established one-parameter type spelling."""
 
-
-class EmptyState(pydantic.BaseModel): ...
-
-
-ConfigTV = typing.TypeVar("ConfigTV", bound=pydantic.BaseModel)
-
-
-class ExtensionBase(abc.ABC, typing.Generic[ConfigTV]):
-  """Extension-facing lifecycle and validated configuration model."""
-
-  config: ConfigTV
-
-  def __init_subclass__(
-    cls,
-    ext_id: str,
-    config_cls: type[ConfigTV],
-    state_cls: type[pydantic.BaseModel] = EmptyState,
-    **kwargs: typing.Any,
-  ) -> None:
-    cls.__extid__ = ext_id
-    cls.__configcls__ = config_cls  # pyrefly: ignore[no-access]
-    cls.__configschema__ = config_cls.model_json_schema()
-    cls.__statecls__ = state_cls
-    super().__init_subclass__(**kwargs)
+  config: typing.Any
 
   @classmethod
-  def on_start(
-    cls,
-    app: fastapi.FastAPI,
-    extension: ExtensionRuntimeRecord,
-    publication_snapshot: ExtensionPublicationSnapshot | None = None,
-  ) -> None:
-    """Validate config and atomically publish routes, sources, and resolvers."""
-    snapshot = publication_snapshot or ExtensionPublicationSnapshot.capture(app)
-    if cls.runtime_active():
-      snapshot.rollback()
-      raise ExtensionRuntimeError(f"Extension runtime {cls.__extid__} is already active")
-    if extension.extension_id != cls.__extid__:
-      snapshot.rollback()
-      raise ExtensionRuntimeError(
-        f"Runtime record {extension.extension_id} does not belong to {cls.__extid__}"
-      )
-
-    publication: ExtensionPublication | None = None
-    setattr(cls, "__runtime_record__", extension)
-    try:
-      validated_config = cls.__configcls__(  # pyrefly: ignore[missing-attribute]
-        **(extension.config or {})
-      )
-      setattr(cls, "config", validated_config)
-      router = fastapi.APIRouter(
-        prefix=f"/{cls.__extid__}",
-        dependencies=cls.api_dependencies(),
-      )
-      cls._register_apis(router)
-      registered_routes = tuple(router.routes)
-      app.include_router(router, tags=["extension", cls.__extid__])
-      cls._init_sources()
-      cls._init_resolvers()
-      for inbound in cls.peer_inbounds():
-        PeerManager.register_inbound(inbound)
-      publication = snapshot.finish()
-      publication.public_http_claim = PublicHTTPRouteClaim.acquire(
-        cls.__extid__,
-        cls.public_http_routes(),
-        registered_routes,
-      )
-      publication.activate_source_types()
-      extension.persist_config_schema(dict(cls.__configschema__))
-    except Exception:
-      if publication is None:
-        snapshot.rollback()
-      else:
-        publication.restore()
-      raise
-
-    setattr(cls, "__runtime_publication__", publication)
-    LOGGER.info("Extension %s started", cls.__extid__)
+  def __class_getitem__(cls, _item: typing.Any) -> type[ExtensionBase]:
+    return cls
 
   @classmethod
-  def _init_resolvers(cls) -> None: ...
+  def on_start(cls, app: typing.Any) -> None:
+    super().on_start(app)
+    cls.config = cls.get_config()
 
   @classmethod
-  def load_decoders(cls) -> None:
-    """Publish persisted-content decoders without starting routes or Sources."""
-    cls._init_resolvers()
+  def validate_config(cls, config: dict[str, typing.Any]) -> typing.Any:
+    return cls.__configcls__.model_validate(config)
 
-  @classmethod
-  def _init_sources(cls) -> None: ...
 
-  @classmethod
-  def api_dependencies(cls) -> list[typing.Any]:
-    """Return root API dependencies; override with [] to compose product auth."""
-    return [fastapi.Depends(require_peer_jwt)]
+@dataclass
+class _ActiveExtensionModel:
+  """Bind the Core store to the Runtime's rich active-record interface."""
 
-  @classmethod
-  def peer_inbounds(cls) -> tuple[typing.Any, ...]:
-    """Return exact Peer inbounds published while this Extension is running."""
-    return ()
+  name: str
+  config: dict[str, typing.Any]
+  store: ExtensionStore
+  persist_schema: bool = True
 
-  @classmethod
-  def public_http_routes(cls) -> tuple[PublicHTTPRoute, ...]:
-    return ()
+  def _refresh(self) -> _ActiveExtensionModel:
+    self.config = self.store.read_config(self.name)
+    return self
 
-  @classmethod
-  async def on_close(cls) -> None:
-    record = typing.cast(
-      ExtensionRuntimeRecord | None,
-      cls.__dict__.get("__runtime_record__"),
-    )
-    if record is None:
-      raise ExtensionRuntimeError(f"Extension runtime {cls.__extid__} has no state")
-    LOGGER.info("Extension %s closed", cls.__extid__)
+  def update_config(self, config: dict[str, typing.Any]) -> _ActiveExtensionModel:
+    self.store.update_config(self.name, config)
+    return self._refresh()
 
-  @classmethod
-  def runtime_active(cls) -> bool:
-    publication = typing.cast(
-      ExtensionPublication | None,
-      cls.__dict__.get("__runtime_publication__"),
-    )
-    return publication is not None and not publication.restored
+  def update_config_schema(self, schema: dict[str, typing.Any]) -> _ActiveExtensionModel:
+    if self.persist_schema:
+      self.store.update_config_schema(self.name, schema)
+    return self._refresh()
 
-  @classmethod
-  def unpublish(cls) -> None:
-    publication = typing.cast(
-      ExtensionPublication | None,
-      cls.__dict__.get("__runtime_publication__"),
-    )
-    if publication is not None:
-      publication.restore()
+  def read_state(self) -> dict[str, typing.Any]:
+    return self.store.read_state(self.name)
 
-  @classmethod
-  def release_runtime(cls) -> None:
-    for attribute in ("__runtime_publication__", "__runtime_record__"):
-      if attribute in cls.__dict__:
-        delattr(cls, attribute)
-
-  @classmethod
-  @abc.abstractmethod
-  def _register_apis(cls, router: fastapi.APIRouter) -> None:
-    """Register Extension-owned API endpoints."""
-
-  @classmethod
-  def _runtime_record(cls) -> ExtensionRuntimeRecord:
-    record = typing.cast(
-      ExtensionRuntimeRecord | None,
-      cls.__dict__.get("__runtime_record__"),
-    )
-    if record is None:
-      raise ExtensionRuntimeError(f"Extension runtime {cls.__extid__} has no state")
-    return record
-
-  @classmethod
-  def get_config(cls) -> ConfigTV:
-    validated = cls.__configcls__(  # pyrefly: ignore[missing-attribute]
-      **cls._runtime_record().read_config()
-    )
-    setattr(cls, "config", validated)
-    return validated
-
-  @classmethod
-  def update_config(cls, new_config: dict[str, typing.Any] | ConfigTV) -> ConfigTV:
-    if isinstance(new_config, dict):
-      validated = cls.__configcls__(**new_config)  # pyrefly: ignore[missing-attribute]
-    else:
-      validated = new_config
-    cls._runtime_record().persist_config(validated.model_dump(mode="json"))
-    setattr(cls, "config", validated)
-    return validated
-
-  @classmethod
-  def get_state(cls) -> pydantic.BaseModel:
-    return cls.__statecls__(  # pyrefly: ignore[missing-attribute]
-      **cls._runtime_record().read_state()
-    )
-
-  @classmethod
   def mutate_state(
-    cls,
-    transform: typing.Callable[[pydantic.BaseModel], pydantic.BaseModel],
-  ) -> pydantic.BaseModel:
-    state_cls = cls.__statecls__  # pyrefly: ignore[missing-attribute]
+    self,
+    transform: typing.Callable[[dict[str, typing.Any]], dict[str, typing.Any]],
+  ) -> dict[str, typing.Any]:
+    return self.store.mutate_state(self.name, transform)
 
-    def mutate(raw: dict[str, typing.Any]) -> dict[str, typing.Any]:
-      current = state_cls(**raw)
-      updated = transform(current)
-      if not isinstance(updated, state_cls):
-        raise TypeError("Extension state transform returned the wrong model")
-      return updated.model_dump(mode="json")
-
-    return state_cls(**cls._runtime_record().mutate_state(mutate))
-
-  @classmethod
   def mutate_config_and_state(
-    cls,
+    self,
     transform: typing.Callable[
-      [ConfigTV, pydantic.BaseModel], tuple[ConfigTV, pydantic.BaseModel]
+      [dict[str, typing.Any], dict[str, typing.Any]],
+      tuple[dict[str, typing.Any], dict[str, typing.Any]],
     ],
-  ) -> tuple[ConfigTV, pydantic.BaseModel]:
-    config_cls = cls.__configcls__  # pyrefly: ignore[missing-attribute]
-    state_cls = cls.__statecls__  # pyrefly: ignore[missing-attribute]
-
-    def mutate(
-      raw_config: dict[str, typing.Any],
-      raw_state: dict[str, typing.Any],
-    ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
-      config, state = transform(config_cls(**raw_config), state_cls(**raw_state))
-      if not isinstance(config, config_cls) or not isinstance(state, state_cls):
-        raise TypeError("Extension config/state transform returned the wrong models")
-      return config.model_dump(mode="json"), state.model_dump(mode="json")
-
-    raw_config, raw_state = cls._runtime_record().mutate_config_and_state(mutate)
-    config = config_cls(**raw_config)
-    state = state_cls(**raw_state)
-    setattr(cls, "config", config)
-    return config, state
-
-  @classmethod
-  def validate_config(cls, config: dict[str, typing.Any]) -> ConfigTV:
-    """Validate one persisted configuration through the Extension-owned model."""
-    return cls.__configcls__(**config)  # pyrefly: ignore[missing-attribute, bad-return]
-
-  @classmethod
-  def config_schema(cls) -> dict[str, typing.Any]:
-    """Return the Extension-owned schema projected to deployment state."""
-    return dict(cls.__configschema__)
+  ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
+    result = self.store.mutate_config_and_state(self.name, transform)
+    self._refresh()
+    return result
 
 
 @dataclass
@@ -392,9 +221,9 @@ class ExtensionHost:
     release_client: ReleaseResolver,
   ):
     release = release_client.get(name, version)
-    if release.state == "yanked" and allow_yanked:
+    if release.state is ReleaseState.yanked and allow_yanked:
       LOGGER.warning("Using yanked exact installed Release %s@%s", name, version)
-    elif release.state != "published":
+    elif release.state is not ReleaseState.published:
       raise ExtensionCompatibilityError(
         f"{name}@{version} is not available for this operation"
       )
@@ -511,33 +340,6 @@ class ExtensionHost:
       claim.release()
       raise
     extension_class: type[ExtensionBase] | None = None
-    snapshot = ExtensionPublicationSnapshot.capture(app)
-    schema_box: dict[str, dict[str, typing.Any]] = {}
-
-    def persist_config(config: dict[str, typing.Any]) -> None:
-      self.store.update_config(state.name, config)
-
-    def read_config() -> dict[str, typing.Any]:
-      return self.store.read_config(state.name)
-
-    def read_state() -> dict[str, typing.Any]:
-      return self.store.read_state(state.name)
-
-    def mutate_state(
-      transform: typing.Callable[[dict[str, typing.Any]], dict[str, typing.Any]],
-    ) -> dict[str, typing.Any]:
-      return self.store.mutate_state(state.name, transform)
-
-    def mutate_config_and_state(
-      transform: typing.Callable[
-        [dict[str, typing.Any], dict[str, typing.Any]],
-        tuple[dict[str, typing.Any], dict[str, typing.Any]],
-      ],
-    ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
-      return self.store.mutate_config_and_state(state.name, transform)
-
-    def stage_schema(schema: dict[str, typing.Any]) -> None:
-      schema_box["value"] = schema
 
     try:
       extension_class = typing.cast(type[ExtensionBase], modules.load(ExtensionBase))
@@ -545,27 +347,16 @@ class ExtensionHost:
         raise ExtensionCompatibilityError(
           "ExtensionBase identity differs from the declared entry point"
         )
-      runtime_record = ExtensionRuntimeRecord(
-        extension_id=association.entry_point.name,
-        config=dict(state.config),
-        read_config=read_config,
-        persist_config=persist_config,
-        read_state=read_state,
-        mutate_state=mutate_state,
-        mutate_config_and_state=mutate_config_and_state,
-        persist_config_schema=stage_schema,
+      extension_class.bind(
+        _ActiveExtensionModel(
+          name=state.name,
+          config=dict(state.config),
+          store=self.store,
+          persist_schema=persist_schema,
+        )
       )
-      extension_class.on_start(
-        app,
-        runtime_record,
-        publication_snapshot=snapshot,
-      )
+      extension_class.on_start(app)
       modules.assert_origins()
-      schema = schema_box.get("value")
-      if schema is None:
-        raise ExtensionRuntimeError("Extension did not publish a config schema")
-      if persist_schema:
-        self.store.update_config_schema(state.name, schema)
     except Exception:
       if extension_class is not None:
         with contextlib.suppress(Exception):
@@ -573,9 +364,9 @@ class ExtensionHost:
         with contextlib.suppress(Exception):
           extension_class.unpublish()
         with contextlib.suppress(Exception):
+          extension_class.unbind()
+        with contextlib.suppress(Exception):
           extension_class.release_runtime()
-      with contextlib.suppress(Exception):
-        snapshot.rollback()
       with contextlib.suppress(Exception):
         modules.abort()
       claim.release()
@@ -597,6 +388,7 @@ class ExtensionHost:
   async def _stop(self, running: RunningExtension) -> None:
     await running.extension_class.on_close()
     running.extension_class.unpublish()
+    running.extension_class.unbind()
     running.modules.unload()
     running.extension_class.release_runtime()
     running.claim.release()
@@ -610,6 +402,10 @@ class ExtensionHost:
       failures.append(error)
     try:
       running.extension_class.unpublish()
+    except Exception as error:
+      failures.append(error)
+    try:
+      running.extension_class.unbind()
     except Exception as error:
       failures.append(error)
     try:
