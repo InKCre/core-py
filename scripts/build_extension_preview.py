@@ -9,8 +9,8 @@ from pathlib import Path
 import subprocess
 import sys
 
-from extension_distribution import read_project as read_distribution_project
-from extension_distribution import verify_wheel
+from inkcre_extension_toolkit.python_distribution import finalize_wheel
+
 from extension_release import PROJECT_ROOT, discover_projects
 
 
@@ -61,8 +61,12 @@ def build_preview_inputs(output_directory: Path) -> Path:
   output_directory.mkdir(parents=True)
   distributions: list[dict[str, str]] = []
   for project in discover_projects():
-    wheel = _build_wheel(project.directory, output_directory / "wheels" / project.key)
-    verify_wheel(read_distribution_project(project.directory), wheel)
+    raw_wheel = _build_wheel(project.directory, output_directory / "raw" / project.key)
+    wheel = finalize_wheel(
+      project.directory / "pyproject.toml",
+      raw_wheel,
+      output_directory / "wheels" / project.key,
+    )
     distributions.append(
       {
         "kind": "python",

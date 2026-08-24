@@ -5,7 +5,7 @@
 groups = ["default", "dev", "extension-preview", "extension-publisher"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:0e7a3e5db7a0654f7f67b0b114f3f8bf166f8417dd011ccda93f5913181e72f0"
+content_hash = "sha256:81275b4646d18bd62ccb1f7cac4848e178ed7ef33fcaf47a35aaa3bda691c1e0"
 
 [[metadata.targets]]
 requires_python = ">=3.12,<3.13"
@@ -785,9 +785,9 @@ files = [
 
 [[package]]
 name = "inkcre-extension-runtime-core-py"
-version = "0.1.0"
+version = "0.1.1"
 requires_python = "<3.14,>=3.12"
-url = "https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.1.0/inkcre_extension_runtime_core_py-0.1.0-py3-none-any.whl"
+url = "https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.1.1/inkcre_extension_runtime_core_py-0.1.1-py3-none-any.whl"
 summary = "InKCre Core Python Extension Host Runtime"
 groups = ["default"]
 dependencies = [
@@ -798,7 +798,7 @@ dependencies = [
     "semantic-version<3,>=2.10",
 ]
 files = [
-    {file = "inkcre_extension_runtime_core_py-0.1.0-py3-none-any.whl", hash = "sha256:a50f9e316132204810270f16d1600553fd37c9b78df6c39826b3afce857b1c55"},
+    {file = "inkcre_extension_runtime_core_py-0.1.1-py3-none-any.whl", hash = "sha256:968eadadf79ab15fe793fb8077cc20fd6debd9b5467c427c71a97f267dd157a7"},
 ]
 
 [[package]]

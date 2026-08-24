@@ -6,7 +6,7 @@ authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "inkcre-extension-runtime-core-py @ https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.1.0/inkcre_extension_runtime_core_py-0.1.0-py3-none-any.whl",
+    "inkcre-extension-runtime-core-py @ https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.1.1/inkcre_extension_runtime_core_py-0.1.1-py3-none-any.whl",
     "authlib>=1.7.2,<2.0.0",
     "pydantic (>=2.11.7,<3.0.0)",
     "pydantic-settings (>=2.14.2,<3.0.0)",
