@@ -12,45 +12,13 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import NullPool
 
-from migrations.metadata import get_target_metadata
 from migrations.settings import MigrationSettings
 from app.database_contract.constants import PROTOCOL_SCHEMA
-from app.database_contract.migration import get_repository_heads
 from scripts.sanitize_preview_base import LINEAGE_TABLE
 
 
-def validate_manifest_application_tables(
-  actual_tables: set[str],
-  expected_tables: set[str],
-  alembic_heads: set[str],
-) -> None:
-  """Bind the complete application table set to this artifact's lineage."""
-  repository_heads = set(get_repository_heads())
-  if alembic_heads != repository_heads:
-    raise ValueError(f"unsupported database manifest lineage: {sorted(alembic_heads)}")
-
-  if actual_tables == expected_tables:
-    return
-
-  raise ValueError(
-    json.dumps(
-      {
-        "alembic_heads": sorted(alembic_heads),
-        "expected_tables": sorted(expected_tables),
-        "actual_tables": sorted(actual_tables),
-      },
-      sort_keys=True,
-    )
-  )
-
-
-def _resolve_application_schema(
-  connection,
-  expected_tables: set[str],
-  alembic_heads: set[str],
-) -> tuple[str, set[str]]:
-  candidates: list[tuple[str, set[str]]] = []
-  rejections: dict[str, str] = {}
+def _resolve_application_schema(connection) -> tuple[str, set[str]]:
+  observed: dict[str, list[str]] = {}
   for schema_name in (PROTOCOL_SCHEMA, "public"):
     actual_tables = set(
       connection.execute(
@@ -69,28 +37,18 @@ def _resolve_application_schema(
         },
       ).scalars()
     )
-    try:
-      validate_manifest_application_tables(
-        actual_tables,
-        expected_tables,
-        alembic_heads,
-      )
-    except ValueError as error:
-      rejections[schema_name] = str(error)
-      continue
-    candidates.append((schema_name, actual_tables))
-  if len(candidates) != 1:
-    raise ValueError(
-      json.dumps(
-        {
-          "candidate_count": len(candidates),
-          "error": "expected exactly one complete application schema",
-          "rejections": rejections,
-        },
-        sort_keys=True,
-      )
+    observed[schema_name] = sorted(actual_tables)
+    if actual_tables:
+      return schema_name, actual_tables
+  raise ValueError(
+    json.dumps(
+      {
+        "error": "application schema is empty",
+        "observed_tables": observed,
+      },
+      sort_keys=True,
     )
-  return candidates[0]
+  )
 
 
 def build_database_manifest(database_url: str) -> dict[str, object]:
@@ -98,7 +56,6 @@ def build_database_manifest(database_url: str) -> dict[str, object]:
   normalized_url = MigrationSettings(database_url=database_url).database_url
   if normalized_url is None:
     raise ValueError("DATABASE_URL is required")
-  expected_tables = {table.name for table in get_target_metadata().tables.values()}
   engine = create_engine(normalized_url, poolclass=NullPool)
 
   try:
@@ -108,11 +65,7 @@ def build_database_manifest(database_url: str) -> dict[str, object]:
           text(f'SELECT version_num FROM public."{LINEAGE_TABLE}"')
         ).scalars()
       )
-      application_schema, actual_tables = _resolve_application_schema(
-        connection,
-        expected_tables,
-        set(heads),
-      )
+      application_schema, actual_tables = _resolve_application_schema(connection)
       quote = connection.dialect.identifier_preparer.quote
       counts = {
         table: connection.execute(

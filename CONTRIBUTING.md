@@ -20,7 +20,7 @@ pdm run doctor
 pdm run check
 ```
 
-`.python-version` is the shared Python runtime anchor. CI installs PDM 2.27.0, and
+`.python-version` is the shared Python runtime anchor. CI installs PDM 2.28.0, and
 `doctor` reports a mismatch when the local toolchain does not match that contract.
 
 `check` is the same hermetic repository gate used by CI. It verifies the lock and

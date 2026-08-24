@@ -20,6 +20,9 @@ Resolve the semantic owner before adding durable material. A Unit is a logical r
 ## Working Rules
 
 - Run `svc status . --json`; for non-trivial work load `svc lookup --path index.md` and start or recover one Human-facing task packet.
+- Follow the organization-wide [Git and GitHub Governance](https://github.com/InKCre/.github/blob/main/GOVERNANCE.md)
+  and [contribution workflow](https://github.com/InKCre/.github/blob/main/CONTRIBUTING.md) for branches, pull requests,
+  release authority, and delivery boundaries; repository-local documents own exact commands.
 - Before a reference-sensitive, logic-altering, or non-obviously-local durable mutation, state the exact object, `From -> To`, side effects, blast radius, invariants, verification, and uncertainty.
 - Read the nearest local `AGENTS.md` before changing its subtree. Read shared Product or Product TDD only when that owner is implicated, then the relevant local Unit TDD or Deployment document.
 - Before a security-sensitive claim, read the security model and name actor, capability, asset, boundary, harm, and attack path. Missing defense in depth is hardening unless evidence shows a boundary violation.

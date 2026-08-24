@@ -14,6 +14,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from app.database_contract.constants import (
   APPLICATION_TABLES,
 )
+from app.database_contract.migration import (
+  get_repository_heads,
+  get_repository_revisions,
+)
 
 CATALOG_TABLES_ALLOWING_ADDITIONS = frozenset(
   {
@@ -67,22 +71,25 @@ def verify_manifest_transition(
   after_counts = _table_counts(after)
   before_heads = _alembic_heads(before)
   after_heads = _alembic_heads(after)
+  repository_heads = get_repository_heads()
+  repository_revisions = get_repository_revisions()
   expected_tables = set(APPLICATION_TABLES)
   before_tables = set(before_counts)
   after_tables = set(after_counts)
   missing = sorted(expected_tables - after_tables)
   unexpected = sorted((before_tables | after_tables) - expected_tables)
-  before_missing = sorted(expected_tables - before_tables)
-  valid_before = before_tables == expected_tables
-  valid_after = after_heads == before_heads and after_tables == expected_tables
+  unknown_before_heads = sorted(set(before_heads) - repository_revisions)
+  valid_before = not unknown_before_heads and before_tables <= expected_tables
+  valid_after = after_heads == repository_heads and after_tables == expected_tables
   if not valid_before or not valid_after:
     raise ValueError(
       json.dumps(
         {
           "after_alembic_heads": list(after_heads),
-          "before_missing_tables": before_missing,
           "before_alembic_heads": list(before_heads),
+          "expected_alembic_heads": list(repository_heads),
           "missing_tables": missing,
+          "unknown_before_heads": unknown_before_heads,
           "unexpected_tables": unexpected,
         },
         sort_keys=True,

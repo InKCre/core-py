@@ -301,11 +301,15 @@ runs:
           done
         fi
 
-        docker run --rm \
-          --env DATABASE_URL="$MIGRATION_DATABASE_URL" \
-          --entrypoint python \
-          "inkcre-production-web:$HEAD_SHA" \
-          scripts/database_manifest.py > "$RUNNER_TEMP/production-before.json"
+        has_before_manifest=false
+        if [ "$environment" != "absent" ]; then
+          docker run --rm \
+            --env DATABASE_URL="$MIGRATION_DATABASE_URL" \
+            --entrypoint python \
+            "inkcre-production-web:$HEAD_SHA" \
+            scripts/database_manifest.py > "$RUNNER_TEMP/production-before.json"
+          has_before_manifest=true
+        fi
 
         docker run --rm \
           --env CORE_DATABASE_PASSWORD \
@@ -325,9 +329,11 @@ runs:
           --entrypoint python \
           "inkcre-production-web:$HEAD_SHA" \
           scripts/database_manifest.py > "$RUNNER_TEMP/production-after.json"
-        python scripts/verify_database_manifest_transition.py \
-          "$RUNNER_TEMP/production-before.json" \
-          "$RUNNER_TEMP/production-after.json"
+        if [ "$has_before_manifest" = true ]; then
+          python scripts/verify_database_manifest_transition.py \
+            "$RUNNER_TEMP/production-before.json" \
+            "$RUNNER_TEMP/production-after.json"
+        fi
 
         core_database_url="$(
           docker run --rm \

@@ -81,6 +81,11 @@ The value-free manifest command is:
 DATABASE_URL=... pdm run db:manifest
 ```
 
+The manifest records the database's observed lineage, application schema, and row counts. It does
+not require that database to have already converged to the artifact that reads it. Delivery compares
+the pre-migration snapshot with a post-migration snapshot, while `db ready` owns the strict current
+artifact contract.
+
 Portable archives, checksums, manifests, and credentials are operational artifacts outside
 Git and CI. Production rows are recovery data, never seed data.
 
