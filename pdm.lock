@@ -5,7 +5,7 @@
 groups = ["default", "dev", "extension-preview", "extension-publisher"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:18a7f7dfd1c8866e76a62b38d2850198faa8df8af446f47b7046c838c650b7a8"
+content_hash = "sha256:0e7a3e5db7a0654f7f67b0b114f3f8bf166f8417dd011ccda93f5913181e72f0"
 
 [[metadata.targets]]
 requires_python = ">=3.12,<3.13"
@@ -803,9 +803,9 @@ files = [
 
 [[package]]
 name = "inkcre-extension-toolkit"
-version = "0.1.0"
+version = "0.2.1"
 requires_python = "<3.14,>=3.12"
-url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.1.0/inkcre_extension_toolkit-0.1.0-py3-none-any.whl"
+url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.2.1/inkcre_extension_toolkit-0.2.1-py3-none-any.whl"
 summary = "Developer and delivery tooling for InKCre Extensions"
 groups = ["extension-preview"]
 dependencies = [
@@ -814,24 +814,25 @@ dependencies = [
     "semantic-version<3,>=2.10",
 ]
 files = [
-    {file = "inkcre_extension_toolkit-0.1.0-py3-none-any.whl", hash = "sha256:7ab1de5160d0bafbdf9f99b6b2a2b156a406b6f6afe14dc0342073620299bd64"},
+    {file = "inkcre_extension_toolkit-0.2.1-py3-none-any.whl", hash = "sha256:fffaad86db43d998731bfee69e992fa02d18ea2b428fdd00bda5ed6e311bf3de"},
 ]
 
 [[package]]
 name = "inkcre-extension-toolkit"
-version = "0.1.0"
+version = "0.2.1"
 extras = ["cli"]
 requires_python = "<3.14,>=3.12"
-url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.1.0/inkcre_extension_toolkit-0.1.0-py3-none-any.whl"
+url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.2.1/inkcre_extension_toolkit-0.2.1-py3-none-any.whl"
 summary = "Developer and delivery tooling for InKCre Extensions"
 groups = ["extension-preview"]
 dependencies = [
     "httpx<0.29,>=0.28",
-    "inkcre-extension-toolkit @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.1.0/inkcre_extension_toolkit-0.1.0-py3-none-any.whl",
+    "inkcre-extension-toolkit @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.2.1/inkcre_extension_toolkit-0.2.1-py3-none-any.whl",
     "typer<0.22,>=0.21",
+    "wheel<0.48,>=0.46",
 ]
 files = [
-    {file = "inkcre_extension_toolkit-0.1.0-py3-none-any.whl", hash = "sha256:7ab1de5160d0bafbdf9f99b6b2a2b156a406b6f6afe14dc0342073620299bd64"},
+    {file = "inkcre_extension_toolkit-0.2.1-py3-none-any.whl", hash = "sha256:fffaad86db43d998731bfee69e992fa02d18ea2b428fdd00bda5ed6e311bf3de"},
 ]
 
 [[package]]
@@ -2240,6 +2241,20 @@ groups = ["default"]
 files = [
     {file = "webvtt-py-0.5.1.tar.gz", hash = "sha256:2040dd325277ddadc1e0c6cc66cbc4a1d9b6b49b24c57a0c3364374c3e8a3dc1"},
     {file = "webvtt_py-0.5.1-py3-none-any.whl", hash = "sha256:9d517d286cfe7fc7825e9d4e2079647ce32f5678eb58e39ef544ffbb932610b7"},
+]
+
+[[package]]
+name = "wheel"
+version = "0.47.0"
+requires_python = ">=3.9"
+summary = "Command line tool for manipulating wheel files"
+groups = ["extension-preview"]
+dependencies = [
+    "packaging>=24.0",
+]
+files = [
+    {file = "wheel-0.47.0-py3-none-any.whl", hash = "sha256:212281cab4dff978f6cedd499cd893e1f620791ca6ff7107cf270781e587eced"},
+    {file = "wheel-0.47.0.tar.gz", hash = "sha256:cc72bd1009ba0cf63922e28f94d9d83b920aa2bb28f798a31d0691b02fa3c9b3"},
 ]
 
 [[package]]

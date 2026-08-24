@@ -55,7 +55,7 @@ dependencies = [
 [dependency-groups]
 extension-preview = [
     "build>=1.4.0,<2.0.0",
-    "inkcre-extension-toolkit[cli] @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.1.0/inkcre_extension_toolkit-0.1.0-py3-none-any.whl",
+    "inkcre-extension-toolkit[cli] @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.2.1/inkcre_extension_toolkit-0.2.1-py3-none-any.whl",
     "setuptools>=80.0.0,<81.0.0",
 ]
 extension-publisher = [
