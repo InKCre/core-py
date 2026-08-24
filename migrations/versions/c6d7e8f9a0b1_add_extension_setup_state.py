@@ -1,7 +1,7 @@
 """Add deployment-wide Extension setup state.
 
 Revision ID: c6d7e8f9a0b1
-Revises: 50b2c08dd267
+Revises: 3f7a9c2d5e1b
 Create Date: 2026-08-16
 """
 
@@ -19,7 +19,7 @@ from app.database_contract.constants import (
 
 
 revision: str = "c6d7e8f9a0b1"
-down_revision: str | Sequence[str] | None = "50b2c08dd267"
+down_revision: str | Sequence[str] | None = "3f7a9c2d5e1b"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

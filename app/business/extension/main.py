@@ -78,6 +78,18 @@ class ExtensionBase(RuntimeExtensionBase, ext_id="_facade"):
     cls.config = cls.get_config()
 
   @classmethod
+  def update_config(cls, value: typing.Any) -> typing.Any:
+    config = super().update_config(value)
+    cls.config = config
+    return config
+
+  @classmethod
+  def mutate_config_and_state(cls, transform: typing.Any) -> tuple[typing.Any, typing.Any]:
+    config, state = super().mutate_config_and_state(transform)
+    cls.config = config
+    return config, state
+
+  @classmethod
   def validate_config(cls, config: dict[str, typing.Any]) -> typing.Any:
     return cls.__configcls__.model_validate(config)
 
