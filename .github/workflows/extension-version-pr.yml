@@ -38,7 +38,10 @@ jobs:
           version: v1.25.2
 
       - name: Prepare pending Extension versions
+        env:
+          VERSION_PR_BODY: ${{ runner.temp }}/extension-version-pr.md
         run: |
+          pdm run python scripts/extension_release.py version-pr-body > "$VERSION_PR_BODY"
           for project in $(pdm run python scripts/extension_release.py projects); do
             if changie next auto --project "$project" >/dev/null 2>&1; then
               pdm run release:extension "$project"
@@ -57,22 +60,4 @@ jobs:
             extensions/*/pyproject.toml
           commit-message: 'chore(extensions): version pending releases'
           title: 'chore(extensions): version pending releases'
-          body: |
-            ## Intent
-
-            Apply the pending first-party Extension release fragments with Changie.
-
-            ## Verification
-
-            The ordinary core-py pull-request checks validate the generated versions,
-            changelogs, and wheel inputs. Publication remains owned by protected `main`.
-
-            ## Risk and rollback
-
-            This PR only contains generated release metadata. Close it to defer the
-            releases, or revert its squash commit before a published version is consumed.
-
-            ## Delivery effects
-
-            Merging this PR allows the existing main-only Extension publisher to publish
-            the selected wheel versions. It does not publish from the pull request.
+          body-path: ${{ runner.temp }}/extension-version-pr.md

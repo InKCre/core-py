@@ -36,11 +36,8 @@ changie new --projects rss
 pdm run check:extension-releases --base origin/main
 ```
 
-After that PR reaches `main`，the fixed Extension Version PR batches every pending project，regenerates
-`extensions/<id>/CHANGELOG.md`，and replaces that project's `pyproject.toml` version through Changie。Merging the
-Version PR lets the existing protected-main publisher publish the selected wheels。`release:extension` performs the
-same preparation for local inspection or recovery。Correct a released note in `.changes/<id>/<version>.md` and rerun
-`changie merge`；do not make the changelog a second authority。
+The [native Extension distribution deployment guide](../docs/40-deployment/native-extension-distribution.md) owns the
+Version PR and publication workflow。`release:extension` prepares one project for local inspection or recovery。
 
 Pull-request CI discovers the complete producer set and rejects an artifact-input change without a version advance，
 an unregistered Changie project，invalid fragments，or a manifest/changelog mismatch。Post-main delivery selects only

@@ -20,5 +20,6 @@
   - client-web PR #86 将 Mail Web Distribution 提升到 `0.2.0`、Twitter Web Distribution 提升到 `0.3.0`；Core 当前分别为 `0.1.0` 与 `0.2.1`，必须先补齐同版本 Python Distribution。
   - PR #86 的另外两项修正已排在本任务之后：两个 Web Host SDK range 更新为兼容 `0.2.x`，并同步 generated database contract。
   - 实现只新增 main-push Version PR workflow、Mail/Twitter fragments，并更新现有 release 文档；没有新增命令、publisher、测试或 artifact lane。
+  - Human 复审后进一步收敛：`extensions/README.md` 只保留开发者入口；完整 workflow 权威归 `docs/40-deployment/native-extension-distribution.md`。既有 release 脚本新增的 `version-pr-body` 仅投影 Changie 的 pending version/notes，不计算版本或执行 batch。
   - `core-py` 尚未启用 Actions 创建 PR 的仓库设置；workflow 合入前需要与 `client-web` 一样启用。Workflow 本身不会批准 review。
-- **Next Step**: 提交、推送并创建实现 PR。PR 合入前启用 core-py 的 Actions PR 设置，合入后观察 Version PR、publisher 与 Registry association。
+- **Next Step**: 等待实现 PR checks。PR 合入前启用 core-py 的 Actions PR 设置，合入后观察 Version PR、publisher 与 Registry association。
