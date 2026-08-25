@@ -19,7 +19,6 @@ from .constants import (
 from .profile import (
   BUILTIN_AI_DIALECTS,
   BUILTIN_JOB_TYPES,
-  BUILTIN_SOURCE_TYPES,
   BUILTIN_STORAGES,
   BUILTIN_STORAGE_TYPES,
 )
@@ -116,35 +115,6 @@ def reconcile_builtins(database_url: str | None = None) -> None:
             job_type.description,
             Jsonb(job_type.parameters_schema),
             job_type.default_timeout_seconds,
-          ),
-        )
-
-      for source_type in BUILTIN_SOURCE_TYPES:
-        cursor.execute(
-          sql.SQL(
-            """
-            INSERT INTO {}.sources_types (
-              id, description, config_schema, collect_config_schema,
-              backfill_config_schema
-            )
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE
-            SET description = EXCLUDED.description,
-                config_schema = EXCLUDED.config_schema,
-                collect_config_schema = EXCLUDED.collect_config_schema,
-                backfill_config_schema = EXCLUDED.backfill_config_schema
-            """
-          ).format(sql.Identifier(PROTOCOL_SCHEMA)),
-          (
-            source_type.id,
-            source_type.description,
-            Jsonb(source_type.config_schema),
-            Jsonb(source_type.collect_config_schema),
-            (
-              None
-              if source_type.backfill_config_schema is None
-              else Jsonb(source_type.backfill_config_schema)
-            ),
           ),
         )
 
