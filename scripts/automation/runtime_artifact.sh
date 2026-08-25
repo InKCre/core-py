@@ -67,11 +67,6 @@ case "${1:-}" in
 - Schema command: \`python scripts/container.py db schema --json\`
 EOF
     ;;
-  resolve-production-source)
-    head_sha="${EVENT_HEAD_SHA:-${DISPATCH_HEAD_SHA:-}}"
-    require_env head_sha
-    emit_output head_sha "$head_sha"
-    ;;
   pull-production)
     for name in GHCR_TOKEN HEAD_SHA GITHUB_REPOSITORY GITHUB_ACTOR; do require_env "$name"; done
     image="ghcr.io/${GITHUB_REPOSITORY,,}"
