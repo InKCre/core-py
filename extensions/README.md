@@ -26,19 +26,20 @@ is not enough for the production artifact。
 ## First-party release preparation
 
 Every immediate Extension project declaring `[tool.inkcre-extension]` is an independent Python Distribution producer。
-Its `pyproject.toml [project].version` is the Python association's version authority；the root Core version and a web
-association have independent lifecycles。
+Its `pyproject.toml [project].version` is the Python Distribution version authority and must equal the Extension Release
+Version used by every Distribution association；the root Core version has an independent lifecycle。
 
-Install the repository-pinned Changie `v1.25.2`，then record and prepare one producer change：
+Install the repository-pinned Changie `v1.25.2`，then record one producer change in the feature PR：
 
 ```bash
 changie new --projects rss
-pdm run release:extension rss
 pdm run check:extension-releases --base origin/main
 ```
 
-`release:extension` batches the unreleased project fragments，regenerates `extensions/<id>/CHANGELOG.md`，and replaces
-that project's `pyproject.toml` version。Correct a released note in `.changes/<id>/<version>.md` and rerun
+After that PR reaches `main`，the fixed Extension Version PR batches every pending project，regenerates
+`extensions/<id>/CHANGELOG.md`，and replaces that project's `pyproject.toml` version through Changie。Merging the
+Version PR lets the existing protected-main publisher publish the selected wheels。`release:extension` performs the
+same preparation for local inspection or recovery。Correct a released note in `.changes/<id>/<version>.md` and rerun
 `changie merge`；do not make the changelog a second authority。
 
 Pull-request CI discovers the complete producer set and rejects an artifact-input change without a version advance，

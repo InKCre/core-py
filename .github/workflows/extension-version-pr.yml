@@ -1,0 +1,78 @@
+name: Prepare first-party Extension versions
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: first-party-extension-versions
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile Extension Version PR
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python and PDM
+        uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
+        with:
+          python-version-file: .python-version
+          version: 2.28.0
+          cache: true
+
+      - name: Set up exact Changie release tool
+        uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
+        with:
+          version: v1.25.2
+
+      - name: Prepare pending Extension versions
+        run: |
+          for project in $(pdm run python scripts/extension_release.py projects); do
+            if changie next auto --project "$project" >/dev/null 2>&1; then
+              pdm run release:extension "$project"
+            fi
+          done
+
+      - name: Create or update the Extension Version PR
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          branch: automation/extension-versions
+          delete-branch: true
+          base: main
+          add-paths: |
+            .changes/**
+            extensions/*/CHANGELOG.md
+            extensions/*/pyproject.toml
+          commit-message: 'chore(extensions): version pending releases'
+          title: 'chore(extensions): version pending releases'
+          body: |
+            ## Intent
+
+            Apply the pending first-party Extension release fragments with Changie.
+
+            ## Verification
+
+            The ordinary core-py pull-request checks validate the generated versions,
+            changelogs, and wheel inputs. Publication remains owned by protected `main`.
+
+            ## Risk and rollback
+
+            This PR only contains generated release metadata. Close it to defer the
+            releases, or revert its squash commit before a published version is consumed.
+
+            ## Delivery effects
+
+            Merging this PR allows the existing main-only Extension publisher to publish
+            the selected wheel versions. It does not publish from the pull request.
