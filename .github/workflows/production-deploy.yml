@@ -99,7 +99,6 @@ jobs:
       - name: Deliver production
         uses: ./.github/actions/production-delivery
         with:
-          bootstrap_revision: ${{ vars.DATABASE_CONTRACT_BOOTSTRAP_REVISION }}
           core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
           core_image_digest: ${{ steps.core.outputs.digest_ref }}
           head_sha: ${{ steps.source.outputs.head_sha }}
@@ -108,9 +107,7 @@ jobs:
           jwt_secret: ${{ secrets.JWT_SECRET }}
           neon_api_key: ${{ secrets.NEON_API_KEY }}
           neon_branch_id: ${{ vars.NEON_BRANCH_ID }}
-          neon_parent_branch_id: ${{ vars.NEON_PARENT_BRANCH_ID }}
           neon_project_id: ${{ vars.NEON_PROJECT_ID }}
-          neon_recovery_branch_id: ${{ vars.NEON_RECOVERY_BRANCH_ID }}
           postgrest_app_name: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
           postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
 

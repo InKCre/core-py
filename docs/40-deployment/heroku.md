@@ -82,8 +82,7 @@ Production is one logical environment containing two peer transports:
 | `inkcre-core-production` | native core peer | `inkcre_core` | one Eco web dyno |
 | `inkcre-postgrest-production` | browser HTTP peer transport | `authenticator` | one Eco web dyno |
 
-Both apps use the container stack, US region, no addons, and the `production` stage of the
-single `inkcre-core` pipeline. They address the exact canonical Neon `production` branch.
+Both apps use the container stack and address the configured canonical Neon production branch.
 Peers discover their non-secret connection contract through
 [`deploy/profiles/production.json`](../../deploy/profiles/production.json); credentials never
 enter that profile.
@@ -93,18 +92,10 @@ the exact current `main` SHA, or by a main-only recovery dispatch. It pulls the 
 GHCR service image, verifies its embedded schema evidence, and builds only the no-op release
 guard and separate PostgREST adapter before receiving deployment inputs.
 
-Production delivery guards:
-
-- exact live branch ID, name, historical parent, no TTL, and ready state;
-- a fresh no-TTL recovery branch whose parent is the exact live branch;
-- exact core and PostgREST app names, stack, region, addon absence, and pipeline stage;
-- a one-time `peer-database-runtime-v1` bootstrap switch for provider-role replacement;
-- every application-table row count before and after lifecycle convergence.
-
-The first hard cut scales the old core web process to zero before replacing unsafe inherited
-roles and moving the protocol schema. Later deliveries simply converge the idempotent
-contract. Images and config releases are polled to a terminal state; registry login and
-transfer alone receive bounded retries.
+Production delivery follows one convergence path：resolve role-specific URLs from the configured Neon branch ID，run
+`db init` and `db ready` from the exact candidate image，configure and release core plus PostgREST，converge the Peer
+advertisement，then probe both public runtimes。Images and config releases are polled to a terminal state；registry login and
+transfer alone receive bounded retries。
 
 The production probe records the GHCR digest, transferred local image ID, and Heroku release
 identities. Registry manifest digests may differ after transfer, so the guarantee is one local
@@ -119,14 +110,12 @@ The acceptance probe requires:
 - anonymous HTTP 401;
 - both formations remaining Eco.
 
-A failed probe rolls back both images when the database contract was already established.
-During the one-time schema hard cut, an old core image is incompatible; failure therefore
-leaves core stopped instead of performing a false rollback. No workflow runs an Alembic
-downgrade.
+A failed probe reports both application logs and leaves the observed deployment state intact for a corrected exact-main
+rerun。The workflow does not pretend that rolling back only the web image can reverse a database migration，and it never runs
+an Alembic downgrade。
 
 The mutable GHCR `stable` tag advances only after this probe succeeds. Publication without
-production admission leaves `stable` unchanged; an automatic failed-probe rollback therefore
-continues to resolve to the previous production image.
+production admission leaves `stable` unchanged。
 
 ## PostgREST Runtime Contract
 
@@ -156,8 +145,7 @@ The GitHub `production` environment independently owns:
 - `CORE_DATABASE_PASSWORD`;
 - `POSTGREST_DATABASE_PASSWORD`.
 
-It records exact non-secret app and Neon branch identities, the fresh recovery branch, and
-the one-time bootstrap revision. Production admits deployments from `main` only and does
+It records the configured non-secret app and Neon branch identities。Production admits deployments from `main` only and does
 not reuse preview authorization or database passwords. Preview and production deliberately
 share only the repository signing-key authority.
 
