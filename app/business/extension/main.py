@@ -523,20 +523,14 @@ class ExtensionHost:
     """Cold-restore exact enabled intent; failures never rewrite enabled[]."""
     self.fastapi_app = app
     peer_id = PeerManager.get_current_peer_ref()
-    failures: list[Exception] = []
     async with self._runtime_lock:
       for state in self.store.list():
         if peer_id not in state.enabled:
           continue
         try:
           await self._start(app, state)
-        except Exception as error:
+        except Exception:
           LOGGER.exception("Cold restore failed for %s", state.name)
-          failures.append(error)
-    if len(failures) == 1:
-      raise failures[0]
-    if failures:
-      raise ExceptionGroup("Extension cold restore failed", failures)
 
   async def close_running(self) -> None:
     failures: list[Exception] = []
