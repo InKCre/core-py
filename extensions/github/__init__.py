@@ -1,7 +1,6 @@
-"""GitHub extension for InKCre - provides GitHub Stars source."""
+"""GitHub Stars and Lists collection Extension."""
 
 import sqlmodel
-from fastapi import APIRouter
 from app.business.extension.main import ExtensionBase
 
 
@@ -16,26 +15,14 @@ class Extension(
   ext_id="github",
   config_cls=GithubExtensionConfig,
 ):
-  """GitHub extension - provides GitHub Stars source for collecting starred repositories."""
+  """Synchronize GitHub Stars and Lists into reusable graph facts."""
 
   @classmethod
   def _init_resolvers(cls):
-    """Initialize GitHub resolvers."""
-    from .resolver import GithubRepoResolver  # noqa: F401
-    from .resolver import GithubUserResolver  # noqa: F401
+    from .resolver import GitHubAccountResolver  # noqa: F401
+    from .resolver import GitHubListResolver  # noqa: F401
+    from .resolver import GitHubRepositoryResolver  # noqa: F401
 
   @classmethod
   def _init_sources(cls):
-    """Initialize GitHub Stars source."""
-    from .stars import Source as GithubStarsSource  # noqa: F401
-
-  @classmethod
-  def _register_apis(cls, router: APIRouter):
-    """Register API endpoints for GitHub extension."""
-    from app.business.source import SourceManager
-
-    router.post("/stars")(
-      lambda nickname: SourceManager.create(
-        f"extensions.{cls.__extid__}.stars.Source", nickname
-      )
-    )
+    from .stars import Source as GitHubStarsSource  # noqa: F401

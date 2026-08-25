@@ -5,7 +5,7 @@ from typing import Optional as Opt
 from app.engine import SessionLocal
 from libs.obsrv.main import get_logger
 from app.schemas.info_base.block import BlockID
-from app.schemas.info_base.relation import RelationModel
+from app.schemas.info_base.relation import RelationCreateForm, RelationModel
 from app.schemas.info_base.relation import RelationID
 from utils.types_ import Undefined, _undefined
 
@@ -121,6 +121,21 @@ class RelationManager:
       extra={"relation_id": relation.id, "from_block": from_, "to_block": to_},
     )
     return relation
+
+  @classmethod
+  def create_many(
+    cls,
+    forms: typing.Iterable[RelationCreateForm],
+    db_session: sqlmodel.Session,
+  ) -> tuple[RelationModel, ...]:
+    """Create a caller-owned batch with one persistence round trip."""
+    relations = tuple(RelationModel.model_validate(form) for form in forms)
+    if not relations:
+      return ()
+    logger.info("Creating relation batch", extra={"relation_count": len(relations)})
+    db_session.add_all(relations)
+    db_session.flush()
+    return relations
 
   @classmethod
   def fetchsert(

@@ -137,6 +137,25 @@ class BlockManager:
     return block
 
   @classmethod
+  def create_many(
+    cls,
+    forms: typing.Iterable[BlockForm],
+    db_session: sqlmodel.Session,
+  ) -> tuple[BlockModel, ...]:
+    """Create a caller-owned batch with one persistence round trip.
+
+    The caller owns the surrounding transaction. Returned models have their
+    database-managed identities populated, but are not individually refreshed.
+    """
+    blocks = tuple(_new_block(form) for form in forms)
+    if not blocks:
+      return ()
+    logger.info("Creating block batch", extra={"block_count": len(blocks)})
+    db_session.add_all(blocks)
+    db_session.flush()
+    return blocks
+
+  @classmethod
   async def fetchsert(cls, form: BlockForm, db_session: sqlmodel.Session) -> BlockModel:
     """Create if not exists, else return the existing one.
 
