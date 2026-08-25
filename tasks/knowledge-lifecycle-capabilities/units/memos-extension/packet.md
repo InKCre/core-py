@@ -123,7 +123,7 @@ unit，不复制完整 rationale。
 - [preflight.md](preflight.md): pinned upstream/client、实现地址、纠偏结论、失败分支与 blast radius。
 - [impact-handshake.md](impact-handshake.md): execution state diff、blast radius、invariants、verification and uncertainty。
 - [Program packet](../../packet.md): program 范围、单元路由与交付循环。
-- [Documentation promotion](../../documentation-promotion.md): 讨论产生的 durable-doc pressure。
+- [Documentation promotion](../../documentation-promotion/index.md): 讨论产生的 durable-doc pressure。
 - [Pressure ledger](../../pressure-ledger.md): 本单元传导出的横切机制压力。
 
 ## Gate Discipline

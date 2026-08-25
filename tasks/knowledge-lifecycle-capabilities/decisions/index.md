@@ -46,7 +46,7 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-341–D-350](D341-D350.md) | Self-host/canonical-production separation → Graph focus-set / UI ownership boundary |
 | [D-351–D-360](D351-D360.md) | InfoBase View initialization and recall ownership → active-scene navigation |
 | [D-361–D-370](D361-D370.md) | Graph scale/layout/route state → endpoint-closed retrieval outcomes |
-| [D-371–D-380](D371-D380.md) | Random focal/path ownership → concurrent-read and visual Acceptance closure |
+| [D-371–D-380](D371-D380.md) | Random focal/path ownership → MCP sink activation |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -60,7 +60,6 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-376](D371-D380.md)。
-- Active unit: [graph-navigation-retrieval](../units/graph-navigation-retrieval/packet.md)。
-- Active surface: Product、Technical、Acceptance、implementation plan and preflight are frozen；Impact Handshake is the
-  final review surface，then execution waits for Sir's new explicit “开始”。
+- Latest confirmed decision: [D-377](D371-D380.md)。
+- Active unit: [mcp-sink](../units/mcp-sink/packet.md)。
+- Active surface: Product discussion。

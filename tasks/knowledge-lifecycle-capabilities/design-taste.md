@@ -2,7 +2,7 @@
 
 > **Status: experimental，task-wide，not law.** This is active working-memory control，not durable product/technical truth。
 > Sir will judge and revise it through actual discussion experience。Canonical common-pattern descriptions remain in
-> [documentation promotion](documentation-promotion.md)；this file keeps the small set needed before proposing architecture or
+> [documentation promotion](documentation-promotion/index.md)；this file keeps the small set needed before proposing architecture or
 > asking Sir for a decision。
 
 ## Experimental Discussion Model
