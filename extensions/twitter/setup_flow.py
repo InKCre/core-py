@@ -97,10 +97,7 @@ class OAuthTransactionView(pydantic.BaseModel):
 
 
 class TwitterSetupStatus(pydantic.BaseModel):
-  backend: str
   callback_url: str
-  oauth_app_configured: bool
-  client_id: str | None = None
   connected: bool
   user_id: str | None = None
   handle: str | None = None
@@ -265,10 +262,7 @@ def get_setup_status() -> TwitterSetupStatus:
     and account.app_fingerprint == _fingerprint(config)
   )
   return TwitterSetupStatus(
-    backend=config.backend,
     callback_url=_redirect_uri(),
-    oauth_app_configured=configured,
-    client_id=config.client_id or None,
     connected=connected,
     user_id=account.user_id if connected and account is not None else None,
     handle=account.handle if connected and account is not None else None,
