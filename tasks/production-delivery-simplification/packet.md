@@ -2,7 +2,8 @@
 
 - **Objective**: reduce canonical production delivery to one observable convergence path：consume the exact `main` artifact，
   resolve the configured Neon branch connection，converge and verify the database，release core + PostgREST，publish the Peer
-  advertisement，probe the live deployment，then move `stable` only after success。
+  advertisement，probe the live deployment，then move `stable` only after success。Keep GitHub Actions as the trigger and
+  orchestration adapter only：versioned repository commands own repeatable check，build，publish and deployment logic。
 - **Guardrails**: this is an operational-complexity correction，not a knowledge-lifecycle implementable unit and not a
   security audit。Keep exact-main artifact identity、serialized production execution、configured production database
   coordinate、`db init`、`db ready`、real core/PostgREST smoke evidence and success-gated `stable` movement。Remove obsolete or
@@ -22,9 +23,22 @@
   preservation，rejects legitimate row-count-changing migrations，duplicates existing migration/readiness evidence and has
   poor ROI。The immediate placement bug exposed a wider PR #79 regression：production delivery still contains one-time
   cutover and proof-oriented gates that are no longer part of the desired product/deployment model。
-- **Next Step**: local implementation and repository verification are complete。Await explicit commit/push authorization，
-  then open the hotfix PR，observe CI/preview，merge with authorization and require an exact-main production success before
-  closing this task or resuming knowledge-lifecycle unit selection。
+- **Next Step**: PR #83 review found that the simplified production sequence still leaves delivery logic inside GitHub
+  composite-action YAML。Extract that logic and the same defect from every core-py workflow into local repository commands，
+  add the organization-wide ownership rule in `InKCre/.github`，then rerun repository and real delivery evidence before
+  requesting another review。
+
+## Workflow implementation ownership correction
+
+GitHub Actions owns event selection，permissions，concurrency，environments，job dependencies，platform Actions and invocation
+of repository commands。It does not own project checks，artifact construction，release selection，provider reconciliation，
+retry/polling loops or deployment convergence。Those behaviors must live in versioned commands that can be invoked from a
+developer environment with the same explicit inputs。Short one-line setup or command invocations and GitHub expression wiring
+remain YAML; do not replace them with a custom workflow framework or enforcement gate。
+
+Audit scope is every file under `.github/workflows/` and `.github/actions/`，not only production delivery。Preserve useful
+job/step boundaries so moving code out of YAML improves the feedback loop without collapsing observability。The organization
+rule belongs in `InKCre/.github/GOVERNANCE.md`; core-py owns the exact commands and implementation。
 
 ## Accepted target sequence
 
@@ -104,3 +118,23 @@ owner if deletion makes it readable；do not split files merely to mirror these 
 - Updated Heroku/Neon deployment truth to distinguish ordinary delivery from operator-led backup/restore evidence。
 - YAML parsing、exact step/input assertions、retired-symbol scans and `git diff --check` pass。`pdm run check` passes：lock、
   migration integrity、format、Ruff、Pyrefly and admitted tests（7 passed，40 skipped）。
+
+## Workflow ownership correction evidence
+
+- Audited every core-py workflow and composite action。The same misplaced-control-flow defect existed in runtime artifact
+  publication，preview database lifecycle，repository/runtime CI，Extension publication，preview delivery and self-host
+  delivery，not only production。
+- Added focused commands under `scripts/automation/` for those existing responsibilities。They consume the same explicit
+  environment inputs and retain the existing observable job/step boundaries; they are commands，not a new workflow framework
+  or YAML-shape gate。
+- Production and preview delivery composite actions now contain inputs plus seven command-invocation steps，shrinking from
+  424/515 lines to 111/111 lines。The seven workflows shrink from 1,374 lines to 759 while retaining GitHub-owned triggers，
+  permissions，concurrency，environments，job dependencies and platform Actions。
+- The only remaining multiline `run` block is the pure argument list invoking the existing Render + Neon Python controller。
+  Folded one-line installation/publication commands remain legitimate glue; no YAML block retains a branch，loop，retry or
+  domain reconciliation。
+- `pdm run check:automation` checks command syntax as part of the existing foundation gate。Actionlint，YAML parsing，
+  `git diff --check`，`pdm run check` and the complete pre-commit contract pass。No low-value automated behavior test or
+  workflow-shape gate was added。
+- Organization ownership wording is prepared on `InKCre/.github` branch `feat/thin-github-workflows`：Actions owns
+  orchestration and repo commands own repeatable implementation，without sacrificing step-level observability。

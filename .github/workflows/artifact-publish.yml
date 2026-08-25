@@ -35,10 +35,7 @@ jobs:
       - name: Verify source is current main
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
-          git fetch --no-tags origin main
-          test "$(git rev-parse origin/main)" = "$HEAD_SHA"
+        run: bash scripts/automation/runtime_artifact.sh verify-main-source
 
       - name: Download checked database schema evidence
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
@@ -51,53 +48,14 @@ jobs:
       - name: Verify exact schema evidence
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          python scripts/package_database_schema.py \
-            --schema release/database-contract/database-schema.sql \
-            --roles release/database-contract/database-roles.sql \
-            --runtime-contract release/database-contract/runtime-contract.json \
-            --output "$RUNNER_TEMP/manifest.json" \
-            --source-revision "$HEAD_SHA"
-          cmp "$RUNNER_TEMP/manifest.json" release/database-contract/manifest.json
+        run: bash scripts/automation/runtime_artifact.sh verify-schema-evidence
 
       - name: Build and publish immutable runtime
         id: image
         env:
           GHCR_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          repository="${GITHUB_REPOSITORY,,}"
-          image="ghcr.io/$repository"
-          commit_ref="$image:$HEAD_SHA"
-
-          docker build \
-            --platform linux/amd64 \
-            --provenance=false \
-            --build-arg "SOURCE_REVISION=$HEAD_SHA" \
-            --target service \
-            --tag "$commit_ref" \
-            .
-          test "$(docker inspect --format='{{json .Config.Entrypoint}}' "$commit_ref")" = "null"
-          docker inspect --format='{{json .Config.Cmd}}' "$commit_ref" |
-            jq -e '. == ["python", "scripts/container.py", "web"]' >/dev/null
-          docker run --rm "$commit_ref" \
-            python scripts/container.py db schema --json >/dev/null
-          test "$(docker inspect --format='{{.Config.User}}' "$commit_ref")" = "inkcre"
-          docker run --rm "$commit_ref" python -c \
-            'import pathlib, pip; assert not pathlib.Path("/app/extensions").exists()'
-
-          printf '%s' "$GHCR_TOKEN" |
-            docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          docker push "$commit_ref"
-          docker pull "$commit_ref" >/dev/null
-
-          digest_ref="$(
-            docker inspect --format='{{index .RepoDigests 0}}' "$commit_ref"
-          )"
-          test "${digest_ref%%@*}" = "$image"
-          echo "commit_ref=$commit_ref" >> "$GITHUB_OUTPUT"
-          echo "digest_ref=$digest_ref" >> "$GITHUB_OUTPUT"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
+        run: bash scripts/automation/runtime_artifact.sh publish-immutable
 
       - name: Promote mutable main image
         id: promote
@@ -105,14 +63,7 @@ jobs:
           COMMIT_REF: ${{ steps.image.outputs.commit_ref }}
           DIGEST_REF: ${{ steps.image.outputs.digest_ref }}
           IMAGE: ${{ steps.image.outputs.image }}
-        run: |
-          docker tag "$COMMIT_REF" "$IMAGE:main"
-          docker push "$IMAGE:main"
-          docker pull "$IMAGE:main" >/dev/null
-          docker inspect \
-            --format='{{range .RepoDigests}}{{println .}}{{end}}' \
-            "$IMAGE:main" |
-            grep --fixed-strings --line-regexp "$DIGEST_REF"
+        run: bash scripts/automation/runtime_artifact.sh promote-main
 
       - name: Record runtime delivery identity
         if: always() && steps.image.outcome == 'success'
@@ -120,13 +71,4 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest_ref }}
           MAIN_PROMOTION: ${{ steps.promote.outcome }}
-        run: |
-          {
-            echo "### core-py runtime"
-            echo
-            echo "- Delivery source revision: \`$HEAD_SHA\`"
-            echo "- Immutable image: \`$IMAGE_DIGEST\`"
-            echo "- Mutable main promotion: \`$MAIN_PROMOTION\`"
-            echo "- Contract command: \`python scripts/container.py db contract --json\`"
-            echo "- Schema command: \`python scripts/container.py db schema --json\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: bash scripts/automation/runtime_artifact.sh summarize-runtime

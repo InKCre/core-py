@@ -53,14 +53,9 @@ jobs:
       - name: Discover exact producer set
         id: projects
         env:
+          EVENT_NAME: ${{ github.event_name }}
           REQUESTED_EXTENSION: ${{ inputs.extension }}
-        run: |
-          projects="$(python scripts/extension_release.py projects --json)"
-          if test "${{ github.event_name }}" = workflow_dispatch; then
-            python scripts/extension_release.py projects |
-              grep --fixed-strings --line-regexp -- "$REQUESTED_EXTENSION"
-          fi
-          echo "projects=$projects" >> "$GITHUB_OUTPUT"
+        run: bash scripts/automation/extension_publication.sh discover
 
   publish:
     name: Publish ${{ matrix.extension }}
@@ -86,9 +81,7 @@ jobs:
           persist-credentials: false
 
       - name: Verify source belongs to current main history
-        run: |
-          git fetch --no-tags origin main
-          git merge-base --is-ancestor HEAD origin/main
+        run: bash scripts/automation/extension_publication.sh verify-main-history
 
       - name: Set up release selector Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -98,37 +91,13 @@ jobs:
       - name: Select new Extension version
         id: selection
         env:
+          CHECK_SUITE_ID: ${{ github.event.workflow_run.check_suite_id }}
+          EVENT_NAME: ${{ github.event_name }}
           EXTENSION: ${{ matrix.extension }}
           GH_TOKEN: ${{ github.token }}
+          INITIAL_PUBLICATION: ${{ inputs.initial_publication }}
           REQUESTED_EXTENSION: ${{ inputs.extension }}
-        run: |
-          selected=false
-          if test "${{ github.event_name }}" = workflow_dispatch; then
-            test "${{ inputs.initial_publication }}" = INITIAL_ONLY
-            if test "$EXTENSION" = "$REQUESTED_EXTENSION"; then
-              selected=true
-            fi
-          else
-            before="$(
-              gh api \
-                "repos/${{ github.repository }}/check-suites/${{ github.event.workflow_run.check_suite_id }}" \
-                --jq .before
-            )"
-            if ! [[ "$before" =~ ^[0-9a-f]{40}$ ]]; then
-              echo "before_sha has an invalid shape" >&2
-              exit 1
-            elif test "$before" = 0000000000000000000000000000000000000000; then
-              selected=true
-            else
-              git merge-base --is-ancestor "$before" HEAD
-              selected="$(
-                python scripts/extension_release.py version-changed \
-                  --project "$EXTENSION" \
-                  --base "$before"
-              )"
-            fi
-          fi
-          echo "selected=$selected" >> "$GITHUB_OUTPUT"
+        run: bash scripts/automation/extension_publication.sh select
 
       - name: Record unchanged Extension no-op
         if: steps.selection.outputs.selected != 'true'
@@ -152,55 +121,19 @@ jobs:
         id: wheel
         env:
           EXTENSION: ${{ matrix.extension }}
-        run: |
-          output="$RUNNER_TEMP/$EXTENSION"
-          mkdir --parents "$output"
-          pdm run python -m build \
-            --wheel \
-            --no-isolation \
-            --outdir "$output" \
-            "extensions/$EXTENSION"
-          wheel="$(find "$output" -maxdepth 1 -type f -name '*.whl')"
-          test -n "$wheel"
-          test "$(find "$output" -maxdepth 1 -type f -name '*.whl' | wc -l)" = 1
-          metadata="$RUNNER_TEMP/$EXTENSION-metadata.json"
-          pdm run python scripts/extension_distribution.py verify-wheel \
-            --project "extensions/$EXTENSION" \
-            --wheel "$wheel"
-          pdm run python scripts/extension_distribution.py metadata \
-            --project "extensions/$EXTENSION" \
-            --source-repository "${{ github.server_url }}/${{ github.repository }}" \
-            --source-revision "$(git rev-parse HEAD)" \
-            --build-id "${{ github.run_id }}" > "$metadata"
-          echo "metadata=$metadata" >> "$GITHUB_OUTPUT"
-          echo "wheel=$wheel" >> "$GITHUB_OUTPUT"
+        run: bash scripts/automation/extension_publication.sh build
 
       - name: Revalidate Extension artifact input before remote mutation
         if: steps.selection.outputs.selected == 'true'
         env:
           EXTENSION: ${{ matrix.extension }}
-        run: |
-          git fetch --no-tags origin main
-          git merge-base --is-ancestor HEAD origin/main
-          python scripts/extension_release.py verify-artifact-unchanged \
-            --project "$EXTENSION" \
-            --from HEAD \
-            --to origin/main
+        run: bash scripts/automation/extension_publication.sh revalidate
 
       - name: Prepare exact native Release association
         if: steps.selection.outputs.selected == 'true'
         env:
           METADATA: ${{ steps.wheel.outputs.metadata }}
-        run: |
-          coordinate="$(jq -r '.coordinate' "$METADATA")"
-          namespace="${coordinate%%/*}"
-          name="${coordinate#*/}"
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Authorization: Bearer $INKCRE_EXTENSION_REGISTRY_TOKEN" \
-            --header "Content-Type: application/json" \
-            --data "$(jq -c '.prepare' "$METADATA")" \
-            "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases"
+        run: bash scripts/automation/extension_publication.sh prepare
 
       - name: Upload wheel through native PyPI protocol
         if: steps.selection.outputs.selected == 'true'
@@ -214,29 +147,10 @@ jobs:
         if: steps.selection.outputs.selected == 'true'
         env:
           METADATA: ${{ steps.wheel.outputs.metadata }}
-        run: |
-          coordinate="$(jq -r '.coordinate' "$METADATA")"
-          version="$(jq -r '.version' "$METADATA")"
-          namespace="${coordinate%%/*}"
-          name="${coordinate#*/}"
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Authorization: Bearer $INKCRE_EXTENSION_REGISTRY_TOKEN" \
-            "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version/publish"
+        run: bash scripts/automation/extension_publication.sh publish
 
       - name: Verify anonymous exact Release descriptor
         if: steps.selection.outputs.selected == 'true'
         env:
           METADATA: ${{ steps.wheel.outputs.metadata }}
-        run: |
-          coordinate="$(jq -r '.coordinate' "$METADATA")"
-          version="$(jq -r '.version' "$METADATA")"
-          namespace="${coordinate%%/*}"
-          name="${coordinate#*/}"
-          curl --fail --silent --show-error \
-            "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version" |
-            jq --exit-status \
-              --arg coordinate "$coordinate" \
-              --arg version "$version" \
-              '.name == $coordinate and .version == $version and
-               .state == "published" and .python.host_sdk == "core-py"'
+        run: bash scripts/automation/extension_publication.sh verify
