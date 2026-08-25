@@ -1,11 +1,13 @@
 [project]
 name = "inkcre-core"
-version = "0.1.0"
+version = "0.1.1"
 description = "Backend of InKCre."
 authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "inkcre-extension-runtime-core-py @ https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.1.1/inkcre_extension_runtime_core_py-0.1.1-py3-none-any.whl",
+    "authlib>=1.7.2,<2.0.0",
     "pydantic (>=2.11.7,<3.0.0)",
     "pydantic-settings (>=2.14.2,<3.0.0)",
     "fastapi (>=0.139.2,<0.140.0)",
@@ -43,6 +45,7 @@ dependencies = [
     "puremagic>=2.2.0,<3.0.0",
     "feedparser>=6.0.12,<7.0.0",
     "trafilatura>=2.1.0,<3.0.0",
+    "PyGithub>=2.8.1,<3.0.0",
     "twikit>=2.3.3,<3.0.0",
     "jsonschema<5,>=4.25",
     "croniter<7,>=6",
@@ -52,7 +55,7 @@ dependencies = [
 [dependency-groups]
 extension-preview = [
     "build>=1.4.0,<2.0.0",
-    "inkcre-extension-toolkit[cli] @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.1.0/inkcre_extension_toolkit-0.1.0-py3-none-any.whl",
+    "inkcre-extension-toolkit[cli] @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.2.1/inkcre_extension_toolkit-0.2.1-py3-none-any.whl",
     "setuptools>=80.0.0,<81.0.0",
 ]
 extension-publisher = [

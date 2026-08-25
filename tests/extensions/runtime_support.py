@@ -7,7 +7,31 @@ import fastapi
 from fastapi.testclient import TestClient
 
 from app.business.extension import ExtensionBase
-from app.business.extension.runtime import ExtensionRuntimeRecord
+
+
+@dataclass
+class _TestActiveModel:
+  name: str
+  config: dict[str, typing.Any]
+  state: dict[str, typing.Any]
+
+  def update_config(self, value):
+    self.config = dict(value)
+    return self
+
+  def update_config_schema(self, _schema):
+    return self
+
+  def read_state(self):
+    return dict(self.state)
+
+  def mutate_state(self, transform):
+    self.state = transform(dict(self.state))
+    return dict(self.state)
+
+  def mutate_config_and_state(self, transform):
+    self.config, self.state = transform(dict(self.config), dict(self.state))
+    return dict(self.config), dict(self.state)
 
 
 @dataclass
@@ -18,6 +42,7 @@ class PublishedExtension:
 
   def unpublish(self) -> None:
     self.extension.unpublish()
+    self.extension.unbind()
     self.extension.release_runtime()
 
 
@@ -29,17 +54,20 @@ def publish_extension(
   raise_server_exceptions: bool = True,
 ) -> PublishedExtension:
   runtime_app = app or fastapi.FastAPI()
+  runtime_config = dict(config or {})
+  runtime_state: dict[str, typing.Any] = {}
+
   extension.unpublish()
+  extension.unbind()
   extension.release_runtime()
-  extension.on_start(
-    runtime_app,
-    ExtensionRuntimeRecord(
-      extension_id=extension.__extid__,
-      config=config or {},
-      persist_config=lambda _config: None,
-      persist_config_schema=lambda _schema: None,
-    ),
+  extension.bind(
+    _TestActiveModel(
+      name=f"inkcre/{extension.__extid__}",
+      config=runtime_config,
+      state=runtime_state,
+    )
   )
+  extension.on_start(runtime_app)
   return PublishedExtension(
     runtime_app,
     extension,

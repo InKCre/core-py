@@ -2,8 +2,8 @@
   "format": 1,
   "environment": "production",
   "database_contract": {
-    "revision": "extension-registry-feature-retrieval-v1",
-    "migration_head": "50b2c08dd267",
+    "revision": "peer-extension-setup-v1",
+    "migration_head": "d4e6f8a0b2c3",
     "protocol_schema": "inkcre"
   },
   "peer": {

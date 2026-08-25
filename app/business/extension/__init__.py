@@ -4,8 +4,9 @@ from .main import (
   ExtensionBase,
   ExtensionDelegationError,
   ExtensionHost,
+  PublicHTTPRoute,
 )
-from .state import ExtensionState
+from .state import InstalledExtension
 
 __all__ = [
   "EXTENSION_HOST",
@@ -13,5 +14,6 @@ __all__ = [
   "ExtensionBase",
   "ExtensionDelegationError",
   "ExtensionHost",
-  "ExtensionState",
+  "InstalledExtension",
+  "PublicHTTPRoute",
 ]
