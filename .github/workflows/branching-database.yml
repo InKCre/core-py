@@ -33,9 +33,8 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set preview expiration
-        run: >-
-          echo "EXPIRES_AT=$(date -u --date '+7 days'
-          +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+        id: expiration
+        run: bash scripts/automation/preview_database.sh expiration
 
       - name: Create or reuse data-free branch
         id: neon
@@ -45,18 +44,11 @@ jobs:
           branch_name: ${{ env.NEON_BRANCH_NAME }}
           parent_branch: ${{ env.NEON_PARENT_BRANCH }}
           role: neondb_owner
-          expires_at: ${{ env.EXPIRES_AT }}
+          expires_at: ${{ steps.expiration.outputs.expires_at }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
       - name: Report isolated branch identity
-        run: |
-          {
-            echo "### Neon preview branch"
-            echo
-            echo "- Name: \`$NEON_BRANCH_NAME\`"
-            echo "- Parent: \`$NEON_PARENT_BRANCH\`"
-            echo "- Lifecycle owner: preview delivery"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: bash scripts/automation/preview_database.sh summarize
 
   cleanup:
     name: Delete preview branch
@@ -65,66 +57,13 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout cleanup command
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
       - name: Delete deterministic Neon branch
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-        run: |
-          set -euo pipefail
-
-          : "${NEON_API_KEY:?missing NEON_API_KEY}"
-          : "${NEON_PROJECT_ID:?missing NEON_PROJECT_ID}"
-          : "${NEON_BRANCH_NAME:?missing NEON_BRANCH_NAME}"
-          if [[ ! "$NEON_BRANCH_NAME" =~ ^preview/core-py/pr-[0-9]+$ ]]; then
-            echo "Refusing unexpected branch namespace: $NEON_BRANCH_NAME" >&2
-            exit 1
-          fi
-
-          cli=(npx --yes neonctl@2.36.0)
-          list_json="$(
-            "${cli[@]}" branches list \
-              --project-id "$NEON_PROJECT_ID" \
-              --output json \
-              --no-analytics \
-              --no-color
-          )"
-          parent_matches="$(
-            jq -c --arg name "$NEON_PARENT_BRANCH" \
-              '[.[] | select(.name == $name)]' <<<"$list_json"
-          )"
-          if [[ "$(jq 'length' <<<"$parent_matches")" != 1 ]]; then
-            echo "Expected one Neon parent named $NEON_PARENT_BRANCH" >&2
-            exit 1
-          fi
-
-          expected_parent_id="$(jq -r '.[0].id' <<<"$parent_matches")"
-          if [[ ! "$expected_parent_id" =~ ^br-[a-z0-9-]+$ ]]; then
-            echo "Refusing unexpected Neon parent identity" >&2
-            exit 1
-          fi
-
-          matches="$(
-            jq -c --arg name "$NEON_BRANCH_NAME" \
-              '[.[] | select(.name == $name)]' <<<"$list_json"
-          )"
-          match_count="$(jq 'length' <<<"$matches")"
-          if [[ "$match_count" == 0 ]]; then
-            echo "Neon branch already absent: $NEON_BRANCH_NAME"
-            exit 0
-          fi
-          if [[ "$match_count" != 1 ]]; then
-            echo "Expected one Neon branch named $NEON_BRANCH_NAME" >&2
-            exit 1
-          fi
-
-          branch_id="$(jq -r '.[0].id' <<<"$matches")"
-          actual_parent_id="$(jq -r '.[0].parent_id' <<<"$matches")"
-          if [[ ! "$branch_id" =~ ^br-[a-z0-9-]+$ ]] ||
-            [[ "$actual_parent_id" != "$expected_parent_id" ]]; then
-            echo "Refusing Neon branch with unexpected identity or parent" >&2
-            exit 1
-          fi
-
-          "${cli[@]}" branches delete "$branch_id" \
-            --project-id "$NEON_PROJECT_ID" \
-            --no-analytics \
-            --no-color
+        run: bash scripts/automation/preview_database.sh cleanup

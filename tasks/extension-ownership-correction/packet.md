@@ -1,8 +1,10 @@
 # Extension ownership correction
 
 - **Objective**: correct cross-unit ownership errors exposed by GitHub extension review before resuming that unit。
-- **Phase**: implementation complete；local verification passed，while owner-separated Hub/core commits、Hub push and Spoke
-  shared-ref bump remain delivery work requiring explicit authorization。
+- **Phase**: **Delivery blocked**。Hub PR #18 and core-py PR #82 were owner-separated、verified and squash-merged，but
+  production delivery for #82 failed after successful database convergence because the repository-aware manifest-transition
+  verifier ran on the dependency-free GitHub runner instead of the exact candidate image。Closure requires the delivery
+  boundary fix and a successful exact-main production rerun。
 - **Relation to the program**: this is an independent corrective task，not a new knowledge-lifecycle capability or an
   Extension implementation unit。`knowledge-lifecycle-capabilities` remains active but its GitHub unit is paused until this
   correction closes。
@@ -97,3 +99,9 @@ and resume only after this task closes。
   GitHub implementation reference after correction。
 - Hub's existing SVC adoption remains on corpus/config 10.0.1 while the installed CLI is 14.0.0；`svc status` therefore
   reports its pre-existing project-upgrade work。This correction does not mix an SVC adoption upgrade into the owner diff。
+- Hub PR #18 merged as `47f7439`，then core-py PR #82 merged as `8ca3007`。The GitHub extension branch was rebased onto that
+  corrected core baseline before PR #80 merged，so the Extension PR no longer duplicated or owned this correction。
+- Production runs `32800364301` (#82) and `32801109994` (#80) both completed idempotent `db init` and `db ready` at
+  `50b2c08dd267`，then failed with `ModuleNotFoundError: alembic` when the GitHub runner directly invoked
+  `scripts/verify_database_manifest_transition.py`。No application release、Peer advertisement or stable-channel movement
+  followed。This is a PR #79 delivery-runtime placement regression，not an Extension catalog or migration failure。

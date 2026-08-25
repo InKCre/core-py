@@ -62,10 +62,11 @@
   rumination/ranking、local/delegated Peer journeys、本地 durable projection 以及 DashScope real-provider 6/6
   Acceptance 均已通过。Hub `95c4023` 已发布；core-py `cc8f90a` 与 client-web `8324293` 分别以纯 ref commit
   消费该 exact shared truth。该 implementable unit 已关闭。
-- **Next Step**: 暂停 [GitHub extension](units/github-extension/packet.md) 的 review correction；先由独立的
-  [`extension-ownership-correction`](../extension-ownership-correction/packet.md) task 修正 Hub/Spoke durable owner、
-  core built-in/Extension catalog ownership 与相应 promotion guideline。该 correction 关闭后，再回到 GitHub
-  extension 修正其 batch graph persistence 与 PyGithub integration。
+- **Next Step**: 独立的 [`extension-ownership-correction`](../extension-ownership-correction/packet.md) 已合并但
+  production delivery 尚未关闭；先修复 manifest-transition verifier 的 candidate-image execution boundary，并
+  完成 exact-main production rerun。之后重新选择 implementable unit 时，优先评估恢复
+  [GitHub extension](units/github-extension/packet.md)，完成仍未落地的 symmetric graph persistence、PyGithub
+  integration、Extension-local Unit TDD 与 real-account re-acceptance，而不是把已知错误留在 `main` 后启动新能力。
 
 ## Program Boundary
 
@@ -82,13 +83,12 @@
 ## Active Implementable Unit
 
 当前 program 内没有 active implementable Unit；跨 unit 的
-[`extension-ownership-correction`](../extension-ownership-correction/packet.md) 是当前唯一 active task。它不是新的
-knowledge-lifecycle capability unit，而是修复 PR #79 暴露的 task-control 损坏和 GitHub review 暴露的 owner
-错误。修正关闭后恢复 GitHub extension unit。
+[`extension-ownership-correction`](../extension-ownership-correction/packet.md) 因 production delivery failure 重新处于
+delivery-blocked 状态。它关闭前暂停 unit selection。
 
-[GitHub extension](units/github-extension/packet.md) 已完成首轮实现和真实账号 acceptance，但 review 发现 durable
-owner、core/Extension catalog、batch graph interface 与 external protocol client ownership 错误；当前 **Paused**，
-不得合并 PR #18/#80 的现状。
+[GitHub extension](units/github-extension/packet.md) 的首轮实现和真实账号 acceptance 已随 PR #80 合并；durable
+owner 与 core/Extension catalog 错误已由独立 correction 关闭，但 batch graph interface、PyGithub integration、
+Extension-local Unit TDD 与 re-acceptance 尚未落地。该 unit 当前是下一轮 selection 的优先候选，不视为完成。
 
 [Graph navigation retrieval](units/graph-navigation-retrieval/packet.md) 已完成 core-py PR #78、client-web PR #85、
 `@inkcre/ui-web@1.4.0`、preview/production acceptance 与 durable closure。

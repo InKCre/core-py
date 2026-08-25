@@ -2,12 +2,15 @@
 
 ## Control
 
-- **State**: Paused after first implementation/review；do not merge Hub PR #18 or core-py PR #80 as currently written。
+- **State**: **Candidate to resume for correction closure**。The first implementation merged through core-py PR #80 after
+  the independent ownership correction was removed from its diff；the batch persistence and PyGithub corrections below are
+  still outstanding and the unit is not complete。
 - **Program owner**: [knowledge lifecycle capabilities](../../packet.md) remains the only program control authority；this
   file is the GitHub unit's design、preflight、implementation and acceptance record。
 - **Blocking predecessor**:
-  [`extension-ownership-correction`](../../../extension-ownership-correction/packet.md) must close Hub/Spoke and
-  core/Extension ownership corrections first。
+  [`extension-ownership-correction`](../../../extension-ownership-correction/packet.md) has merged through Hub PR #18 and
+  core-py PR #82，but its exact-main production delivery is blocked by a manifest-verifier execution-boundary regression。
+  Resume only after that delivery closes。
 - **Resume point**: correct symmetric graph batch persistence and replace the handwritten GitHub transport with the retained
   PyGithub client，then repeat the real-account acceptance and close the existing PRs。
 
@@ -266,10 +269,11 @@ not override an incorrect ownership or abstraction boundary。
 - Ponytail's ordered ladder is now the default implementation check：need → existing code → stdlib → native platform →
   installed dependency → minimum new code。It shortens the solution only after end-to-end ownership is understood。
 
-### Paused delivery state
+### Superseded paused delivery state
 
-- Hub PR #18 and core-py PR #80 remain open for review but must not merge as currently written。
-- No corrective source or durable-doc mutation starts until Sir explicitly says “start”。
+- Hub PR #18 was rewritten and merged as the independent ownership correction；core-py PR #80 was rebased onto core-py
+  PR #82 and then merged with only the first GitHub implementation。
+- Corrective source work still requires a newly frozen execution baseline and Sir's explicit “start”。
 
 ## Accepted correction execution baseline
 

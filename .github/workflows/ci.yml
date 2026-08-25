@@ -48,13 +48,7 @@ jobs:
         env:
           BASE_REVISION: >-
             ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          arguments=()
-          if [[ "$BASE_REVISION" =~ ^[0-9a-f]{40}$ ]] &&
-             test "$BASE_REVISION" != 0000000000000000000000000000000000000000; then
-            arguments+=(--base "$BASE_REVISION")
-          fi
-          pdm run check:extension-releases "${arguments[@]}"
+        run: bash scripts/automation/repository_check.sh extension-intent
 
       - name: Run repository contract
         run: pdm run check
@@ -62,17 +56,7 @@ jobs:
       - name: Build and verify all first-party wheels
         env:
           SOURCE_DATE_EPOCH: "315532800"
-        run: |
-          for extension in $(pdm run python scripts/extension_release.py projects); do
-            output="$RUNNER_TEMP/wheels/$extension"
-            mkdir --parents "$output"
-            pdm run python -m build \
-              --wheel --no-isolation --outdir "$output" "extensions/$extension"
-            wheel="$(find "$output" -maxdepth 1 -type f -name '*.whl')"
-            test "$(find "$output" -maxdepth 1 -type f -name '*.whl' | wc -l)" = 1
-            pdm run python scripts/extension_distribution.py verify-wheel \
-              --project "extensions/$extension" --wheel "$wheel"
-          done
+        run: bash scripts/automation/repository_check.sh extension-wheels
 
       - name: Enforce append-only migration history
         if: github.event_name == 'pull_request'
@@ -120,202 +104,32 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Build frozen artifact
-        run: |
-          docker build \
-            --build-arg "SOURCE_REVISION=${{ github.sha }}" \
-            --tag "$IMAGE_TAG" \
-            .
-          docker build \
-            --build-arg "SOURCE_REVISION=${{ github.sha }}" \
-            --file Dockerfile.postgrest \
-            --tag "$POSTGREST_IMAGE_TAG" \
-            .
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: bash scripts/automation/runtime_contract.sh build
 
       - name: Inspect artifact contents
-        run: >-
-          docker run --rm --entrypoint python "$IMAGE_TAG" -c
-          "from pathlib import Path;
-          required = (
-            'app', 'libs', 'utils', 'migrations/versions',
-            'alembic.ini', 'scripts/container.py', 'scripts/database.py',
-            'scripts/verify_postgrest_contract.py'
-          );
-          missing = [path for path in required if not Path(path).exists()];
-          assert not missing, missing;
-          assert not Path('extensions').exists();
-          import os, pip, site;
-          assert all(os.access(path, os.W_OK) for path in site.getsitepackages())"
+        run: bash scripts/automation/runtime_contract.sh inspect
 
       - name: Initialize fresh database twice
-        run: |
-          docker run --rm --network host \
-            --env CORE_DATABASE_PASSWORD \
-            --env MIGRATION_DATABASE_URL \
-            --env POSTGREST_DATABASE_PASSWORD \
-            "$IMAGE_TAG" \
-            python scripts/container.py db init --profile development
-          docker run --rm --network host \
-            --env CORE_DATABASE_PASSWORD \
-            --env MIGRATION_DATABASE_URL \
-            --env POSTGREST_DATABASE_PASSWORD \
-            "$IMAGE_TAG" \
-            python scripts/container.py db init --profile development
+        run: bash scripts/automation/runtime_contract.sh initialize
 
       - name: Verify migration, metadata, and machine readiness
-        run: |
-          docker run --rm --network host \
-            --env MIGRATION_DATABASE_URL \
-            "$IMAGE_TAG" \
-            python scripts/container.py db ready --profile development --json
-          docker run --rm --network host --env MIGRATION_DATABASE_URL \
-            --entrypoint alembic "$IMAGE_TAG" check
+        run: bash scripts/automation/runtime_contract.sh readiness
 
       - name: Start PostgREST and verify peer read/write contract
-        run: |
-          postgrest_database_url="postgresql://authenticator:${POSTGREST_DATABASE_PASSWORD}@127.0.0.1:5432/inkcre"
-          postgrest_id="$(
-            docker run --detach --network host \
-              --env "PGRST_DB_URI=$postgrest_database_url" \
-              --env PGRST_DB_SCHEMAS=inkcre \
-              --env PGRST_DB_ANON_ROLE=anonymous \
-              --env PGRST_DB_PRE_REQUEST=inkcre_internal.check_jwt \
-              --env "PGRST_JWT_SECRET=$JWT_SECRET" \
-              --env PGRST_JWT_AUD=inkcre-api \
-              --env PORT=13000 \
-              "$POSTGREST_IMAGE_TAG"
-          )"
-          trap 'docker logs "$postgrest_id"; docker rm --force "$postgrest_id"' EXIT
-
-          for _ in $(seq 1 30); do
-            if docker run --rm --network host \
-              "$IMAGE_TAG" \
-              python scripts/container.py db contract --json >/dev/null &&
-              docker run --rm --network host \
-                --entrypoint python \
-                "$IMAGE_TAG" \
-                scripts/verify_postgrest_contract.py \
-                --base-url http://127.0.0.1:13000 \
-                --jwt-secret "$JWT_SECRET" \
-                --wrong-jwt-secret ci-wrong-jwt-secret-at-least-32-bytes; then
-              exit 0
-            fi
-            sleep 1
-          done
-          exit 1
+        run: bash scripts/automation/runtime_contract.sh postgrest
 
       - name: Verify deterministic reset twice
-        run: |
-          fingerprint() {
-            docker run --rm --network host \
-              --env MIGRATION_DATABASE_URL \
-              --entrypoint python \
-              "$IMAGE_TAG" \
-              -c "from app.database_contract.catalog import development_baseline_fingerprint as f; print(f())"
-          }
-          baseline="$(fingerprint)"
-          docker run --rm --network host \
-            --env CORE_DATABASE_PASSWORD \
-            --env MIGRATION_DATABASE_URL \
-            --env POSTGREST_DATABASE_PASSWORD \
-            "$IMAGE_TAG" \
-            python scripts/container.py \
-              db reset-dev --confirm reset-development-data
-          test "$(fingerprint)" = "$baseline"
-          docker run --rm --network host \
-            --env CORE_DATABASE_PASSWORD \
-            --env MIGRATION_DATABASE_URL \
-            --env POSTGREST_DATABASE_PASSWORD \
-            "$IMAGE_TAG" \
-            python scripts/container.py \
-              db reset-dev --confirm reset-development-data
-          test "$(fingerprint)" = "$baseline"
+        run: bash scripts/automation/runtime_contract.sh reset
 
       - name: Start and probe web artifact
-        run: |
-          container_id="$(
-            docker run --detach --network host \
-              --env DATABASE_URL \
-              --env JWT_SECRET \
-              --env INKCRE_ENV_FILE \
-              --env MIGRATION_DATABASE_URL \
-              --env PORT=18080 \
-              "$IMAGE_TAG" python scripts/container.py web
-          )"
-          trap 'docker logs "$container_id"; docker rm --force "$container_id"' EXIT
-
-          for _ in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:18080/livez >/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-
-          curl --fail --silent http://127.0.0.1:18080/livez
-          curl --fail --silent http://127.0.0.1:18080/readyz
+        run: bash scripts/automation/runtime_contract.sh web
 
       - name: Export neutral database schema evidence
         env:
           SOURCE_REVISION: ${{ github.sha }}
-        run: |
-          contract_directory="$RUNNER_TEMP/database-contract"
-          contract_database_url="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/inkcre_contract"
-          mkdir --parents "$contract_directory"
-
-          docker run --rm --network host \
-            --env PGPASSWORD=postgres \
-            pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0 \
-            createdb \
-              --host 127.0.0.1 \
-              --username postgres \
-              inkcre_contract
-          docker run --rm --network host \
-            --env CORE_DATABASE_PASSWORD \
-            --env "MIGRATION_DATABASE_URL=$contract_database_url" \
-            --env POSTGREST_DATABASE_PASSWORD \
-            "$IMAGE_TAG" \
-            python scripts/container.py db init --profile runtime
-          docker run --rm "$IMAGE_TAG" \
-            python scripts/container.py db contract --json \
-            > "$contract_directory/runtime-contract.json"
-          docker run --rm --network host \
-            --env "MIGRATION_DATABASE_URL=$contract_database_url" \
-            --entrypoint python \
-            "$IMAGE_TAG" \
-            scripts/export_database_roles.py \
-            > "$contract_directory/database-roles.sql"
-          docker run --rm --network host \
-            --env PGPASSWORD=postgres \
-            pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0 \
-            pg_dump \
-              --host 127.0.0.1 \
-              --username postgres \
-              --dbname inkcre_contract \
-              --schema-only \
-              --no-owner \
-              --no-privileges \
-              --restrict-key "$SOURCE_REVISION" \
-            > "$contract_directory/database-schema.sql"
-          docker run --rm --network host \
-            --env PGPASSWORD=postgres \
-            pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0 \
-            pg_dump \
-              --host 127.0.0.1 \
-              --username postgres \
-              --dbname inkcre_contract \
-              --data-only \
-              --table public.alembic_version \
-              --table inkcre_internal.contract_state \
-              --inserts \
-              --no-owner \
-              --no-privileges \
-              --restrict-key "$SOURCE_REVISION" \
-            >> "$contract_directory/database-schema.sql"
-          python scripts/package_database_schema.py \
-            --schema "$contract_directory/database-schema.sql" \
-            --roles "$contract_directory/database-roles.sql" \
-            --runtime-contract "$contract_directory/runtime-contract.json" \
-            --output "$contract_directory/manifest.json" \
-            --source-revision "$SOURCE_REVISION"
+        run: bash scripts/automation/runtime_contract.sh export
 
       - name: Upload exact database schema evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -326,58 +140,4 @@ jobs:
           retention-days: 7
 
       - name: Restore the exported contract into a fresh database
-        run: |
-          contract_directory="$RUNNER_TEMP/database-contract"
-          restore_password=ci-restore-database-password-at-least-32-bytes
-          restore_id="$(
-            docker run --detach \
-              --env POSTGRES_DB=inkcre \
-              --env "POSTGRES_PASSWORD=$restore_password" \
-              --env POSTGRES_USER=postgres \
-              --publish 127.0.0.1::5432 \
-              pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
-          )"
-          trap 'docker logs "$restore_id"; docker rm --force "$restore_id"' EXIT
-
-          for _ in $(seq 1 30); do
-            if docker exec \
-              --env "PGPASSWORD=$restore_password" \
-              "$restore_id" \
-              psql --host 127.0.0.1 --username postgres --dbname inkcre \
-                --tuples-only --no-align --command 'SELECT 1' \
-                >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-          docker exec \
-            --env "PGPASSWORD=$restore_password" \
-            "$restore_id" \
-            psql --host 127.0.0.1 --username postgres --dbname inkcre \
-              --tuples-only --no-align --command 'SELECT 1' \
-              >/dev/null
-          docker exec --interactive \
-            --env "PGPASSWORD=$restore_password" \
-            "$restore_id" \
-            psql --host 127.0.0.1 --username postgres --dbname inkcre \
-              --variable ON_ERROR_STOP=1 \
-            < "$contract_directory/database-roles.sql"
-          docker exec --interactive \
-            --env "PGPASSWORD=$restore_password" \
-            "$restore_id" \
-            psql --host 127.0.0.1 --username postgres --dbname inkcre \
-              --variable ON_ERROR_STOP=1 \
-            < "$contract_directory/database-schema.sql"
-
-          restore_port="$(docker port "$restore_id" 5432/tcp | sed 's/.*://')"
-          restore_database_url="postgresql+psycopg://postgres:${restore_password}@127.0.0.1:${restore_port}/inkcre"
-          docker run --rm --network host \
-            --env CORE_DATABASE_PASSWORD \
-            --env "MIGRATION_DATABASE_URL=$restore_database_url" \
-            --env POSTGREST_DATABASE_PASSWORD \
-            "$IMAGE_TAG" \
-            python scripts/container.py db init --profile runtime
-          docker run --rm --network host \
-            --env "MIGRATION_DATABASE_URL=$restore_database_url" \
-            "$IMAGE_TAG" \
-            python scripts/container.py db ready --profile runtime --json
+        run: bash scripts/automation/runtime_contract.sh restore

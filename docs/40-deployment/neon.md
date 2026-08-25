@@ -58,15 +58,15 @@ production data is never treated as seed data. Canonical `production` is the req
 whenever `preview-base` is replaced. Sanitization must finish and prove zero application rows
 before any PR child is created.
 
-## Recovery Contract
+## Manual Recovery Evidence
 
-Before a production migration or branch cutover:
+When an operator performs a backup/restore or branch cutover that needs preservation evidence：
 
-1. create a durable Neon checkpoint from the exact live branch;
+1. create the intended backup or Neon checkpoint from the live branch;
 2. stream a PostgreSQL custom archive directly into encryption without writing plaintext;
 3. retain object privileges in the archive, but exclude provider-owned default ACL entries
    from the restore list;
-4. restore only into a newly created, identity-guarded branch;
+4. restore into a separate branch;
 5. compare a value-free manifest containing the Alembic head and every application-table
    row count;
 6. require an empty provider schema diff and a passing checked-in readiness command.
@@ -81,10 +81,8 @@ The value-free manifest command is:
 DATABASE_URL=... pdm run db:manifest
 ```
 
-The manifest records the database's observed lineage, application schema, and row counts. It does
-not require that database to have already converged to the artifact that reads it. Delivery compares
-the pre-migration snapshot with a post-migration snapshot, while `db ready` owns the strict current
-artifact contract.
+The manifest records the database's observed lineage，application schema and row counts。It is an operator-invoked
+backup/restore observation，not an automatic production-deployment gate；`db ready` owns the strict current artifact contract。
 
 Portable archives, checksums, manifests, and credentials are operational artifacts outside
 Git and CI. Production rows are recovery data, never seed data.
@@ -117,15 +115,9 @@ coordinate. The protected GitHub lifecycle process alone receives the direct own
 `MIGRATION_DATABASE_URL`; Heroku config never contains that URL. Both coordinates are
 resolved from the same exact guarded branch during each delivery.
 
-Every production mutation also requires a fresh no-TTL recovery branch whose parent is the
-exact live production branch. Delivery refuses a missing, expiring, incorrectly parented,
-or unexpectedly named recovery branch. A storage-only recovery branch may be either ready
-or provider-archived; Neon restores archived branches on access, and production delivery does
-not require a running compute endpoint on the checkpoint.
-
-The current Neon plan cannot protect this branch. GitHub environment isolation, exact
-branch-ID/parent guards, serialized release execution, the durable checkpoint, and the
-encrypted archive are required compensating controls.
+Ordinary production delivery resolves both owner coordinates directly from the configured branch ID，then lets database
+convergence and readiness expose unavailable or incompatible state。Operator-led backups and restore drills remain separate
+operations rather than mandatory proof gates on every deployment。
 
 ## Current Topology And Retired Project
 
@@ -133,7 +125,6 @@ There is no active Neon staging or develop environment. The active topology is i
 small:
 
 - root/default `production` is the sole canonical runtime branch;
-- one fresh no-TTL `backup/peer-contract-*` child is the production recovery checkpoint;
 - `preview-base` is the sanitized no-TTL child of production;
 - only open, trusted pull requests own seven-day `preview/core-py/pr-<number>` children.
 

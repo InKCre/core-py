@@ -2,6 +2,8 @@
 
 This layer stores operational truth: how the service starts, how environments are configured, and which checked-in files or workflows define deployment behavior.
 
+GitHub workflow and composite-action YAML owns only GitHub event selection, permissions, concurrency, environments, job/step wiring, platform Actions, and invocation of checked-in commands. Repeatable repository checks, artifact construction, publication, provider reconciliation, polling, and deployment convergence live under `scripts/` so the same command can be run and diagnosed outside GitHub Actions. `scripts/automation/` contains the thin CI/CD command adapters; domain scripts remain the deeper implementation owners they invoke.
+
 ## Documents
 
 - [development-environment.md](development-environment.md)

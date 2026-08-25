@@ -89,11 +89,12 @@ test = "python -m pytest -q"
 "lint:migrations" = "ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_migration_history.py scripts/database_manifest.py scripts/sanitize_preview_base.py tests/migrations"
 "test:migrations" = "python -m pytest -q tests/migrations"
 "check:migrations" = { composite = ["lint:migrations", "check:migration-history"] }
+"check:automation" = { shell = "bash -n scripts/automation/*.sh" }
 "check:migration-history" = "python scripts/check_migration_history.py {args}"
 "check:extension-releases" = "python scripts/extension_release.py check {args}"
 "build:extension-preview" = "python scripts/build_extension_preview.py {args}"
 "release:extension" = "python scripts/extension_release.py prepare {args}"
-"check:foundation" = { composite = ["doctor", "check:lock", "check:migrations"] }
+"check:foundation" = { composite = ["doctor", "check:lock", "check:migrations", "check:automation"] }
 "check" = { composite = ["check:foundation", "format:check", "lint", "typecheck", "test"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"
