@@ -2,7 +2,7 @@
 
 - Shared product truth: [`_shared/10-prd/`](_shared/10-prd/)
 - Shared cross-unit contracts: [`_shared/20-product-tdd/`](_shared/20-product-tdd/)
-- Local unit design and security model: [`30-unit-tdd/README.md`](30-unit-tdd/README.md)
+- Local unit design and runtime security boundaries: [`30-unit-tdd/README.md`](30-unit-tdd/README.md)
 - Deployment and runtime truth: [`40-deployment/`](40-deployment/)
 - Vulnerability reporting policy: [`../SECURITY.md`](../SECURITY.md)
 - Active agent-owned work: [`../tasks/`](../tasks/)

@@ -42,9 +42,10 @@ private collaboration and coordinated publication.
 
 ## Security Model
 
-The [Core Security Model](docs/30-unit-tdd/security-model.md) defines this repository's
-actors, assets, trust boundaries, valid security harms, non-boundaries, and proportionality
-method. It is the starting point for security-sensitive design and triage; implementation,
-tests, CI, and deployment contracts remain authoritative for the controls they enforce.
+The shared [Security Boundary
+Model](docs/_shared/20-product-tdd/security-boundary-model.md) defines project-wide actors，
+assets，trust boundaries and proportional classification。The local [Core Runtime Security
+Boundaries](docs/30-unit-tdd/security-model.md) maps that model to this repository；implementation，
+tests，CI and deployment contracts remain authoritative for the controls they enforce。
 
 [report]: https://github.com/InKCre/core-py/security/advisories/new

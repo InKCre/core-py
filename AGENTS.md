@@ -10,7 +10,8 @@ Reason in English. Communicate with humans in Chinese. Call the user “Sir”. 
 - Cross-unit contracts and topology: `docs/_shared/20-product-tdd/`
 - Expensive core-py internal design: `docs/30-unit-tdd/`
 - Runtime, packaging, migration, observability, and recovery: `docs/40-deployment/`
-- Vulnerability reporting: `SECURITY.md`; local security boundaries: `docs/30-unit-tdd/security-model.md`
+- Shared security model: `docs/_shared/20-product-tdd/security-boundary-model.md`; vulnerability reporting: `SECURITY.md`;
+  core runtime realization: `docs/30-unit-tdd/security-model.md`
 - Volatile task control: `tasks/`; never treat it as durable truth, but retain an active packet until its parent task closes
 - Mechanically enforceable facts: code, configuration, schemas, tests, assertions, lint, and CI
 - Repeated subtree hazards only: the nearest local `AGENTS.md`
@@ -27,7 +28,8 @@ Resolve the semantic owner before adding durable material. A Unit is a logical r
 - Before promoting behavior, evaluate delivery owner, durable owner, interface layer, and external capability owner independently. Importance, first-party distribution, current pressure, or successful acceptance on one axis does not prove another.
 - Before owning external protocol mechanics, inspect existing dependencies and primary documentation and name the unsupported gap. Keep only the application-specific remainder.
 - Read the nearest local `AGENTS.md` before changing its subtree. Read shared Product or Product TDD only when that owner is implicated, then the relevant local Unit TDD or Deployment document.
-- Before a security-sensitive claim, read the security model and name actor, capability, asset, boundary, harm, and attack path. Missing defense in depth is hardening unless evidence shows a boundary violation.
+- Before a security-sensitive claim，read the shared security model and relevant local realization；name actor，capability，
+  asset，boundary，harm and attack path。Missing defense in depth is hardening unless evidence shows a boundary violation。
 - Exclude `tasks/`, generated output, dependencies, environments, caches, and temporary directories from ordinary source and durable-doc search unless they are the evidence target.
 - Clean task artifacts by parent-task lifecycle, not directory class, age, size, or completed child units. Splitting content must not create a second control authority.
 - Use sub-agents only when bounded isolation or parallel capacity repays assignment, validation, integration, conflict, and residual cost. Primary owns the Human relationship, global integration, and material residual.
