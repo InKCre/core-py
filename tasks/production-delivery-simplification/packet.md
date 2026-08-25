@@ -23,10 +23,11 @@
   preservation，rejects legitimate row-count-changing migrations，duplicates existing migration/readiness evidence and has
   poor ROI。The immediate placement bug exposed a wider PR #79 regression：production delivery still contains one-time
   cutover and proof-oriented gates that are no longer part of the desired product/deployment model。
-- **Next Step**: PR #83 review found that the simplified production sequence still leaves delivery logic inside GitHub
-  composite-action YAML。Extract that logic and the same defect from every core-py workflow into local repository commands，
-  add the organization-wide ownership rule in `InKCre/.github`，then rerun repository and real delivery evidence before
-  requesting another review。
+- **Next Step**: PR #83 merged as `c121126`，but production run
+  [`32815268894`](https://github.com/InKCre/core-py/actions/runs/32815268894) exposed one bootstrap defect：the workflow
+  invoked a checked-in repository command before checkout，when no repository worktree exists。Use the event's exact SHA
+  directly for checkout，then retain repository-owned verification and delivery after checkout。Rerun repository gates and
+  exact-main production delivery; close only after both live peers pass and `stable` advances。
 
 ## Workflow implementation ownership correction
 
@@ -138,3 +139,12 @@ owner if deletion makes it readable；do not split files merely to mirror these 
   workflow-shape gate was added。
 - Organization ownership wording is prepared on `InKCre/.github` branch `feat/thin-github-workflows`：Actions owns
   orchestration and repo commands own repeatable implementation，without sacrificing step-level observability。
+
+## Post-merge bootstrap correction
+
+- `workflow_run` and `workflow_dispatch` already provide the exact source SHA through GitHub's event context。Checkout is the
+  bootstrap boundary: a repository command cannot run before it。
+- Production checkout and every subsequent step consume `${{ github.event.workflow_run.head_sha || github.sha }}` directly。
+  The now-unused `resolve-production-source` command is removed rather than preserving a second source-selection authority。
+- Actionlint，automation shell syntax，`git diff --check` and an audit of every workflow for checkout-before-repository-command
+  ordering pass。Only a real exact-main production run can close delivery acceptance。

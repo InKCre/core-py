@@ -29,35 +29,28 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Resolve exact main SHA
-        id: source
-        env:
-          EVENT_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          DISPATCH_HEAD_SHA: ${{ github.sha }}
-        run: bash scripts/automation/runtime_artifact.sh resolve-production-source
-
       - name: Checkout exact main source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          ref: ${{ steps.source.outputs.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
 
       - name: Verify exact main commit and checks
         uses: ./.github/actions/production-verify
         with:
           github_token: ${{ github.token }}
-          head_sha: ${{ steps.source.outputs.head_sha }}
+          head_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Pull exact published core service
         id: core
         env:
           GHCR_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ steps.source.outputs.head_sha }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: bash scripts/automation/runtime_artifact.sh pull-production
 
       - name: Build release guard and PostgREST without deployment secrets
         env:
-          HEAD_SHA: ${{ steps.source.outputs.head_sha }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: bash scripts/automation/runtime_artifact.sh build-production-transports
 
       - name: Deliver production
@@ -65,7 +58,7 @@ jobs:
         with:
           core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
           core_image_digest: ${{ steps.core.outputs.digest_ref }}
-          head_sha: ${{ steps.source.outputs.head_sha }}
+          head_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ vars.HEROKU_APP_NAME }}
           jwt_secret: ${{ secrets.JWT_SECRET }}
@@ -78,6 +71,6 @@ jobs:
       - name: Move production-admitted stable channel
         env:
           GHCR_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ steps.source.outputs.head_sha }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
           IMMUTABLE_CORE_IMAGE: ${{ steps.core.outputs.digest_ref }}
         run: bash scripts/automation/runtime_artifact.sh promote-stable
