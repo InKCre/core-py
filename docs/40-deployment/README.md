@@ -31,6 +31,7 @@ GitHub workflow and composite-action YAML owns only GitHub event selection, perm
 - `.github/workflows/ci.yml`
 - `.github/workflows/artifact-publish.yml`
 - `scripts/extension_distribution.py`
+- `.github/workflows/extension-version-pr.yml`
 - `.github/workflows/extension-publish.yml`
 - `.github/actions/preview-verify/action.yml`
 - `.github/actions/preview-delivery/action.yml`
