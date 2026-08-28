@@ -5,6 +5,9 @@
 > [documentation promotion](documentation-promotion/index.md)；this file keeps the small set needed before proposing architecture or
 > asking Sir for a decision。
 
+The task's Human/Agent roles、Unit gates、write-back discipline and parallel-session ownership are defined in the
+[collaboration protocol](collaboration/index.md)。This file only filters design judgment and question escalation。
+
 ## Experimental Discussion Model
 
 The unit of progress is a more coherent、evidence-backed current system model，not another answered question or a longer

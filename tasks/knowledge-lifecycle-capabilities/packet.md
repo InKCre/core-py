@@ -34,7 +34,7 @@
 
 ## Active Implementable Unit
 
-[MCP sink](units/mcp-sink/packet.md) 是 active implementable Unit，当前处于 product discussion。
+[MCP sink](units/mcp-sink/packet.md) 是当前已登记的 active implementable Unit，处于 Technical discussion。
 
 MCP sink MVP 复用现有 retrieval primitives，让外部 Agent/tool client 检索 InKCre 并取得可用的
 block/relation/solved-content context；最终用于写作、设计、编码还是 chat，由 caller 拥有。它不授权 generic sink
@@ -66,8 +66,9 @@ resolver/hydration contract 而重新打开。
 [Memos extension](units/memos-extension/packet.md) 已关闭；future collector/product generations 不继承其
 backend MVP approval。
 
-同一时刻最多只有一个 unit 标记 Active。supporting documents 不维护独立 phase 或 `Current question`；
-它们由 unit packet 路由。
+每个 session 同一时刻最多推进一个 active Unit；program 可以在 [parallel roster](collaboration/roster.md) 中声明
+多个并行 active Units。每个 Unit 必须拥有独立 branch/worktree、decision range、owner surface 与 dependency/overlap
+说明。supporting documents 不维护独立 phase 或 `Current question`；它们由 unit packet 路由。
 
 ## Delivery Loop
 
@@ -102,6 +103,7 @@ Product contract
 
 ## Program Navigation
 
+- Collaboration protocol and parallel session control: [collaboration](collaboration/index.md)
 - Active design/discussion filter: [design taste](design-taste.md)
 - Architecture understanding provenance: [architecture-understanding](architecture-understanding/index.md)
 - Capability topology and queued work: [capability-map.md](capability-map.md)

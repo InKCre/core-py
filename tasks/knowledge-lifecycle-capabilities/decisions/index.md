@@ -47,11 +47,14 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-351–D-360](D351-D360.md) | InfoBase View initialization and recall ownership → active-scene navigation |
 | [D-361–D-370](D361-D370.md) | Graph scale/layout/route state → endpoint-closed retrieval outcomes |
 | [D-371–D-380](D371-D380.md) | Random focal/path ownership → MCP sink activation |
+| [D-381–D-390](D381-D390.md) | MCP→Resolver use topology → monotonic Extension types / Peer-scoped Sink enablement |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
 
-- Decision IDs remain monotonic across shards；append the next ID to its numeric shard。
+- Decision IDs remain monotonic across shards。Under parallel execution，the coordinator reserves non-overlapping ranges in
+  the [parallel roster](../collaboration/roster.md)；a unit session writes only its reserved shards and does not edit this
+  index。
 - A later correction gets a new ID and names the superseded decision；do not rewrite history merely to remove disagreement。
 - Unit packets and design files cite decision IDs and link to this index or the exact shard；they do not duplicate decision
   authority。
@@ -60,6 +63,6 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-377](D371-D380.md)。
+- Latest confirmed decision: [D-390](D381-D390.md)。MCP sink owns reserved range D-381–D-420。
 - Active unit: [mcp-sink](../units/mcp-sink/packet.md)。
-- Active surface: Product discussion。
+- Active surface: Technical discussion。
