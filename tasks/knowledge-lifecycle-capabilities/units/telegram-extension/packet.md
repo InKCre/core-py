@@ -2,7 +2,7 @@
 
 ## Control
 
-- **State**: Active；Telegram Product contract is accepted，and Sir has expanded this Unit to replace repository-wide
+- **State**: Closed；Telegram Product contract is delivered for review，and the Unit also replaced repository-wide
   Changie with PDM-managed Towncrier for Core plus first-party Extensions。The Unit remains registered in the
   peer-maintained parallel roster under session `01a04685-aa31-7682-a4a2-824727eacce5` with reserved decision range
   D-421–D-460。
@@ -11,8 +11,9 @@
 - **Packet topology**: this is an implementable Unit packet inside the exceptional parent Task，not an independent SVC Task。
   Its shape and lifecycle follow the parent Task's `collaboration/**` protocol；do not run `svc task init/grow` against this
   Unit or create a second task-control authority。
-- **Current phase**: Implementation and Verify are complete；real Telegram text、metadata-only attachment、explicit
-  materialization、supported `👍` acknowledgement and the complete repository gate passed。See
+- **Current phase**: Closed after implementation、real acceptance、preview delivery and Human-authorized PR delivery。Real
+  Telegram text、metadata-only attachment、explicit materialization、supported `👍` acknowledgement and the complete
+  repository gate passed。See
   [Implementation Evidence](implementation-evidence.md)。
 - **Current placement**: after PR #88 merged as protected-main commit `459a6df`，core-py implementation moved to
   `.worktrees/core-py-telegram-integrated` on `feat/telegram-source-towncrier-integrated`。Organization
@@ -24,7 +25,9 @@
   migration，including Core，root dependency/lock、release tooling/automation、changelog/fragment convention and contributor
   guidance，plus one tool-agnostic `InKCre/.github` release-guidance reference on its own repository branch。Core
   Source/Resolver/Extension framework and migrations remain outside ownership。
-- **Next surface**: final Human-authorized delivery。Commit、push and PR creation remain separately unauthorized。
+- **Delivery**: core-py PR #89 is merge-ready at head `624b9ef`；organization guidance PR InKCre/.github#28 was squash
+  merged as `f7269b9`。No Unit behavior、verification or delivery work remains after #89 merges；the parent Task retains the
+  packet until its own lifecycle closes。
 
 ## Product outcome
 

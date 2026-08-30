@@ -6,7 +6,7 @@
 | Unit | Session | Branch / worktree | Base | Phase | Decision range | Declared overlap / dependency |
 | --- | --- | --- | --- | --- | --- | --- |
 | `mcp-sink` | `01a04610-338e-7311-93df-847f9801c5af` | merged through PR #88；the current root worktree retains only local task-control state | protected `main` merge `459a6df` | Closed | D-381–D-420 | No active implementation ownership；MCP runtime、ChatGPT Tool acceptance and production delivery are complete |
-| `telegram-extension` | `01a04685-aa31-7682-a4a2-824727eacce5` | `feat/telegram-source-towncrier-integrated` / `.worktrees/core-py-telegram-integrated`；`.github` guidance uses `feat/release-lifecycle-guidance` / `.worktrees/github-release-guidance` | integrated protected-main base `459a6df`（PR #88 merge）；`.github` base `6c7d802` | Verify complete / delivery ready | D-421–D-460 | Owns Telegram plus the Human-approved repository-wide Changie→Towncrier release-contract cutover, including Core and independent `.github` guidance；the superseded pre-merge transfer worktree remains only as an uncommitted backup until integrated verification completes |
+| `telegram-extension` | `01a04685-aa31-7682-a4a2-824727eacce5` | core-py PR #89 / `.github` PR #28 | core-py base `459a6df`；`.github` guidance merged as `f7269b9` | Closed / delivered for merge | D-421–D-460 | Telegram、repository-wide Changie→Towncrier cutover and organization guidance are complete；local implementation/transfer worktrees may be retired after #89 merges |
 
 ## Shared-worktree coordination
 

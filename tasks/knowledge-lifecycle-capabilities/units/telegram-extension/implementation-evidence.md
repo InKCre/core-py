@@ -65,7 +65,9 @@
 
 ## Remaining verification
 
-- Final diff/status review and Human-authorized delivery only；no Telegram behavior or repository gate remains open。
+- None。Core-py PR #89 passed repository contract、portable database runtime、isolated preview database and preview
+  application delivery at head `624b9ef`；its preview `/readyz` returned HTTP 200 with database、migration、roles、privileges
+  and catalog ready。InKCre/.github PR #28 was squash merged as `f7269b9`。Sir authorized merge and local cleanup。
 
 ## Reusable execution guidance
 
