@@ -328,6 +328,39 @@ def prepare_release(project: ExtensionProject) -> None:
     raise ReleaseContractError("\n".join(f"- {problem}" for problem in problems))
 
 
+def render_version_pr_body() -> str:
+  releases: list[str] = []
+  no_changes = "no unreleased changes found for automatic bumping"
+  for project in discover_projects():
+    next_version = _changie("next", "auto", "--project", project.key, check=False)
+    if next_version.returncode != 0:
+      detail = f"{next_version.stdout}\n{next_version.stderr}".strip()
+      if no_changes in detail:
+        continue
+      raise ReleaseContractError(
+        f"could not determine the next {project.key} version: {detail}"
+      )
+    prefix = f"{project.key}-"
+    value = next_version.stdout.strip()
+    if not value.startswith(prefix):
+      raise ReleaseContractError(
+        f"Changie next returned unexpected {project.key} version {value!r}"
+      )
+    notes = (
+      _changie("batch", "auto", "--project", project.key, "--dry-run")
+      .stdout.partition("\n")[2]
+      .strip()
+    )
+    releases.append(f"## {project.coordinate}@{value.removeprefix(prefix)}\n\n{notes}")
+
+  introduction = (
+    "This PR is maintained automatically from the pending first-party Extension "
+    "Changie fragments. Merge it when these Releases are ready to publish; new "
+    "fragments reaching main will update this PR.\n\n# Releases"
+  )
+  return f"{introduction}\n\n{'\n\n'.join(releases)}\n"
+
+
 def main() -> int:
   parser = argparse.ArgumentParser()
   subparsers = parser.add_subparsers(dest="command", required=True)
@@ -337,6 +370,7 @@ def main() -> int:
   check_parser.add_argument("--base")
   prepare_parser = subparsers.add_parser("prepare")
   prepare_parser.add_argument("project")
+  subparsers.add_parser("version-pr-body")
   changed_parser = subparsers.add_parser("version-changed")
   changed_parser.add_argument("--project", required=True)
   changed_parser.add_argument("--base", required=True)
@@ -354,6 +388,8 @@ def main() -> int:
       check_release_contract(args.base)
     elif args.command == "prepare":
       prepare_release(project_by_key(args.project))
+    elif args.command == "version-pr-body":
+      print(render_version_pr_body(), end="")
     elif args.command == "version-changed":
       print(str(version_changed(project_by_key(args.project), args.base)).lower())
     else:
