@@ -10,6 +10,7 @@ case "${1:-}" in
       arguments+=(--base "$BASE_REVISION")
     fi
     if [ "${RELEASE_PR:-false}" = true ]; then arguments+=(--release-pr); fi
+    if [ "${MERGED_CHANGE:-false}" = true ]; then arguments+=(--merged); fi
     pdm run check:releases "${arguments[@]}"
     ;;
   extension-wheels)

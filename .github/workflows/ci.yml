@@ -44,6 +44,7 @@ jobs:
           BASE_REVISION: >-
             ${{ github.event.pull_request.base.sha || github.event.before }}
           RELEASE_PR: ${{ github.event.pull_request.head.ref == 'release/next' }}
+          MERGED_CHANGE: ${{ github.event_name == 'push' }}
         run: bash scripts/automation/repository_check.sh release-intent
 
       - name: Run repository contract
