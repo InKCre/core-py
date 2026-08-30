@@ -36,19 +36,15 @@ jobs:
           version: 2.28.0
           cache: true
 
-      - name: Set up exact Changie release tool
-        uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
-        with:
-          version: v1.25.2
-
       - name: Install locked dependencies
         run: pdm install -G dev --frozen-lockfile
 
-      - name: Enforce first-party Extension release intent
+      - name: Enforce release intent
         env:
           BASE_REVISION: >-
             ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: bash scripts/automation/repository_check.sh extension-intent
+          RELEASE_PR: ${{ github.event.pull_request.head.ref == 'release/next' }}
+        run: bash scripts/automation/repository_check.sh release-intent
 
       - name: Run repository contract
         run: pdm run check

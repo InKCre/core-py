@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from extension_release import PROJECT_ROOT, discover_projects
+from release import PROJECT_ROOT, discover_projects  # pyrefly: ignore[missing-module-attribute]
 
 
 class PreviewBuildError(RuntimeError):

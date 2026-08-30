@@ -33,15 +33,33 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
           persist-credentials: false
 
+      - name: Select normal Core release or manual recovery
+        id: selection
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            echo "selected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "selected=$(python3 scripts/release.py version-changed --project core --base HEAD^)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Record unchanged Core no-op
+        if: steps.selection.outputs.selected != 'true'
+        run: echo "Core version is unchanged; normal production delivery is a no-op."
+
       - name: Verify exact main commit and checks
+        if: steps.selection.outputs.selected == 'true'
         uses: ./.github/actions/production-verify
         with:
           github_token: ${{ github.token }}
           head_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Pull exact published core service
+        if: steps.selection.outputs.selected == 'true'
         id: core
         env:
           GHCR_TOKEN: ${{ github.token }}
@@ -49,11 +67,13 @@ jobs:
         run: bash scripts/automation/runtime_artifact.sh pull-production
 
       - name: Build release guard and PostgREST without deployment secrets
+        if: steps.selection.outputs.selected == 'true'
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: bash scripts/automation/runtime_artifact.sh build-production-transports
 
       - name: Deliver production
+        if: steps.selection.outputs.selected == 'true'
         uses: ./.github/actions/production-delivery
         with:
           core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
@@ -69,6 +89,7 @@ jobs:
           postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
 
       - name: Move production-admitted stable channel
+        if: steps.selection.outputs.selected == 'true'
         env:
           GHCR_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}

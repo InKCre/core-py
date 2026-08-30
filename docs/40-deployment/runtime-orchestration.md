@@ -6,6 +6,14 @@ Startup and background execution span application bootstrap, scheduler setup, ex
 
 ## Runtime Truths
 
+### 0. Prepared Core versions select normal production
+
+Successful checked-main commits continue to produce immutable SHA/digest evidence and the mutable
+`main` image candidate. Normal production delivery and `stable` promotion run only when the root
+Core version changed in that protected-main commit. An Extension-only Release is therefore a Core
+deployment no-op. The selected artifact remains identified by exact source SHA/digest; explicit
+`workflow_dispatch` is the recovery lane for redeploying a current artifact.
+
 ### 1. Application bootstrap has an explicit order
 
 Current bootstrap flow in `run.py`:

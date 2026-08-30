@@ -17,31 +17,31 @@ extensions/<extension_id>/
   resolver.py      optional exact resolver contract
   api.py           optional extension-owned HTTP surface
   pyproject.toml   Distribution identity, version, dependencies, and build metadata
+  .changes/        feature fragments pending an independent Release PR
   CHANGELOG.md     generated Python Distribution release history
 ```
 
 Dependencies admitted by an extension must also be frozen in the owning root profile/lock；an isolated extension lock
 is not enough for the production artifact。
 
-## First-party release preparation
+## First-party release intent
 
 Every immediate Extension project declaring `[tool.inkcre-extension]` is an independent Python Distribution producer。
 Its `pyproject.toml [project].version` is the Python Distribution version authority and must equal the Extension Release
 Version used by every Distribution association；the root Core version has an independent lifecycle。
 
-Install the repository-pinned Changie `v1.25.2`，then record one producer change in the feature PR：
+Feature changes add a project-local fragment but leave version and changelog preparation to the
+independent Release PR：
 
 ```bash
-changie new --projects rss
-pdm run check:extension-releases --base origin/main
+pdm run towncrier create --config towncrier.toml --dir extensions/rss +.changed.md
+pdm run check:releases --base origin/main
 ```
 
-The [native Extension distribution deployment guide](../docs/40-deployment/native-extension-distribution.md) owns the
-Version PR and publication workflow。`release:extension` prepares one project for local inspection or recovery。
-
-Pull-request CI discovers the complete producer set and rejects an artifact-input change without a version advance，
-an unregistered Changie project，invalid fragments，or a manifest/changelog mismatch。Post-main delivery selects only
-new projects and changed versions；a changelog-only correction is a publication no-op。
+Towncrier validates and renders the six shared fragment types。Repository orchestration discovers
+affected projects，chooses the highest maturity-aware bump and updates `pyproject.toml`。Pull-request
+CI rejects artifact input without matching intent and rejects feature-branch version/changelog
+preparation。Post-main publication still enumerates Extensions only and selects changed versions。
 
 ## Extension Lifecycle
 

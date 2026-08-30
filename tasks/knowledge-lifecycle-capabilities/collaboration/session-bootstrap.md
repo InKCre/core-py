@@ -41,8 +41,11 @@ The unit of discussion progress is a more coherent current model, not another qu
 consequences, remove dominated options and present at most one material Human fork. Update the Unit packet as discussion
 proceeds. Do not reopen accepted decisions after context compaction.
 
-Do not edit the program packet, collaboration roster, task-wide design taste, architecture-understanding, decision index or
-shared durable-doc promotion control. Record cross-unit pressure in the Unit packet and report it to the coordinator.
+All active Unit sessions are peers；there is no coordinator。Normally edit your Unit packet、declared implementation surfaces
+and reserved decision range。Make a task-wide packet/roster/index/architecture edit only when it is the smallest accepted
+current-state consequence，after checking the latest roster。If another active Unit may be affected，pause the intersecting
+work and report the concrete conflict to Sir；do not contact another task/session。Shared durable-doc promotion retains its
+repository/Hub ownership and Human authorization。
 
 Your first report must state:
 - restored current system model;

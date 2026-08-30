@@ -29,7 +29,7 @@ dependencies = [
     "apscheduler>=3.11.0",
     "html2text>=2025.4.15",
     "logtail-python>=0.3.0",
-    "python-telegram-bot>=21.10.0",
+    "python-telegram-bot==22.8",
     "alembic>=1.16.4",
     "alembic-utils>=0.8.8",
     "alembic-postgresql-enum>=1.8.0",
@@ -72,6 +72,7 @@ dev = [
     "ruff>=0.14.10",
     "pyrefly==1.1.1",
     "setuptools>=80.0.0,<81.0.0",
+    "towncrier==25.8.0",
 ]
 
 [tool.poetry]
@@ -95,9 +96,9 @@ test = "python -m pytest -q"
 "check:migrations" = { composite = ["lint:migrations", "check:migration-history"] }
 "check:automation" = { shell = "bash -n scripts/automation/*.sh" }
 "check:migration-history" = "python scripts/check_migration_history.py {args}"
-"check:extension-releases" = "python scripts/extension_release.py check {args}"
+"check:releases" = "python scripts/release.py check {args}"
 "build:extension-preview" = "python scripts/build_extension_preview.py {args}"
-"release:extension" = "python scripts/extension_release.py prepare {args}"
+"release:prepare" = "python scripts/release.py prepare {args}"
 "check:foundation" = { composite = ["doctor", "check:lock", "check:migrations", "check:automation"] }
 "check" = { composite = ["check:foundation", "format:check", "lint", "typecheck", "test"] }
 "db:revision" = "alembic revision -m {args}"

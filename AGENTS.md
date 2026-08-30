@@ -54,6 +54,12 @@ Pause for Human input when the requested change conflicts with Product/Technical
 
 - Package management: PDM. Run package-dependent Python through `pdm run`.
 - Primary repository gate: `pdm run check`; use narrower declared checks while iterating.
+- Prefer preview for end-to-end acceptance that depends on real third-party credentials、external protocol behavior or
+  production-shaped persistence/routing；use local or declared development runtimes for fast deterministic iteration。
+- Treat `.env` files as dotenv data，not shell scripts。Load them through the application/tooling because values may contain
+  shell metacharacters。
+- Tests that create or destroy database roles、schemas or databases require a disposable PostgreSQL runtime；never point them
+  at a shared development or preview database。
 - Follow the organization-wide [Verification and Test Policy](https://github.com/InKCre/.github/blob/main/TESTING.md).
   Repository-local admitted suites do not authorize new automation by analogy.
 - Preserve one authority per durable fact. Name semantics directly; spend complexity only for demonstrated return.
