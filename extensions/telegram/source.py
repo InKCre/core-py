@@ -1,172 +1,299 @@
-"""Telegram Source for collecting messages sent to the bot."""
+"""Bound private Telegram inbox collection through ordinary Source Jobs."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+import datetime
 import typing
-from typing import Literal as Lit
+
 import pydantic
 import sqlmodel
-from telegram import Update
-from telegram.ext import Application
-from app.business.source import SourceBase
+import telegram
+
+from app.business.info_base.block import BlockManager
+from app.business.info_base.relation import RelationManager
+from app.business.source import SourceBase, SourceManager
 from app.engine import SessionLocal
-from app.business.info_base.main import InfoBaseManager
+from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.job import JobModel
-from extensions.telegram.resolver import TelegramMessageResolver
-from .schema import TelegramMessage
+from app.schemas.source import SourceModel
+from libs.obsrv.main import get_logger
+
+from .resolver import SOURCE_RELATION, TelegramAttachmentResolver
+from .schema import (
+  AttachmentKind,
+  TelegramAttachment,
+  TelegramSourceConfig,
+  TelegramSourceState,
+)
 
 
-class SourceConfig(sqlmodel.SQLModel):
-  """Configuration of Telegram Source."""
-
-  bot_token: str = ""
-  """Telegram Bot API token (get from @BotFather)"""
-  collect_method: Lit["default", "webhook"] = "default"
-  """Method to collect messages: 'default' (getUpdates periodically) or 'webhook'"""
+LOGGER = get_logger().getChild(__name__)
+MAX_DIAGNOSTICS = 50
 
 
-class Source(SourceBase[SourceConfig], config_cls=SourceConfig):
-  """Telegram Source - collects messages sent to the configured Telegram bot.
+@dataclass(frozen=True)
+class PersistedUpdate:
+  status: typing.Literal["saved", "unsupported", "duplicate"]
+  attachment_id: int | None = None
 
-  Supports two collection methods:
-  1. Default (getUpdates): Periodically fetches updates via scheduled collect()
-  2. Webhook: Receives updates via HTTP POST to /bot/{source_id} endpoint
 
-  Note: Telegram message queue can hold up to 100 updates. If collect() is not
-  called within 24 hours or queue exceeds 100 messages, message loss may occur.
-  This is controllable by the user through a global Cron + Source Job template.
-  """
+def _block_id(block: BlockModel) -> int:
+  if block.id is None:
+    raise RuntimeError("persisted Block has no ID")
+  return block.id
 
-  def _parse_telegram_message(self, message) -> TelegramMessage:
-    """Parse Telegram message into TelegramMessage object.
 
-    :param message: Telegram message object
-    :return: TelegramMessage data model
-    """
-    # Determine media type
-    has_media = False
-    media_type = None
-    caption = None
+def _duration(value: typing.Any) -> int | None:
+  if isinstance(value, datetime.timedelta):
+    return int(value.total_seconds())
+  return value if isinstance(value, int) else None
 
-    if message.photo:
-      has_media = True
-      media_type = "photo"
-      caption = message.caption
-    elif message.video:
-      has_media = True
-      media_type = "video"
-      caption = message.caption
-    elif message.document:
-      has_media = True
-      media_type = "document"
-      caption = message.caption
-    elif message.audio:
-      has_media = True
-      media_type = "audio"
-      caption = message.caption
-    elif message.voice:
-      has_media = True
-      media_type = "voice"
-      caption = message.caption
-    elif message.sticker:
-      has_media = True
-      media_type = "sticker"
 
-    # Create TelegramMessage object with only message data
-    return TelegramMessage(
-      message_id=message.message_id,
-      date=message.date,
-      text=message.text,
-      caption=caption,
-      reply_to_message_id=(
-        message.reply_to_message.message_id if message.reply_to_message else None
-      ),
-      has_media=has_media,
-      media_type=media_type,
+def _attachment(message: telegram.Message) -> TelegramAttachment | None:
+  kind: AttachmentKind
+  value: typing.Any
+  if message.photo:
+    kind, value = "photo", max(message.photo, key=lambda photo: photo.width * photo.height)
+  elif message.animation is not None:
+    kind, value = "animation", message.animation
+  else:
+    candidates: tuple[tuple[AttachmentKind, typing.Any], ...] = (
+      ("audio", message.audio),
+      ("document", message.document),
+      ("sticker", message.sticker),
+      ("video", message.video),
+      ("video_note", message.video_note),
+      ("voice", message.voice),
     )
+    selected = next(((name, item) for name, item in candidates if item is not None), None)
+    if selected is None:
+      return None
+    kind, value = selected
+  return TelegramAttachment(
+    kind=kind,
+    file_id=value.file_id,
+    file_unique_id=value.file_unique_id,
+    filename=getattr(value, "file_name", None),
+    mime_type=getattr(value, "mime_type", None),
+    file_size=getattr(value, "file_size", None),
+    width=getattr(value, "width", None),
+    height=getattr(value, "height", None),
+    duration=_duration(getattr(value, "duration", None)),
+    title=getattr(value, "title", None),
+    performer=getattr(value, "performer", None),
+    emoji=getattr(value, "emoji", None),
+  )
+
+
+def _semantic_text(message: telegram.Message, *, caption: bool = False) -> BlockForm | None:
+  value = message.caption if caption else message.text
+  if value is None:
+    return None
+  entities = message.caption_entities if caption else message.entities
+  if entities:
+    html = message.caption_html if caption else message.text_html
+    return BlockForm(resolver="core.html.v1", content=html)
+  return BlockForm(resolver="core.text.v1", content=value)
+
+
+class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
+  """Collect useful content sent privately by one configured Telegram identity."""
+
+  def _pin_bot(self, bot_id: int) -> TelegramSourceState:
+    with SessionLocal() as db:
+      source = db.exec(
+        sqlmodel.select(SourceModel).where(SourceModel.id == self._id).with_for_update()
+      ).one()
+      state = TelegramSourceState.model_validate(source.state or {})
+      if state.bot_id is not None and state.bot_id != bot_id:
+        raise ValueError("Telegram Source token resolves to a different bot")
+      if state.bot_id is None:
+        state = state.model_copy(update={"bot_id": bot_id})
+        source.state = state.model_dump(mode="json", exclude_none=True)
+        db.add(source)
+        db.commit()
+      return state
+
+  def _persist_update(
+    self,
+    update_id: int,
+    *,
+    text: BlockForm | None = None,
+    attachment: TelegramAttachment | None = None,
+    caption: BlockForm | None = None,
+  ) -> PersistedUpdate:
+    with SessionLocal() as db:
+      source = db.exec(
+        sqlmodel.select(SourceModel).where(SourceModel.id == self._id).with_for_update()
+      ).one()
+      state = TelegramSourceState.model_validate(source.state or {})
+      if state.last_update_id is not None and state.last_update_id >= update_id:
+        return PersistedUpdate("duplicate")
+
+      if text is not None:
+        BlockManager.create(text, db)
+      attachment_id = None
+      if attachment is not None:
+        source_anchor = SourceManager.ensure_block(source, db)
+        metadata = BlockManager.create(
+          TelegramAttachmentResolver.create_block(attachment), db
+        )
+        attachment_id = _block_id(metadata)
+        RelationManager.create(_block_id(source_anchor), attachment_id, SOURCE_RELATION, db)
+        if caption is not None:
+          caption_block = BlockManager.create(caption, db)
+          RelationManager.create(attachment_id, _block_id(caption_block), "caption", db)
+
+      state = state.model_copy(update={"last_update_id": update_id})
+      source.state = state.model_dump(mode="json", exclude_none=True)
+      db.add(source)
+      db.commit()
+      status = "saved" if text is not None or attachment is not None else "unsupported"
+      return PersistedUpdate(status, attachment_id)
+
+  @staticmethod
+  def _diagnostic(
+    diagnostics: list[dict[str, typing.Any]], update_id: int, scope: str, message: str
+  ) -> None:
+    if len(diagnostics) < MAX_DIAGNOSTICS:
+      diagnostics.append({"update_id": update_id, "scope": scope, "message": message})
+
+  async def _notify(
+    self,
+    bot: telegram.Bot,
+    message: telegram.Message,
+    outcome: str,
+    diagnostics: list[dict[str, typing.Any]],
+    update_id: int,
+  ) -> None:
+    try:
+      if outcome in {"saved", "partial"}:
+        await bot.set_message_reaction(
+          message.chat_id,
+          message.message_id,
+          telegram.ReactionTypeEmoji("👍"),
+        )
+      if outcome == "start":
+        await bot.send_message(
+          message.chat_id,
+          "Send or forward useful text and files here. Saved messages receive 👍.",
+          reply_to_message_id=message.message_id,
+        )
+      elif outcome == "unsupported":
+        await bot.send_message(
+          message.chat_id,
+          "This message has no supported content to save.",
+          reply_to_message_id=message.message_id,
+        )
+      elif outcome == "partial":
+        await bot.send_message(
+          message.chat_id,
+          "Attachment metadata was saved, but its bytes were not downloaded; "
+          "retry materialization later.",
+          reply_to_message_id=message.message_id,
+        )
+    except telegram.error.TelegramError as error:
+      LOGGER.warning("Telegram completion notification failed", exc_info=True)
+      self._diagnostic(diagnostics, update_id, "acknowledgement", str(error))
 
   async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
-    """Collect messages using getUpdates (default method).
+    del config
+    setup = self.get_config()
+    state = TelegramSourceState.model_validate(self.get_state())
+    counts = {
+      "saved": 0,
+      "partial": 0,
+      "unsupported": 0,
+      "unauthorized": 0,
+      "duplicates": 0,
+      "failed": 0,
+    }
+    diagnostics: list[dict[str, typing.Any]] = []
+    job.state = {"counts": counts, "diagnostics": diagnostics}
 
-    :param job: The collect job containing config and state.
+    async with telegram.Bot(setup.bot_token) as bot:
+      identity = await bot.get_me()
+      state = self._pin_bot(identity.id)
+      while True:
+        updates = await bot.get_updates(
+          offset=None if state.last_update_id is None else state.last_update_id + 1,
+          limit=100,
+          timeout=0,
+          allowed_updates=["message"],
+        )
+        for update in sorted(updates, key=lambda item: item.update_id):
+          message = update.message
+          if (
+            message is None
+            or message.chat.type != telegram.constants.ChatType.PRIVATE
+            or message.from_user is None
+            or message.from_user.id != setup.bound_user_id
+          ):
+            outcome = self._persist_update(update.update_id)
+            if outcome.status != "duplicate":
+              counts["unauthorized" if message is not None else "unsupported"] += 1
+            state = TelegramSourceState.model_validate(self.get_state())
+            continue
 
-    Fetches all pending updates from Telegram using getUpdates API.
-    Should be called periodically (at least every 24 hours) to avoid message loss.
-    """
-    del job, config
-    source_config = self.get_config()
+          try:
+            if message.text == "/start":
+              outcome = self._persist_update(update.update_id)
+              if outcome.status != "duplicate":
+                await self._notify(bot, message, "start", diagnostics, update.update_id)
+              state = TelegramSourceState.model_validate(self.get_state())
+              continue
 
-    if not source_config.bot_token:
-      # No bot token configured, cannot collect
-      return
-
-    # Initialize Telegram bot application
-    app = Application.builder().token(source_config.bot_token).build()
-
-    collected = []
-    try:
-      await app.initialize()
-
-      # Get last update_id from state
-      state = self.get_state()
-      last_update_id = state.get("last_update_id", 0)
-
-      # Fetch updates using getUpdates
-      # offset = last_update_id + 1 to get only new updates
-      updates = await app.bot.get_updates(
-        offset=last_update_id + 1 if last_update_id else None,
-        allowed_updates=Update.ALL_TYPES,
-      )
-
-      # Process each update
-      for update in updates:
-        if update.message:
-          telegram_msg = self._parse_telegram_message(update.message)
-
-          # Create StarGraphForm
-          collected.append(TelegramMessageResolver.create_graph(telegram_msg))
-
-        # Update last_update_id
-        if update.update_id > last_update_id:
-          last_update_id = update.update_id
-
-      # Save last_update_id to state
-      if last_update_id > state.get("last_update_id", 0):
-        state["last_update_id"] = last_update_id
-        self.set_state(state)
-
-    finally:
-      await app.shutdown()
-
-    # Save collected messages to database
-    with SessionLocal() as db:
-      for graph in collected:
-        await InfoBaseManager.add_stars_graph_to_session(graph, db)
-      db.commit()
-
-  async def record(self, data: typing.Any) -> None:
-    """Record message from webhook (passive collection).
-
-    TODO: extract common parts with collect()
-
-    :param data: Update data from Telegram webhook (dict or Update object)
-
-    This method is called when a webhook receives an update from Telegram.
-    """
-    # Parse the update
-    if isinstance(data, dict):
-      update = Update.de_json(data, None)
-    else:
-      update = data
-
-    if not update or not update.message:
-      return
-
-    # Parse message
-    telegram_msg = self._parse_telegram_message(update.message)
-
-    # Create StarGraphForm
-    graph = TelegramMessageResolver.create_graph(telegram_msg)
-
-    # Save to database
-    with SessionLocal() as db:
-      await InfoBaseManager.add_stars_graph_to_session(graph, db)
-      db.commit()
+            attachment = _attachment(message)
+            text = _semantic_text(message) if attachment is None else None
+            caption = (
+              _semantic_text(message, caption=True) if attachment is not None else None
+            )
+            outcome = self._persist_update(
+              update.update_id, text=text, attachment=attachment, caption=caption
+            )
+            if outcome.status == "duplicate":
+              counts["duplicates"] += 1
+            elif outcome.status == "unsupported":
+              counts["unsupported"] += 1
+              await self._notify(bot, message, "unsupported", diagnostics, update.update_id)
+            else:
+              notification = "saved"
+              if setup.download_attachments and outcome.attachment_id is not None:
+                block = BlockManager.get(outcome.attachment_id)
+                if block is None:
+                  raise RuntimeError("persisted Telegram attachment disappeared")
+                try:
+                  await TelegramAttachmentResolver(block).materialize_content()
+                except Exception as error:
+                  LOGGER.warning("Telegram attachment enrichment failed", exc_info=True)
+                  self._diagnostic(
+                    diagnostics, update.update_id, "materialization", str(error)
+                  )
+                  counts["partial"] += 1
+                  notification = "partial"
+                else:
+                  counts["saved"] += 1
+              else:
+                counts["saved"] += 1
+              await self._notify(bot, message, notification, diagnostics, update.update_id)
+            state = TelegramSourceState.model_validate(self.get_state())
+          except Exception as error:
+            counts["failed"] += 1
+            self._diagnostic(diagnostics, update.update_id, "primary", str(error))
+            try:
+              await bot.send_message(
+                message.chat_id,
+                "This message was not saved and will be retried by the next collection.",
+                reply_to_message_id=message.message_id,
+              )
+            except telegram.error.TelegramError as notification_error:
+              self._diagnostic(
+                diagnostics,
+                update.update_id,
+                "failure_notification",
+                str(notification_error),
+              )
+            raise
+        if len(updates) < 100:
+          break

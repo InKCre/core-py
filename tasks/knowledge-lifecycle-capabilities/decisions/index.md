@@ -50,13 +50,15 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-381–D-390](D381-D390.md) | MCP→Resolver use topology → monotonic Extension types / Peer-scoped Sink enablement |
 | [D-391–D-400](D391-D400.md) | Explicit Sink Manager/Base lifecycle → Agent Skill / live MCP Resource projection |
 | [D-401–D-410](D401-D410.md) | MCP batch outcome contract → current edge |
+| [D-421–D-430](D421-D430.md) | Telegram private delivery inbox → repository-wide Towncrier release-contract expansion |
+| [D-431–D-440](D431-D440.md) | Core release selection → Towncrier guidance、peer collaboration and Telegram acknowledgement reaction |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
 
-- Decision IDs remain monotonic across shards。Under parallel execution，the coordinator reserves non-overlapping ranges in
-  the [parallel roster](../collaboration/roster.md)；a unit session writes only its reserved shards and does not edit this
-  index。
+- Decision IDs remain monotonic across shards。Under parallel execution，each peer claims a non-overlapping range in the latest
+  [parallel roster](../collaboration/roster.md)，checks the directory for collisions and writes only its reserved shards。The
+  peer may add the narrow index navigation/current-edge consequence of its own accepted decisions。
 - A later correction gets a new ID and names the superseded decision；do not rewrite history merely to remove disagreement。
 - Unit packets and design files cite decision IDs and link to this index or the exact shard；they do not duplicate decision
   authority。
@@ -65,6 +67,11 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-402](D401-D410.md)。MCP sink owns reserved range D-381–D-420。
-- Active unit: [mcp-sink](../units/mcp-sink/packet.md)。
-- Active surface: Technical discussion。
+- Latest confirmed decision: [D-438](D431-D440.md)。MCP sink owns reserved range D-381–D-420；Telegram extension owns
+  reserved range D-421–D-460。
+- Active units: [mcp-sink](../units/mcp-sink/packet.md) in implementation/delivery and
+  [telegram-extension](../units/telegram-extension/packet.md) with implementation plan、preflight and Impact Handshake
+  prepared。Telegram retains D-421–D-460 after its approved expansion to the repository-wide Changie→Towncrier
+  release contract；the expansion changes placement/overlap, not decision ownership。
+- Parallel placement and integration surfaces are shared peer control in the [roster](../collaboration/roster.md)；there is no
+  coordinator role。

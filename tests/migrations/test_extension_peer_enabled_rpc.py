@@ -40,7 +40,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 def postgres_connection_info(tmp_path_factory) -> Iterator[dict[str, object]]:
   initdb = shutil.which("initdb")
   pg_ctl = shutil.which("pg_ctl")
-  if initdb is None or pg_ctl is None:
+  postgres = shutil.which("postgres")
+  if initdb is None or pg_ctl is None or postgres is None:
     pytest.skip("disposable PostgreSQL binaries are unavailable")
   root = tmp_path_factory.mktemp("extension-rpc-postgres")
   data = root / "data"

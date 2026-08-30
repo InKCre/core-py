@@ -4,10 +4,10 @@ source "$(dirname "$0")/_common.sh"
 
 case "${1:-}" in
   discover)
-    projects="$(python3 scripts/extension_release.py projects --json)"
+    projects="$(python3 scripts/release.py projects --extensions-only --json)"
     if [ "${EVENT_NAME:-}" = workflow_dispatch ]; then
       require_env REQUESTED_EXTENSION
-      python3 scripts/extension_release.py projects |
+      python3 scripts/release.py projects --extensions-only |
         grep --fixed-strings --line-regexp -- "$REQUESTED_EXTENSION"
     fi
     emit_output projects "$projects"
@@ -32,7 +32,7 @@ case "${1:-}" in
         selected=true
       else
         git merge-base --is-ancestor "$before" HEAD
-        selected="$(python3 scripts/extension_release.py version-changed \
+        selected="$(python3 scripts/release.py version-changed \
           --project "$EXTENSION" --base "$before")"
       fi
     fi
@@ -63,7 +63,7 @@ case "${1:-}" in
     require_env EXTENSION
     git fetch --no-tags origin main
     git merge-base --is-ancestor HEAD origin/main
-    python3 scripts/extension_release.py verify-artifact-unchanged \
+    python3 scripts/release.py verify-artifact-unchanged \
       --project "$EXTENSION" --from HEAD --to origin/main
     ;;
   prepare)

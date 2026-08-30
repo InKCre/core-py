@@ -1,19 +1,32 @@
-"""Telegram extension for InKCre - provides Telegram bot message source."""
+"""Telegram direct private delivery inbox Extension."""
 
-import sqlmodel
-from fastapi import APIRouter
+import fastapi
+import pydantic
+
 from app.business.extension.main import ExtensionBase
-from app.business.source import SourceManager
-from app.schemas.source import SourceID
+from app.business.info_base.block import BlockManager
+from app.business.info_base.resolver import ResolverManager
+from app.business.peer import PeerHTTPInbound
+from app.schemas.info_base.block import BlockModel
+
+from .resolver import (
+  ATTACHMENT_RESOLVER,
+  TelegramAttachmentResolver,
+  TelegramMaterializationUnavailable,
+)
+from .schema import TelegramAttachmentMaterializeRequest
 
 
-class TelegramExtensionConfig(sqlmodel.SQLModel):
-  """Configuration for Telegram extension.
+TELEGRAM_ATTACHMENT_MATERIALIZE_CAPABILITY = "extensions.telegram.attachment.materialize.v1"
+TELEGRAM_ATTACHMENT_MATERIALIZE_INBOUND = PeerHTTPInbound(
+  capability=TELEGRAM_ATTACHMENT_MATERIALIZE_CAPABILITY,
+  method="POST",
+  path="/telegram/attachments/materialize",
+)
 
-  This extension has no extension-level configuration.
-  Source-specific configuration (bot_token, collect_method)
-  should be set in the individual source instance configuration.
-  """
+
+class TelegramExtensionConfig(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class Extension(
@@ -21,32 +34,35 @@ class Extension(
   ext_id="telegram",
   config_cls=TelegramExtensionConfig,
 ):
-  """Telegram extension - provides bot message source for collecting messages."""
+  """Collect useful content sent directly to one sender-bound Telegram bot."""
 
   @classmethod
-  def _init_resolvers(cls):
-    """Initialize Telegram message resolver."""
-    from .resolver import TelegramMessageResolver  # noqa: F401
+  def _init_resolvers(cls) -> None:
+    from . import resolver as resolver_module  # noqa: F401
 
   @classmethod
-  def _init_sources(cls):
-    """Initialize Telegram bot source."""
-    from .source import Source as TelegramSource  # noqa: F401
+  def _init_sources(cls) -> None:
+    from .source import Source  # noqa: F401
 
   @classmethod
-  def _register_apis(cls, router: APIRouter):
-    """Register API endpoints for Telegram extension."""
-    from fastapi import Request
+  def peer_inbounds(cls):
+    return (TELEGRAM_ATTACHMENT_MATERIALIZE_INBOUND,)
 
-    async def telegram_webhook(source_id: SourceID, request: Request):
-      """Webhook endpoint for receiving Telegram updates.
-
-      :param source_id: The source instance ID
-      :param request: FastAPI request containing webhook payload
-      """
-      source = SourceManager.get_source_ins(source_id)
-      data = await request.json()
-      await source.record(data)
-      return {"ok": True}
-
-    router.post("/bot/{source_id}")(telegram_webhook)
+  @classmethod
+  def _register_apis(cls, router: fastapi.APIRouter) -> None:
+    @router.post("/attachments/materialize")
+    async def materialize_attachment(
+      body: TelegramAttachmentMaterializeRequest,
+    ) -> BlockModel:
+      block = BlockManager.get(body.block)
+      if block is None:
+        raise fastapi.HTTPException(status_code=404, detail="attachment Block not found")
+      resolver = ResolverManager.get(block)
+      if resolver.__rsotype__ != ATTACHMENT_RESOLVER:
+        raise fastapi.HTTPException(
+          status_code=422, detail="Block is not a Telegram attachment"
+        )
+      try:
+        return await TelegramAttachmentResolver(block).materialize_content()
+      except TelegramMaterializationUnavailable as error:
+        raise fastapi.HTTPException(status_code=409, detail=str(error)) from error

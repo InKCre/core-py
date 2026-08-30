@@ -31,25 +31,19 @@ Core restarts the exact prior runtime while leaving durable intent unchanged.
 The seven first-party Extensions are independent PEP 420 wheels with the standard entry-point group
 and producer metadata in their `pyproject.toml`. That project version is the Python association's
 Release authority and must equal the Extension Release Version shared by its Distribution
-associations. One Changie project per producer owns the generated version entry, changelog, and
-mechanical `pyproject.toml` replacement; it does not publish. Feature pull requests add unreleased
-fragments without changing those generated files. After such a pull request reaches protected
-`main`, `.github/workflows/extension-version-pr.yml` uses Changie to create or update the fixed
-Extension Version PR. Its body projects the pending versions and categorized notes from Changie's
-own `next auto` and `batch auto --dry-run` output; the projection does not calculate versions or
-become another release authority. Merging the Version PR commits the generated version entries,
-changelogs, and manifest replacements to protected `main`.
+associations. Feature pull requests carry project-local Towncrier fragments and leave versions and
+changelogs unchanged. After checked `main`, one generated Release PR consumes pending fragments,
+applies each project's independent SemVer bump, and renders its changelog without publishing.
+Repository orchestration owns project impact and next-version calculation；Towncrier owns fragment
+validation and rendering。
 
 The initial feature merge also wakes the publisher, but no project version has changed yet, so its
-selection is a no-op. The Version PR merge runs repository checks against the generated release
+selection is a no-op. The Release PR merge runs repository checks against the generated release
 state; only that checked `main` revision gives the existing publisher a new version to select and
-publish. Leaving the Version PR open defers publication while later fragments continue updating
-the same release plan.
+publish. Leaving the Release PR open defers publication while later fragments update the same plan。
 
-Repository CI discovers the producer set and rejects missing Changie coverage, generated-state
-drift, invalid fragments, or an artifact-input change that does not advance the version. A
-changelog-only correction is explicitly outside the artifact-input surface. Publication never
-runs from the Version PR.
+Repository CI discovers the producer set and rejects missing or invalid project intent。Publication
+never runs from the Release PR。
 
 The trusted pull-request preview controller reuses that same discovered producer set. Its dedicated
 PDM `extension-preview` tooling group builds and verifies all seven wheels, then the released

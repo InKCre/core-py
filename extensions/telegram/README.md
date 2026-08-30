@@ -1,52 +1,26 @@
-# Telegram Extension for InKCre
+# Telegram Extension
 
-This extension provides Telegram bot message source functionality for InKCre.
+Telegram is a private delivery inbox for saving useful content to InKCre. Send or forward a message directly to the configured bot; the bot does not join or collect the originating chat.
 
-## Features
+## Source configuration
 
-- Collect messages sent to a configured Telegram bot
-- Support for text messages, media messages (photos, videos, documents, etc.), and captions
-- Track message metadata (sender, chat, timestamps)
-- Support for forwarded messages and replies
-- Automatic tracking of processed messages
+Create one Source of type `extensions.telegram.source.Source` with:
 
-### Message Types Supported
+- `bot_token`: token issued by [@BotFather](https://t.me/botfather)
+- `bound_user_id`: the one numeric Telegram user ID admitted by this Source
+- `download_attachments`: optional, defaults to `false`
 
-- Text messages
-- Photos (with captions)
-- Videos (with captions)
-- Documents (with captions)
-- Audio messages
-- Voice messages
-- Stickers
-- Forwarded messages
-- Reply messages
+Use one bot identity for at most one Telegram Source because Telegram exposes one update queue per bot. This MVP documents that operator constraint but does not add cross-Source enforcement or pairing UI.
 
-## Usage
+Run collection through the ordinary `core.source.collect.v1` Job, manually or from a user-configured Cron. The Extension does not create a schedule. Telegram retains unconfirmed updates for a limited time, so collection frequency is an operator choice.
 
-1. Create a Telegram Bot
-  1. Message [@BotFather](https://t.me/botfather) on Telegram
-  2. Send `/newbot` and follow the instructions
-  3. Copy the bot token provided by BotFather
-2. Install: copy source code into `extensions/` and restart the core-py, and enable
-3. Create a Telegram Source:
-  Create source which type is `extensions.telegram.source.Source` in `sources` table with following values:
-    - `config`: A dict
-      - `bot_token`: Telegram Bot API token (obtain from [@BotFather](https://t.me/botfather))
-      - `collect_method`: The method to collect messages, can be `webhook` or `default`. 
-    - `auto_collect`: schedule the interval collect; only available for collect_method `default`
-4. Setup your bot webhook URL if `collect_method` is `webhook`. 
-   The wekbook URL is `https://your.inkcre-core.tld/telegram/bot/{source_id}`.
-   And you should delete the webhook URL as you delete the source.
-   If you want to use `default` collect method, delete the webhook URL is the prerequisite.
+## Saved content
 
-And now your messages sent to the bot will be automatically collected to the info-base.
+- authored or forwarded text becomes ordinary `core.text.v1` or `core.html.v1` content;
+- supported files become `extensions.telegram.attachment.v1` metadata, with captions as related ordinary text/HTML;
+- with the default `download_attachments=false`, no bytes are downloaded;
+- `POST /telegram/attachments/materialize` explicitly downloads one attachment into the Source's writable Storage; setting `download_attachments=true` invokes the same operation after metadata is committed.
 
-All collected messages will be stored as `telegram message` type block
+Successfully committed messages receive a 👍 reaction. The bot replies only for `/start`, unsupported content, partial attachment materialization, or retryable failure. Existing `extensions.telegram.message.v1` Blocks from version `0.1.0` remain readable, but new collection does not create them.
 
-## Notes
-
-- The Telegram Bot API only allows bots to receive messages sent to them in real-time
-- Historical messages cannot be retrieved via the Bot API (over 24 hours)
-- The bot needs appropriate permissions in group chats to receive messages
-- For private chats, users must start the conversation with the bot first
+Groups, channels, chat history, pairing, setup UI, edited messages, album reconstruction, OCR, and automatic scheduling are outside this MVP.

@@ -15,6 +15,10 @@ author of a solution that can be established from available evidence。
 Terminology、material Product/Technical boundaries and acceptance are jointly reconciled。A correction changes the relevant
 system model and decision criterion，not only the cited example。
 
+All parallel Unit sessions are peers；there is no coordinator role and no cross-session communication protocol。The roster
+provides shared visibility only。When placement、range or authoritative surfaces conflict，the affected session pauses and
+reports the conflict to Sir；Sir owns any required coordination or sequencing decision。
+
 ## Unit Loop
 
 ```text

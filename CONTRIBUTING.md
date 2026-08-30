@@ -38,21 +38,27 @@ Verification follows the organization-wide
 migration, integration, and acceptance suites are repository-local admitted exceptions; they do not
 authorize new unit, schema, helper, mocked-manager, or route tests by analogy.
 
-## First-Party Extension Releases
+## Release intent
 
-Changing a first-party Extension's Python Distribution input requires explicit release intent.
-Install Changie `v1.25.2`, create a project-scoped change, and prepare that project before opening
-the pull request:
+Core and each first-party Extension are independent release projects. A feature pull request that
+changes delivered project behavior adds at least one non-empty project-local Towncrier fragment;
+it does not change a version or generated changelog:
 
 ```bash
-changie new --projects <extension-id>
-pdm run release:extension <extension-id>
-pdm run check:extension-releases --base origin/main
+pdm run towncrier create --config towncrier.toml --dir extensions/<extension-id> +.<type>.md
+pdm run check:releases --base origin/main
 ```
 
-The generated version entry and changelog travel with the source change. CI verifies all discovered
-producers and rejects source changes that retain the prior version; Registry publication remains a
-post-main workflow with production credentials.
+Core fragments live in `.changes/`; Extension fragments live in
+`extensions/<extension-id>/.changes/`. Valid types are `added`, `changed`, `deprecated`, `removed`,
+`fixed`, and `security`. Pure release-tooling or contributor-documentation changes do not invent
+project news.
+
+After feature fragments merge, the checked-main controller updates the independent `release/next`
+pull request. Only that pull request runs `pdm run release:prepare`, consumes fragments, applies the
+maturity-aware SemVer bump, and renders changelogs. It publishes nothing. Merging the prepared pull
+request lets protected-main delivery publish changed Extensions; a prepared Core version change
+selects normal Core production delivery. `workflow_dispatch` remains recovery.
 
 ## Database Migrations
 
