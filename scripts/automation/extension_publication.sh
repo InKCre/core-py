@@ -35,6 +35,28 @@ case "${1:-}" in
         selected="$(python3 scripts/release.py version-changed \
           --project "$EXTENSION" --base "$before")"
       fi
+      if [ "$selected" = false ]; then
+        require_env INKCRE_EXTENSION_REGISTRY_URL
+        read -r coordinate version < <(
+          python3 - "$EXTENSION" <<'PY'
+import sys
+
+from scripts.release import project_by_key
+
+project = project_by_key(sys.argv[1])
+print(project.coordinate, project.version)
+PY
+        )
+        namespace="${coordinate%%/*}"
+        name="${coordinate#*/}"
+        status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+          "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version")"
+        case "$status" in
+          200) ;;
+          404) selected=true ;;
+          *) echo "registry release lookup returned HTTP $status" >&2; exit 1 ;;
+        esac
+      fi
     fi
     emit_output selected "$selected"
     ;;
