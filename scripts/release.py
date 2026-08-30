@@ -244,6 +244,13 @@ def _file_changed(path: Path, base: str) -> bool:
   )
 
 
+def _fragment_changed(project: ReleaseProject, changed_paths: tuple[str, ...]) -> bool:
+  prefix = f"{project.fragments.relative_to(PROJECT_ROOT).as_posix()}/"
+  return any(
+    path.startswith(prefix) and not path.endswith("/.gitkeep") for path in changed_paths
+  )
+
+
 def check_release_contract(base: str | None = None, *, release_pr: bool = False) -> None:
   projects = discover_projects()
   problems = [problem for project in projects for problem in validate_fragments(project)]
@@ -281,14 +288,14 @@ def check_release_contract(base: str | None = None, *, release_pr: bool = False)
     for project in projects:
       version_changed = _version_at(project, base) not in {None, project.version}
       changelog_changed = _file_changed(project.changelog, base)
-      fragments = _fragment_files(project)
-      if not release_pr and project.key in affected and not fragments:
+      fragment_changed = _fragment_changed(project, changed_paths)
+      if not release_pr and project.key in affected and not fragment_changed:
         problems.append(f"{project.key}: delivered behavior changed without a fragment")
       if not release_pr and (
         version_changed or (changelog_changed and not towncrier_migration)
       ):
         problems.append(f"{project.key}: feature changes cannot prepare a release")
-      if not release_pr and project.key not in affected and fragments:
+      if not release_pr and project.key not in affected and fragment_changed:
         problems.append(f"{project.key}: fragment has no delivered project change")
       if release_pr and version_changed != changelog_changed:
         problems.append(

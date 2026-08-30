@@ -65,9 +65,15 @@
 
 ## Remaining verification
 
-- None。Core-py PR #89 passed repository contract、portable database runtime、isolated preview database and preview
-  application delivery at head `624b9ef`；its preview `/readyz` returned HTTP 200 with database、migration、roles、privileges
-  and catalog ready。InKCre/.github PR #28 was squash merged as `f7269b9`。Sir authorized merge and local cleanup。
+- None。Core-py PR #89 was squash merged as `42d8527` after required repository contract and portable database runtime
+  checks passed；its accepted preview at head `624b9ef` returned HTTP 200 with database、migration、roles、privileges and
+  catalog ready。Protected-main checks、Extension publication and immutable runtime artifact delivery then passed，and the
+  new controller created independent Release PR #90。InKCre/.github PR #28 was squash merged as `f7269b9`。Preview resources
+  and the three Unit delivery/transfer worktrees were retired；the distinct MCP peer worktree was preserved。
+- The closure-only follow-up exposed that feature admission treated unchanged pending fragments already on main as if the
+  current PR introduced them。`release.py check --base` now evaluates fragment intent from the current `base...HEAD` path set，
+  while preparation continues to consume every pending fragment；a task-doc-only change passes with Telegram/Core fragments
+  still pending in independent Release PR #90。
 
 ## Reusable execution guidance
 
