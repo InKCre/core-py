@@ -16,14 +16,15 @@ Current bootstrap flow in `run.py`:
 4. persist registered storage types and set up built-in storage instances
 5. cold-restore this Peer's exact enabled Extension Releases through Registry-native wheel
    acquisition and standard entry-point discovery unless `SKIP_EXTENSION_START=1`
-6. start restored extensions, which registers routes, source types, resolvers, and Peer inbounds
-   through one reversible publication
+6. start restored extensions, which registers process-monotonic Source/Resolver/Sink types and publishes reversible routes、
+   Peer inbounds and public claims
 7. persist registered source types
 8. persist the complete locally registered Job Handler catalog
 9. persist peer-local registered AI dialect contracts
-10. publish the complete config-derived capability snapshot and renew the database-time Peer lease
-11. start the scheduler and register Peer refresh、Cron materialization and pending-Job checks
-12. report readiness as true
+10. persist registered Sink types and start this Peer's enabled Sink instances
+11. publish the complete config-derived capability snapshot and renew the database-time Peer lease
+12. start the scheduler and register Peer refresh、Cron materialization and pending-Job checks
+13. report readiness as true
 
 Source classes are the sole schema authority for Extension-contributed Source types。Database initialization does not seed
 disabled Extension Source schemas；Extension startup publishes them before step 7 persists the complete runtime registry。
@@ -60,6 +61,8 @@ same database-owned config semantics through its runtime owner.
 ### 4. Shutdown must close long-lived runtime resources
 
 - the APScheduler instance is shut down in application lifespan shutdown
+- running Sink instances close before Extension teardown, so an external endpoint cannot observe disappearing
+  Extension-delivered behavior while it is still published
 - running extensions are closed asynchronously so they can release resources
 - a runtime that reached ready clears its Peer lease after scheduler/extension shutdown；abrupt loss relies on expiry
 
@@ -108,6 +111,7 @@ deployments must keep web formation at one replica to avoid duplicate periodic w
 - `app/business/cron.py`
 - `app/business/peer/main.py`
 - `app/business/peer/http.py`
+- `app/business/sink/main.py`
 - `scripts/generate-openapi.py`
 
 ## What Does Not Belong Here

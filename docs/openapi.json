@@ -345,7 +345,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ExtensionState"
+                    "$ref": "#/components/schemas/InstalledExtension"
                   },
                   "type": "array",
                   "title": "Response List Extensions Extensions Get"
@@ -389,7 +389,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionState"
+                  "$ref": "#/components/schemas/InstalledExtension"
                 }
               }
             }
@@ -448,7 +448,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionState"
+                  "$ref": "#/components/schemas/InstalledExtension"
                 }
               }
             }
@@ -553,7 +553,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionState"
+                  "$ref": "#/components/schemas/InstalledExtension"
                 }
               }
             }
@@ -604,7 +604,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionState"
+                  "$ref": "#/components/schemas/InstalledExtension"
                 }
               }
             }
@@ -655,7 +655,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionState"
+                  "$ref": "#/components/schemas/InstalledExtension"
                 }
               }
             }
@@ -1105,6 +1105,308 @@
           }
         }
       }
+    },
+    "/sink-types": {
+      "get": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "List Sink Types",
+        "operationId": "list_sink_types_sink_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SinkTypeModel"
+                  },
+                  "type": "array",
+                  "title": "Response List Sink Types Sink Types Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sinks": {
+      "get": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "List Sinks",
+        "operationId": "list_sinks_sinks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SinkModel"
+                  },
+                  "type": "array",
+                  "title": "Response List Sinks Sinks Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "Create Sink",
+        "operationId": "create_sink_sinks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SinkCreateForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SinkModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sinks/{sink_id}": {
+      "get": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "Get Sink",
+        "operationId": "get_sink_sinks__sink_id__get",
+        "parameters": [
+          {
+            "name": "sink_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sink Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SinkModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "Delete Sink",
+        "operationId": "delete_sink_sinks__sink_id__delete",
+        "parameters": [
+          {
+            "name": "sink_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sink Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sinks/{sink_id}/config": {
+      "put": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "Update Sink Config",
+        "operationId": "update_sink_config_sinks__sink_id__config_put",
+        "parameters": [
+          {
+            "name": "sink_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sink Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SinkModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sinks/{sink_id}/enable": {
+      "post": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "Enable Sink",
+        "operationId": "enable_sink_sinks__sink_id__enable_post",
+        "parameters": [
+          {
+            "name": "sink_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sink Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SinkModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sinks/{sink_id}/disable": {
+      "post": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "Disable Sink",
+        "operationId": "disable_sink_sinks__sink_id__disable_post",
+        "parameters": [
+          {
+            "name": "sink_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sink Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SinkModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1274,62 +1576,6 @@
         "title": "DeploymentConfigView",
         "description": "Validated deployment config projection exposed by the HTTP resource."
       },
-      "ExtensionState": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "version": {
-            "type": "string",
-            "title": "Version"
-          },
-          "enabled": {
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "type": "array",
-            "title": "Enabled",
-            "default": []
-          },
-          "nickname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nickname"
-          },
-          "config": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Config"
-          },
-          "config_schema": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Config Schema"
-          }
-        },
-        "type": "object",
-        "required": [
-          "name",
-          "version"
-        ],
-        "title": "ExtensionState",
-        "description": "Stable Host-facing projection; SQLModel and table details remain private."
-      },
       "GraphBlockForm": {
         "properties": {
           "storage": {
@@ -1448,6 +1694,62 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "InstalledExtension": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "enabled": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Enabled",
+            "default": []
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "config_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Schema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "version"
+        ],
+        "title": "InstalledExtension",
+        "description": "Stable Host-facing projection; SQLModel and table details remain private."
       },
       "JobModel": {
         "properties": {
@@ -1788,6 +2090,107 @@
           "matches"
         ],
         "title": "SemanticRetrievalResult"
+      },
+      "SinkCreateForm": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "SinkCreateForm"
+      },
+      "SinkModel": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "enabled": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "SinkModel"
+      },
+      "SinkTypeModel": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "config_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config Schema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "description"
+        ],
+        "title": "SinkTypeModel"
       },
       "SubmitGraphResult": {
         "properties": {

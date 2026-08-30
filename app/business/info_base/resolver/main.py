@@ -38,32 +38,6 @@ class ResolverManager:
   """
 
   @classmethod
-  def snapshot_resolvers(cls) -> dict[ResolverType, type["Resolver"]]:
-    """Capture the Resolver publication surface for reversible startup."""
-    return dict(cls.RESOLVER_CLS)
-
-  @classmethod
-  def restore_resolvers(
-    cls,
-    before: dict[ResolverType, type["Resolver"]],
-    published: dict[ResolverType, type["Resolver"]],
-  ) -> None:
-    """Undo only Resolver registrations made by one extension publication."""
-    missing = object()
-    for resolver_type in before.keys() | published.keys():
-      previous = before.get(resolver_type, missing)
-      publication = published.get(resolver_type, missing)
-      if previous is publication:
-        continue
-      current = cls.RESOLVER_CLS.get(resolver_type, missing)
-      if current is not publication:
-        continue
-      if previous is missing:
-        cls.RESOLVER_CLS.pop(resolver_type, None)
-      else:
-        cls.RESOLVER_CLS[resolver_type] = typing.cast(type[Resolver], previous)
-
-  @classmethod
   def register_resolver(cls, resolver_cls: type["Resolver"]) -> None:
     existing = cls.RESOLVER_CLS.get(resolver_cls.__rsotype__)
     if existing is resolver_cls:

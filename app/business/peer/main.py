@@ -58,32 +58,6 @@ class PeerManager:
   _config_contract = ConfigContract(CorePeerConfig)
 
   @classmethod
-  def snapshot_inbounds(cls) -> dict[CapabilityID, PeerInbound]:
-    """Capture the process-local capability publication surface."""
-    return dict(cls._INBOUNDS)
-
-  @classmethod
-  def restore_inbounds(
-    cls,
-    before: dict[CapabilityID, PeerInbound],
-    published: dict[CapabilityID, PeerInbound],
-  ) -> None:
-    """Undo only inbound registrations made by one publication."""
-    missing = object()
-    for capability in before.keys() | published.keys():
-      previous = before.get(capability, missing)
-      publication = published.get(capability, missing)
-      if previous is publication:
-        continue
-      current = cls._INBOUNDS.get(capability, missing)
-      if current is not publication:
-        continue
-      if previous is missing:
-        cls._INBOUNDS.pop(capability, None)
-      else:
-        cls._INBOUNDS[capability] = typing.cast(PeerInbound, previous)
-
-  @classmethod
   def register_self(cls) -> PeerModel:
     """Upsert identity/schema while preserving owner-authored config and runtime state."""
     config_schema = typing.cast(
@@ -140,15 +114,17 @@ class PeerManager:
       return tuple(db.exec(sqlmodel.select(PeerModel)).all())
 
   @classmethod
-  def register_inbound(cls, inbound: PeerInbound) -> None:
+  def register_inbound(cls, inbound: PeerInbound) -> bool:
+    """Register one inbound and report whether this call added it."""
     existing = cls._INBOUNDS.get(inbound.capability)
     if existing is inbound or existing == inbound:
-      return
+      return False
     if existing is not None:
       raise DuplicatePeerRegistrationError(
         f"Capability inbound {inbound.capability!r} is already registered"
       )
     cls._INBOUNDS[inbound.capability] = inbound
+    return True
 
   @classmethod
   def unregister_inbound(cls, capability: CapabilityID) -> None:

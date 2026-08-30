@@ -1,6 +1,7 @@
 # MCP Sink
 
-- **State**: Active — Product、technical and acceptance design accepted；implementation plan is under Human review。
+- **State**: Active — Execute。Product/technical/acceptance、preflight、Impact Handshake and implementation approval are
+  complete；current evidence and remaining delivery gates are tracked in [implementation evidence](implementation-evidence.md)。
 - **Objective**: make InKCre available to external Agents through MCP as the first sink vertical，including a thin ChatGPT
   integration and an Agent Skill delivery surface over MCP。
 - **Product boundary**: MCP serves **Agent retrieval of InKCre**。The downstream Agent owns whether retrieved information is
@@ -21,8 +22,8 @@
   philosophy / usage as an Agent Skill through MCP。Do not yet equate these requests with legacy `ai-plugin.json`，MCP
   Prompts，or an Extension-owned Agent adapter until current platform/protocol evidence establishes the right projection。
 - **Current execution surface**: exact accepted journeys live in [acceptance](acceptance.md)；the cross-repository delivery
-  sequence and preflight gates live in [implementation plan](implementation-plan.md)。After plan review，run the evidence
-  gates，produce the Impact Handshake，and wait for explicit implementation approval。
+  sequence lives in [implementation plan](implementation-plan.md)；current implementation truth and blockers live in
+  [implementation evidence](implementation-evidence.md)。
 
 ## Product Contract
 

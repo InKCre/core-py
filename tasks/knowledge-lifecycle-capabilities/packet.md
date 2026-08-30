@@ -14,7 +14,8 @@
   current summaries live in [capability-map.md](capability-map.md)，details stay in each unit packet and the
   [decision register](decisions/index.md)。GitHub extension 的 collection-side correction remains queued, but no longer
   blocks root-usability selection after ownership corrections merged。
-- **Next Step**: 进入 [MCP sink](units/mcp-sink/packet.md) product discussion。当前 selection premise 是：
+- **Next Step**: 完成 [MCP sink](units/mcp-sink/packet.md) implementation、cross-repository Runtime release/pin 与
+  deterministic/preview acceptance。Current selection premise remains：
   info-base query 三类基础 primitive 已经具备；为了让 InKCre 更可用，下一缺口更可能是 sink。MCP sink MVP 的边界是
   **Agent retrieves InKCre**，不是写作、设计或其他最终工作类型。This does not authorize or imply a generic sink
   framework。
@@ -34,7 +35,7 @@
 
 ## Active Implementable Unit
 
-[MCP sink](units/mcp-sink/packet.md) 是当前已登记的 active implementable Unit，处于 Technical discussion。
+[MCP sink](units/mcp-sink/packet.md) 是当前已登记的 active implementable Unit，处于 Execute。
 
 MCP sink MVP 复用现有 retrieval primitives，让外部 Agent/tool client 检索 InKCre 并取得可用的
 block/relation/solved-content context；最终用于写作、设计、编码还是 chat，由 caller 拥有。它不授权 generic sink

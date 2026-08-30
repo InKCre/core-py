@@ -45,6 +45,8 @@ APPLICATION_TABLES = (
   "logs",
   "relation_embeddings",
   "relations",
+  "sink_types",
+  "sinks",
   "sources",
   "sources_types",
   "storage_types",

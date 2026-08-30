@@ -144,7 +144,6 @@ class RunningExtension:
   association: PythonReleaseDescriptor
   acquired: AcquiredDistribution
   extension_class: type[ExtensionBase]
-  modules: DistributionModules
   claim: ExtensionRuntimeClaim
 
 
@@ -379,8 +378,6 @@ class ExtensionHost:
           extension_class.unbind()
         with contextlib.suppress(Exception):
           extension_class.release_runtime()
-      with contextlib.suppress(Exception):
-        modules.abort()
       claim.release()
       raise
 
@@ -390,7 +387,6 @@ class ExtensionHost:
       association=association,
       acquired=acquired,
       extension_class=extension_class,
-      modules=modules,
       claim=claim,
     )
     self.running[state.name] = running
@@ -401,7 +397,6 @@ class ExtensionHost:
     await running.extension_class.on_close()
     running.extension_class.unpublish()
     running.extension_class.unbind()
-    running.modules.unload()
     running.extension_class.release_runtime()
     running.claim.release()
     self.running.pop(running.name, None)
@@ -420,14 +415,9 @@ class ExtensionHost:
       running.extension_class.unbind()
     except Exception as error:
       failures.append(error)
-    try:
-      running.modules.abort()
-    except Exception as error:
-      failures.append(error)
-    finally:
-      running.extension_class.release_runtime()
-      running.claim.release()
-      self.running.pop(running.name, None)
+    running.extension_class.release_runtime()
+    running.claim.release()
+    self.running.pop(running.name, None)
     return failures
 
   async def enable(
