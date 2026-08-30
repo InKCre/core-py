@@ -57,6 +57,11 @@
 - Final static review also parses the three changed workflow YAML files，passes `git diff --check`，and finds no stale
   `extension-version-pr` caller or runtime Changie dependency。The only remaining `.changie.yaml` reference is the explicit
   one-time migration classifier in `scripts/release.py`。
+- The first PR preview exposed one release-caller regression：`build_extension_preview.py` used the new Core-plus-Extension
+  discovery default and attempted to build the non-distribution Core project as an Extension wheel。The caller now requests
+  `extensions_only=True`，preserving its existing producer boundary。Local discovery verifies that every selected producer is
+  an Extension；the PR preview workflow owns the full build because it injects the sibling `inkcre-ext` CLI unavailable in the
+  local worktree。
 
 ## Remaining verification
 

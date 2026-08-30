@@ -91,7 +91,7 @@ def build_preview_inputs(output_directory: Path) -> Path:
     raise PreviewBuildError(f"output already exists: {output_directory}")
   output_directory.mkdir(parents=True)
   distributions: list[dict[str, str]] = []
-  for project in discover_projects():
+  for project in discover_projects(extensions_only=True):
     raw_wheel = _build_wheel(project.directory, output_directory / "raw" / project.key)
     wheel = _finalize_wheel(
       project.directory,
