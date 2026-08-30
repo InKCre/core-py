@@ -59,6 +59,19 @@ high-cost failure/recovery path。Missing evidence should trigger exploration，
    the owning boundary、return the domain's ordinary completion outcome，or expose a repair action only when the caller can
    meaningfully perform one。
 
+## API / JSON batch outcomes
+
+For a batch of independently executable atoms，prefer one ordered result atom per admitted input：
+
+- retain the natural correlation key and input order；
+- let the successful domain payload prove success instead of repeating `status: found`；
+- put `error` only on the failed atom，with a small actionable code and observable message；
+- do not split successes and failures into parallel arrays or abort siblings merely because one atom failed；
+- reserve whole-operation failure for a shared fault that prevents the admitted batch from producing its result。
+
+This is an experimental API/JSON design pattern，not a universal rule。Do not apply it when the batch is semantically atomic，
+when one result changes how later inputs must execute，or when partial effect would violate the owning domain contract。
+
 ## Current Failure Reference
 
 Mail ordinary collection had already persisted valid graph facts。Making a failed `mark_as_seen` attempt block the mailbox

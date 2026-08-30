@@ -48,6 +48,8 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-361–D-370](D361-D370.md) | Graph scale/layout/route state → endpoint-closed retrieval outcomes |
 | [D-371–D-380](D371-D380.md) | Random focal/path ownership → MCP sink activation |
 | [D-381–D-390](D381-D390.md) | MCP→Resolver use topology → monotonic Extension types / Peer-scoped Sink enablement |
+| [D-391–D-400](D391-D400.md) | Explicit Sink Manager/Base lifecycle → Agent Skill / live MCP Resource projection |
+| [D-401–D-410](D401-D410.md) | MCP batch outcome contract → current edge |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -63,6 +65,6 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-390](D381-D390.md)。MCP sink owns reserved range D-381–D-420。
+- Latest confirmed decision: [D-402](D401-D410.md)。MCP sink owns reserved range D-381–D-420。
 - Active unit: [mcp-sink](../units/mcp-sink/packet.md)。
 - Active surface: Technical discussion。
