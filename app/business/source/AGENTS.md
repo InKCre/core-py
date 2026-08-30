@@ -23,8 +23,8 @@
 - `SourceBase.__init_subclass__()` 只登记内存 class；import 不连接数据库。
 - `SourceManager.sync_source_types()` 在显式 bootstrap reconcile catalog。
 - Extension source 必须在 extension startup import；否则 source type 不存在于当前 runtime registry。
-- Extension runtime 通过 registry snapshot/restore 撤销本次 publication；重复 enable 必须显式重新注册，不能
-  依赖只执行一次的 module import side effect。
+- Extension runtime disable 不撤销已 import 的 Source class registration。Registration 在进程内单调保留；
+  source instance 只有被 command 调用时才运行，active Extension route/resource 则由 Extension lifecycle 单独撤销。
 
 ## Config And State
 

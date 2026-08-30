@@ -2,8 +2,11 @@
 
 > **Status: experimental，task-wide，not law.** This is active working-memory control，not durable product/technical truth。
 > Sir will judge and revise it through actual discussion experience。Canonical common-pattern descriptions remain in
-> [documentation promotion](documentation-promotion.md)；this file keeps the small set needed before proposing architecture or
+> [documentation promotion](documentation-promotion/index.md)；this file keeps the small set needed before proposing architecture or
 > asking Sir for a decision。
+
+The task's Human/Agent roles、Unit gates、write-back discipline and parallel-session ownership are defined in the
+[collaboration protocol](collaboration/index.md)。This file only filters design judgment and question escalation。
 
 ## Experimental Discussion Model
 
@@ -55,6 +58,19 @@ high-cost failure/recovery path。Missing evidence should trigger exploration，
 4. Do not escalate an ordinary edge/state race as `fail-fast` or `fail-closed` work for the Human or caller。Reconcile it at
    the owning boundary、return the domain's ordinary completion outcome，or expose a repair action only when the caller can
    meaningfully perform one。
+
+## API / JSON batch outcomes
+
+For a batch of independently executable atoms，prefer one ordered result atom per admitted input：
+
+- retain the natural correlation key and input order；
+- let the successful domain payload prove success instead of repeating `status: found`；
+- put `error` only on the failed atom，with a small actionable code and observable message；
+- do not split successes and failures into parallel arrays or abort siblings merely because one atom failed；
+- reserve whole-operation failure for a shared fault that prevents the admitted batch from producing its result。
+
+This is an experimental API/JSON design pattern，not a universal rule。Do not apply it when the batch is semantically atomic，
+when one result changes how later inputs must execute，or when partial effect would violate the owning domain contract。
 
 ## Current Failure Reference
 

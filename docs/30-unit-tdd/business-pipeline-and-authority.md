@@ -27,8 +27,9 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
 ### 1. Extension Is The Runtime Expansion Entry
 
 - extension 是 runtime 扩展入口。
-- extension startup 会发布 extension-owned API route set，并初始化其 source、resolver 或其他
-  runtime capability；close/disable 会先撤销该 route set，失败时保留 runtime entry 以便重试。
+- extension startup 会发布 extension-owned API route、Peer inbound、public claim，并登记其 source、resolver、sink
+  等 Python capability types。close/disable 只撤销 exact active effects；已 import 的 type registration 在当前进程
+  单调保留，exact package version replacement 以 restart 为边界。
 - extension API 默认继承 core peer JWT dependency；需要 public 或 external-protocol auth 的
   extension 通过 `api_dependencies()` 显式使用 auth-neutral root，再在自己的 child routers 上组合
   public / self-auth dependencies。
@@ -129,6 +130,17 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
   response or outcome-unknown stops。
 - `route_to_peer` is caller-local routing policy。It never enters the capability payload/advertisement and an exact target
   is never substituted。There is no generic invoke route、generic delegation job or readiness advertisement。
+
+### 8. Sink Projects Info-Base Use Into External Work
+
+- `SinkManager` 拥有 exact Sink type registry、persisted instance config 与 Peer-scoped enable intent；`SinkBase` 拥有一个
+  running instance 的 active resources。Registration 不创建或自动运行实例。
+- Sink 是 application/use 的下游 projection，不取得 Block、Relation、Resolver、Storage 或 retrieval authority。
+  一个 Extension 可以交付 Sink type，但 Extension enable 不等于 Sink instance enable。
+- `core.mcp.v1` 是首个实现：它把现有 retrieval、graph navigation 与 Resolver read behavior 投影为 MCP actions；
+  oversized/binary content 通过 live Resource URI 重新读取当前 authority，不产生 Resource table 或缓存 authority。
+- MCP 的 read-only boundary 排除 Agent-intended mutation command；Resolver `get_*` / `read_*` 仍可按其既有 contract
+  lazy materialize missing derivation，因此相关 Tool 不虚假声明绝对无副作用。
 
 ## Cross-Subtree Constraints
 

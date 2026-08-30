@@ -7,7 +7,8 @@
 
 - 一个 canonical `extensions` row 表示 deployment 安装的 exact Release；`installed`、
   `enabled[]`、`running` 不可混用。
-- `ExtensionBase` 保持配置校验、`on_start`、`on_close` 与可逆 route/source/resolver publication。
+- `ExtensionBase` 保持配置校验、`on_start`、`on_close` 与 active-effect publication。Route、Peer inbound
+  和 public claim 可逆；已 import 的 Source/Resolver/Sink class registration 在当前进程内单调保留。
 - Extension wheel 直接 import Core 模块；Host 只接受标准 `inkcre.core.extensions` entry point。
 - Registry Simple URL 必须与配置的 Registry 同源且路径精确匹配 Project。
 - runtime 只能把普通 wheel 安装到当前 Core interpreter/site-packages；禁止 `pip --target`、
@@ -15,8 +16,8 @@
 - Core image 持有受支持的 dependency baseline。dependency preflight 只以下载的 Extension
   wheel 为候选源；缺依赖或版本不满足时拒绝该候选，不访问 dependency index，也不变更
   Core-owned Distribution。
-- 任意 peer enabled 时拒绝 version change/rollback。已 import 的 Project 被替换后必须重启，
-  当前进程不可热加载新 class。
+- 任意 peer enabled 时拒绝 version change/rollback。已 import 的 Project 被替换后必须重启，当前进程不可热加载
+  新 class；disable 也不模拟卸载 Python module。
 - 新 install/upgrade 只接受 published；已安装 exact yanked Release 可 enable/cold restore 并告警。
 - enable 先启动 runtime，再调用 atomic enabled RPC；返回 version 不一致时移除 peer 并停止旧 runtime。
 - disable 先停止 runtime，再调用 RPC；RPC 失败时重启 exact prior runtime，durable intent 不变。

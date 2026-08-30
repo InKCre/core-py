@@ -46,12 +46,17 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-341–D-350](D341-D350.md) | Self-host/canonical-production separation → Graph focus-set / UI ownership boundary |
 | [D-351–D-360](D351-D360.md) | InfoBase View initialization and recall ownership → active-scene navigation |
 | [D-361–D-370](D361-D370.md) | Graph scale/layout/route state → endpoint-closed retrieval outcomes |
-| [D-371–D-380](D371-D380.md) | Random focal/path ownership → concurrent-read and visual Acceptance closure |
+| [D-371–D-380](D371-D380.md) | Random focal/path ownership → MCP sink activation |
+| [D-381–D-390](D381-D390.md) | MCP→Resolver use topology → monotonic Extension types / Peer-scoped Sink enablement |
+| [D-391–D-400](D391-D400.md) | Explicit Sink Manager/Base lifecycle → Agent Skill / live MCP Resource projection |
+| [D-401–D-410](D401-D410.md) | MCP batch outcome contract → current edge |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
 
-- Decision IDs remain monotonic across shards；append the next ID to its numeric shard。
+- Decision IDs remain monotonic across shards。Under parallel execution，the coordinator reserves non-overlapping ranges in
+  the [parallel roster](../collaboration/roster.md)；a unit session writes only its reserved shards and does not edit this
+  index。
 - A later correction gets a new ID and names the superseded decision；do not rewrite history merely to remove disagreement。
 - Unit packets and design files cite decision IDs and link to this index or the exact shard；they do not duplicate decision
   authority。
@@ -60,7 +65,6 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-376](D371-D380.md)。
-- Active unit: [graph-navigation-retrieval](../units/graph-navigation-retrieval/packet.md)。
-- Active surface: Product、Technical、Acceptance、implementation plan and preflight are frozen；Impact Handshake is the
-  final review surface，then execution waits for Sir's new explicit “开始”。
+- Latest confirmed decision: [D-402](D401-D410.md)。MCP sink owns reserved range D-381–D-420。
+- Active unit: [mcp-sink](../units/mcp-sink/packet.md)。
+- Active surface: Technical discussion。

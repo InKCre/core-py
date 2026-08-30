@@ -20,6 +20,8 @@ __all__ = [
   "AgentDefinitionModel",
   "PeerModel",
   "DeploymentConfigModel",
+  "SinkModel",
+  "SinkTypeModel",
 ]
 
 import sqlalchemy.orm
@@ -50,3 +52,4 @@ from .agent import AgentDefinitionModel
 from .peer import PeerModel
 from .deployment_config import DeploymentConfigModel
 from .lexical_retrieval import BlockLexicalRecordModel
+from .sink import SinkModel, SinkTypeModel

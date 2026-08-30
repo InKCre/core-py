@@ -15,18 +15,18 @@ phase、当前问题或具体单元的设计；这些由 [program packet](packet
 | --- | --- | --- |
 | Collection | 把 source-specific information 可靠地持久化到 info-base | 现有 sources、memo-like、CalDAV、Nextcloud Files、Apple Notes |
 | Organization | 打理已经存在的 info-base，以改善 use 效果 | breakdown、merge、linking；允许由真实目标发现其他能力 |
-| Application | 从 info-base 取得有用结果 | 特征检索、语义检索、图导航检索；indexing 只是支撑 |
+| Use / Application | 查询 info-base，并让下游使用被选择的信息 | 特征检索、语义检索、图导航检索；sink vertical；indexing 只是支撑 |
 
 ### Vertical implementable units
 
-讨论与实现以一个具体 source、organization operation 或 retrieval mode 为纵切。每个 unit
+讨论与实现以一个具体 source、organization operation、retrieval mode 或 sink vertical 为纵切。每个 unit
 必须能够独立说明：
 
 ```text
 user value / observable failure
   → native input or use request
   → owner and cross-boundary contracts
-  → graph / projection behavior
+  → graph / projection / delivery behavior
   → executable acceptance
   → bounded implementation increments
 ```
@@ -74,12 +74,13 @@ local relations ────────────┘
 | 1 | [Memos extension](units/memos-extension/packet.md) | **Complete；backend MVP implemented** | Sir 的直接产品需求；released client E2E 已证明 memo canonical/graph/read contract；durable owner projections committed |
 | 2 | [RSS extension hardening](units/rss-extension-hardening/packet.md) | **Complete；human-accepted 2026-08-03** | 已用 RSS/Atom vertical 建立 source instance → collect job → graph → resolver → state 的可信 collection baseline |
 | 3 | [Mail extension](units/mail-extension/packet.md) | **Complete；implementation/J1–J4/promotion complete** | 高价值真实邮箱 corpus 已证明 protocol → graph → materialization → generic InfoBase browser 纵切，且 durable owner delivery 已关闭 |
-| 4 | [GitHub extension](units/github-extension/packet.md) | **Paused — owner correction first** | 首轮真实账号验收完成；Hub/Spoke 与 core/Extension owner correction 关闭后再修正实现 |
+| 4 | [GitHub extension](units/github-extension/packet.md) | Queued correction | 首轮真实账号验收完成；Hub/Spoke 与 core/Extension owner correction 已关闭，仍需修正 implementation boundary 与 re-acceptance |
 | 5 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
 | 6 | [Semantic retrieval](units/semantic-retrieval/packet.md) | **Complete** | real-provider、local/delegated Peer、rumination 与 shared-truth projection 均已验收关闭 |
 | 7 | [Feature retrieval](units/feature-retrieval/packet.md) | **Complete** | Lexical increment 的实现、J1–J7、core/client promotion、真实 fork/cold-start 与 exact-main Pages delivery 均已验收；graph facts 与 hybrid composition 仍由相邻能力承担 |
 | 8 | [Graph navigation retrieval](units/graph-navigation-retrieval/packet.md) | **Complete** | bounded neighborhood/path、peer-local topology、Graph View、preview/production acceptance 与 durable closure 已完成 |
-| 9 | Other organization/application units | Queued | breakdown、merge、linking 等仍各自从真实 use/failure evidence 建立合同；hybrid retrieval 等基础 primitive 完成后再组合 |
+| 9 | [MCP sink](units/mcp-sink/packet.md) | **Active；product discussion** | query primitive 已成立后，下一可用性缺口是 downstream delivery；MCP sink MVP 服务 Agent retrieval of InKCre，不预设 generic sink framework |
+| 10 | Other organization/application units | Queued | breakdown、merge、linking 等仍各自从真实 use/failure evidence 建立合同；hybrid retrieval 等基础 primitive 完成后再组合 |
 
 这不是永久开发顺序。active unit 结束时，应根据用户价值、已暴露依赖和不确定性重新选择下一个
 unit；不得仅因为表格编号自动启动。
@@ -99,7 +100,7 @@ unit；不得仅因为表格编号自动启动。
 
 | Unit | Main pressure exposed |
 | --- | --- |
-| Memos extension / backend MVP | native-compatible API、CanonicalMemo、graph round-trip、terminal-user boundary、transaction |
+| Memos extension / backend MVP | native-compatible API、CanonicalMemo、graph round-trip、deployment single-owner projection、transaction |
 | Memos/other collectors (future) | external identity、scan/event reconciliation、cursor、source deletion |
 | CalDAV | discovery、sync-token、recurrence、timezone、participants、ETag conflict |
 | Nextcloud Files | hierarchy、path vs file identity、rename/move、binary、remote storage、permissions |
@@ -147,4 +148,4 @@ gate，但不能把“已经写成草案”误当作“已经获批”或“可�
 - 把 `SubGraphForm` 当作完整信息模型或 collection 产品产物。
 
 Durable docs 是获批设计的最终投影，不是讨论顺序的起点。候选更新统一进入
-[documentation-promotion.md](documentation-promotion.md)。
+[documentation-promotion](documentation-promotion/index.md)。

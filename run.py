@@ -37,12 +37,14 @@ from app.routes.organization import PEER_INBOUND as organization_peer_inbound
 from app.routes.organization import ROUTER as organization_router
 from app.routes.semantic_retrieval import PEER_INBOUND as semantic_retrieval_peer_inbound
 from app.routes.semantic_retrieval import ROUTER as semantic_retrieval_router
+from app.routes.sink import ROUTER as sink_router
 from app.business.source import SourceManager
 from app.business.cron import CronManager
 from app.business.job import JobManager
 from app.business.extension import EXTENSION_HOST
 from app.business.peer import PeerManager
 from app.business.ai import AIManager
+from app.business.sink import SinkManager
 
 # Import core-owned Job contracts before their catalog is synchronized.
 from app.business.organization_job import MediaInterpretationJobHandler  # noqa: F401
@@ -78,6 +80,9 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   if not SKIP_EXTENSION_START:
     await EXTENSION_HOST.start_enabled(app)
   SourceManager.sync_source_types()
+
+  # Extensions may register Sink types, but persisted instances run only by intent.
+  await SinkManager.startup(app, PeerManager.get_current_peer_ref())
 
   JobManager.sync_job_types()
 
@@ -152,6 +157,7 @@ async def lifespan(app: fastapi.FastAPI):
     await bootstrap_task
   if scheduler.running:
     scheduler.shutdown(wait=True)
+  await SinkManager.shutdown()
   await EXTENSION_HOST.close_running()
   if runtime_was_ready:
     await asyncio.to_thread(PeerManager.clear_self_lease)
@@ -212,6 +218,7 @@ core_router.include_router(info_base_router)
 core_router.include_router(organization_router)
 core_router.include_router(semantic_retrieval_router)
 core_router.include_router(lexical_retrieval_router)
+core_router.include_router(sink_router)
 api_app.include_router(core_router)
 
 if __name__ == "__main__":

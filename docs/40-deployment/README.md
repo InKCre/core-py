@@ -13,6 +13,7 @@ GitHub workflow and composite-action YAML owns only GitHub event selection, perm
 - [heroku.md](heroku.md)
 - [neon.md](neon.md)
 - [runtime-orchestration.md](runtime-orchestration.md)
+- [mcp-sink.md](mcp-sink.md)
 - [render-neon-self-host.md](render-neon-self-host.md)
 
 ## Checked-In Runtime Anchors
