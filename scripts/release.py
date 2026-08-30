@@ -251,12 +251,18 @@ def _fragment_changed(project: ReleaseProject, changed_paths: tuple[str, ...]) -
   )
 
 
-def check_release_contract(base: str | None = None, *, release_pr: bool = False) -> None:
+def check_release_contract(
+  base: str | None = None, *, release_pr: bool = False, merged: bool = False
+) -> None:
   projects = discover_projects()
   problems = [problem for project in projects for problem in validate_fragments(project)]
   if base is not None:
     affected = affected_projects(base)
     changed_paths = _changed_paths(base)
+    if merged:
+      release_pr = any(
+        _version_at(project, base) not in {None, project.version} for project in projects
+      )
     towncrier_migration = (
       ".changie.yaml" in changed_paths and "towncrier.toml" in changed_paths
     )
@@ -416,6 +422,7 @@ def main() -> int:
   check = commands.add_parser("check")
   check.add_argument("--base")
   check.add_argument("--release-pr", action="store_true")
+  check.add_argument("--merged", action="store_true")
   prepare_parser = commands.add_parser("prepare")
   prepare_parser.add_argument("projects", nargs="*")
   affected = commands.add_parser("affected")
@@ -435,7 +442,7 @@ def main() -> int:
       ]
       print(json.dumps(keys, separators=(",", ":")) if args.json else "\n".join(keys))
     elif args.command == "check":
-      check_release_contract(args.base, release_pr=args.release_pr)
+      check_release_contract(args.base, release_pr=args.release_pr, merged=args.merged)
     elif args.command == "prepare":
       print("\n".join(prepare(tuple(args.projects))))
     elif args.command == "affected":
