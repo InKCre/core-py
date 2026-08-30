@@ -2,7 +2,7 @@
 
 ## Control
 
-- **State**: Closed；Telegram Product contract is delivered for review，and the Unit also replaced repository-wide
+- **State**: Closed and merged；Telegram Product contract is delivered，and the Unit also replaced repository-wide
   Changie with PDM-managed Towncrier for Core plus first-party Extensions。The Unit remains registered in the
   peer-maintained parallel roster under session `01a04685-aa31-7682-a4a2-824727eacce5` with reserved decision range
   D-421–D-460。
@@ -15,19 +15,17 @@
   Telegram text、metadata-only attachment、explicit materialization、supported `👍` acknowledgement and the complete
   repository gate passed。See
   [Implementation Evidence](implementation-evidence.md)。
-- **Current placement**: after PR #88 merged as protected-main commit `459a6df`，core-py implementation moved to
-  `.worktrees/core-py-telegram-integrated` on `feat/telegram-source-towncrier-integrated`。Organization
-  guidance is isolated in `.worktrees/github-release-guidance` on `feat/release-lifecycle-guidance` from `.github`
-  `origin/main` `6c7d802`。The former pre-merge implementation worktree remains only as an uncommitted transfer backup until
-  integrated verification completes；it is not the delivery branch。The retained MCP worktree remains untouched。
+- **Current placement**: core-py PR #89 was squash merged to protected main as `42d8527`；organization guidance PR
+  InKCre/.github#28 was squash merged as `f7269b9`。The integrated、pre-merge transfer and `.github` guidance worktrees were
+  retired after merge；the separate MCP peer branch/worktree remains untouched。
 - **Allocated implementation boundary**: Telegram runtime behavior remains confined to `extensions/telegram/**` plus its
   generated OpenAPI consequence。The same Unit additionally owns the repository-wide Changie-to-Towncrier release-contract
   migration，including Core，root dependency/lock、release tooling/automation、changelog/fragment convention and contributor
   guidance，plus one tool-agnostic `InKCre/.github` release-guidance reference on its own repository branch。Core
   Source/Resolver/Extension framework and migrations remain outside ownership。
-- **Delivery**: core-py PR #89 is merge-ready at head `624b9ef`；organization guidance PR InKCre/.github#28 was squash
-  merged as `f7269b9`。No Unit behavior、verification or delivery work remains after #89 merges；the parent Task retains the
-  packet until its own lifecycle closes。
+- **Delivery**: core-py PR #89 and organization guidance PR InKCre/.github#28 are merged。Protected-main repository/runtime
+  checks and artifact delivery passed；the new controller created independent Release PR #90。No Unit behavior、verification
+  or delivery work remains；the parent Task retains this packet until its own lifecycle closes。
 
 ## Product outcome
 

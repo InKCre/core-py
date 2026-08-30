@@ -6,7 +6,7 @@
 | Unit | Session | Branch / worktree | Base | Phase | Decision range | Declared overlap / dependency |
 | --- | --- | --- | --- | --- | --- | --- |
 | `mcp-sink` | `01a04610-338e-7311-93df-847f9801c5af` | merged through PR #88；the current root worktree retains only local task-control state | protected `main` merge `459a6df` | Closed | D-381–D-420 | No active implementation ownership；MCP runtime、ChatGPT Tool acceptance and production delivery are complete |
-| `telegram-extension` | `01a04685-aa31-7682-a4a2-824727eacce5` | core-py PR #89 / `.github` PR #28 | core-py base `459a6df`；`.github` guidance merged as `f7269b9` | Closed / delivered for merge | D-421–D-460 | Telegram、repository-wide Changie→Towncrier cutover and organization guidance are complete；local implementation/transfer worktrees may be retired after #89 merges |
+| `telegram-extension` | `01a04685-aa31-7682-a4a2-824727eacce5` | core-py PR #89 / `.github` PR #28 | merged as core-py `42d8527` and `.github` `f7269b9` | Closed / merged | D-421–D-460 | Telegram、repository-wide Changie→Towncrier cutover and organization guidance are complete；Unit worktrees are retired and Release PR #90 is independently owned by the release lifecycle |
 
 ## Shared-worktree coordination
 
