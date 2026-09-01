@@ -1,11 +1,9 @@
 name: Publish runtime artifact
 
 on:
-  workflow_run:
-    workflows:
-      - Repository and artifact checks
-    types:
-      - completed
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -18,10 +16,6 @@ concurrency:
 jobs:
   publish:
     name: Publish exact main image
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -40,30 +34,30 @@ jobs:
           --health-retries 12
     env:
       CORE_DATABASE_PASSWORD: release-core-database-password-at-least-32-bytes
-      IMAGE_TAG: inkcre-core-release:${{ github.event.workflow_run.head_sha }}
+      IMAGE_TAG: inkcre-core-release:${{ github.sha }}
       POSTGREST_DATABASE_PASSWORD: release-postgrest-database-password-at-least-32-bytes
     steps:
       - name: Checkout exact verified source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Verify source is current main
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ github.sha }}
         run: bash scripts/automation/runtime_artifact.sh verify-main-source
 
       - name: Build the release schema source
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ github.sha }}
         run: bash scripts/automation/runtime_artifact.sh build-schema-source
 
       - name: Export and stage the release schema
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          SOURCE_REVISION: ${{ github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ github.sha }}
+          SOURCE_REVISION: ${{ github.sha }}
         run: |
           bash scripts/automation/runtime_contract.sh export
           bash scripts/automation/runtime_artifact.sh stage-schema-evidence
@@ -75,7 +69,7 @@ jobs:
         id: image
         env:
           GHCR_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ github.sha }}
         run: bash scripts/automation/runtime_artifact.sh publish-immutable
 
       - name: Promote mutable main image
@@ -89,7 +83,7 @@ jobs:
       - name: Record runtime delivery identity
         if: always() && steps.image.outcome == 'success'
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ github.sha }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest_ref }}
           MAIN_PROMOTION: ${{ steps.promote.outcome }}
         run: bash scripts/automation/runtime_artifact.sh summarize-runtime

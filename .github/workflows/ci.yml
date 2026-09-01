@@ -2,9 +2,6 @@ name: Repository and artifact checks
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -42,9 +39,8 @@ jobs:
       - name: Enforce release intent
         env:
           BASE_REVISION: >-
-            ${{ github.event.pull_request.base.sha || github.event.before }}
+            ${{ github.event.pull_request.base.sha }}
           RELEASE_PR: ${{ github.event.pull_request.head.ref == 'release/next' }}
-          MERGED_CHANGE: ${{ github.event_name == 'push' }}
         run: bash scripts/automation/repository_check.sh release-intent
 
       - name: Run repository contract
@@ -58,10 +54,6 @@ jobs:
       - name: Enforce append-only migration history
         if: github.event_name == 'pull_request'
         run: pdm run check:migration-history "origin/${{ github.base_ref }}"
-
-      - name: Enforce append-only migration history on push
-        if: github.event_name == 'push'
-        run: pdm run check:migration-history "${{ github.event.before }}"
 
       - name: Run pre-commit contract
         run: pdm run pre-commit run --all-files

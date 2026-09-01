@@ -92,13 +92,14 @@ production PostgREST wrapper binding from `$PORT`, JWT read/write and denial beh
 duplicate deterministic reset, Alembic metadata, and web liveness/readiness. It uses no Neon
 or Heroku state.
 
-CI initializes a separate neutral runtime database, exports password-free role SQL and a
-PostgreSQL 17 whole-database schema dump, and restores it as validation. After CI passes on exact
-current `main`, `artifact-publish.yml` independently repeats that export in the release workflow,
+PR CI initializes a separate neutral runtime database, exports password-free role SQL and a
+PostgreSQL 17 whole-database schema dump, and restores it as candidate validation. After strict
+required checks admit that tree to protected `main`, `artifact-publish.yml` independently repeats
+that export in the release workflow,
 embeds its same-run schema, builds the canonical service image, and publishes the image commit tag
 and immutable digest. First-party wheels are independently
-built and published by `extension-publish.yml` only for changed Extension directories after the
-same exact-main checks pass. Application image promotion is not coupled to Extension publication.
+built and published by `extension-publish.yml` only for changed Extension directories from the
+same protected-main push. Application image promotion is not coupled to Extension publication.
 Production pulls that digest and transfers the same image content to Heroku; it does not rebuild
 core code. Only a successful production probe moves the mutable `stable` discovery channel.
 
