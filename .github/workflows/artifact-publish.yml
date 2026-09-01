@@ -8,7 +8,6 @@ on:
       - completed
 
 permissions:
-  actions: read
   contents: read
   packages: write
 
@@ -24,6 +23,25 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: >-
+          pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
+        env:
+          POSTGRES_DB: inkcre
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d inkcre"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CORE_DATABASE_PASSWORD: release-core-database-password-at-least-32-bytes
+      IMAGE_TAG: inkcre-core-release:${{ github.event.workflow_run.head_sha }}
+      POSTGREST_DATABASE_PASSWORD: release-postgrest-database-password-at-least-32-bytes
     steps:
       - name: Checkout exact verified source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -37,18 +55,21 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: bash scripts/automation/runtime_artifact.sh verify-main-source
 
-      - name: Download checked database schema evidence
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: core-database-contract
-          path: release/database-contract
-          github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
-
-      - name: Verify exact schema evidence
+      - name: Build the release schema source
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: bash scripts/automation/runtime_artifact.sh verify-schema-evidence
+        run: bash scripts/automation/runtime_artifact.sh build-schema-source
+
+      - name: Export and stage the release schema
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          bash scripts/automation/runtime_contract.sh export
+          bash scripts/automation/runtime_artifact.sh stage-schema-evidence
+
+      - name: Restore the staged release schema
+        run: bash scripts/automation/runtime_contract.sh restore
 
       - name: Build and publish immutable runtime
         id: image

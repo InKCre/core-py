@@ -9,15 +9,27 @@ case "${1:-}" in
     git fetch --no-tags origin main
     test "$(git rev-parse origin/main)" = "$HEAD_SHA"
     ;;
-  verify-schema-evidence)
+  build-schema-source)
+    for name in HEAD_SHA IMAGE_TAG; do require_env "$name"; done
+    docker build --platform linux/amd64 --provenance=false \
+      --build-arg "SOURCE_REVISION=$HEAD_SHA" --target runtime \
+      --tag "$IMAGE_TAG" .
+    ;;
+  stage-schema-evidence)
     require_env HEAD_SHA
+    contract_directory="${RUNNER_TEMP:-/tmp}/database-contract"
+    for file in database-schema.sql database-roles.sql runtime-contract.json manifest.json; do
+      test -f "$contract_directory/$file"
+    done
     python3 scripts/package_database_schema.py \
-      --schema release/database-contract/database-schema.sql \
-      --roles release/database-contract/database-roles.sql \
-      --runtime-contract release/database-contract/runtime-contract.json \
+      --schema "$contract_directory/database-schema.sql" \
+      --roles "$contract_directory/database-roles.sql" \
+      --runtime-contract "$contract_directory/runtime-contract.json" \
       --output "${RUNNER_TEMP:-/tmp}/manifest.json" \
       --source-revision "$HEAD_SHA"
-    cmp "${RUNNER_TEMP:-/tmp}/manifest.json" release/database-contract/manifest.json
+    cmp "${RUNNER_TEMP:-/tmp}/manifest.json" "$contract_directory/manifest.json"
+    install --mode 0644 "$contract_directory"/*.sql "$contract_directory"/*.json \
+      release/database-contract/
     ;;
   publish-immutable)
     require_env GHCR_TOKEN
