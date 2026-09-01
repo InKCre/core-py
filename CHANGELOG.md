@@ -4,6 +4,13 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.1.3 - 2026-09-01
+
+### Changed
+
+- Release publishing now builds and validates its database schema from the exact protected-main source instead of consuming a CI artifact. (#org-repository-cleanup)
+
+
 ## 0.1.2 - 2026-08-30
 
 ### Changed
