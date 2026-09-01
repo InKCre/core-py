@@ -4,6 +4,13 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.1.4 - 2026-09-01
+
+### Changed
+
+- Protected-main releases now start directly from the admitted main push instead of rerunning pull-request CI first. (#main-release-orchestration)
+
+
 ## 0.1.3 - 2026-09-01
 
 ### Changed
