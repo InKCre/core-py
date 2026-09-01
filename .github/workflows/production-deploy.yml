@@ -51,7 +51,7 @@ jobs:
         if: steps.selection.outputs.selected != 'true'
         run: echo "Core version is unchanged; normal production delivery is a no-op."
 
-      - name: Verify exact main commit and checks
+      - name: Verify exact main commit
         if: steps.selection.outputs.selected == 'true'
         uses: ./.github/actions/production-verify
         with:
