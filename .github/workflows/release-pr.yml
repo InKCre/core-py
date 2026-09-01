@@ -1,11 +1,9 @@
 name: Prepare release pull request
 
 on:
-  workflow_run:
-    workflows:
-      - Repository and artifact checks
-    types:
-      - completed
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -17,17 +15,13 @@ concurrency:
 
 jobs:
   prepare:
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout checked main
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
 
       - name: Set up Python and PDM
         uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5

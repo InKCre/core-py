@@ -60,7 +60,7 @@ manual or black-box activity and does not block the Heroku preview from starting
 
 `.github/workflows/extension-publish.yml` prepares the Python association with source provenance,
 uploads through `/legacy/`, and publishes the exact Release. Automatic runs obtain `before_sha`
-from the verified CI check suite and select only new projects or changed project versions;
+from the protected-main push and select only new projects or changed project versions;
 unchanged matrix entries are explicit no-ops. The matrix and repository wheel checks consume the
 same discovery result rather than separate project lists. An unprovable lineage or immutable
 prepare conflict fails the job.

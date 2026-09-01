@@ -24,9 +24,8 @@ case "${1:-}" in
       test "${INITIAL_PUBLICATION:-}" = INITIAL_ONLY
       if [ "$EXTENSION" = "$REQUESTED_EXTENSION" ]; then selected=true; fi
     else
-      require_env CHECK_SUITE_ID
-      require_env GH_TOKEN
-      before="$(gh api "repos/$GITHUB_REPOSITORY/check-suites/$CHECK_SUITE_ID" --jq .before)"
+      require_env BEFORE_SHA
+      before="$BEFORE_SHA"
       [[ "$before" =~ ^[0-9a-f]{40}$ ]]
       if [ "$before" = 0000000000000000000000000000000000000000 ]; then
         selected=true
