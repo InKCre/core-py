@@ -100,6 +100,8 @@ embeds its same-run schema, builds the canonical service image, and publishes th
 and immutable digest. First-party wheels are independently
 built and published by `extension-publish.yml` only for changed Extension directories from the
 same protected-main push. Application image promotion is not coupled to Extension publication.
+The production controller is admitted by the successful exact-main artifact run and rechecks that
+its source is still current `main`; it does not wait for duplicate checks on the merge commit.
 Production pulls that digest and transfers the same image content to Heroku; it does not rebuild
 core code. Only a successful production probe moves the mutable `stable` discovery channel.
 

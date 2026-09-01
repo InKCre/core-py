@@ -11,15 +11,11 @@ if [[ ! "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
-required_checks=(
-  "Hermetic repository contract"
-  "Portable peer database runtime"
-)
-
 case "${1:-}" in
   production)
     main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
     test "$main_sha" = "$HEAD_SHA"
+    exit 0
     ;;
   preview)
     require_env PR_NUMBER
@@ -30,7 +26,11 @@ case "${1:-}" in
     test "$(jq -r '.head.repo.full_name' <<<"$pr_json")" = "$GITHUB_REPOSITORY"
     test "$(jq -r '.head.sha' <<<"$pr_json")" = "$HEAD_SHA"
     test "$(jq -r '.state' <<<"$pr_json")" = "open"
-    required_checks+=("Provision isolated branch")
+    required_checks=(
+      "Hermetic repository contract"
+      "Portable peer database runtime"
+      "Provision isolated branch"
+    )
     ;;
   *)
     echo "usage: $0 production|preview" >&2

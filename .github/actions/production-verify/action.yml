@@ -1,9 +1,9 @@
 name: Verify production source
-description: Require the exact current main commit and its green artifact checks
+description: Require the exact current main commit
 
 inputs:
   github_token:
-    description: Token used only to inspect main and its checks
+    description: Token used only to inspect main
     required: true
   head_sha:
     description: Exact main commit proposed for production
@@ -12,7 +12,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Verify exact main commit and required checks
+    - name: Verify exact main commit
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
