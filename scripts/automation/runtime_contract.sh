@@ -2,10 +2,11 @@
 
 source "$(dirname "$0")/_common.sh"
 
-for name in IMAGE_TAG POSTGREST_IMAGE_TAG; do require_env "$name"; done
+require_env IMAGE_TAG
 
 case "${1:-}" in
   build)
+    require_env POSTGREST_IMAGE_TAG
     require_env SOURCE_REVISION
     docker build --build-arg "SOURCE_REVISION=$SOURCE_REVISION" --tag "$IMAGE_TAG" .
     docker build --build-arg "SOURCE_REVISION=$SOURCE_REVISION" \
@@ -31,7 +32,9 @@ case "${1:-}" in
       --entrypoint alembic "$IMAGE_TAG" check
     ;;
   postgrest)
-    for name in JWT_SECRET POSTGREST_DATABASE_PASSWORD; do require_env "$name"; done
+    for name in JWT_SECRET POSTGREST_DATABASE_PASSWORD POSTGREST_IMAGE_TAG; do
+      require_env "$name"
+    done
     postgrest_database_url="postgresql://authenticator:${POSTGREST_DATABASE_PASSWORD}@127.0.0.1:5432/inkcre"
     postgrest_id="$(docker run --detach --network host \
       --env "PGRST_DB_URI=$postgrest_database_url" --env PGRST_DB_SCHEMAS=inkcre \

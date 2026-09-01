@@ -128,13 +128,5 @@ jobs:
           SOURCE_REVISION: ${{ github.sha }}
         run: bash scripts/automation/runtime_contract.sh export
 
-      - name: Upload exact database schema evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: core-database-contract
-          path: ${{ runner.temp }}/database-contract
-          if-no-files-found: error
-          retention-days: 7
-
       - name: Restore the exported contract into a fresh database
         run: bash scripts/automation/runtime_contract.sh restore
