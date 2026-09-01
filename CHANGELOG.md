@@ -4,6 +4,13 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.1.5 - 2026-09-01
+
+### Fixed
+
+- Production delivery no longer waits for pull-request checks to reappear on a protected-main merge commit. (#production-main-verification)
+
+
 ## 0.1.4 - 2026-09-01
 
 ### Changed
