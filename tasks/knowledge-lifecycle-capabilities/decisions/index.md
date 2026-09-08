@@ -52,6 +52,13 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-401–D-410](D401-D410.md) | MCP batch outcome contract → current edge |
 | [D-421–D-430](D421-D430.md) | Telegram private delivery inbox → repository-wide Towncrier release-contract expansion |
 | [D-431–D-440](D431-D440.md) | Core release selection → Towncrier guidance、peer collaboration and Telegram acknowledgement reaction |
+| [D-461–D-470](D461-D470.md) | Organization study work mode → evolution property/model split |
+| [D-471–D-480](D471-D480.md) | Crystal source-count heuristic → n-ary synthesis / graph propagation |
+| [D-481–D-490](D481-D490.md) | Exploratory Agentic topology → Organization as an Extension growth axis |
+| [D-491–D-500](D491-D500.md) | Community Detection projection boundary → Nowledge vertical enters Technical |
+| [D-501–D-510](D501-D510.md) | Agent-definition selection correction → bounded duplicate-component correction |
+| [D-511–D-520](D511-D520.md) | Assertion-relative provenance occurrence → exact behavior-owned Relation tokens/read semantics |
+| [D-521–D-530](D521-D530.md) | Resolver capability meta-tool → accepted Impact Handshake / implementation start |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -67,11 +74,9 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision: [D-438](D431-D440.md)。MCP sink owns reserved range D-381–D-420；Telegram extension owns
-  reserved range D-421–D-460。
-- Active units: [mcp-sink](../units/mcp-sink/packet.md) in implementation/delivery and
-  [telegram-extension](../units/telegram-extension/packet.md) with implementation plan、preflight and Impact Handshake
-  prepared。Telegram retains D-421–D-460 after its approved expansion to the repository-wide Changie→Towncrier
-  release contract；the expansion changes placement/overlap, not decision ownership。
+- Latest confirmed decision by registered ID: [D-527](D521-D530.md)。MCP sink retains D-381–D-420；Telegram extension retains
+  D-421–D-460；Organization Nowledge study owns D-461–D-540。
+- MCP and Telegram are closed。The active Unit is
+  [organization-nowledge-study](../units/organization-nowledge-study/packet.md) in Verify / Acceptance after implementation。
 - Parallel placement and integration surfaces are shared peer control in the [roster](../collaboration/roster.md)；there is no
   coordinator role。

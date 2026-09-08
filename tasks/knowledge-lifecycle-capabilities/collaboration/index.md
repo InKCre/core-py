@@ -40,6 +40,10 @@ recover current model
 - Commit、push、merge and cross-owner publication keep their own authorization and governance boundaries。
 - A Unit is an implementation responsibility boundary，not a release、repository or folder boundary。
 
+Parallel Unit sessions are peers rather than coordinator/worker roles。Each session owns one Unit and may minimally maintain
+the shared program packet、roster and navigation for its own registration or returned result。Orthogonal sessions do not need
+routine communication；actual owner overlap、dependency or shared-baseline change triggers direct reconciliation。
+
 ## Discussion Loop
 
 The unit of progress is a more coherent current system model，not another answered question。

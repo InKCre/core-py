@@ -4,9 +4,48 @@
 
 `上游需求 → 被打破的假设 → 候选 owner → 影响 → evidence → status`
 
-active unit 是 [Graph navigation retrieval](units/graph-navigation-retrieval/packet.md)，当前 Execution baseline 已冻结并
-等待新的明确实施授权。下列 Mail/Feature pressures 保留为 completed-unit provenance，不自动成为 graph navigation
-retrieval 的设计前提；新的横切压力必须来自本 unit 的 user journey、Acceptance 或 implementation evidence。
+Parallel Units independently contribute pressures from their own Product、Acceptance or implementation evidence；a pressure
+does not become another Unit's design premise or authorize a shared abstraction without its own evidence。
+
+## Active Organization-study pressure
+
+### P-032 — Evidence absence needs a bounded coverage witness before it becomes reusable meaning
+
+- **Upstream**: Nowledge `Needs verification` flags a strong claim without corroboration，while accepted evidence stance only
+  records support/challenge Relations that were actually found。
+- **Broken assumption**: absence of a supporting Relation means no support exists，or a generic `unverified` boolean can
+  distinguish unsupported、unavailable and never-evaluated claims。
+- **Candidate owner**: unresolved。A future evidence-assessment Organization behavior may own a bounded evaluation basis and
+  reusable coverage result；a use-specific reliability projection may own it when evidence requirements depend on the query。
+- **Impact**: claim candidate selection、evidence search/exploration、source independence、scope/time/model recording、graph-change
+  reconsideration and downstream caution semantics。
+- **Evidence**: Nowledge documents only “strong claim，no corroboration”，without the evidence universe or completeness law needed
+  for a durable negative assertion。D-470 owns positive support/challenge meaning；D-473 provides a possible graph-change
+  propagation model but not evidence-coverage semantics。
+- **Status**: retained unresolved Product pressure by D-492 after the Flags reconciliation closed。Do not add a Flag node/state
+  or new Organization method until one concrete use can distinguish a query-time warning from a reusable bounded coverage
+  assessment。
+
+### P-031 — Relations may conduct operational force in addition to expressing attribution or logic
+
+- **Upstream**: Crystals reuses prior EVOLVES relations to route candidate attention，derivation relations can route upstream
+  change pressure back to affected synthesis results，and the Memory Compaction inquiry asks whether a same-provenance duplicate
+  relation should conduct “count this assertion once” into evidence operations。
+- **Broken assumption**: relations only describe static meaning for later traversal，or graph change requires a separate
+  feature-specific lifecycle to discover downstream effects。
+- **Candidate owner**: no durable/runtime owner yet。The organization study owns accumulating cases；a future Product TDD or
+  graph/Organization owner is selected only after shared semantics mature。
+- **Impact**: relation type/direction may eventually delimit which stimulus reaches which downstream operation、with what
+  interpretation and termination/no-op law。
+- **Evidence**: Nowledge runs cluster evaluation after EVOLVES edges and links every synthesis to source dependencies；D-473
+  and D-474 recover propagation and candidate-routing uses without approving its packaging。The active compaction inquiry adds a
+  candidate evidence-cardinality case，not yet an accepted relation contract。D-483 provides the contrasting descriptive case：
+  a source-relative semantic-role Relation remains graph meaning unless an explicit consumer contract assigns an operational
+  effect。
+- **Status**: research seed accepted by D-475。Future cases use a common observation tuple：stimulus、relation type/direction、
+  downstream operation、conducted meaning、termination/no-op、observable value/failure。Wait for recurrence before designing a
+  generic force schema or cascade engine。The [representation lens](units/organization-nowledge-study/representation-lens.md)
+  now names the distinction as “Relation may be a force path；the owning model supplies the force law”。
 
 ## Completed Mail-unit pressures
 
