@@ -1,8 +1,8 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **State**: **Execute active by D-527。Product closed by D-493，Technical material boundaries by D-523，best-effort black-box
-  Acceptance by D-525，Implementation Plan by D-526，Preflight/Impact Handshake closed by D-527**。
+- **State**: **Verify / Acceptance active after D-527 implementation。Product closed by D-493，Technical material boundaries by
+  D-523，best-effort black-box Acceptance by D-525，Implementation Plan by D-526，Preflight/Impact Handshake closed by D-527**。
 - **Objective**: 以逐项学习 Nowledge 得到并经 transfer audit 修正的 Product model 为同一 implementation vertical 的
   Product foundation，围绕这一整组 Product features 形成一套 Technical design、Acceptance、Implementation Plan 并
   整体实现对 InKCre info-base organization 系列能力的改善；内部行为边界不成为 delivery slices，也不构造 generic
@@ -267,6 +267,8 @@ implementation shape。
   Graph indexes、Agent/config operator path、baseline 与 database environment residual；结论 ready with residuals。
 - [Impact Handshake](impact-handshake.md)：D-527 accepted implementation 的 `From -> To`、blast radius、不变量、验证和未授权
   边界；源码实施已开始。
+- [Implementation Evidence](implementation-evidence.md)：记录当前已实施 surfaces、静态/collection evidence、数据库与真实
+  provider residual；它不把尚未执行的黑盒旅程写成已通过。
 - [Agent definition selection correction](technical-design/agent-adapter-boundary.md)：D-501 撤回 run-time Tool policy；多个
   purpose-built definitions 已按场景完整组合 prompt、model、Tools 和预算，执行路径只需选择正确 definition。
 - [Relation semantic contract](technical-design/relation-semantic-contract.md)：从 neutral graph、heterogeneous models、
@@ -281,6 +283,7 @@ implementation shape。
 - [Decision shard D-481–D-490](../../decisions/D481-D490.md)：cross-mechanism Agentic execution and later decisions。
 - [Decision shard D-491–D-500](../../decisions/D491-D500.md)：Community Detection、Flags、transfer-audit closure and vertical-
   lifecycle corrections。
-- Execute active；按 accepted dependency order 实施，保留 database/provider environment residual。
+- Verify / Acceptance active；实现与静态证据已收敛，等待可用 database/provider 运行 PostgreSQL journeys 与 Human-reviewed
+  two-world black-box Acceptance；环境不可用期间保留 residual，不回写为 Product/Technical failure。
 
 本 packet 只投影范围、当前阶段、active edge 和导航，不重复 design、evidence、decision 或 completed-work history。

@@ -75,7 +75,7 @@ stops.
 
 ## Rumination And Agent Boundary
 
-`OrganizationManager.ruminate(block_id)` builds one initial message from the focal Resolver text and a bounded direct-
+`RuminationBehaviorResolver.ruminate(block_id)` builds one initial message from the focal Resolver text and a bounded direct-
 relation snapshot. A deployment config chooses a persisted Agent definition. The Agent can discover selected Resolver
 draft schemas, request a non-persisting Resolver draft, and submit one flat signed-ID `GraphForm`; only `submit_graph` may
 write.

@@ -1,0 +1,48 @@
+{
+  "worlds": [
+    {
+      "id": "regional-service",
+      "artifacts": [
+        {"alias": "atlas.eu-limit-2025", "path": "regional-service/eu-limit-2025.md"},
+        {"alias": "atlas.eu-limit-2024", "path": "regional-service/eu-limit-2024.md"},
+        {"alias": "atlas.us-limit", "path": "regional-service/us-limit.md"},
+        {"alias": "atlas.eu-rollout", "path": "regional-service/eu-rollout-note.md"},
+        {"alias": "atlas.measurement", "path": "regional-service/independent-measurement.md"},
+        {"alias": "atlas.newsletter-copy", "path": "regional-service/copied-newsletter.md"},
+        {"alias": "atlas.implicit-reference", "path": "regional-service/implicit-reference.md"},
+        {"alias": "atlas.composite-limits", "path": "regional-service/composite-limits.md"},
+        {"alias": "atlas.distractor", "path": "regional-service/distractor.md"}
+      ],
+      "relations": [
+        {"from": "atlas.newsletter-copy", "content": "cites", "to": "atlas.measurement"},
+        {"from": "atlas.eu-limit-2025", "content": "published after", "to": "atlas.eu-limit-2024"}
+      ]
+    },
+    {
+      "id": "incident-review",
+      "artifacts": [
+        {"alias": "nimbus.timeline", "path": "incident-review/official-timeline.md"},
+        {"alias": "nimbus.database", "path": "incident-review/database-observation.md"},
+        {"alias": "nimbus.network", "path": "incident-review/network-observation.md"},
+        {"alias": "nimbus.application", "path": "incident-review/application-hypothesis.md"},
+        {"alias": "nimbus.validation", "path": "incident-review/independent-validation.md"},
+        {"alias": "nimbus.copied-report", "path": "incident-review/copied-report.md"},
+        {"alias": "nimbus.remediation-v1", "path": "incident-review/remediation-v1.md"},
+        {"alias": "nimbus.remediation-v2", "path": "incident-review/remediation-v2.md"},
+        {"alias": "nimbus.distractor", "path": "incident-review/distractor.md"}
+      ],
+      "relations": [
+        {"from": "nimbus.copied-report", "content": "cites", "to": "nimbus.validation"},
+        {"from": "nimbus.application", "content": "responds to", "to": "nimbus.timeline"},
+        {"from": "nimbus.database", "content": "responds to", "to": "nimbus.timeline"},
+        {"from": "nimbus.network", "content": "responds to", "to": "nimbus.timeline"}
+      ]
+    }
+  ],
+  "upstream_change": {
+    "alias": "nimbus.remediation-v3",
+    "path": "incident-review/remediation-v3.md",
+    "predecessor": "nimbus.remediation-v2",
+    "relation": "edited"
+  }
+}

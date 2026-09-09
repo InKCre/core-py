@@ -22,7 +22,7 @@ from app.business.organization import (
   RUMINATION_CONFIG_KEY,
   RUMINATION_CONFIG_SCHEMA,
   SUBMIT_GRAPH_TOOL,
-  OrganizationManager,
+  RuminationBehaviorResolver,
 )
 from app.engine import SessionLocal
 from app.schemas import AgentDefinitionModel
@@ -85,7 +85,7 @@ def test_context_preserves_direction_and_draft_submit_maps_local_ids():
     outgoing_relation = RelationManager.create(focal.id, outgoing.id, "highlight")
     incoming_relation = RelationManager.create(incoming.id, focal.id, "reference")
 
-    message = asyncio.run(OrganizationManager._build_initial_message(focal.id))
+    message = asyncio.run(RuminationBehaviorResolver._build_initial_message(focal.id))
     assert message is not None
     text_part = message.content[0]
     assert isinstance(text_part, TextContentPart)
@@ -278,8 +278,8 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(monkey
       return AssistantMessage(content="complete")
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
-    asyncio.run(OrganizationManager.ruminate(focal.id))
-    asyncio.run(OrganizationManager.ruminate(focal.id))
+    asyncio.run(RuminationBehaviorResolver.ruminate(focal.id))
+    asyncio.run(RuminationBehaviorResolver.ruminate(focal.id))
 
     with SessionLocal() as db:
       derived = db.exec(

@@ -1,8 +1,11 @@
 """Exact automatic Organization commands hosted by Jobs."""
 
 from app.business.job import JobHandler
-from app.business.organization import OrganizationManager
-from app.business.organization_media import MEDIA_INTERPRETATION_JOB_TYPE
+from app.business.organization_media import (
+  MEDIA_INTERPRETATION_JOB_TYPE,
+  can_handle_media_interpretation,
+  interpret_missing_media,
+)
 from app.schemas.job import JobModel
 from app.schemas.organization import MediaInterpretationJobParameters
 
@@ -17,7 +20,7 @@ class MediaInterpretationJobHandler(
   @classmethod
   def can_handle(cls, parameters: MediaInterpretationJobParameters) -> bool:
     del parameters
-    return OrganizationManager.can_interpret_media()
+    return can_handle_media_interpretation()
 
   @classmethod
   async def handle(
@@ -26,5 +29,5 @@ class MediaInterpretationJobHandler(
     parameters: MediaInterpretationJobParameters,
   ) -> None:
     del parameters
-    report = await OrganizationManager.interpret_missing_media()
+    report = await interpret_missing_media()
     job.state = report.model_dump(mode="json")

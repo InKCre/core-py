@@ -1,0 +1,265 @@
+"""Provenance-preserving n-ary synthesis behavior."""
+
+from __future__ import annotations
+
+import logging
+import typing
+
+import sqlmodel
+
+from app.business.deployment_config import DeploymentConfigManager
+from app.business.info_base.block import BlockManager
+from app.business.info_base.resolver import Resolver
+from app.engine import SessionLocal
+from app.schemas.info_base.block import BlockForm, BlockID, BlockModel
+from app.schemas.info_base.relation import RelationModel
+from app.schemas.organization_behavior import (
+  BehaviorAgentConfig,
+  CandidateWriteResult,
+  SynthesisProposal,
+  SynthesisWriteResult,
+)
+
+from ._shared import (
+  build_seed_message,
+  candidate_seed_ids,
+  configured_agent_available,
+  fetchsert_relation,
+  merge_seed_categories,
+  random_block_ids,
+  recent_block_ids,
+  recent_relation_endpoint_ids,
+  record_candidate,
+  relation_result,
+  run_configured_agent,
+)
+from .supersession import EDITED_RELATION
+
+
+LOGGER = logging.getLogger(__name__)
+
+SYNTHESIS_RELATION = "synthesis"
+SYNTHESIS_BEHAVIOR = "core.organization.behavior.synthesis.v1"
+SYNTHESIS_CONFIG_KEY = "core.organization.synthesis"
+SYNTHESIS_CONFIG_SCHEMA = "core.organization.synthesis.config.v1"
+
+DeploymentConfigManager.register_schema(SYNTHESIS_CONFIG_SCHEMA, BehaviorAgentConfig)
+
+
+class SynthesisBehaviorResolver(
+  Resolver[str, str],
+  rso_type=SYNTHESIS_BEHAVIOR,
+):
+  organization_description = (
+    "Create reusable multi-source information while preserving exact source basis."
+  )
+  judgment_contract = (
+    "The result is independently useful information, not a list of related sources.",
+    "Every source materially contributes content, attribution, or uncertainty.",
+    "Source disagreements, uncertainty, and speaker attribution remain visible.",
+    "Scopes are compatible or their differences are explicitly preserved.",
+    "Duplicate-connected copies do not multiply independent corroboration.",
+    "No existing synthesis already provides the same reusable distinction.",
+    "Observed past use and recurrence make future reuse plausible.",
+  )
+
+  async def get_text(
+    self,
+    *,
+    context: typing.Literal["default", "lexical"] = "default",
+    refresh: bool = False,
+    materialize_missing: bool = True,
+  ) -> str:
+    del context, refresh, materialize_missing
+    return self.organization_description
+
+  async def get_label(self, *, refresh: bool = False) -> str:
+    del refresh
+    return "organization behavior: synthesis"
+
+  @classmethod
+  async def record_candidate(
+    cls,
+    information_id: BlockID,
+    *,
+    db_session: sqlmodel.Session | None = None,
+  ) -> CandidateWriteResult:
+    return await record_candidate(cls, information_id, db_session=db_session)
+
+  @classmethod
+  async def create_synthesis(
+    cls,
+    text: str,
+    source_ids: typing.Collection[BlockID],
+    previous_synthesis_id: BlockID | None = None,
+    *,
+    db_session: sqlmodel.Session | None = None,
+  ) -> SynthesisWriteResult:
+    proposal = SynthesisProposal(
+      text=text,
+      source_ids=tuple(source_ids),
+      previous_synthesis_id=previous_synthesis_id,
+    )
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        result = await cls.create_synthesis(
+          proposal.text,
+          proposal.source_ids,
+          proposal.previous_synthesis_id,
+          db_session=owned_session,
+        )
+        owned_session.commit()
+        return result
+
+    found = {block.id for block in BlockManager.get_many(proposal.source_ids, db_session)}
+    missing = tuple(source for source in proposal.source_ids if source not in found)
+    if missing:
+      raise ValueError(f"Synthesis source Blocks do not exist: {missing!r}")
+    if proposal.previous_synthesis_id is not None:
+      previous = BlockManager.get(proposal.previous_synthesis_id, db_session)
+      if previous is None:
+        raise ValueError("Previous synthesis Block does not exist")
+      previous_basis = db_session.exec(
+        sqlmodel.select(RelationModel.from_).where(
+          RelationModel.to_ == proposal.previous_synthesis_id,
+          RelationModel.content == SYNTHESIS_RELATION,
+        )
+      ).all()
+      if len(set(previous_basis)) < 2:
+        raise ValueError("Previous synthesis has no valid multi-source basis")
+
+    source_set = set(proposal.source_ids)
+    text_candidates = db_session.exec(
+      sqlmodel.select(BlockModel).where(
+        BlockModel.resolver == "core.text.v1",
+        BlockModel.content == proposal.text,
+      )
+    ).all()
+    synthesis = next(
+      (
+        candidate
+        for candidate in text_candidates
+        if cls._source_basis(candidate, db_session) == source_set
+      ),
+      None,
+    )
+    synthesis_created = synthesis is None
+    if synthesis is None:
+      synthesis = BlockManager.create(
+        BlockForm(resolver="core.text.v1", content=proposal.text),
+        db_session,
+      )
+    if synthesis.id is None:  # pragma: no cover - persisted Block invariant
+      raise RuntimeError("Persisted synthesis Block has no ID")
+
+    basis = []
+    for source_id in sorted(source_set):
+      relation, created = fetchsert_relation(
+        source_id,
+        synthesis.id,
+        SYNTHESIS_RELATION,
+        db_session,
+      )
+      basis.append(relation_result(relation, created))
+
+    edited = None
+    if (
+      proposal.previous_synthesis_id is not None
+      and proposal.previous_synthesis_id != synthesis.id
+    ):
+      relation, created = fetchsert_relation(
+        proposal.previous_synthesis_id,
+        synthesis.id,
+        EDITED_RELATION,
+        db_session,
+      )
+      edited = relation_result(relation, created)
+    return SynthesisWriteResult(
+      synthesis=synthesis.id,
+      synthesis_created=synthesis_created,
+      basis=tuple(basis),
+      edited=edited,
+    )
+
+  @staticmethod
+  def _source_basis(
+    synthesis: BlockModel,
+    db_session: sqlmodel.Session,
+  ) -> set[BlockID]:
+    if synthesis.id is None:
+      return set()
+    return set(
+      db_session.exec(
+        sqlmodel.select(RelationModel.from_).where(
+          RelationModel.to_ == synthesis.id,
+          RelationModel.content == SYNTHESIS_RELATION,
+        )
+      ).all()
+    )
+
+  @classmethod
+  def _change_signal_ids(cls, limit: int) -> tuple[BlockID, ...]:
+    endpoints = recent_relation_endpoint_ids(limit)
+    if not endpoints:
+      return ()
+    with SessionLocal() as db_session:
+      affected = db_session.exec(
+        sqlmodel.select(RelationModel.to_).where(
+          RelationModel.from_.in_(endpoints),  # type: ignore[union-attr]
+          RelationModel.content == SYNTHESIS_RELATION,
+        )
+      ).all()
+    return tuple(dict.fromkeys((*endpoints, *affected)))
+
+  @classmethod
+  def can_run_automatic(cls) -> bool:
+    return configured_agent_available(SYNTHESIS_CONFIG_KEY, BehaviorAgentConfig)
+
+  @classmethod
+  async def run_automatic(cls, max_seeds: int) -> None:
+    candidates = await candidate_seed_ids(cls, max_seeds)
+    strong = merge_seed_categories(
+      max_seeds,
+      cls._change_signal_ids(max_seeds),
+      recent_block_ids(max_seeds),
+    )
+    random = random_block_ids(max_seeds)
+    seeds = merge_seed_categories(max_seeds, candidates, strong, random)
+    LOGGER.info(
+      "organization.seeds.selected",
+      extra={
+        "behavior": cls.__rsotype__,
+        "max_seeds": max_seeds,
+        "candidate_count": len(candidates),
+        "strong_count": len(strong),
+        "random_count": len(random),
+        "seed_block_ids": seeds,
+      },
+    )
+    for seed in seeds:
+      message = await build_seed_message(
+        "Create only provenance-preserving, reusable multi-source synthesis.",
+        cls.judgment_contract,
+        seed,
+      )
+      if message is None:
+        LOGGER.info(
+          "organization.seed.considered",
+          extra={
+            "behavior": cls.__rsotype__,
+            "seed_block_ids": (seed,),
+            "outcome": "unresolved",
+            "reason": "text_unavailable",
+          },
+        )
+        continue
+      await run_configured_agent(SYNTHESIS_CONFIG_KEY, BehaviorAgentConfig, message)
+      LOGGER.info(
+        "organization.seed.considered",
+        extra={
+          "behavior": cls.__rsotype__,
+          "seed_block_ids": (seed,),
+          "outcome": "considered",
+          "reason": "agent_completed",
+        },
+      )

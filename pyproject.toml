@@ -90,6 +90,7 @@ format = "ruff format ."
 typecheck = "pyrefly check --min-severity=warn --output-format=min-text --progress-bar=no"
 test = "python -m pytest -q"
 "test:acceptance" = "python -m pytest -q -m acceptance tests/semantic_retrieval/acceptance"
+"test:organization-acceptance" = "python -m pytest -q -s tests/organization/acceptance/test_black_box.py"
 "check:lock" = "python scripts/check_lock.py"
 "lint:migrations" = "ruff check --no-cache migrations/env.py migrations/metadata.py migrations/settings.py scripts/_tooling.py scripts/doctor.py scripts/check_lock.py scripts/check_migration_history.py scripts/database_manifest.py scripts/sanitize_preview_base.py tests/migrations"
 "test:migrations" = "python -m pytest -q tests/migrations"
@@ -143,7 +144,7 @@ filterwarnings = [
     "ignore:co_lnotab is deprecated, use co_lines instead\\.:DeprecationWarning:js2py_\\.utils\\.injector",
 ]
 markers = [
-    "acceptance: explicit credentialed semantic-quality acceptance",
+    "acceptance: explicit credentialed Human-reviewed acceptance",
     "integration: requires external services or a disposable database",
 ]
 

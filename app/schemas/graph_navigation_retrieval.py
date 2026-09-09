@@ -35,6 +35,26 @@ class RelationNeighborhood(pydantic.BaseModel):
   graph: GraphModel
 
 
+class ConnectedSeedComponent(pydantic.BaseModel):
+  """One observed undirected component containing one or more input seeds."""
+
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  seed_blocks: tuple[BlockID, ...]
+  member_blocks: tuple[BlockID, ...]
+
+
+class ConnectedComponentsResult(pydantic.BaseModel):
+  """Bounded seed partition plus an endpoint-closed spanning proof."""
+
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  components: tuple[ConnectedSeedComponent, ...]
+  proof_graph: GraphModel
+  missing_seed_blocks: tuple[BlockID, ...]
+  truncated: bool
+
+
 class PathFound(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 

@@ -1,5 +1,7 @@
 import abc
+from collections.abc import Collection
 from dataclasses import dataclass
+import inspect
 import typing
 from typing import Optional as Opt
 
@@ -28,6 +30,19 @@ class ResolverDraftCapability:
   description: str
   input_model: type[pydantic.BaseModel]
   resolver_cls: type["Resolver"]
+
+
+@dataclass(frozen=True)
+class ResolverMethodContract:
+  """One Agent-projectable public read method on a registered Resolver."""
+
+  name: str
+  description: str
+  input_model: type[pydantic.BaseModel]
+
+  @property
+  def input_schema(self) -> dict[str, typing.Any]:
+    return self.input_model.model_json_schema()
 
 
 class ResolverManager:
@@ -85,6 +100,82 @@ class ResolverManager:
       if capability.resolver == resolver:
         return capability
     raise UnknownDraftResolverError(resolver)
+
+  @classmethod
+  def get_method_contracts(
+    cls,
+    resolver: ResolverType,
+  ) -> tuple[ResolverMethodContract, ...]:
+    """Discover typed public read methods on one registered Resolver."""
+    resolver_cls = cls.RESOLVER_CLS.get(resolver)
+    if resolver_cls is None:
+      return ()
+    contracts: list[ResolverMethodContract] = []
+    for name, function in inspect.getmembers(resolver_cls, predicate=inspect.isfunction):
+      if name.startswith("_") or not name.startswith(("get_", "read_")):
+        continue
+      try:
+        signature = inspect.signature(function, eval_str=True)
+        fields: dict[str, tuple[typing.Any, typing.Any]] = {}
+        for parameter in signature.parameters.values():
+          if parameter.name == "self":
+            continue
+          if parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD):
+            raise TypeError("Variadic Resolver methods are not projectable")
+          if parameter.annotation is inspect.Parameter.empty:
+            raise TypeError("Resolver method parameters must be typed")
+          default = (
+            ... if parameter.default is inspect.Parameter.empty else parameter.default
+          )
+          annotation = parameter.annotation
+          if typing.get_origin(annotation) is Collection:
+            item_type = typing.get_args(annotation)[0]
+            annotation = tuple[item_type, ...]
+          fields[parameter.name] = (annotation, default)
+        input_model = typing.cast(typing.Any, pydantic.create_model)(
+          f"{resolver_cls.__name__}_{name}_Arguments",
+          __config__=pydantic.ConfigDict(extra="forbid"),
+          **fields,
+        )
+        input_model.model_json_schema()
+      except (NameError, TypeError, pydantic.PydanticSchemaGenerationError):
+        continue
+      contracts.append(
+        ResolverMethodContract(
+          name=name,
+          description=inspect.getdoc(function) or name.replace("_", " "),
+          input_model=input_model,
+        )
+      )
+    return tuple(contracts)
+
+  @classmethod
+  def get_method_contract(
+    cls,
+    resolver: ResolverType,
+    name: str,
+  ) -> ResolverMethodContract | None:
+    return next(
+      (
+        contract for contract in cls.get_method_contracts(resolver) if contract.name == name
+      ),
+      None,
+    )
+
+  @classmethod
+  async def invoke_method(
+    cls,
+    block: BlockModel,
+    name: str,
+    arguments: dict[str, typing.Any],
+  ) -> typing.Any:
+    """Validate and invoke one projected read method on an exact Block Resolver."""
+    contract = cls.get_method_contract(block.resolver, name)
+    if contract is None:
+      raise ValueError("Resolver method is not available")
+    validated = contract.input_model.model_validate(arguments)
+    value = getattr(cls.get(block), name)(**validated.model_dump())
+    return await value if inspect.isawaitable(value) else value
 
   @classmethod
   def match_media_type(cls, media_type: str | None) -> ResolverType | None:

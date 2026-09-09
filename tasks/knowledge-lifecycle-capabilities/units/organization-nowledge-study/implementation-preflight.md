@@ -128,13 +128,17 @@ Deployment config 已有 `/configs/{key}` PUT/PATCH/GET route，也可经同一 
 
 ## 8. 环境残差与处置
 
-`svc dev status database` 显示现有 runtime 来自旧 descriptor/provider。`svc dev ensure database` 尝试重建时，远端 Docker
-host `172.16.249.14:122` 在 SSH key exchange 阶段 reset；direct provider retry 又要求先 stop 旧 runtime。`stop` 会删除当前
-worktree dev volume，preflight 没有为只读探查执行该破坏性动作。
+本机 `svc.local.json` 已把 database target 配置为 `ssh -> wsl.win-ws.localhost -> Windows Docker CLI`；此前把缺少本地
+PostgreSQL binary 当成主要开发数据库路径属于环境理解错误，已补入 ignored `AGENTS.local.md`。按正确入口重新执行
+`svc dev ensure database` 后，远端 host `172.16.249.14:122` 在 SSH key exchange 阶段 reset；现有 loopback tunnel/ports 也
+不可达。实现验证期间已把 project-owned provider reader 修正为优先读取 schema-v3 `dev.targets`、兼容旧 v2；真实
+`svc.local.json` probe 现在报告 `provider_matches=true`。剩余 `ready=false` 来自远端/tunnel 不可达与 source mismatch，
+不是 provider 配置缺失。`stop` 会删除当前 worktree dev volume，未为恢复远端执行该破坏性动作。
 
 这形成两个 execution-time evidence gates，而不是设计阻塞：
 
-1. 实现中的真实 PostgreSQL graph journey 需要可用 database target 或完整本地 PostgreSQL binaries；
+1. 实现中的真实 PostgreSQL graph journey 需要 `wsl.win-ws.localhost` 恢复 SSH/远端 Docker 可达；本地 PostgreSQL
+   binaries 不是本机声明的开发路径；
 2. credentialed black-box Acceptance 还需要真实 provider、purpose-built Agent definitions 与 configs。
 
 如果执行期环境仍不可用，静态/无数据库门禁可以继续，但不能声称相关 journey 已通过；交付时必须如实保留 residual。

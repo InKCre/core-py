@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import json
 import typing
 
@@ -43,12 +42,10 @@ from .projection import (
   content_uri,
   decode_json,
   decode_selector,
-  get_resolver_method,
   project_value,
   read_block_value,
   relation_preview,
   resolver_method_uri,
-  resolver_method_contracts,
   select_value,
 )
 from .skill import InkCreSkillsExtension, SKILL_CONTENT, SKILL_URI
@@ -126,12 +123,7 @@ async def _invoke_resolver_value(
   block = BlockManager.get(block_id)
   if block is None:
     raise ValueError("Block does not exist")
-  contract = get_resolver_method(block.resolver, method_name)
-  if contract is None:
-    raise ValueError("Resolver method is not available")
-  validated = contract.input_model.model_validate(arguments)
-  value = getattr(ResolverManager.get(block), method_name)(**validated.model_dump())
-  return await value if inspect.isawaitable(value) else value
+  return await ResolverManager.invoke_method(block, method_name, arguments)
 
 
 def _content_delivery(
@@ -525,7 +517,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
                 "description": method.description,
                 "input_schema": method.input_schema,
               }
-              for method in resolver_method_contracts(resolver)
+              for method in ResolverManager.get_method_contracts(resolver)
             ],
           }
         )
@@ -546,7 +538,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
         correlation = {"index": index, "block": call.block, "method": call.method}
         if block is None:
           return {**correlation, **_error("not_found", "Block does not exist")}, []
-        contract = get_resolver_method(block.resolver, call.method)
+        contract = ResolverManager.get_method_contract(block.resolver, call.method)
         if contract is None:
           return {
             **correlation,

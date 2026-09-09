@@ -86,11 +86,17 @@ def _optional_json(path: Path) -> dict:
   return value
 
 
-def _provision_environment(config: dict, profile: str) -> dict[str, str]:
+def _provision_environment(
+  config: dict,
+  legacy_profile: str | None,
+) -> dict[str, str]:
+  dev = config.get("dev", {})
+  targets = dev.get("targets")
+  if targets is None:
+    profile = dev.get("profile") or legacy_profile
+    targets = dev.get("profiles", {}).get(profile, {}).get("targets", {})
   try:
-    environment = config["dev"]["profiles"][profile]["targets"]["database"][
-      "provision"
-    ].get("env", {})
+    environment = targets["database"]["provision"].get("env", {})
   except (KeyError, TypeError):
     return {}
   if not isinstance(environment, dict) or not all(
@@ -103,12 +109,10 @@ def _provision_environment(config: dict, profile: str) -> dict[str, str]:
 def _declared_provider_environment() -> dict[str, str]:
   base = _optional_json(BASE_CONFIG)
   local = _optional_json(LOCAL_CONFIG)
-  profile = local.get("dev", {}).get("profile") or base.get("dev", {}).get("profile")
-  if not isinstance(profile, str):
-    return {}
+  legacy_profile = local.get("dev", {}).get("profile") or base.get("dev", {}).get("profile")
   return {
-    **_provision_environment(base, profile),
-    **_provision_environment(local, profile),
+    **_provision_environment(base, legacy_profile),
+    **_provision_environment(local, legacy_profile),
   }
 
 
