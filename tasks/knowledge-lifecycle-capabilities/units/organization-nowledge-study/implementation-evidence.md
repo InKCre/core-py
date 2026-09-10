@@ -1,7 +1,16 @@
 # Organization Nowledge Vertical — Implementation Evidence
 
-> **状态**：Verify / Acceptance active；2026-09-08 implementation 与静态验证完成，PostgreSQL/真实 provider
-> Acceptance 尚未关闭。
+> **状态**：2026-09-10 preview 两轮真实 provider 验收已执行，Agent 建议不通过语义验收，待 Sir 复核。
+> 运行链可用，但已观察到错误 authority 和预算耗尽；不能以 CI 通过替代语义验收。
+
+## 当前验收结论
+
+[PR #100 preview review](acceptance/preview-100-review.md) 保存两轮 `qwen3.6-plus` 结果与具体 Block/Relation。
+6/14 Organization Jobs 正常完成，8/14 达到 per-turn model-call budget 后失败；两次 lexical maintenance 正常。
+主要问题为范围覆盖不足的 supersession/synthesis、把原报告当成转载的后继版本、派生文本增强来源语气。
+也观察到正确的修订关系、带 scope/count-once 解释的 synthesis 和发现语气丢失后的 candidate signal。
+全部临时语料、图、Jobs、Agents、model、provider 和行为 configs 已清理；清理回执与无凭据部署事实一并保存。
+当前阶段是根据验收结果修正实现/部署 SOP 后复验，尚未达到 Unit closure 或 Hub promotion 条件。
 
 ## 已实施的拓扑
 
@@ -37,12 +46,11 @@
 - 真实 PostgreSQL exact-operation/connected-component journey 尚未运行；本机声明的实际 database target 是
   `wsl.win-ws.localhost` Docker，而不是本地 PostgreSQL。正确执行 `svc dev ensure database` 后，SSH 到
   `172.16.249.14:122` 在 key exchange 前 reset，已有 loopback ports 也拒绝连接。
-- credentialed two-world black-box Acceptance 尚未运行；需要显式测试数据库和真实 chat provider 环境，由 Human 审阅
-  graph/use quality，不能由静态检查替代。
+- credentialed two-world black-box Acceptance 已在 PR #100 preview 运行；具体结果以上述 2026-09-10 报告为准。
 - 完整 `pdm run check` 仍会先碰到与本 unit 无关的未跟踪 `.agents/skills/python-backend-code` format residual；不得为
   获得绿灯修改或提交它。
-- 单独 `pdm run test` 为 `10 passed, 43 skipped, 10 errors`；十个 errors 仍全部来自 Homebrew `libpq` 的 `initdb` 找不到
-  同目录 `postgres` binary，与 preflight 的既有环境 residual 一致。
+- 在最新 main 重建分支后，`pdm run test` 为 `10 passed, 53 skipped`；PR #100 Hermetic 与 portable database CI 均通过。
+  这不代表新增 Organization 语义或专用图读取已被这些 CI 证明。
 - MCP reflection authority move 当前依赖 type/import/smoke review；仓库没有既有 MCP automated journey 可重跑。
 - project-owned database provider reader 已修复为优先读取 SVC schema-v3 `dev.targets` 并兼容旧 v2；真实
   `svc.local.json` 验证由 `provider_matches=false` 变为 `true`。远端 WSL SSH/tunnel 仍不可达，因此数据库 journey 继续
@@ -52,7 +60,7 @@
 
 ## 下一步
 
-1. 完成最终 diff review，修复真实 correctness/maintenance 问题；
-2. 运行 foundation、受影响 lint/type、现有可运行 tests 与尽可能完整的 repository gate；
-3. 若环境恢复，运行 PostgreSQL journeys 和 `pdm run test:organization-acceptance`；否则保留明确 residual；
-4. 根据证据更新本文件与 packet state，再请求 Sir 复核实现/验收结果；不自动 commit。
+1. 复核 preview 报告中的错误 authority 与局部失败扩散，定位可修复原因；
+2. 在既有 behavior/Agent definition 边界修复，并整轮复验；
+3. 单独补充尚未运行的 PostgreSQL exact-operation/专用图读取 evidence；
+4. 未达到语义验收条件前不宣告 closure 或进行 Hub promotion。

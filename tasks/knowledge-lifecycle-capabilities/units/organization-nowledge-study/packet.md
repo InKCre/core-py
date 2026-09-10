@@ -1,6 +1,9 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Latest acceptance**: 2026-09-10 PR #100 preview 两轮真实 `qwen3.6-plus` 验收已完成执行与清理；
+  [评审记录](acceptance/preview-100-review.md) 建议不通过语义验收：错误 supersession/scope、来源语气增强和
+  per-turn budget 导致 batch 退出。待 Sir 复核与修复后整轮复验。
 - **State**: **Verify / Acceptance active after D-527 implementation。Product closed by D-493，Technical material boundaries by
   D-523，best-effort black-box Acceptance by D-525，Implementation Plan by D-526，Preflight/Impact Handshake closed by D-527**。
 - **Objective**: 以逐项学习 Nowledge 得到并经 transfer audit 修正的 Product model 为同一 implementation vertical 的

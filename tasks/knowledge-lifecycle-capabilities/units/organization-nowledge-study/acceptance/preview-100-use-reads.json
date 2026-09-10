@@ -1,0 +1,322 @@
+{
+  "migration": {
+    "matches": [
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Customer engineering note after an Atlas Europe migration.\n\nAfter the control-plane move, the service accepted 50 simultaneous imports for our tenant. It\nqueued the next request. Before the move we still observed the old cap.",
+          "created_at": "2026-09-10T02:32:32.437323Z",
+          "id": 7,
+          "updated_at": "2026-09-10T02:32:32.437323Z"
+        },
+        "label": "text <Customer engineering note after an Atlas Europe migration.>",
+        "excerpt": "Customer engineering note after an Atlas Europe migration.\n\nAfter the control-plane move, the service accepted 50 simultaneous imports for our tenant. It\nqueued the next request. Before the move we still observed the old cap.",
+        "evidence": "label_substring",
+        "rank": 3.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Atlas Europe rollout note from the service operations team, 2025-03-13.\n\nThe new 50-import limit is enabled gradually. Tenants created before March 1 retain 30 until\ntheir control-plane migration completes. The queue behavior itself is unchanged.",
+          "created_at": "2026-09-10T02:32:28.383575Z",
+          "id": 4,
+          "updated_at": "2026-09-10T02:32:28.383575Z"
+        },
+        "label": "text <Atlas Europe rollout note from the service operations team, 2025-03-13.>",
+        "excerpt": "…mit is enabled gradually. Tenants created before March 1 retain 30 until\ntheir control-plane migration completes. The queue behavior itself is unchanged.",
+        "evidence": "text_substring",
+        "rank": 2.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Internal support quick reference, copied from several regional pages.\n\nEurope allows 50 concurrent imports after migration, while the United States allows 100. Legacy\nEuropean tenants can still be limited to 30. Verify the tenant region before advising a customer.",
+          "created_at": "2026-09-10T02:32:33.792291Z",
+          "id": 8,
+          "updated_at": "2026-09-10T02:32:33.792291Z"
+        },
+        "label": "text <Internal support quick reference, copied from several regional pages.>",
+        "excerpt": "…ck reference, copied from several regional pages.\n\nEurope allows 50 concurrent imports after migration, while the United States allows 100. Legacy\nEuropean tenants can still be limited to 30. Verify the tenant region before advising a customer.",
+        "evidence": "text_substring",
+        "rank": 2.100000001490116
+      }
+    ]
+  },
+  "Nimbus": {
+    "matches": [
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged.",
+          "created_at": "2026-09-10T02:39:26.784138Z",
+          "id": 24,
+          "updated_at": "2026-09-10T02:39:26.784138Z"
+        },
+        "label": "text <Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal spec…>",
+        "excerpt": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evide…",
+        "evidence": "label_substring",
+        "rank": 4.200000047683716
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause.",
+          "created_at": "2026-09-10T02:32:39.420707Z",
+          "id": 10,
+          "updated_at": "2026-09-10T02:32:39.420707Z"
+        },
+        "label": "text <Official Nimbus payments incident timeline, 2025-06-04.>",
+        "excerpt": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause.",
+        "evidence": "label_substring",
+        "rank": 4.100000023841858
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+          "created_at": "2026-09-10T02:32:47.769493Z",
+          "id": 16,
+          "updated_at": "2026-09-10T02:32:47.769493Z"
+        },
+        "label": "text <Nimbus remediation proposal, revision 1.>",
+        "excerpt": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+        "evidence": "label_substring",
+        "rank": 4.100000023841858
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes.",
+          "created_at": "2026-09-10T02:32:49.318784Z",
+          "id": 17,
+          "updated_at": "2026-09-10T02:32:49.318784Z"
+        },
+        "label": "text <Nimbus remediation proposal, revision 2, approved by service owners.>",
+        "excerpt": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes.",
+        "evidence": "label_substring",
+        "rank": 4.100000023841858
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Nimbus mobile application postmortem, 2025-05-10.\n\nAn image cache key collision caused stale profile photographs. The incident did not involve checkout,\nrouting pools, database retries, or the June payments outage.",
+          "created_at": "2026-09-10T02:32:50.665160Z",
+          "id": 18,
+          "updated_at": "2026-09-10T02:32:50.665160Z"
+        },
+        "label": "text <Nimbus mobile application postmortem, 2025-05-10.>",
+        "excerpt": "Nimbus mobile application postmortem, 2025-05-10.\n\nAn image cache key collision caused stale profile photographs. The incident did not involve checkout,\nrouting pools, database retries, or the June payments outage.",
+        "evidence": "label_substring",
+        "rank": 4.100000023841858
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "The 2025-05-10 Nimbus incident scope exclusion: the image cache incident did not involve checkout, routing pools, database retries, or the June payments outage.",
+          "created_at": "2026-09-10T02:35:04.421776Z",
+          "id": 21,
+          "updated_at": "2026-09-10T02:35:04.421776Z"
+        },
+        "label": "text <The 2025-05-10 Nimbus incident scope exclusion: the image cache incident did not involve checkou…>",
+        "excerpt": "The 2025-05-10 Nimbus incident scope exclusion: the image cache incident did not involve checkout, routing pools, database retries, or the June payments outage.",
+        "evidence": "label_substring",
+        "rank": 4.100000023841858
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Nimbus remediation proposal, revision 3, approved after canary validation.\n\nContinue adaptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload.",
+          "created_at": "2026-09-10T02:50:19.787324Z",
+          "id": 36,
+          "updated_at": "2026-09-10T02:50:19.787324Z"
+        },
+        "label": "text <Nimbus remediation proposal, revision 3, approved after canary validation.>",
+        "excerpt": "Nimbus remediation proposal, revision 3, approved after canary validation.\n\nContinue adaptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload.",
+        "evidence": "label_substring",
+        "rank": 4.100000023841858
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+          "created_at": "2026-09-10T02:32:40.771145Z",
+          "id": 11,
+          "updated_at": "2026-09-10T02:32:40.771145Z"
+        },
+        "label": "text <Database team observation for the Nimbus incident review.>",
+        "excerpt": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+        "evidence": "label_substring",
+        "rank": 3.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors.",
+          "created_at": "2026-09-10T02:32:42.123290Z",
+          "id": 12,
+          "updated_at": "2026-09-10T02:32:42.123290Z"
+        },
+        "label": "text <Network team statement for the Nimbus incident review.>",
+        "excerpt": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors.",
+        "evidence": "label_substring",
+        "rank": 3.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction.",
+          "created_at": "2026-09-10T02:32:46.213401Z",
+          "id": 15,
+          "updated_at": "2026-09-10T02:32:46.213401Z"
+        },
+        "label": "text <Industry news summary of the Nimbus incident.>",
+        "excerpt": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction.",
+        "evidence": "label_substring",
+        "rank": 3.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Nimbus mobile application: image cache key collision caused stale profile photographs.",
+          "created_at": "2026-09-10T02:35:04.421776Z",
+          "id": 20,
+          "updated_at": "2026-09-10T02:35:04.421776Z"
+        },
+        "label": "text <Nimbus mobile application: image cache key collision caused stale profile photographs.>",
+        "excerpt": "Nimbus mobile application: image cache key collision caused stale profile photographs.",
+        "evidence": "label_substring",
+        "rank": 3.100000001490116
+      }
+    ]
+  },
+  "retry": {
+    "matches": [
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Connection-wait spikes and retry amplification were observed by the database team",
+          "created_at": "2026-09-10T02:45:33.147314Z",
+          "id": 33,
+          "updated_at": "2026-09-10T02:45:33.147314Z"
+        },
+        "label": "text <Connection-wait spikes and retry amplification were observed by the database team>",
+        "excerpt": "Connection-wait spikes and retry amplification were observed by the database team",
+        "evidence": "label_substring",
+        "rank": 3.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged.",
+          "created_at": "2026-09-10T02:39:26.784138Z",
+          "id": 24,
+          "updated_at": "2026-09-10T02:39:26.784138Z"
+        },
+        "label": "text <Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal spec…>",
+        "excerpt": "…ntration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10).…",
+        "evidence": "text_substring",
+        "rank": 2.2000000029802322
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+          "created_at": "2026-09-10T02:32:40.771145Z",
+          "id": 11,
+          "updated_at": "2026-09-10T02:32:40.771145Z"
+        },
+        "label": "text <Database team observation for the Nimbus incident review.>",
+        "excerpt": "…wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+        "evidence": "text_substring",
+        "rank": 2.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Checkout application team hypothesis, written before load replay.\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion.",
+          "created_at": "2026-09-10T02:32:43.508772Z",
+          "id": 13,
+          "updated_at": "2026-09-10T02:32:43.508772Z"
+        },
+        "label": "text <Checkout application team hypothesis, written before load replay.>",
+        "excerpt": "….\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion.",
+        "evidence": "text_substring",
+        "rank": 2.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction.",
+          "created_at": "2026-09-10T02:32:44.860133Z",
+          "id": 14,
+          "updated_at": "2026-09-10T02:32:44.860133Z"
+        },
+        "label": "text <Independent Reliability Lab replay, 2025-06-09.>",
+        "excerpt": "…inst production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction.",
+        "evidence": "text_substring",
+        "rank": 2.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+          "created_at": "2026-09-10T02:32:47.769493Z",
+          "id": 16,
+          "updated_at": "2026-09-10T02:32:47.769493Z"
+        },
+        "label": "text <Nimbus remediation proposal, revision 1.>",
+        "excerpt": "…g and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+        "evidence": "text_substring",
+        "rank": 2.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Revision 2 replaces the revision 1 approach which used a static per-pool ceiling, manual rollback, and left retry unchanged",
+          "created_at": "2026-09-10T02:46:04.873219Z",
+          "id": 35,
+          "updated_at": "2026-09-10T02:46:04.873219Z"
+        },
+        "label": "text <Revision 2 replaces the revision 1 approach which used a static per-pool ceiling, manual rollbac…>",
+        "excerpt": "…aces the revision 1 approach which used a static per-pool ceiling, manual rollback, and left retry unchanged",
+        "evidence": "text_substring",
+        "rank": 2.100000001490116
+      },
+      {
+        "block": {
+          "resolver": "core.text.v1",
+          "storage": null,
+          "content": "Nimbus remediation proposal, revision 3, approved after canary validation.\n\nContinue adaptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload.",
+          "created_at": "2026-09-10T02:50:19.787324Z",
+          "id": 36,
+          "updated_at": "2026-09-10T02:50:19.787324Z"
+        },
+        "label": "text <Nimbus remediation proposal, revision 3, approved after canary validation.>",
+        "excerpt": "…daptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload.",
+        "evidence": "text_substring",
+        "rank": 2.100000001490116
+      }
+    ]
+  }
+}
