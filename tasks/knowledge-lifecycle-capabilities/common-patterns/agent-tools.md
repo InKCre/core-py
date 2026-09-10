@@ -75,6 +75,10 @@ schema/description/prompt，而不只核对设计文档。合同来源仍归行�
 
 ## 适用边界与具体实例
 
+嵌套参数的错误必须保留调用者看到的层级。内部 input.resolver_type 不合法，不能报告成顶层 resolver_type
+不合法，诱导调用者删除正确的选择器。优先让原生校验在真实参数路径上发生，不用更长的 description 补救。
+本 unit 的真实草稿错误及收口见 [工具对照评审](../units/organization-nowledge-study/acceptance/tool-repair-review.md)。
+
 图查询的直接工具、两类邻域合并，以及 Resolver 通用/额外方法的分层呈现，是这些原则的具体应用。
 基础实体获取与内容解释是不同职责：get_entity 返回原始实体，Resolver 提供内容解释（D-534）；相邻层可复用
 各自 owner，不能因为同属“读取”就混成含义不清的入口。

@@ -74,7 +74,7 @@ class DraftGraphInput(pydantic.BaseModel):
 
   resolver_type: str
   input: dict[str, JSONValue] = pydantic.Field(
-    description="Arguments described by get_draft_graph_schema."
+    description="Arguments matching the selected Resolver's input_schema."
   )
   local_block_id_start: NegativeBlockID = pydantic.Field(
     default=-1, description="First temporary ID; keep IDs disjoint when combining drafts."

@@ -2,7 +2,11 @@
 
 - **Unit ID**: `organization-nowledge-study`。
 - **Current work**: 工具修复及静态检查完成；原版本端到端基线已导出并清理（7 个 Job，2 完成、5 预算耗尽）。
-  下一步部署修复版，以同一完整信息世界、原 system prompt、qwen3.6-plus 和 12 次预算对照。
+  修复版 4b69dd9 已完成同模型、原提示词、12 次预算的完整初始世界对照并清理：不可用方法 71→0，
+  含错误的工具请求 24→2，但仍有 4 个 Job 预算耗尽及语义偏差。两项最小收口只做静态检查。
+  结论与后续残余统一见 [对照评审](acceptance/tool-repair-review.md)，整组语义验收未通过。
+- **Handoff edge**: 本轮工具修复交付；后续识别 SOP、停止判断和预算属于独立干预，尚未改动。
+  不能仅凭错误减少、Job 完成或增加预算认定组织结果正确。
   实施与环境证据统一见 [工具修复实施记录](acceptance/tool-repair-implementation.md)。
 - **Verification constraint（D-541）**: 不得新增任何回归测试或聚焦测试；已撤掉新增回归文件和单工具探测脚本。
   已有测试只同步接口变化；以静态检查、代码审阅和端到端黑盒验收验证修复。

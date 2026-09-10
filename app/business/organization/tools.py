@@ -137,8 +137,13 @@ def _draft_graph_input_model() -> type[pydantic.BaseModel]:
     @pydantic.model_validator(mode="after")
     def validate_resolver_input(self) -> typing.Self:
       capability = snapshot[self.resolver_type]
-      resolver_input = capability.input_model.model_validate(self.input)
-      object.__setattr__(self, "_resolver_input", resolver_input)
+      # Validate at the caller's actual path; an inner resolver_type error must
+      # not tell the Agent to remove its valid outer selector.
+      payload_model = pydantic.create_model(
+        "ResolverDraftPayload", input=(capability.input_model, ...)
+      )
+      payload = payload_model.model_validate({"input": self.input})
+      object.__setattr__(self, "_resolver_input", getattr(payload, "input"))
       return self
 
   return BoundDraftGraphInput
@@ -605,10 +610,9 @@ async def record_supersession(input: SupersessionProposal) -> JSONValue:
 @AgentManager.tool(
   RECORD_REFINEMENT_TOOL,
   description=(
-    f"Record {REFINES_RELATION!r}: compatible detail on the same subject at equal "
-    "or narrower "
-    "scope; the predecessor remains independently usable as a coarser "
-    "description."
+    f"Record {REFINES_RELATION!r}: new compatible detail at equal or narrower scope "
+    "on the same subject, not mere extraction or rewording. The predecessor "
+    "remains independently usable as a coarser description."
   ),
 )
 async def record_refinement(input: RefinementProposal) -> JSONValue:

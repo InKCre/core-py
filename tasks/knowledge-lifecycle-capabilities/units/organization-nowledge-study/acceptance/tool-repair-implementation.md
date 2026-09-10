@@ -48,7 +48,9 @@ Resolver 参数定义来自 owner 反射：工具 schema 与实际逐项验证�
 
 原版本基线已完成，见 [tool-repair-baseline.json](tool-repair-baseline.json)：7 个行为 Job 中 2 完成、5 预算耗尽，
 15 个执行共 156 次模型请求。31 个 Block、28 条 Relation、8 个 Job、7 个 Agent、1 个模型及 Provider 已清理。
-这不是修复后效果；修复版尚待部署并执行同一完整世界。
+这不是修复后效果。修复版 4b69dd9 已通过仓库 CI 与可丢弃数据库运行时检查并部署到 PR #100；
+日志配置 workflow 重跑成功，完整世界对照已完成并清理。见 [对照评审](tool-repair-review.md)：
+工具错误显著减少，整组语义验收仍未通过。对照后只补草稿错误路径和 refinement 定义，静态检查通过，未新增测试。
 
 Sir 明确要求：不得新增任何回归测试或聚焦测试。静态检查与端到端黑盒验收是本轮验证路径；
 已做 schema 探测只保留历史 JSON 证据，探测脚本也已撤掉，不保留或扩展为聚焦测试。
