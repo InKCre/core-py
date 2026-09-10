@@ -59,6 +59,8 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-501–D-510](D501-D510.md) | Agent-definition selection correction → bounded duplicate-component correction |
 | [D-511–D-520](D511-D520.md) | Assertion-relative provenance occurrence → exact behavior-owned Relation tokens/read semantics |
 | [D-521–D-530](D521-D530.md) | Resolver capability meta-tool → accepted Impact Handshake / implementation start |
+| [D-531–D-540](D531-D540.md) | 稳定图查询直接工具 → 后续逐工具评审 |
+| [D-541–D-550](D541-D550.md) | 工具修复验证约束 |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -74,8 +76,8 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision by registered ID: [D-527](D521-D530.md)。MCP sink retains D-381–D-420；Telegram extension retains
-  D-421–D-460；Organization Nowledge study owns D-461–D-540。
+- Latest confirmed decision by registered ID: [D-541](D541-D550.md)。MCP sink retains D-381–D-420；Telegram extension retains
+  D-421–D-460；Organization Nowledge study owns D-461–D-550。
 - MCP and Telegram are closed。The active Unit is
   [organization-nowledge-study](../units/organization-nowledge-study/packet.md) in Verify / Acceptance after implementation。
 - Parallel placement and integration surfaces are shared peer control in the [roster](../collaboration/roster.md)；there is no

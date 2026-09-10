@@ -58,14 +58,23 @@ def main():
     "OBSRV__LOGGING_BACKEND_LEVEL": "20",
   }
   # Heroku returns all config vars. Never print or save that response.
-  current = request(
+  request(
     "https://api.heroku.com/apps/inkcre-core-py-pr-100/config-vars",
     os.environ["HEROKU_API_KEY"],
     method="PATCH",
     payload=expected,
     heroku=True,
   )
-  if any(current.get(key) != value for key, value in expected.items()):
+  for _ in range(5):
+    current = request(
+      "https://api.heroku.com/apps/inkcre-core-py-pr-100/config-vars",
+      os.environ["HEROKU_API_KEY"],
+      heroku=True,
+    )
+    if all(current.get(key) == value for key, value in expected.items()):
+      break
+    time.sleep(2)
+  else:
     raise RuntimeError("PR 100 debug configuration verification failed")
   print("PR 100 Agent debug and PostgreSQL logs enabled")
 

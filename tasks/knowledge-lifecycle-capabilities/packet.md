@@ -25,6 +25,9 @@
 
 ## Program Boundary
 
+任务级可复用模式：[Agent Tool 设计与诊断](common-patterns/agent-tools.md)。这是当前 task 的共同设计依据；
+具体工具的批准状态与落地仍归对应 unit，不因模式沉淀而扩大实施范围。
+
 - **Collection**: 现有 sources、memo-like、CalDAV、Nextcloud Files、Apple Notes。
 - **Organization**: 以改善 use 为目标；breakdown、merge、linking 是已知能力，不是完备枚举。
   Organization 与 Collection、Use 一样是 Extension growth axis；exact contribution seam 必须由获批的具体 behavior

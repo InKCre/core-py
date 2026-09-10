@@ -44,8 +44,6 @@ def behavior_resolver_classes() -> tuple[type[Resolver], ...]:
       issubclass(resolver_cls, Resolver)
       and isinstance(getattr(resolver_cls, "organization_description", None), str)
       and callable(getattr(resolver_cls, "record_candidate", None))
-      and callable(getattr(resolver_cls, "can_run_automatic", None))
-      and callable(getattr(resolver_cls, "run_automatic", None))
     ):
       classes.append(resolver_cls)
   return tuple(sorted(classes, key=lambda resolver_cls: resolver_cls.__rsotype__))
@@ -74,7 +72,7 @@ async def get_or_create_descriptor(
 
 async def record_candidate(
   behavior: type[Resolver],
-  information_id: BlockID,
+  block_id: BlockID,
   *,
   db_session: sqlmodel.Session | None = None,
 ) -> CandidateWriteResult:
@@ -82,26 +80,26 @@ async def record_candidate(
     with SessionLocal() as owned_session:
       result = await record_candidate(
         behavior,
-        information_id,
+        block_id,
         db_session=owned_session,
       )
       owned_session.commit()
       return result
-  if BlockManager.get(information_id, db_session) is None:
-    raise OrganizationBlockNotFoundError(f"Block {information_id} does not exist")
+  if BlockManager.get(block_id, db_session) is None:
+    raise OrganizationBlockNotFoundError(f"Block {block_id} does not exist")
   descriptor = await get_or_create_descriptor(behavior, db_session)
   descriptor_id = _block_id(descriptor)
-  if information_id == descriptor_id:
+  if block_id == descriptor_id:
     raise ValueError("An Organization behavior cannot be its own candidate")
   relation, created = fetchsert_relation(
-    information_id,
+    block_id,
     descriptor_id,
     CANDIDATE_RELATION,
     db_session,
   )
   return CandidateWriteResult(
-    descriptor=descriptor_id,
-    relation=_relation_id(relation),
+    descriptor_block_id=descriptor_id,
+    relation_id=_relation_id(relation),
     created=created,
   )
 
@@ -344,7 +342,7 @@ def fetchsert_relation(
 
 
 def relation_result(relation: RelationModel, created: bool) -> RelationWriteResult:
-  return RelationWriteResult(relation=_relation_id(relation), created=created)
+  return RelationWriteResult(relation_id=_relation_id(relation), created=created)
 
 
 def require_distinct_blocks(

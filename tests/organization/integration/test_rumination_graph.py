@@ -127,9 +127,9 @@ def test_context_preserves_direction_and_draft_submit_maps_local_ids():
       draft = tools[DRAFT_GRAPH_TOOL]
       draft_input = draft.input_model.model_validate(
         {
-          "resolver": "core.text.v1",
+          "resolver_type": "core.text.v1",
           "input": {"text": "Specific reusable insight"},
-          "id_start": -11,
+          "local_block_id_start": -11,
         }
       )
       graph = await _invoke(draft.handler, draft_input)
@@ -250,9 +250,9 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(monkey
               id=f"draft-{model_calls}",
               tool=DRAFT_GRAPH_TOOL,
               arguments={
-                "resolver": "core.text.v1",
+                "resolver_type": "core.text.v1",
                 "input": {"text": f"{marker}:specific insight {model_calls}"},
-                "id_start": -1,
+                "local_block_id_start": -1,
               },
             ),
           )

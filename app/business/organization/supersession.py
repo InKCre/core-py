@@ -86,39 +86,42 @@ class SupersessionBehaviorResolver(
   @classmethod
   async def record_candidate(
     cls,
-    information_id: BlockID,
+    block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, information_id, db_session=db_session)
+    return await record_candidate(cls, block_id, db_session=db_session)
 
   @classmethod
   async def record_supersession(
     cls,
-    successor_id: BlockID,
-    predecessor_id: BlockID,
+    successor_block_id: BlockID,
+    predecessor_block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> RelationWriteResult:
     if db_session is None:
       with SessionLocal() as owned_session:
         result = await cls.record_supersession(
-          successor_id,
-          predecessor_id,
+          successor_block_id,
+          predecessor_block_id,
           db_session=owned_session,
         )
         owned_session.commit()
         return result
-    require_distinct_blocks(successor_id, predecessor_id, db_session)
+    require_distinct_blocks(successor_block_id, predecessor_block_id, db_session)
     if cls._has_directed_path(
-      predecessor_id,
-      successor_id,
+      predecessor_block_id,
+      successor_block_id,
       db_session=db_session,
     ):
-      raise ValueError("supersedes relation would create a directed cycle")
+      raise ValueError(
+        f"Cannot supersede: an existing supersedes path runs from predecessor "
+        f"{predecessor_block_id} to successor {successor_block_id}"
+      )
     relation, created = fetchsert_relation(
-      successor_id,
-      predecessor_id,
+      successor_block_id,
+      predecessor_block_id,
       SUPERSEDES_RELATION,
       db_session,
     )
@@ -205,7 +208,7 @@ class SupersessionBehaviorResolver(
 
       cycle_detected = self._cycle_detected(visited, tuple(relations.values()))
       incoming = {relation.to_ for relation in relations.values()}
-      current_frontier = (
+      current_block_ids = (
         ()
         if truncated or cycle_detected
         else tuple(sorted(block_id for block_id in visited if block_id not in incoming))
@@ -219,7 +222,7 @@ class SupersessionBehaviorResolver(
       )
     return SupersessionLineage(
       graph=GraphModel(blocks=blocks, relations=closed_relations),
-      current_frontier=current_frontier,
+      current_block_ids=current_block_ids,
       truncated=truncated,
       cycle_detected=cycle_detected,
     )

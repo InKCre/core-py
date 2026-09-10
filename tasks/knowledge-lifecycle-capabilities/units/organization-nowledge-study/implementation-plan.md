@@ -3,6 +3,9 @@
 > **状态**：D-526 accepted Implementation Plan。本文冻结依赖顺序、源码落点、验证与交付边界；不授权源码 mutation。
 > Preflight 与 Impact Handshake 已由 D-527 关闭；Sir 已明确授权开始实施。
 
+验收后的当前修复方案见 [Agent Tool 合同修复](agent-tool-repair-plan.md)。以下保留原实施基线；新方案仍属于同一
+unit，不是新的 delivery slice。
+
 ## 实施目标
 
 把 D-493–D-525 已关闭的整组 Product、Technical 与 best-effort Acceptance 设计实现成一个完整 vertical：

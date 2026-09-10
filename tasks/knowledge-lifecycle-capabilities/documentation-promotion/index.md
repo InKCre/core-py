@@ -7,6 +7,8 @@
 - [Candidate Hub Product TDD batch](hub-product-tdd.md)
 - [Spoke Unit TDD promotion](spoke-unit-tdd.md)
 - [Architecture understanding provenance](../architecture-understanding/index.md)
+- [Agent Tool common patterns](../common-patterns/agent-tools.md)：已确认的 task-level 模式；后续按验证与 owner 进行
+  durable promotion，当前不直接改 shared Hub。
 
 ## Control
 

@@ -40,8 +40,8 @@ class ConnectedSeedComponent(pydantic.BaseModel):
 
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  seed_blocks: tuple[BlockID, ...]
-  member_blocks: tuple[BlockID, ...]
+  seed_block_ids: tuple[BlockID, ...]
+  member_block_ids: tuple[BlockID, ...]
 
 
 class ConnectedComponentsResult(pydantic.BaseModel):
@@ -51,7 +51,7 @@ class ConnectedComponentsResult(pydantic.BaseModel):
 
   components: tuple[ConnectedSeedComponent, ...]
   proof_graph: GraphModel
-  missing_seed_blocks: tuple[BlockID, ...]
+  missing_seed_block_ids: tuple[BlockID, ...]
   truncated: bool
 
 

@@ -78,39 +78,42 @@ class RefinementBehaviorResolver(
   @classmethod
   async def record_candidate(
     cls,
-    information_id: BlockID,
+    block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, information_id, db_session=db_session)
+    return await record_candidate(cls, block_id, db_session=db_session)
 
   @classmethod
   async def record_refinement(
     cls,
-    refinement_id: BlockID,
-    predecessor_id: BlockID,
+    refinement_block_id: BlockID,
+    predecessor_block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> RelationWriteResult:
     if db_session is None:
       with SessionLocal() as owned_session:
         result = await cls.record_refinement(
-          refinement_id,
-          predecessor_id,
+          refinement_block_id,
+          predecessor_block_id,
           db_session=owned_session,
         )
         owned_session.commit()
         return result
-    require_distinct_blocks(refinement_id, predecessor_id, db_session)
+    require_distinct_blocks(refinement_block_id, predecessor_block_id, db_session)
     if cls._has_directed_path(
-      predecessor_id,
-      refinement_id,
+      predecessor_block_id,
+      refinement_block_id,
       db_session=db_session,
     ):
-      raise ValueError("refines relation would create a directed cycle")
+      raise ValueError(
+        f"Cannot refine: an existing refines path runs from predecessor "
+        f"{predecessor_block_id} to refinement {refinement_block_id}"
+      )
     relation, created = fetchsert_relation(
-      refinement_id,
-      predecessor_id,
+      refinement_block_id,
+      predecessor_block_id,
       REFINES_RELATION,
       db_session,
     )

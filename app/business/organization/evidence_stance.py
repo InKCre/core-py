@@ -82,17 +82,17 @@ class EvidenceStanceBehaviorResolver(
   @classmethod
   async def record_candidate(
     cls,
-    information_id: BlockID,
+    block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, information_id, db_session=db_session)
+    return await record_candidate(cls, block_id, db_session=db_session)
 
   @classmethod
   async def record_evidence_stance(
     cls,
-    evidence_id: BlockID,
-    assertion_id: BlockID,
+    evidence_block_id: BlockID,
+    assertion_block_id: BlockID,
     stance: typing.Literal["supports", "challenges"],
     *,
     db_session: sqlmodel.Session | None = None,
@@ -100,27 +100,27 @@ class EvidenceStanceBehaviorResolver(
     if db_session is None:
       with SessionLocal() as owned_session:
         result = await cls.record_evidence_stance(
-          evidence_id,
-          assertion_id,
+          evidence_block_id,
+          assertion_block_id,
           stance,
           db_session=owned_session,
         )
         owned_session.commit()
         return result
-    require_distinct_blocks(evidence_id, assertion_id, db_session)
+    require_distinct_blocks(evidence_block_id, assertion_block_id, db_session)
     opposite = CHALLENGES_RELATION if stance == SUPPORTS_RELATION else SUPPORTS_RELATION
     existing_opposite = db_session.exec(
       sqlmodel.select(RelationModel.id).where(
-        RelationModel.from_ == evidence_id,
-        RelationModel.to_ == assertion_id,
+        RelationModel.from_ == evidence_block_id,
+        RelationModel.to_ == assertion_block_id,
         RelationModel.content == opposite,
       )
     ).first()
     if existing_opposite is not None:
       raise ValueError("The evidence/assertion pair already has the opposite stance")
     relation, created = fetchsert_relation(
-      evidence_id,
-      assertion_id,
+      evidence_block_id,
+      assertion_block_id,
       stance,
       db_session,
     )

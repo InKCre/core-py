@@ -1,3 +1,3 @@
-from .main import GraphNavigationQueryContract, GraphNavigationRetrievalManager
+from .main import GraphNavigationRetrievalManager
 
-__all__ = ["GraphNavigationQueryContract", "GraphNavigationRetrievalManager"]
+__all__ = ["GraphNavigationRetrievalManager"]

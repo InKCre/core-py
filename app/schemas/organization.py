@@ -64,7 +64,7 @@ class GetDraftGraphSchemaInput(pydantic.BaseModel):
 
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  resolvers: tuple[str, ...]
+  resolver_types: tuple[str, ...]
 
 
 class DraftGraphInput(pydantic.BaseModel):
@@ -72,9 +72,13 @@ class DraftGraphInput(pydantic.BaseModel):
 
   model_config = pydantic.ConfigDict(extra="forbid")
 
-  resolver: str
-  input: dict[str, JSONValue]
-  id_start: NegativeBlockID = -1
+  resolver_type: str
+  input: dict[str, JSONValue] = pydantic.Field(
+    description="Arguments described by get_draft_graph_schema."
+  )
+  local_block_id_start: NegativeBlockID = pydantic.Field(
+    default=-1, description="First temporary ID; keep IDs disjoint when combining drafts."
+  )
 
 
 class SubmitGraphInput(pydantic.BaseModel):

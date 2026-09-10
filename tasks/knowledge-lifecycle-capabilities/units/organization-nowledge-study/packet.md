@@ -1,11 +1,16 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **Current work**: 先补默认关闭的 Agent 开发追踪，使真实调用可取回；之后再按
-  [Tool 可用性检查](acceptance/agent-tool-review.md) 改善参数描述/schema/错误反馈并对照。当前不调整预算。
-- **Latest acceptance**: 2026-09-10 PR #100 preview 两轮真实 `qwen3.6-plus` 验收已完成执行与清理；
-  [评审记录](acceptance/preview-100-review.md) 建议不通过语义验收：错误 supersession/scope、来源语气增强和
-  per-turn budget 导致 batch 退出。待 Sir 复核与修复后整轮复验。
+- **Current work**: D-529–D-540 的工具修复已落源码，静态检查通过；尚未部署修复版本，正在运行原版本
+  preview，以同一完整信息世界、原 system prompt、qwen3.6-plus 和 12 次预算取得端到端基线。
+  实施与环境证据统一见 [工具修复实施记录](acceptance/tool-repair-implementation.md)。
+- **Verification constraint（D-541）**: 不得新增任何回归测试或聚焦测试；已撤掉新增回归文件和单工具探测脚本。
+  已有测试只同步接口变化；以静态检查、代码审阅和端到端黑盒验收验证修复。
+- **Repair scope**: 公共 Resolver 方法直接入 schema、发现/错误反馈、实体基础读取、三个直接图查询、轻量候选
+  投影、同模式精确写入定义和命名。依据见 [修复方案](agent-tool-repair-plan.md)、
+  [命名检查](acceptance/tool-naming-audit.md)、[通用模式](../../common-patterns/agent-tools.md)。
+- **Latest acceptance**: 原 PR #100 两轮语义验收未通过；开发日志已验证过真实读回。当前基础设施修复及 schema
+  探测不改变此结论；本轮修复尚待端到端效果证据。
 - **State**: **Verify / Acceptance active after D-527 implementation。Product closed by D-493，Technical material boundaries by
   D-523，best-effort black-box Acceptance by D-525，Implementation Plan by D-526，Preflight/Impact Handshake closed by D-527**。
 - **Objective**: 以逐项学习 Nowledge 得到并经 transfer audit 修正的 Product model 为同一 implementation vertical 的
@@ -26,7 +31,7 @@
   model/property 不是 information object 的互斥分类。新增官方证据支持将 Nowledge 分为 supersession lifecycle、
   accretive refinement lineage 和 evidence stance，而不是一个 progression state machine。Past-use forecasting 属于
   Product admission loop，不属于 evolution execution。
-- **Active Edge**: D-495 supersedes D-494's research-only classification，D-496 removes the attempted delivery-slice framing，
+- **Decision lineage（历史沿革，当前工作见页首）**: D-495 supersedes D-494's research-only classification，D-496 removes the attempted delivery-slice framing，
   D-497 将 Job 降回运行载体。D-498 defines Organization through the end-to-end distinction-realization axis；D-499 classifies
   the retained Product results；D-500 places focal-Block reads in Resolver、neutral topology in Graph Navigation and request-
   specific interpretation in Application。D-501 withdraws run-time Tool allowlists：each execution family selects a complete

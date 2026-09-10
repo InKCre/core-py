@@ -79,31 +79,31 @@ class DuplicateAssertionBehaviorResolver(
   @classmethod
   async def record_candidate(
     cls,
-    information_id: BlockID,
+    block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, information_id, db_session=db_session)
+    return await record_candidate(cls, block_id, db_session=db_session)
 
   @classmethod
   async def record_duplicate_assertion(
     cls,
-    left_id: BlockID,
-    right_id: BlockID,
+    left_block_id: BlockID,
+    right_block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> RelationWriteResult:
     if db_session is None:
       with SessionLocal() as owned_session:
         result = await cls.record_duplicate_assertion(
-          left_id,
-          right_id,
+          left_block_id,
+          right_block_id,
           db_session=owned_session,
         )
         owned_session.commit()
         return result
-    require_distinct_blocks(left_id, right_id, db_session)
-    from_, to_ = sorted((left_id, right_id))
+    require_distinct_blocks(left_block_id, right_block_id, db_session)
+    from_, to_ = sorted((left_block_id, right_block_id))
     relation, created = fetchsert_relation(
       from_,
       to_,

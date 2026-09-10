@@ -80,55 +80,57 @@ class SynthesisBehaviorResolver(
   @classmethod
   async def record_candidate(
     cls,
-    information_id: BlockID,
+    block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, information_id, db_session=db_session)
+    return await record_candidate(cls, block_id, db_session=db_session)
 
   @classmethod
   async def create_synthesis(
     cls,
     text: str,
-    source_ids: typing.Collection[BlockID],
-    previous_synthesis_id: BlockID | None = None,
+    source_block_ids: typing.Collection[BlockID],
+    previous_synthesis_block_id: BlockID | None = None,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> SynthesisWriteResult:
     proposal = SynthesisProposal(
       text=text,
-      source_ids=tuple(source_ids),
-      previous_synthesis_id=previous_synthesis_id,
+      source_block_ids=tuple(source_block_ids),
+      previous_synthesis_block_id=previous_synthesis_block_id,
     )
     if db_session is None:
       with SessionLocal() as owned_session:
         result = await cls.create_synthesis(
           proposal.text,
-          proposal.source_ids,
-          proposal.previous_synthesis_id,
+          proposal.source_block_ids,
+          proposal.previous_synthesis_block_id,
           db_session=owned_session,
         )
         owned_session.commit()
         return result
 
-    found = {block.id for block in BlockManager.get_many(proposal.source_ids, db_session)}
-    missing = tuple(source for source in proposal.source_ids if source not in found)
+    found = {
+      block.id for block in BlockManager.get_many(proposal.source_block_ids, db_session)
+    }
+    missing = tuple(source for source in proposal.source_block_ids if source not in found)
     if missing:
       raise ValueError(f"Synthesis source Blocks do not exist: {missing!r}")
-    if proposal.previous_synthesis_id is not None:
-      previous = BlockManager.get(proposal.previous_synthesis_id, db_session)
+    if proposal.previous_synthesis_block_id is not None:
+      previous = BlockManager.get(proposal.previous_synthesis_block_id, db_session)
       if previous is None:
         raise ValueError("Previous synthesis Block does not exist")
       previous_basis = db_session.exec(
         sqlmodel.select(RelationModel.from_).where(
-          RelationModel.to_ == proposal.previous_synthesis_id,
+          RelationModel.to_ == proposal.previous_synthesis_block_id,
           RelationModel.content == SYNTHESIS_RELATION,
         )
       ).all()
       if len(set(previous_basis)) < 2:
         raise ValueError("Previous synthesis has no valid multi-source basis")
 
-    source_set = set(proposal.source_ids)
+    source_set = set(proposal.source_block_ids)
     text_candidates = db_session.exec(
       sqlmodel.select(BlockModel).where(
         BlockModel.resolver == "core.text.v1",
@@ -153,9 +155,9 @@ class SynthesisBehaviorResolver(
       raise RuntimeError("Persisted synthesis Block has no ID")
 
     basis = []
-    for source_id in sorted(source_set):
+    for source_block_id in sorted(source_set):
       relation, created = fetchsert_relation(
-        source_id,
+        source_block_id,
         synthesis.id,
         SYNTHESIS_RELATION,
         db_session,
@@ -164,18 +166,18 @@ class SynthesisBehaviorResolver(
 
     edited = None
     if (
-      proposal.previous_synthesis_id is not None
-      and proposal.previous_synthesis_id != synthesis.id
+      proposal.previous_synthesis_block_id is not None
+      and proposal.previous_synthesis_block_id != synthesis.id
     ):
       relation, created = fetchsert_relation(
-        proposal.previous_synthesis_id,
+        proposal.previous_synthesis_block_id,
         synthesis.id,
         EDITED_RELATION,
         db_session,
       )
       edited = relation_result(relation, created)
     return SynthesisWriteResult(
-      synthesis=synthesis.id,
+      synthesis_block_id=synthesis.id,
       synthesis_created=synthesis_created,
       basis=tuple(basis),
       edited=edited,

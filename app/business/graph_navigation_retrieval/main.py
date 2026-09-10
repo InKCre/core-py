@@ -1,12 +1,8 @@
 """Bounded, presentation-neutral navigation over persisted graph authority."""
 
 from collections import deque
-from collections.abc import Collection
-from dataclasses import dataclass
-import inspect
 import typing
 
-import pydantic
 import sqlmodel
 
 from app.business.info_base.block import BlockManager
@@ -38,74 +34,8 @@ FRONTIER_QUERY_SIZE = 200
 DEFAULT_MAX_EXPLORED_RELATIONS = 10000
 
 
-@dataclass(frozen=True)
-class GraphNavigationQueryContract:
-  name: str
-  description: str
-  input_model: type[pydantic.BaseModel]
-
-  @property
-  def input_schema(self) -> dict[str, typing.Any]:
-    return self.input_model.model_json_schema()
-
-
 class GraphNavigationRetrievalManager:
-  """Own graph-navigation semantics while hiding query and closure mechanics."""
-
-  @classmethod
-  def get_query_contracts(cls) -> tuple[GraphNavigationQueryContract, ...]:
-    """Describe public typed graph queries without exposing runtime sessions."""
-    contracts: list[GraphNavigationQueryContract] = []
-    names = (
-      name
-      for name in dir(cls)
-      if name.startswith(("get_", "find_"))
-      and name not in {"get_query_contract", "get_query_contracts"}
-    )
-    for name in names:
-      function = getattr(cls, name)
-      signature = inspect.signature(function, eval_str=True)
-      fields: dict[str, tuple[typing.Any, typing.Any]] = {}
-      for parameter in signature.parameters.values():
-        if parameter.name == "db_session":
-          continue
-        if parameter.annotation is inspect.Parameter.empty:
-          raise TypeError(f"Graph query {name} parameter {parameter.name} must be typed")
-        default = ... if parameter.default is inspect.Parameter.empty else parameter.default
-        annotation = parameter.annotation
-        if typing.get_origin(annotation) is Collection:
-          item_type = typing.get_args(annotation)[0]
-          annotation = tuple[item_type, ...]
-        fields[parameter.name] = (annotation, default)
-      input_model = typing.cast(typing.Any, pydantic.create_model)(
-        f"GraphNavigation_{name}_Arguments",
-        __config__=pydantic.ConfigDict(extra="forbid"),
-        **fields,
-      )
-      input_model.model_json_schema()
-      contracts.append(
-        GraphNavigationQueryContract(
-          name=name,
-          description=inspect.getdoc(function) or name.replace("_", " "),
-          input_model=input_model,
-        )
-      )
-    return tuple(contracts)
-
-  @classmethod
-  def get_query_contract(cls, name: str) -> GraphNavigationQueryContract | None:
-    return next(
-      (contract for contract in cls.get_query_contracts() if contract.name == name),
-      None,
-    )
-
-  @classmethod
-  def invoke_query(cls, name: str, arguments: dict[str, typing.Any]) -> typing.Any:
-    contract = cls.get_query_contract(name)
-    if contract is None:
-      raise ValueError("Graph navigation query is not available")
-    validated = contract.input_model.model_validate(arguments)
-    return getattr(cls, name)(**validated.model_dump())
+  """Own bounded graph-navigation queries over persisted entities."""
 
   @classmethod
   def get_random_block(
@@ -262,7 +192,7 @@ class GraphNavigationRetrievalManager:
         continue
       if truncated:
         components.append(
-          ConnectedSeedComponent(seed_blocks=(seed,), member_blocks=(seed,))
+          ConnectedSeedComponent(seed_block_ids=(seed,), member_block_ids=(seed,))
         )
         assigned_seeds.add(seed)
         continue
@@ -317,8 +247,8 @@ class GraphNavigationRetrievalManager:
       assigned_seeds.update(component_seeds)
       components.append(
         ConnectedSeedComponent(
-          seed_blocks=component_seeds,
-          member_blocks=tuple(sorted(members)),
+          seed_block_ids=component_seeds,
+          member_block_ids=tuple(sorted(members)),
         )
       )
 
@@ -329,7 +259,7 @@ class GraphNavigationRetrievalManager:
         blocks=proof_blocks,
         relations=tuple(proof_relations.values()),
       ),
-      missing_seed_blocks=missing,
+      missing_seed_block_ids=missing,
       truncated=truncated,
     )
 

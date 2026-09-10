@@ -10,7 +10,7 @@ import pydantic
 
 from app.business.agent import AgentManager, ToolExecutionError
 from app.business.graph_navigation_retrieval import GraphNavigationRetrievalManager
-from app.business.info_base import BlockManager, InfoBaseManager
+from app.business.info_base import BlockManager, InfoBaseManager, RelationManager
 from app.business.info_base.resolver import (
   ResolverDraftCapability,
   ResolverManager,
@@ -27,20 +27,30 @@ from app.schemas.organization_behavior import (
   DuplicateAssertionProposal,
   EvidenceStanceProposal,
   ExistingReferentAnchorProposal,
-  GraphRetrievalMetaToolInput,
+  GetEntityInput,
+  EntityNeighborhoodInput,
+  FindPathInput,
+  ConnectedComponentsInput,
   OrganizationRetrieveInput,
   RecordOrganizationCandidateInput,
   RefinementProposal,
   ResolverMetaToolInput,
+  ResolverDescribeInput,
+  ResolverInvokeInput,
+  ResolverMethodCall,
   SupersessionProposal,
   SynthesisProposal,
 )
 from ._shared import behavior_resolver_classes, get_behavior_resolver
-from .duplicate_assertion import DuplicateAssertionBehaviorResolver
+from .contracts import OrganizationError
+from .duplicate_assertion import (
+  DUPLICATES_ASSERTION_RELATION,
+  DuplicateAssertionBehaviorResolver,
+)
 from .evidence_stance import EvidenceStanceBehaviorResolver
 from .referent_anchoring import ExistingReferentAnchoringBehaviorResolver
-from .refinement import RefinementBehaviorResolver
-from .supersession import SupersessionBehaviorResolver
+from .refinement import REFINES_RELATION, RefinementBehaviorResolver
+from .supersession import SUPERSEDES_RELATION, SupersessionBehaviorResolver
 from .synthesis import SynthesisBehaviorResolver
 
 
@@ -49,7 +59,10 @@ DRAFT_GRAPH_TOOL = "draft_graph"
 SUBMIT_GRAPH_TOOL = "submit_graph"
 RETRIEVE_TOOL = "retrieve"
 RESOLVER_TOOL = "resolver"
-GRAPH_RETRIEVAL_TOOL = "graph_retrieval"
+GET_ENTITY_TOOL = "get_entity"
+GET_ENTITY_NEIGHBORHOOD_TOOL = "get_entity_neighborhood"
+FIND_PATH_TOOL = "find_path"
+GET_CONNECTED_COMPONENTS_TOOL = "get_connected_components"
 RECORD_SUPERSESSION_TOOL = "record_supersession"
 RECORD_REFINEMENT_TOOL = "record_refinement"
 RECORD_EVIDENCE_STANCE_TOOL = "record_evidence_stance"
@@ -74,7 +87,7 @@ def _schema_discovery_input_model() -> type[pydantic.BaseModel]:
     raise RuntimeError("No Resolver graph-drafting capability is registered")
 
   def add_exact_ids(schema: dict[str, typing.Any]) -> None:
-    schema["properties"]["resolvers"]["items"] = {
+    schema["properties"]["resolver_types"]["items"] = {
       "type": "string",
       "enum": list(snapshot),
     }
@@ -86,7 +99,7 @@ def _schema_discovery_input_model() -> type[pydantic.BaseModel]:
       json_schema_extra=add_exact_ids,
     )
 
-    @pydantic.field_validator("resolvers")
+    @pydantic.field_validator("resolver_types")
     @classmethod
     def exact_resolvers(cls, resolvers: tuple[str, ...]) -> tuple[str, ...]:
       unknown = tuple(resolver for resolver in resolvers if resolver not in snapshot)
@@ -103,7 +116,7 @@ def _draft_graph_input_model() -> type[pydantic.BaseModel]:
     raise RuntimeError("No Resolver graph-drafting capability is registered")
 
   def add_exact_ids(schema: dict[str, typing.Any]) -> None:
-    schema["properties"]["resolver"] = {
+    schema["properties"]["resolver_type"] = {
       "type": "string",
       "enum": list(snapshot),
     }
@@ -114,7 +127,7 @@ def _draft_graph_input_model() -> type[pydantic.BaseModel]:
       json_schema_extra=add_exact_ids,
     )
 
-    @pydantic.field_validator("resolver")
+    @pydantic.field_validator("resolver_type")
     @classmethod
     def exact_resolver(cls, resolver: str) -> str:
       if resolver not in snapshot:
@@ -123,7 +136,7 @@ def _draft_graph_input_model() -> type[pydantic.BaseModel]:
 
     @pydantic.model_validator(mode="after")
     def validate_resolver_input(self) -> typing.Self:
-      capability = snapshot[self.resolver]
+      capability = snapshot[self.resolver_type]
       resolver_input = capability.input_model.model_validate(self.input)
       object.__setattr__(self, "_resolver_input", resolver_input)
       return self
@@ -133,22 +146,22 @@ def _draft_graph_input_model() -> type[pydantic.BaseModel]:
 
 @AgentManager.tool(
   GET_DRAFT_GRAPH_SCHEMA_TOOL,
-  description="Return code-owned draft-input JSON Schemas for exact Resolver IDs.",
+  description="Describe graph-drafting inputs for selected Resolver types.",
   input_model_factory=_schema_discovery_input_model,
 )
 async def get_draft_graph_schema(input: GetDraftGraphSchemaInput) -> JSONValue:
   snapshot = _draft_capability_snapshot()
   return {
-    "resolvers": [
+    "resolver_types": [
       {
-        "resolver": resolver,
+        "resolver_type": resolver,
         "description": snapshot[resolver].description,
         "input_schema": typing.cast(
           dict[str, JSONValue],
           snapshot[resolver].input_model.model_json_schema(),
         ),
       }
-      for resolver in input.resolvers
+      for resolver in input.resolver_types
     ]
   }
 
@@ -159,10 +172,10 @@ async def get_draft_graph_schema(input: GetDraftGraphSchemaInput) -> JSONValue:
   input_model_factory=_draft_graph_input_model,
 )
 async def draft_graph(input: DraftGraphInput) -> JSONValue:
-  capability = ResolverManager.get_draft_capability(input.resolver)
+  capability = ResolverManager.get_draft_capability(input.resolver_type)
   resolver_input = typing.cast(pydantic.BaseModel, getattr(input, "_resolver_input"))
   stars = capability.resolver_cls.create_graph(resolver_input)
-  graph = InfoBaseManager.normalize_graph(stars, input.id_start)
+  graph = InfoBaseManager.normalize_graph(stars, input.local_block_id_start)
   return typing.cast(JSONValue, graph.model_dump(mode="json"))
 
 
@@ -186,7 +199,18 @@ async def retrieve(input: OrganizationRetrieveInput) -> JSONValue:
       input.query,
       input.limit,
     )
-    return typing.cast(JSONValue, result.model_dump(mode="json"))
+    return typing.cast(
+      JSONValue,
+      {
+        "matches": [
+          {
+            "entity": {"entity_type": "block", "entity_id": match.block.id},
+            **match.model_dump(mode="json", exclude={"block"}),
+          }
+          for match in result.matches
+        ]
+      },
+    )
 
   async def semantic() -> JSONValue:
     from app.schemas.semantic_retrieval import VectorRetrievalOptions
@@ -195,7 +219,19 @@ async def retrieve(input: OrganizationRetrieveInput) -> JSONValue:
       input.query,
       options=VectorRetrievalOptions(limit=input.limit),
     )
-    return typing.cast(JSONValue, result.model_dump(mode="json"))
+    return typing.cast(
+      JSONValue,
+      {
+        **result.model_dump(mode="json", exclude={"matches"}),
+        "matches": [
+          {
+            "entity": {"entity_type": match.type, "entity_id": match.entity.id},
+            "score": match.score,
+          }
+          for match in result.matches
+        ],
+      },
+    )
 
   branches = (
     ("lexical", lexical),
@@ -220,16 +256,105 @@ async def retrieve(input: OrganizationRetrieveInput) -> JSONValue:
   }
 
 
+def _resolver_input_model() -> type[pydantic.BaseModel]:
+  common = ResolverManager.get_common_method_contracts()
+  variants: list[type[pydantic.BaseModel]] = []
+  contracts = list(common)
+  for resolver_type in ResolverManager.RESOLVER_CLS:
+    contracts.extend(
+      contract
+      for contract in ResolverManager.get_method_contracts(resolver_type)
+      if contract.name in {item.name for item in common}
+    )
+  seen: set[tuple] = set()
+  for contract in contracts:
+    signature = (
+      contract.name,
+      tuple(
+        (name, repr(field.annotation), repr(field.default), repr(field.metadata))
+        for name, field in contract.input_model.model_fields.items()
+      ),
+    )
+    if signature in seen:
+      continue
+    seen.add(signature)
+    variants.append(
+      pydantic.create_model(
+        f"{contract.name}_Call_{len(variants)}",
+        __config__=pydantic.ConfigDict(extra="forbid"),
+        block_id=(int, ...),
+        method=(
+          typing.cast(typing.Any, typing.Literal)[contract.name],
+          pydantic.Field(description=contract.description),
+        ),
+        arguments=(
+          contract.input_model,
+          ...
+          if any(
+            field.is_required() for field in contract.input_model.model_fields.values()
+          )
+          else pydantic.Field(default_factory=contract.input_model),
+        ),
+      )
+    )
+
+  variants.append(
+    pydantic.create_model(
+      "ExtraMethodCall",
+      __base__=ResolverMethodCall,
+      method=(
+        str,
+        pydantic.Field(
+          json_schema_extra={"not": {"enum": [contract.name for contract in common]}}
+        ),
+      ),
+    )
+  )
+  call_type = typing.cast(typing.Any, typing.Union)[tuple(variants)]
+  invoke = pydantic.create_model(
+    "BoundResolverInvokeInput",
+    __base__=ResolverInvokeInput,
+    calls=(tuple[call_type, ...], pydantic.Field(min_length=1, max_length=20)),
+  )
+  envelope = pydantic.create_model(
+    "ResolverEnvelope",
+    __base__=ResolverDescribeInput,
+    action=(typing.Literal["describe", "invoke"], ...),
+    calls=(tuple[call_type, ...], pydantic.Field(default=(), max_length=20)),
+  )
+
+  documented = pydantic.RootModel[
+    typing.Annotated[ResolverDescribeInput | invoke, pydantic.Field(discriminator="action")]
+  ]
+
+  class BoundResolverInput(ResolverMetaToolInput):
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, typing.Any]:
+      # Method arguments are validated once by their actual Resolver owner, per
+      # call. A bad method argument must not discard successful batch siblings.
+      schema = documented.model_json_schema(*args, **kwargs)
+      # Some providers infer parameter types only from top-level properties.
+      # The union owns conditional validation; this is its wider envelope.
+      visible = envelope.model_json_schema(*args, **kwargs)
+      schema.update(type="object", properties=visible["properties"])
+      schema.setdefault("$defs", {}).update(visible.get("$defs", {}))
+      return schema
+
+  return BoundResolverInput
+
+
 @AgentManager.tool(
   RESOLVER_TOOL,
+  input_model_factory=_resolver_input_model,
   description="Describe or invoke public typed read methods on exact Block Resolvers.",
 )
 async def resolver(input: ResolverMetaToolInput) -> JSONValue:
-  if input.action == "describe":
-    found = await asyncio.to_thread(BlockManager.get_many, input.blocks)
-    resolver_ids = set(input.resolvers)
+  request = input.root
+  if request.action == "describe":
+    found = await asyncio.to_thread(BlockManager.get_many, request.block_ids)
+    resolver_ids = set(request.resolver_types)
     resolver_ids.update(block.resolver for block in found)
-    if not resolver_ids:
+    if not request.block_ids and not request.resolver_types:
       resolver_ids.update(ResolverManager.RESOLVER_CLS)
     return typing.cast(
       JSONValue,
@@ -249,7 +374,7 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
           for resolver_id in sorted(resolver_ids)
           if resolver_id in ResolverManager.RESOLVER_CLS
         ],
-        "missing_blocks": sorted(set(input.blocks) - {block.id for block in found}),
+        "missing_blocks": sorted(set(request.block_ids) - {block.id for block in found}),
         "missing_resolvers": sorted(
           resolver_id
           for resolver_id in resolver_ids
@@ -259,25 +384,74 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
     )
 
   results: list[JSONValue] = []
-  for index, call in enumerate(input.calls):
-    block = await asyncio.to_thread(BlockManager.get, call.block)
+  for index, call in enumerate(request.calls):
+    block = await asyncio.to_thread(BlockManager.get, call.block_id)
     if block is None:
       results.append(
-        {"index": index, "block": call.block, "method": call.method, "error": "not_found"}
+        {
+          "index": index,
+          "block_id": call.block_id,
+          "method": call.method,
+          "error": "not_found",
+        }
+      )
+      continue
+    contract = ResolverManager.get_method_contract(block.resolver, call.method)
+    if block.resolver not in ResolverManager.RESOLVER_CLS:
+      results.append(
+        {
+          "index": index,
+          "block_id": call.block_id,
+          "method": call.method,
+          "error": "resolver_unavailable",
+          "message": f"Resolver {block.resolver!r} is not registered.",
+        }
+      )
+      continue
+    if contract is None:
+      results.append(
+        {
+          "index": index,
+          "block_id": call.block_id,
+          "method": call.method,
+          "error": "method_unavailable",
+          "message": "Method does not exist; use describe for available method contracts.",
+          "available_methods": [
+            item.name for item in ResolverManager.get_method_contracts(block.resolver)
+          ],
+        }
       )
       continue
     try:
       value = await ResolverManager.invoke_method(
         block,
         call.method,
-        typing.cast(dict[str, typing.Any], call.arguments),
+        call.arguments.model_dump()
+        if isinstance(call.arguments, pydantic.BaseModel)
+        else typing.cast(dict[str, typing.Any], call.arguments),
       )
       projected = _project_json(value)
+    except pydantic.ValidationError as error:
+      results.append(
+        typing.cast(
+          JSONValue,
+          {
+            "index": index,
+            "block_id": call.block_id,
+            "method": call.method,
+            "error": "invalid_arguments",
+            "fields": error.errors(
+              include_url=False, include_context=False, include_input=False
+            ),
+            "input_schema": contract.input_schema,
+          },
+        )
+      )
     except Exception as error:
       results.append(
         {
           "index": index,
-          "block": call.block,
+          "block_id": call.block_id,
           "method": call.method,
           "error": type(error).__name__,
           "message": str(error),
@@ -287,7 +461,7 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
       results.append(
         {
           "index": index,
-          "block": call.block,
+          "block_id": call.block_id,
           "method": call.method,
           "result": projected,
         }
@@ -296,50 +470,75 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
 
 
 @AgentManager.tool(
-  GRAPH_RETRIEVAL_TOOL,
-  description="Describe or invoke public typed bounded Graph Navigation queries.",
+  GET_ENTITY_TOOL,
+  description="Read a persisted Block or Relation without resolving its content.",
 )
-async def graph_retrieval(input: GraphRetrievalMetaToolInput) -> JSONValue:
-  contracts = GraphNavigationRetrievalManager.get_query_contracts()
-  if input.action == "describe":
-    selected = set(input.methods)
-    return typing.cast(
-      JSONValue,
-      {
-        "methods": [
-          {
-            "name": contract.name,
-            "description": contract.description,
-            "input_schema": contract.input_schema,
-          }
-          for contract in contracts
-          if not selected or contract.name in selected
-        ],
-        "missing_methods": sorted(selected - {contract.name for contract in contracts}),
-      },
+async def get_entity(input: GetEntityInput) -> JSONValue:
+  if input.entity_type == "block":
+    entity = (
+      await asyncio.to_thread(BlockManager.get_random)
+      if input.entity_id is None
+      else await asyncio.to_thread(BlockManager.get, input.entity_id)
     )
+  else:
+    assert input.entity_id is not None
+    entity = await asyncio.to_thread(RelationManager.get_by_id, input.entity_id)
+  return _project_json(entity)
 
-  results: list[JSONValue] = []
-  for index, call in enumerate(input.calls):
-    try:
-      value = await asyncio.to_thread(
-        GraphNavigationRetrievalManager.invoke_query,
-        call.method,
-        typing.cast(dict[str, typing.Any], call.arguments),
-      )
-      projected = _project_json(value)
-    except Exception as error:
-      results.append(
-        {
-          "index": index,
-          "method": call.method,
-          "error": type(error).__name__,
-          "message": str(error),
-        }
-      )
-    else:
-      results.append({"index": index, "method": call.method, "result": projected})
-  return typing.cast(JSONValue, {"results": results})
+
+@AgentManager.tool(
+  GET_ENTITY_NEIGHBORHOOD_TOOL,
+  description="Read a Block's direct neighborhood or a Relation with its endpoints.",
+)
+async def get_entity_neighborhood(input: EntityNeighborhoodInput) -> JSONValue:
+  request = input.root
+  if request.entity_type == "block":
+    result = await asyncio.to_thread(
+      GraphNavigationRetrievalManager.get_block_neighborhood,
+      request.entity_id,
+      direction=request.direction,
+      contents=request.contents,
+      limit=request.limit,
+      cursor=request.cursor,
+    )
+  else:
+    result = await asyncio.to_thread(
+      GraphNavigationRetrievalManager.get_relation_neighborhood,
+      request.entity_id,
+    )
+  return _project_json(result)
+
+
+@AgentManager.tool(
+  FIND_PATH_TOOL,
+  description="Find a bounded graph path; an exploration limit is not proof of absence.",
+)
+async def find_path(input: FindPathInput) -> JSONValue:
+  result = await asyncio.to_thread(
+    GraphNavigationRetrievalManager.find_path,
+    input.from_block_id,
+    input.to_block_id,
+    direction=input.direction,
+    contents=input.contents,
+    max_hops=input.max_hops,
+    max_explored_blocks=input.max_explored_blocks,
+  )
+  return _project_json(result)
+
+
+@AgentManager.tool(
+  GET_CONNECTED_COMPONENTS_TOOL,
+  description=(
+    "Partition seeds by bounded undirected reachability through exact Relation contents."
+  ),
+)
+async def get_connected_components(input: ConnectedComponentsInput) -> JSONValue:
+  return await _exact_result(
+    asyncio.to_thread(
+      GraphNavigationRetrievalManager.get_connected_components,
+      **input.model_dump(),
+    )
+  )
 
 
 def _candidate_input_model() -> type[pydantic.BaseModel]:
@@ -369,7 +568,9 @@ def _candidate_input_model() -> type[pydantic.BaseModel]:
     @classmethod
     def exact_behavior(cls, behavior: str) -> str:
       if behavior not in snapshot:
-        raise ValueError(f"Unavailable Organization behavior: {behavior!r}")
+        raise ValueError(
+          f"Unavailable behavior {behavior!r}; available: {', '.join(snapshot)}"
+        )
       return behavior
 
   return BoundRecordOrganizationCandidateInput
@@ -378,7 +579,7 @@ def _candidate_input_model() -> type[pydantic.BaseModel]:
 async def _exact_result(operation: typing.Awaitable[pydantic.BaseModel]) -> JSONValue:
   try:
     result = await operation
-  except (ValueError, RuntimeError) as error:
+  except (ValueError, OrganizationError) as error:
     raise ToolExecutionError(
       {"error": type(error).__name__, "message": str(error)}
     ) from error
@@ -387,39 +588,50 @@ async def _exact_result(operation: typing.Awaitable[pydantic.BaseModel]) -> JSON
 
 @AgentManager.tool(
   RECORD_SUPERSESSION_TOOL,
-  description="Persist one exact successor --supersedes--> predecessor relation.",
+  description=(
+    f"Record {SUPERSEDES_RELATION!r}: the successor is authorized to replace "
+    "the predecessor across its entire scope on the same subject."
+  ),
 )
 async def record_supersession(input: SupersessionProposal) -> JSONValue:
   return await _exact_result(
     SupersessionBehaviorResolver.record_supersession(
-      input.successor_id,
-      input.predecessor_id,
+      input.successor_block_id,
+      input.predecessor_block_id,
     )
   )
 
 
 @AgentManager.tool(
   RECORD_REFINEMENT_TOOL,
-  description="Persist one exact refinement --refines--> predecessor relation.",
+  description=(
+    f"Record {REFINES_RELATION!r}: compatible detail on the same subject at equal "
+    "or narrower "
+    "scope; the predecessor remains independently usable as a coarser "
+    "description."
+  ),
 )
 async def record_refinement(input: RefinementProposal) -> JSONValue:
   return await _exact_result(
     RefinementBehaviorResolver.record_refinement(
-      input.refinement_id,
-      input.predecessor_id,
+      input.refinement_block_id,
+      input.predecessor_block_id,
     )
   )
 
 
 @AgentManager.tool(
   RECORD_EVIDENCE_STANCE_TOOL,
-  description="Persist one attributable evidence support or challenge relation.",
+  description=(
+    "Record attributable evidence supporting or challenging a whole "
+    "assertion in comparable scope, without declaring it true or false."
+  ),
 )
 async def record_evidence_stance(input: EvidenceStanceProposal) -> JSONValue:
   return await _exact_result(
     EvidenceStanceBehaviorResolver.record_evidence_stance(
-      input.evidence_id,
-      input.assertion_id,
+      input.evidence_block_id,
+      input.assertion_block_id,
       input.stance,
     )
   )
@@ -427,50 +639,62 @@ async def record_evidence_stance(input: EvidenceStanceProposal) -> JSONValue:
 
 @AgentManager.tool(
   CREATE_SYNTHESIS_TOOL,
-  description="Create or replay one provenance-preserving multi-source synthesis.",
+  description=(
+    "Create reusable multi-source information preserving provenance, "
+    "disagreement, uncertainty and speaker attribution; copies do not "
+    "multiply corroboration."
+  ),
 )
 async def create_synthesis(input: SynthesisProposal) -> JSONValue:
   return await _exact_result(
     SynthesisBehaviorResolver.create_synthesis(
       input.text,
-      input.source_ids,
-      input.previous_synthesis_id,
+      input.source_block_ids,
+      input.previous_synthesis_block_id,
     )
   )
 
 
 @AgentManager.tool(
   ANCHOR_EXISTING_REFERENT_TOOL,
-  description="Anchor a source-grounded selected-text fragment to an existing referent.",
+  description=(
+    "Link a source's referring fragment to an existing identity-bearing "
+    "referent, without creating a new referent."
+  ),
 )
 async def anchor_existing_referent(
   input: ExistingReferentAnchorProposal,
 ) -> JSONValue:
   return await _exact_result(
     ExistingReferentAnchoringBehaviorResolver.anchor_existing_referent(
-      input.source_id,
+      input.source_block_id,
       input.selected_text,
-      input.referent_id,
+      input.referent_block_id,
     )
   )
 
 
 @AgentManager.tool(
   RECORD_DUPLICATE_ASSERTION_TOOL,
-  description="Persist one whole-Block duplicate assertion from one provenance occurrence.",
+  description=(
+    f"Record {DUPLICATES_ASSERTION_RELATION!r}: whole assertions from the same "
+    "provenance occurrence with no "
+    "independent evidence, reasoning, decision or material gain; matching "
+    "words alone are insufficient."
+  ),
 )
 async def record_duplicate_assertion(input: DuplicateAssertionProposal) -> JSONValue:
   return await _exact_result(
     DuplicateAssertionBehaviorResolver.record_duplicate_assertion(
-      input.left_id,
-      input.right_id,
+      input.left_block_id,
+      input.right_block_id,
     )
   )
 
 
 @AgentManager.tool(
   RECORD_ORGANIZATION_CANDIDATE_TOOL,
-  description="Cautiously mark information for one exact registered Organization behavior.",
+  description="Mark an organization candidate without executing the behavior.",
   input_model_factory=_candidate_input_model,
 )
 async def record_organization_candidate(
@@ -480,7 +704,7 @@ async def record_organization_candidate(
   if behavior is None:
     raise ToolExecutionError({"error": "behavior_unavailable"})
   return await _exact_result(
-    typing.cast(typing.Any, behavior).record_candidate(input.information_id)
+    typing.cast(typing.Any, behavior).record_candidate(input.block_id)
   )
 
 

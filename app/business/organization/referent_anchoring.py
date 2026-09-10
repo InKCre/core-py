@@ -85,51 +85,53 @@ class ExistingReferentAnchoringBehaviorResolver(
   @classmethod
   async def record_candidate(
     cls,
-    information_id: BlockID,
+    block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, information_id, db_session=db_session)
+    return await record_candidate(cls, block_id, db_session=db_session)
 
   @classmethod
   async def anchor_existing_referent(
     cls,
-    source_id: BlockID,
+    source_block_id: BlockID,
     selected_text: str,
-    referent_id: BlockID,
+    referent_block_id: BlockID,
     *,
     db_session: sqlmodel.Session | None = None,
   ) -> ExistingReferentAnchorResult:
     proposal = ExistingReferentAnchorProposal(
-      source_id=source_id,
+      source_block_id=source_block_id,
       selected_text=selected_text,
-      referent_id=referent_id,
+      referent_block_id=referent_block_id,
     )
     if db_session is None:
       with SessionLocal() as owned_session:
         result = await cls.anchor_existing_referent(
-          proposal.source_id,
+          proposal.source_block_id,
           proposal.selected_text,
-          proposal.referent_id,
+          proposal.referent_block_id,
           db_session=owned_session,
         )
         owned_session.commit()
         return result
-    require_distinct_blocks(proposal.source_id, proposal.referent_id, db_session)
-    source = BlockManager.get(proposal.source_id, db_session)
+    require_distinct_blocks(
+      proposal.source_block_id, proposal.referent_block_id, db_session
+    )
+    source = BlockManager.get(proposal.source_block_id, db_session)
     if source is None:  # pragma: no cover - require_distinct_blocks invariant
       raise ValueError("Source Block does not exist")
 
     existing = cls._existing_path(
-      proposal.source_id,
+      proposal.source_block_id,
       proposal.selected_text,
-      proposal.referent_id,
+      proposal.referent_block_id,
       db_session,
     )
     if existing is not None:
       fragment_id, has_mention, refers_to = existing
       return ExistingReferentAnchorResult(
-        fragment=fragment_id,
+        fragment_block_id=fragment_id,
         fragment_created=False,
         has_mention=(
           relation_result(has_mention, False) if has_mention is not None else None
@@ -141,7 +143,7 @@ class ExistingReferentAnchoringBehaviorResolver(
       source.resolver == "core.text.v1" and source.content == proposal.selected_text
     )
     if source_is_fragment:
-      fragment_id = proposal.source_id
+      fragment_id = proposal.source_block_id
       fragment_created = False
       has_mention_result = None
     else:
@@ -154,7 +156,7 @@ class ExistingReferentAnchoringBehaviorResolver(
       fragment_id = fragment.id
       fragment_created = True
       has_mention, created = fetchsert_relation(
-        proposal.source_id,
+        proposal.source_block_id,
         fragment_id,
         HAS_MENTION_RELATION,
         db_session,
@@ -163,12 +165,12 @@ class ExistingReferentAnchoringBehaviorResolver(
 
     refers_to, created = fetchsert_relation(
       fragment_id,
-      proposal.referent_id,
+      proposal.referent_block_id,
       REFERS_TO_RELATION,
       db_session,
     )
     return ExistingReferentAnchorResult(
-      fragment=fragment_id,
+      fragment_block_id=fragment_id,
       fragment_created=fragment_created,
       has_mention=has_mention_result,
       refers_to=relation_result(refers_to, created),
@@ -176,12 +178,12 @@ class ExistingReferentAnchoringBehaviorResolver(
 
   @staticmethod
   def _existing_path(
-    source_id: BlockID,
+    source_block_id: BlockID,
     selected_text: str,
-    referent_id: BlockID,
+    referent_block_id: BlockID,
     db_session: sqlmodel.Session,
   ) -> tuple[BlockID, RelationModel | None, RelationModel] | None:
-    source = BlockManager.get(source_id, db_session)
+    source = BlockManager.get(source_block_id, db_session)
     if (
       source is not None
       and source.resolver == "core.text.v1"
@@ -191,20 +193,20 @@ class ExistingReferentAnchoringBehaviorResolver(
         (
           relation
           for relation in RelationManager.get(
-            source_id,
+            source_block_id,
             include_in=False,
             content=REFERS_TO_RELATION,
             db_session=db_session,
           )
-          if relation.to_ == referent_id
+          if relation.to_ == referent_block_id
         ),
         None,
       )
       if refers_to is not None:
-        return source_id, None, refers_to
+        return source_block_id, None, refers_to
 
     for has_mention in RelationManager.get(
-      source_id,
+      source_block_id,
       include_in=False,
       content=HAS_MENTION_RELATION,
       db_session=db_session,
@@ -225,7 +227,7 @@ class ExistingReferentAnchoringBehaviorResolver(
             content=REFERS_TO_RELATION,
             db_session=db_session,
           )
-          if relation.to_ == referent_id
+          if relation.to_ == referent_block_id
         ),
         None,
       )

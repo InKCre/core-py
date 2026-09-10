@@ -110,6 +110,17 @@ class ResolverManager:
     resolver_cls = cls.RESOLVER_CLS.get(resolver)
     if resolver_cls is None:
       return ()
+    return cls._method_contracts(resolver_cls)
+
+  @classmethod
+  def get_common_method_contracts(cls) -> tuple[ResolverMethodContract, ...]:
+    """Common Resolver reads, available without per-type discovery."""
+    return cls._method_contracts(Resolver)
+
+  @staticmethod
+  def _method_contracts(
+    resolver_cls: type["Resolver"],
+  ) -> tuple[ResolverMethodContract, ...]:
     contracts: list[ResolverMethodContract] = []
     for name, function in inspect.getmembers(resolver_cls, predicate=inspect.isfunction):
       if name.startswith("_") or not name.startswith(("get_", "read_")):
@@ -279,15 +290,21 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     """Get the block ID."""
     return typing.cast(BlockID, self._block.id)
 
-  async def get_raw_content(self, *, refresh: bool = False) -> RawContentTV:
-    """Delegate hydrated-content mechanics and caching to the block instance."""
+  async def get_raw_content(
+    self,
+    *,
+    refresh: typing.Annotated[
+      bool, pydantic.Field(description="Reread current content.")
+    ] = False,
+  ) -> RawContentTV:
+    """Read hydrated content: text or bytes, not a storage pointer."""
     return typing.cast(
       RawContentTV,
       await self._block.get_hydrated_content(refresh=refresh),
     )
 
   def get_transfer_url(self) -> str | None:
-    """Return an optional Storage-owned transfer hint for this exact pointer."""
+    """Get a content transfer URL when available."""
     if self._block.storage is None:
       return None
     from app.business.info_base.storage import StorageManager
@@ -298,14 +315,14 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   async def get_solved_content(
     self,
     *,
-    refresh: bool = False,
-    materialize_missing: bool = True,
+    refresh: typing.Annotated[
+      bool, pydantic.Field(description="Reread current content.")
+    ] = False,
+    materialize_missing: typing.Annotated[
+      bool, pydantic.Field(description="Allow creation of missing derived information.")
+    ] = True,
   ) -> SolvedContentTV:
-    """Return use-facing semantic completion after any permitted lazy work.
-
-    The result does not expose whether internal mechanics created、reused、raced
-    or fetched content unless that fact belongs to the solved domain semantics.
-    """
+    """Read the Resolver's typed interpretation of content."""
     if refresh or self.__solved_content is _UNSET:
       self.__solved_content = await self._get_solved_content(
         refresh=refresh,
@@ -338,15 +355,15 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   async def get_relations(
     self,
     *,
-    include_in: bool = True,
-    include_out: bool = True,
+    include_in: typing.Annotated[
+      bool, pydantic.Field(description="Include relations pointing to this Block.")
+    ] = True,
+    include_out: typing.Annotated[
+      bool, pydantic.Field(description="Include relations pointing from this Block.")
+    ] = True,
     refresh: bool = False,
   ) -> tuple[RelationModel, ...]:
-    """Get relations of the block.
-
-    :param include_in: bool, whether to get incoming relations. Default True.
-    :param include_out: bool, whether to get outgoing relations. Default True.
-    """
+    """Read direct relations of this Block."""
     key = (include_in, include_out)
     if refresh or key not in self.__relations:
       all_relations = None if refresh else self.__relations.get((True, True))
@@ -377,16 +394,23 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   async def get_text(
     self,
     *,
-    context: TextProjectionContext = "default",
-    refresh: bool = False,
-    materialize_missing: bool = True,
+    context: typing.Annotated[
+      TextProjectionContext,
+      pydantic.Field(description="Lexical projection is Block-local and non-recursive."),
+    ] = "default",
+    refresh: typing.Annotated[
+      bool, pydantic.Field(description="Reread current content.")
+    ] = False,
+    materialize_missing: typing.Annotated[
+      bool, pydantic.Field(description="Allow creation of missing derived information.")
+    ] = True,
   ) -> str | None:
-    """Return a Block-local text projection for one stable use context."""
+    """Read a text projection; unsupported, absent and empty are distinct."""
     ...
 
   @abc.abstractmethod
   async def get_label(self, *, refresh: bool = False) -> str:
-    """Return one concise, stable, Block-local resolver-qualified label."""
+    """Read a concise label for this Block."""
     ...
 
   def get_existing(self, db_session: sqlmodel.Session) -> Opt[BlockModel]:

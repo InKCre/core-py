@@ -3,9 +3,6 @@ name: Temporary PR 100 Agent debug
 on:
   push:
     branches: [feat/organization-nowledge-vertical]
-    paths:
-      - .github/workflows/preview-agent-debug.yml
-      - scripts/preview_agent_debug.py
 
 permissions:
   contents: read

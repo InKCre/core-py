@@ -109,9 +109,13 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
 - 每个行为拥有一个独立 automatic Job 和 `core.organization.<behavior>` deployment config。Job 只承担有界候选读取与
   调度；Resolver 构造起始证据、调用所选 purpose-built Agent，并由 behavior-owned exact command 写普通 Block/Relation。
   初始 seed 不限制 Agent 后续通过 retrieval、Resolver 或 graph navigation 继续探索。
-- `retrieve`、`resolver` 与 `graph_retrieval` 是三个共享读取元工具。Resolver method reflection 由
-  `ResolverManager` 拥有，Graph Navigation method reflection 由 `GraphNavigationRetrievalManager` 拥有；MCP Sink 只投影
-  同一 owner contract，不成为 Organization 的依赖。
+- `retrieve` 返回候选引用与已有命中信息；`get_entity` 读取普通持久实体，`resolver` 解释内容。
+  `get_entity_neighborhood`、`find_path`、`get_connected_components` 直接投影 Graph Navigation 的少量稳定查询。
+  Resolver method reflection 由 `ResolverManager` 拥有；公共读取方法直接进入 Agent schema，额外方法按需发现。
+  MCP Sink 只投影同一 owner contract，不成为 Organization 的依赖，也不继承内部 Agent Tool 的请求包装。
+- 工具定义表达关系含义，字段名称保留所指实体身份；行为识别过程属于所选 Agent definition。
+  Resolver 的方法参数由实际 owner 逐调用验证，错误不丢弃同批其它结果。schema 由同一方法合同投影，
+  顶层分支同时显示字段形状，以兼容只从顶层 properties 推断参数类型的 provider。
 - 精确写入工具只接受最小 graph proposal，并校验 endpoint、cycle/opposite stance、source basis 或 occurrence-local path
   等机械不变量；开放世界的 referent、scope、authority、evidence、duplicate 与 synthesis 语义仍由相应 Agent 判断。
   所有结果追加到普通图，不创建 evaluated/no-op state、behavior report、relation-content registry 或级联引擎。

@@ -135,7 +135,7 @@ def test_exact_behaviors_compose_into_replayable_graph_use() -> None:
         SynthesisBehaviorResolver.create_synthesis(
           f"{marker}: changed synthesis",
           (new, detail, evidence),
-          synthesis.synthesis,
+          synthesis.synthesis_block_id,
           db_session=db_session,
         )
       )
@@ -144,17 +144,23 @@ def test_exact_behaviors_compose_into_replayable_graph_use() -> None:
       assert refinement.created
       assert stance.created
       assert first_anchor.fragment_created
-      assert second_anchor.fragment == first_anchor.fragment
+      assert second_anchor.fragment_block_id == first_anchor.fragment_block_id
       assert not second_anchor.fragment_created
       assert not second_anchor.refers_to.created
       assert first_duplicate.created and second_duplicate.created
-      assert replay.synthesis == synthesis.synthesis
+      assert replay.synthesis_block_id == synthesis.synthesis_block_id
       assert not replay.synthesis_created
-      assert changed.synthesis != synthesis.synthesis
+      assert changed.synthesis_block_id != synthesis.synthesis_block_id
       assert changed.edited is not None and changed.edited.created
-      persisted.extend((first_anchor.fragment, synthesis.synthesis, changed.synthesis))
+      persisted.extend(
+        (
+          first_anchor.fragment_block_id,
+          synthesis.synthesis_block_id,
+          changed.synthesis_block_id,
+        )
+      )
 
-      with pytest.raises(ValueError, match="directed cycle"):
+      with pytest.raises(ValueError, match="existing supersedes path"):
         asyncio.run(
           SupersessionBehaviorResolver.record_supersession(
             old,
@@ -177,10 +183,10 @@ def test_exact_behaviors_compose_into_replayable_graph_use() -> None:
         contents=("duplicates assertion",),
         db_session=db_session,
       )
-      assert duplicate_components.missing_seed_blocks == ()
+      assert duplicate_components.missing_seed_block_ids == ()
       assert not duplicate_components.truncated
-      assert duplicate_components.components[0].seed_blocks == (copied, old)
-      assert set(duplicate_components.components[0].member_blocks) == {
+      assert duplicate_components.components[0].seed_block_ids == (copied, old)
+      assert set(duplicate_components.components[0].member_block_ids) == {
         copied,
         relayed,
         old,
@@ -215,7 +221,7 @@ def test_connected_component_reports_missing_and_bounded_incomplete_proof() -> N
       max_explored_relations=1,
     )
     assert result.truncated
-    assert result.missing_seed_blocks == (max(ids) + 1_000_000,)
+    assert result.missing_seed_block_ids == (max(ids) + 1_000_000,)
     assert len(result.proof_graph.relations) <= 1
   finally:
     _cleanup(persisted)

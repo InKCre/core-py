@@ -5,7 +5,7 @@ import typing
 import pydantic
 
 from app.schemas.ai import JSONValue
-from app.schemas.graph_navigation_retrieval import GraphModel
+from app.schemas.graph_navigation_retrieval import GraphDirection, GraphModel
 from app.schemas.info_base.block import BlockID, ResolverType
 from app.schemas.info_base.relation import RelationID
 
@@ -27,37 +27,37 @@ class AutomaticOrganizationJobParameters(pydantic.BaseModel):
 class RelationWriteResult(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  relation: RelationID
+  relation_id: RelationID
   created: bool
 
 
 class CandidateWriteResult(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  descriptor: BlockID
-  relation: RelationID
+  descriptor_block_id: BlockID
+  relation_id: RelationID
   created: bool
 
 
 class SupersessionProposal(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  successor_id: BlockID
-  predecessor_id: BlockID
+  successor_block_id: BlockID
+  predecessor_block_id: BlockID
 
 
 class RefinementProposal(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  refinement_id: BlockID
-  predecessor_id: BlockID
+  refinement_block_id: BlockID
+  predecessor_block_id: BlockID
 
 
 class EvidenceStanceProposal(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  evidence_id: BlockID
-  assertion_id: BlockID
+  evidence_block_id: BlockID
+  assertion_block_id: BlockID
   stance: typing.Literal["supports", "challenges"]
 
 
@@ -65,8 +65,12 @@ class SynthesisProposal(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   text: str
-  source_ids: tuple[BlockID, ...] = pydantic.Field(min_length=2)
-  previous_synthesis_id: BlockID | None = None
+  source_block_ids: tuple[BlockID, ...] = pydantic.Field(
+    min_length=2, description="Actual contributing sources, not all inspected context."
+  )
+  previous_synthesis_block_id: BlockID | None = pydantic.Field(
+    default=None, description="Earlier synthesis revised through an edited relation."
+  )
 
   @pydantic.field_validator("text")
   @classmethod
@@ -75,18 +79,18 @@ class SynthesisProposal(pydantic.BaseModel):
       raise ValueError("text must not be empty")
     return value
 
-  @pydantic.field_validator("source_ids")
+  @pydantic.field_validator("source_block_ids")
   @classmethod
   def distinct_sources(cls, value: tuple[BlockID, ...]) -> tuple[BlockID, ...]:
     if len(set(value)) != len(value):
-      raise ValueError("source_ids must be distinct")
+      raise ValueError("source_block_ids must be distinct")
     return value
 
 
 class SynthesisWriteResult(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  synthesis: BlockID
+  synthesis_block_id: BlockID
   synthesis_created: bool
   basis: tuple[RelationWriteResult, ...]
   edited: RelationWriteResult | None = None
@@ -95,9 +99,11 @@ class SynthesisWriteResult(pydantic.BaseModel):
 class ExistingReferentAnchorProposal(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  source_id: BlockID
-  selected_text: str
-  referent_id: BlockID
+  source_block_id: BlockID
+  selected_text: str = pydantic.Field(
+    description="Minimal sufficient referring fragment from the source."
+  )
+  referent_block_id: BlockID
 
   @pydantic.field_validator("selected_text")
   @classmethod
@@ -110,7 +116,7 @@ class ExistingReferentAnchorProposal(pydantic.BaseModel):
 class ExistingReferentAnchorResult(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  fragment: BlockID
+  fragment_block_id: BlockID
   fragment_created: bool
   has_mention: RelationWriteResult | None
   refers_to: RelationWriteResult
@@ -119,14 +125,14 @@ class ExistingReferentAnchorResult(pydantic.BaseModel):
 class DuplicateAssertionProposal(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  left_id: BlockID
-  right_id: BlockID
+  left_block_id: BlockID
+  right_block_id: BlockID
 
 
 class RecordOrganizationCandidateInput(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  information_id: BlockID
+  block_id: BlockID
   behavior: ResolverType
 
 
@@ -134,7 +140,7 @@ class SupersessionLineage(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   graph: GraphModel
-  current_frontier: tuple[BlockID, ...]
+  current_block_ids: tuple[BlockID, ...]
   truncated: bool
   cycle_detected: bool
 
@@ -145,9 +151,11 @@ RetrievalMode: typing.TypeAlias = typing.Literal["lexical", "semantic", "hybrid"
 class OrganizationRetrieveInput(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  query: str
+  query: str = pydantic.Field(description="Search terms or a semantic description.")
   mode: RetrievalMode = "hybrid"
-  limit: int = pydantic.Field(default=20, ge=1, le=20)
+  limit: int = pydantic.Field(
+    default=20, ge=1, le=20, description="Maximum matches per mode."
+  )
 
   @pydantic.field_validator("query")
   @classmethod
@@ -160,46 +168,121 @@ class OrganizationRetrieveInput(pydantic.BaseModel):
 class ResolverMethodCall(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  block: BlockID
+  block_id: BlockID
   method: str
   arguments: dict[str, JSONValue] = pydantic.Field(default_factory=dict)
 
 
-class ResolverMetaToolInput(pydantic.BaseModel):
+class ResolverDescribeInput(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  action: typing.Literal["describe", "invoke"]
-  resolvers: tuple[ResolverType, ...] = ()
-  blocks: tuple[BlockID, ...] = ()
-  calls: tuple[ResolverMethodCall, ...] = pydantic.Field(default=(), max_length=20)
+  action: typing.Literal["describe"]
+  resolver_types: tuple[ResolverType, ...] = ()
+  block_ids: tuple[BlockID, ...] = ()
+  calls: tuple[ResolverMethodCall, ...] = pydantic.Field(default=(), max_length=0)
+
+
+class ResolverInvokeInput(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["invoke"]
+  resolver_types: tuple[ResolverType, ...] = pydantic.Field(default=(), max_length=0)
+  block_ids: tuple[BlockID, ...] = pydantic.Field(default=(), max_length=0)
+  calls: tuple[ResolverMethodCall, ...] = pydantic.Field(min_length=1, max_length=20)
+
+
+class ResolverMetaToolInput(
+  pydantic.RootModel[
+    typing.Annotated[
+      ResolverDescribeInput | ResolverInvokeInput, pydantic.Field(discriminator="action")
+    ]
+  ]
+):
+  pass
+
+
+class GetEntityInput(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  entity_type: typing.Literal["block", "relation"] = "block"
+  entity_id: int | None = pydantic.Field(
+    default=None,
+    description="Null selects a random Block; explicit missing IDs never fall back.",
+  )
 
   @pydantic.model_validator(mode="after")
-  def valid_action_payload(self) -> typing.Self:
-    if self.action == "describe" and self.calls:
-      raise ValueError("describe does not accept calls")
-    if self.action == "invoke" and (not self.calls or self.resolvers or self.blocks):
-      raise ValueError("invoke requires calls and does not accept describe filters")
+  def relation_requires_id(self) -> typing.Self:
+    if self.entity_type == "relation" and self.entity_id is None:
+      raise ValueError("A Relation requires entity_id")
     return self
 
 
-class GraphMethodCall(pydantic.BaseModel):
+class BlockNeighborhoodInput(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  method: str
-  arguments: dict[str, JSONValue] = pydantic.Field(default_factory=dict)
+  entity_type: typing.Literal["block"]
+  entity_id: BlockID
+  direction: GraphDirection = "both"
+  contents: tuple[str, ...] = pydantic.Field(
+    default=(), description="Exact Relation contents; empty means all."
+  )
+  limit: int = pydantic.Field(default=20, ge=1, le=100)
+  cursor: RelationID | None = pydantic.Field(
+    default=None, description="Previous next_cursor."
+  )
 
 
-class GraphRetrievalMetaToolInput(pydantic.BaseModel):
+class RelationNeighborhoodInput(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  action: typing.Literal["describe", "invoke"]
-  methods: tuple[str, ...] = ()
-  calls: tuple[GraphMethodCall, ...] = pydantic.Field(default=(), max_length=20)
+  entity_type: typing.Literal["relation"]
+  entity_id: RelationID
 
-  @pydantic.model_validator(mode="after")
-  def valid_action_payload(self) -> typing.Self:
-    if self.action == "describe" and self.calls:
-      raise ValueError("describe does not accept calls")
-    if self.action == "invoke" and (not self.calls or self.methods):
-      raise ValueError("invoke requires calls and does not accept method filters")
-    return self
+
+class EntityNeighborhoodInput(
+  pydantic.RootModel[
+    typing.Annotated[
+      BlockNeighborhoodInput | RelationNeighborhoodInput,
+      pydantic.Field(discriminator="entity_type"),
+    ]
+  ]
+):
+  model_config = pydantic.ConfigDict(json_schema_extra={"type": "object"})
+
+  @classmethod
+  def model_json_schema(cls, *args, **kwargs) -> dict[str, typing.Any]:
+    schema = super().model_json_schema(*args, **kwargs)
+    properties = BlockNeighborhoodInput.model_json_schema(*args, **kwargs)["properties"]
+    properties["entity_type"] = {
+      "type": "string",
+      "enum": [
+        typing.get_args(branch.model_fields["entity_type"].annotation)[0]
+        for branch in (BlockNeighborhoodInput, RelationNeighborhoodInput)
+      ],
+    }
+    schema["properties"] = properties
+    return schema
+
+
+class FindPathInput(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  from_block_id: BlockID
+  to_block_id: BlockID
+  direction: GraphDirection = "both"
+  contents: tuple[str, ...] = pydantic.Field(
+    default=(), description="Exact Relation contents; empty means all."
+  )
+  max_hops: int = pydantic.Field(default=4, ge=0, le=8)
+  max_explored_blocks: int = pydantic.Field(default=1000, ge=1, le=10000)
+
+
+class ConnectedComponentsInput(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  seed_block_ids: tuple[BlockID, ...]
+  contents: tuple[str, ...] = pydantic.Field(
+    min_length=1, description="Exact Relation contents treated as undirected connections."
+  )
+  max_explored_blocks: int = pydantic.Field(default=1000, ge=1)
+  max_explored_relations: int = pydantic.Field(default=10000, ge=1)

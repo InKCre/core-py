@@ -10,6 +10,9 @@ The task's Human/Agent roles、Unit gates、write-back discipline and parallel-s
 
 ## Experimental Discussion Model
 
+Agent Tool 的 task-level 设计原则统一维护于 [Agent Tool common patterns](common-patterns/agent-tools.md)。
+涉及工具形态、发现、参数/说明、错误或响应设计时先读该文件；本处不另存一份规则。
+
 The unit of progress is a more coherent、evidence-backed current system model，not another answered question or a longer
 decision register。Sir's preference to ask one question at a time is an upper bound on simultaneous human review，not a
 requirement to manufacture one question after every answer。

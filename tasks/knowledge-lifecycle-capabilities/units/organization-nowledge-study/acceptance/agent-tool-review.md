@@ -7,11 +7,11 @@
 
 1. **发现流程描述不足**：resolver/graph_retrieval 的 description 只说 describe/invoke，`method`/`arguments` 等
    参数均无 description；没有说明应从 describe 返回的名称和 schema 调用。轨迹里出现 `read`、`content`、
-   `incoming_relations` 等不存在方法，以及把 `get_text` 发给 graph 工具。应先补完整但简短的发现→调用示例与
-   owner 区别，保持三个元工具。
+   `incoming_relations` 等不存在方法，以及把 `get_text` 发给 graph 工具。D-529 改为机制优先：错误时返回可用方法名
+   并提示 describe；description 极简，一般不加例子，保持三个元工具。
 2. **未知方法错误无法有效指导下一步**：只返回 `ValueError` + `Resolver method is not available` 或对应 graph
    文本；不知道合法名称，也没有下一次 describe 的具体参数。应由 capability owner 提供未知方法及可发现的方法
-   信息，adapter 呈现适用 resolver/method 和一次可执行的恢复请求，不把方法表复制成第二个 registry。
+   信息，adapter 呈现适用 resolver/method、短错误及合法方法名；不返回 next_request，也不复制第二个 registry。
 3. **describe 过滤陷阱**：请求未知 `neighbors` / `find_referents` 等，只得到 methods=[] + missing_methods；
    模型再花一次请求才能发现全部能力。应保留精确过滤语义，同时返回紧凑的合法方法名或明确的无过滤 describe
    指引；无需在每个错误中回传完整 catalog。
@@ -40,3 +40,23 @@ describe 与全部 graph methods describe 各约 2.6KB。没有证据说明正�
 
 批次子项失败当前保留在 results 中；不应为了一个 is_error 标记丢弃成功项，或自动重试整批。
 后续用同一诊断输入、同一模型和预算对照错误次数、重复请求、新信息取得与终止点，同时检查语义质量。
+
+## Resolver 响应复核
+
+输入 schema 的体积与工具响应体积是不同问题。已检查保存的真实响应及 adapter 输出：
+
+- 定向 text Resolver describe 返回 6 个方法；一份实际响应紧凑编码后约 2487 字符。其中方法 descriptions 合计
+  666 字符，含内部缓存/持久化实现说明和重复的参数解释。应缩短到调用者所需语义，参数约束由 input_schema 承担。
+- describe 的 resolver→methods 分组有作用：多个 Block 可共用同一 Resolver，避免重复返回相同能力。
+  method name / description / input_schema 各有用途，没有证据支持删掉完整 schema 或重新包装全部返回值。
+- unknown-method 错误按 D-529 附方法名列表，不附每个方法的完整 schema，也不提供预制的下一次调用对象。
+- invoke 的 results 保留一项对应一项请求、关联字段及原始 Resolver 返回值。目前不能因为响应“看起来长”就裁剪
+  heterogeneous solved content、Relation 字段或丢弃批次成功项。
+- index/block/method 的关联信息有部分重复，但帮助直接辨认同一 Block 上的不同操作与失败项；不是本轮体积主因，
+  暂不改。空 missing 字段在上述响应仅约 41 字符，也不值得单独改响应兼容性。
+- 已确认的 43KB 问题主要来自未命中时误返回全目录，按已接受的过滤规则修复；正常无过滤全目录的体积与未来
+  Extension 规模相关，当前没有证据要求新增分页或目录压缩协议。
+- 外层 content/is_error 是 AI adapter 的公共 ToolResult 投影，不属于 resolver 独有包装。本轮不改其通用语义。
+
+**已由 D-530 接受**：保留 describe/invoke 的响应骨架与关联，缩短方法 description、修复错误的全目录回退，并用
+短错误 + 方法名列表完成纠错；不为少量空字段、关联字段另造响应协议。其余 Tool 响应继续逐个评审。
