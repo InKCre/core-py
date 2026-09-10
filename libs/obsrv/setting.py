@@ -9,6 +9,11 @@ from pydantic_settings import BaseSettings
 class ObsrvSetting(BaseSettings):
   """Observability settings."""
 
+  agent_debug: bool = Field(
+    default=False,
+    description="Record Agent inputs, tool contracts and execution events for development.",
+  )
+
   logging_backend: Optional[str] = Field(
     default="postgresql",
     description="Logging backend to use (e.g., 'logtail', 'postgresql')",

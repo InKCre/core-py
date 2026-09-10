@@ -7,6 +7,7 @@ GitHub workflow and composite-action YAML owns only GitHub event selection, perm
 ## Documents
 
 - [development-environment.md](development-environment.md)
+- [agent-debug.md](agent-debug.md)
 - [database-contract.md](database-contract.md)
 - [docker.md](docker.md)
 - [native-extension-distribution.md](native-extension-distribution.md)

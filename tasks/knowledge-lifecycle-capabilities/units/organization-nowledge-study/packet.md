@@ -1,6 +1,8 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Current work**: 先补默认关闭的 Agent 开发追踪，使真实调用可取回；之后再按
+  [Tool 可用性检查](acceptance/agent-tool-review.md) 改善参数描述/schema/错误反馈并对照。当前不调整预算。
 - **Latest acceptance**: 2026-09-10 PR #100 preview 两轮真实 `qwen3.6-plus` 验收已完成执行与清理；
   [评审记录](acceptance/preview-100-review.md) 建议不通过语义验收：错误 supersession/scope、来源语气增强和
   per-turn budget 导致 batch 退出。待 Sir 复核与修复后整轮复验。

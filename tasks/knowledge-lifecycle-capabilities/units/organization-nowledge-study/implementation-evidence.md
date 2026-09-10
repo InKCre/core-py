@@ -5,6 +5,16 @@
 
 ## 当前验收结论
 
+后续工作优先级已调整为开发可观测性 → Tool contract 改善 → 对照诊断。默认关闭的 `OBSRV__AGENT_DEBUG` 已在
+本地实现，记录定义/输入、模型与工具请求结果、耗时、错误和终止原因，复用现有日志后端；不实现 Thread 恢复。
+四项有针对性的验证覆盖预算/成功、工具错误、取消和追踪失败；类型/lint/foundation 通过。
+详见 [开发追踪用法](../../../../docs/40-deployment/agent-debug.md) 与
+[工具可用性检查](acceptance/agent-tool-review.md)。preview 仍未启用此开关及 PostgreSQL 日志，不能声称远端轨迹已可恢复。
+
+后续[预算诊断](acceptance/budget-diagnosis.md)：五条受控复现均自然结束（7/9/14/11/16 次请求），没有观察到持续
+死循环；12 次对部分正常探索偏紧，且方法猜测/错误工具归属增加开销。建议下一轮 definition 使用 24 次进行对照，
+没有修改生产预算。历史 8 次失败的原始调用明细不可恢复，不能声称五例解释了全部历史失败。
+
 [PR #100 preview review](acceptance/preview-100-review.md) 保存两轮 `qwen3.6-plus` 结果与具体 Block/Relation。
 6/14 Organization Jobs 正常完成，8/14 达到 per-turn model-call budget 后失败；两次 lexical maintenance 正常。
 主要问题为范围覆盖不足的 supersession/synthesis、把原报告当成转载的后继版本、派生文本增强来源语气。

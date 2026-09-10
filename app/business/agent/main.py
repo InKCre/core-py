@@ -29,6 +29,7 @@ from .persistence import (
   ThreadState,
 )
 from .thread import Thread
+from .debug import trace
 
 
 HandlerT = typing.TypeVar("HandlerT", bound=typing.Callable[..., typing.Any])
@@ -158,6 +159,13 @@ class AgentManager:
       messages=(SystemMessage(content=definition.system_prompt),),
     )
     thread_id, persisted = await cls._persistence.create(state)
+    await trace(
+      "agent.thread.created",
+      thread_id,
+      agent_id=agent_id,
+      agent_name=definition.name,
+      state=persisted,
+    )
     thread = Thread(thread_id, persisted, cls._persistence, bound_tools)
     thread.start_turn(initial_message)
     return thread
