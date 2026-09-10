@@ -9,6 +9,13 @@ from app.business.info_base.block import BlockManager
 from app.business.info_base.relation import RelationManager
 from app.engine import SessionLocal
 from app.schemas.graph_navigation_retrieval import (
+  DEFAULT_NEIGHBORHOOD_LIMIT,
+  MAX_NEIGHBORHOOD_LIMIT,
+  DEFAULT_MAX_HOPS,
+  MAX_MAX_HOPS,
+  DEFAULT_MAX_EXPLORED_BLOCKS,
+  MAX_MAX_EXPLORED_BLOCKS,
+  DEFAULT_MAX_EXPLORED_RELATIONS,
   BlockNeighborhood,
   ConnectedComponentsResult,
   ConnectedSeedComponent,
@@ -24,14 +31,7 @@ from app.schemas.info_base.block import BlockID, BlockModel
 from app.schemas.info_base.relation import RelationID, RelationModel
 
 
-DEFAULT_NEIGHBORHOOD_LIMIT = 20
-MAX_NEIGHBORHOOD_LIMIT = 100
-DEFAULT_MAX_HOPS = 4
-MAX_MAX_HOPS = 8
-DEFAULT_MAX_EXPLORED_BLOCKS = 1000
-MAX_MAX_EXPLORED_BLOCKS = 10000
 FRONTIER_QUERY_SIZE = 200
-DEFAULT_MAX_EXPLORED_RELATIONS = 10000
 
 
 class GraphNavigationRetrievalManager:

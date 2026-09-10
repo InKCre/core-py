@@ -152,7 +152,7 @@ def _draft_graph_input_model() -> type[pydantic.BaseModel]:
 async def get_draft_graph_schema(input: GetDraftGraphSchemaInput) -> JSONValue:
   snapshot = _draft_capability_snapshot()
   return {
-    "resolver_types": [
+    "resolvers": [
       {
         "resolver_type": resolver,
         "description": snapshot[resolver].description,

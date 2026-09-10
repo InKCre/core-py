@@ -1,8 +1,8 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **Current work**: D-529–D-540 的工具修复已落源码，静态检查通过；尚未部署修复版本，正在运行原版本
-  preview，以同一完整信息世界、原 system prompt、qwen3.6-plus 和 12 次预算取得端到端基线。
+- **Current work**: 工具修复及静态检查完成；原版本端到端基线已导出并清理（7 个 Job，2 完成、5 预算耗尽）。
+  下一步部署修复版，以同一完整信息世界、原 system prompt、qwen3.6-plus 和 12 次预算对照。
   实施与环境证据统一见 [工具修复实施记录](acceptance/tool-repair-implementation.md)。
 - **Verification constraint（D-541）**: 不得新增任何回归测试或聚焦测试；已撤掉新增回归文件和单工具探测脚本。
   已有测试只同步接口变化；以静态检查、代码审阅和端到端黑盒验收验证修复。

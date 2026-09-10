@@ -38,8 +38,17 @@ Resolver 参数定义来自 owner 反射：工具 schema 与实际逐项验证�
 - 同模型、12 次预算、原 system prompt 的远端对照脚本为 preview-tool-repair.py；完整世界基线正在执行。
 - 临时日志配置 helper 改为 PATCH 后独立 GET 确认，避免将更新响应视作最终读回；本分支每次 push 均在部署后
   恢复日志。helper/workflow 仍须在合并前移除。
+- 基线因一次远端读取超时中断，Job 24 与数据保留并接续；恢复脚本只重试 GET，不自动重发写请求。
+  前三个行为顺序执行，余下四个独立入队，两个版本使用相同调度并保留实际 seeds。
+- 发现部署使用 Eco，脚本只访问 PostgREST 会让 Core 缺少 Web 流量。根据
+  [官方休眠说明](https://devcenter.heroku.com/articles/eco-dyno-hours)，验收观察期间读取 Core /livez，
+  不创建常驻保活。此因素可解释 pending，不将之前所有 PGRST002 都归因于它。
 
 ## 验证约束更新
+
+原版本基线已完成，见 [tool-repair-baseline.json](tool-repair-baseline.json)：7 个行为 Job 中 2 完成、5 预算耗尽，
+15 个执行共 156 次模型请求。31 个 Block、28 条 Relation、8 个 Job、7 个 Agent、1 个模型及 Provider 已清理。
+这不是修复后效果；修复版尚待部署并执行同一完整世界。
 
 Sir 明确要求：不得新增任何回归测试或聚焦测试。静态检查与端到端黑盒验收是本轮验证路径；
 已做 schema 探测只保留历史 JSON 证据，探测脚本也已撤掉，不保留或扩展为聚焦测试。

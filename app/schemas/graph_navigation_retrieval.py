@@ -10,6 +10,14 @@ from app.schemas.info_base.relation import RelationID, RelationModel
 
 GraphDirection: typing.TypeAlias = typing.Literal["in", "out", "both"]
 
+DEFAULT_NEIGHBORHOOD_LIMIT = 20
+MAX_NEIGHBORHOOD_LIMIT = 100
+DEFAULT_MAX_HOPS = 4
+MAX_MAX_HOPS = 8
+DEFAULT_MAX_EXPLORED_BLOCKS = 1000
+MAX_MAX_EXPLORED_BLOCKS = 10000
+DEFAULT_MAX_EXPLORED_RELATIONS = 10000
+
 
 class GraphModel(pydantic.BaseModel):
   """Endpoint-closed persisted graph read model."""

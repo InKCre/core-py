@@ -5,7 +5,17 @@ import typing
 import pydantic
 
 from app.schemas.ai import JSONValue
-from app.schemas.graph_navigation_retrieval import GraphDirection, GraphModel
+from app.schemas.graph_navigation_retrieval import (
+  GraphDirection,
+  GraphModel,
+  DEFAULT_NEIGHBORHOOD_LIMIT,
+  MAX_NEIGHBORHOOD_LIMIT,
+  DEFAULT_MAX_HOPS,
+  MAX_MAX_HOPS,
+  DEFAULT_MAX_EXPLORED_BLOCKS,
+  MAX_MAX_EXPLORED_BLOCKS,
+  DEFAULT_MAX_EXPLORED_RELATIONS,
+)
 from app.schemas.info_base.block import BlockID, ResolverType
 from app.schemas.info_base.relation import RelationID
 
@@ -226,7 +236,9 @@ class BlockNeighborhoodInput(pydantic.BaseModel):
   contents: tuple[str, ...] = pydantic.Field(
     default=(), description="Exact Relation contents; empty means all."
   )
-  limit: int = pydantic.Field(default=20, ge=1, le=100)
+  limit: int = pydantic.Field(
+    default=DEFAULT_NEIGHBORHOOD_LIMIT, ge=1, le=MAX_NEIGHBORHOOD_LIMIT
+  )
   cursor: RelationID | None = pydantic.Field(
     default=None, description="Previous next_cursor."
   )
@@ -273,8 +285,10 @@ class FindPathInput(pydantic.BaseModel):
   contents: tuple[str, ...] = pydantic.Field(
     default=(), description="Exact Relation contents; empty means all."
   )
-  max_hops: int = pydantic.Field(default=4, ge=0, le=8)
-  max_explored_blocks: int = pydantic.Field(default=1000, ge=1, le=10000)
+  max_hops: int = pydantic.Field(default=DEFAULT_MAX_HOPS, ge=0, le=MAX_MAX_HOPS)
+  max_explored_blocks: int = pydantic.Field(
+    default=DEFAULT_MAX_EXPLORED_BLOCKS, ge=1, le=MAX_MAX_EXPLORED_BLOCKS
+  )
 
 
 class ConnectedComponentsInput(pydantic.BaseModel):
@@ -284,5 +298,5 @@ class ConnectedComponentsInput(pydantic.BaseModel):
   contents: tuple[str, ...] = pydantic.Field(
     min_length=1, description="Exact Relation contents treated as undirected connections."
   )
-  max_explored_blocks: int = pydantic.Field(default=1000, ge=1)
-  max_explored_relations: int = pydantic.Field(default=10000, ge=1)
+  max_explored_blocks: int = pydantic.Field(default=DEFAULT_MAX_EXPLORED_BLOCKS, ge=1)
+  max_explored_relations: int = pydantic.Field(default=DEFAULT_MAX_EXPLORED_RELATIONS, ge=1)
