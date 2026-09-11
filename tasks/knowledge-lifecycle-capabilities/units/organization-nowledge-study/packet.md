@@ -1,13 +1,17 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Latest run**: `faa74ba` 已完成 preview 初始世界重验并清理。Refinement `5、5、4` 次均自然结束，
+  rumination 仍 `8、10、12` 第三次耗尽，synthesis 也耗尽；5/7 Job 完成。新增 get_entities 的 21 次指定 ID
+  调用全部因字符串数组失败，一次随机批量成功。整组不通过；证据与待复核的最小修复提案见
+  [批量入口重验](acceptance/batch-review.md)。暂不继续改 SOP，先评审工具干扰的修复。
 - **Acceptance authority（D-548、D-549）**: 重新验收、相关提交和推送自主执行，新修复方案先经 Sir 复核；
   将已批准的本地工具修改发布到 preview 后重验，不能用旧版服务验证新入口。
 - **Current decision（D-547）**: Sir 授权实体读取升级为 `get_entities`，支持批量指定 ID 或一次取多个随机 Block；
-  本地实现并同步定义输入；format、lint、typecheck 与 diff 检查通过，未提交或部署，未作新一轮端到端验收。
+  本地实现并同步定义输入；format、lint、typecheck 与 diff 检查通过，已提交部署并重验，结果见页首。
   历史验收记录不改写。随机读取使用数据库随机排序，尚未验证大图性能。
 - **Prompt decision（D-546）**: Sir 已确认 rumination 修复方案，并将 refinement 修正限于批量检索、无需找到
-  refinement 即可 no-op 结束；已按此更新本地定义输入，未部署或重验。预算保持不变且不向模型公开。
+  refinement 即可 no-op 结束；已按此部署并重验。预算保持不变且不向模型公开。
 - **Stopped run（D-545）**: 此前未经批准的运行保持停止，现场仅作审计记录，不能用于证明新方案效果，见
   [已停止的诊断记录](acceptance/closure-review.md)。
 - **Current work**: 工具修复及静态检查完成；原版本端到端基线已导出并清理（7 个 Job，2 完成、5 预算耗尽）。
