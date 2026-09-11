@@ -1,9 +1,10 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **Current implementation（D-553）**: Sir 授权优化检索契约与最小充分引导并复测；保持 rumination 产品职责
-  不妨碍修复超预算。已调整 query 字段、共享/各行为读取措辞与 focal 目的，保留语义合同，不改算法、工具集
-  或预算。准备静态检查、提交部署和 guidance 轮黑盒复测，不新增测试。
+- **Current acceptance（D-553）**: `2dac3e1` 已提交部署并完成 guidance 初始世界复测及清理。
+  7/7 Job、21/21 执行自然结束，113 次模型/138 次工具调用，零预算耗尽与工具错误；rumination 8/10/11、
+  evidence stance 2/7/2、anchoring 3/5/5。仍有重复读取、候选/关系语义与派生内容问题，整组语义不通过。
+  详见 [guidance 轮评审](acceptance/guidance-review.md)。不追加未获批修复，不新增测试。
 - **Current diagnosis**: Sir 要求定位 rumination、evidence stance、anchoring 耗尽根因。已逐调用核对：
   语义检索未配置与长词法查询错配、重复读取/图路径利用不足是可见成本；rumination 最后仍有效写入，
   另两者主要堵在目标发现，不能统一称死循环或预算不足。见
