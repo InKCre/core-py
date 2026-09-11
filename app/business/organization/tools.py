@@ -479,7 +479,7 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
   description="Read persisted Blocks or Relations without resolving content.",
 )
 async def get_entities(input: GetEntitiesInput) -> JSONValue:
-  if input.entity_ids is None:
+  if not input.entity_ids:
     return _project_json(
       await asyncio.to_thread(BlockManager.get_random_many, input.random_count)
     )

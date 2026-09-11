@@ -215,25 +215,24 @@ class GetEntitiesInput(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   entity_type: typing.Literal["block", "relation"] = "block"
-  entity_ids: tuple[int, ...] | None = pydantic.Field(
-    default=None,
-    min_length=1,
+  entity_ids: tuple[int, ...] = pydantic.Field(
+    default=(),
     max_length=20,
-    description="Ordered results; missing IDs return null. Null selects random Blocks.",
+    description="Ordered results; missing IDs return null. Empty selects random Blocks.",
   )
   random_count: int = pydantic.Field(
     default=1,
     ge=1,
     le=20,
-    description="Maximum distinct random Blocks when entity_ids is null.",
+    description="Maximum distinct random Blocks when entity_ids is empty.",
   )
 
   @pydantic.model_validator(mode="after")
   def validate_selection(self) -> typing.Self:
-    if self.entity_type == "relation" and self.entity_ids is None:
+    if self.entity_type == "relation" and not self.entity_ids:
       raise ValueError("Relations require entity_ids")
-    if self.entity_ids is not None and self.random_count != 1:
-      raise ValueError("random_count only applies when entity_ids is null")
+    if self.entity_ids and self.random_count != 1:
+      raise ValueError("random_count only applies when entity_ids is empty")
     return self
 
 

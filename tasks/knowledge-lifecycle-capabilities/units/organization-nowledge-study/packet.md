@@ -1,6 +1,8 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Current repair（D-550）**: Sir 已确认 entity_ids 使用普通数组、默认空数组代表随机读取，移除 null 分支。
+  不增加字符串解析，不改 SOP。提交推送后重验，结果单独保存为 array，旧 batch 证据保留。
 - **Latest run**: `faa74ba` 已完成 preview 初始世界重验并清理。Refinement `5、5、4` 次均自然结束，
   rumination 仍 `8、10、12` 第三次耗尽，synthesis 也耗尽；5/7 Job 完成。新增 get_entities 的 21 次指定 ID
   调用全部因字符串数组失败，一次随机批量成功。整组不通过；证据与待复核的最小修复提案见
