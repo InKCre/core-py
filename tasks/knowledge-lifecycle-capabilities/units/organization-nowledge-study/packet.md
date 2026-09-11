@@ -2,8 +2,11 @@
 
 - **Unit ID**: `organization-nowledge-study`。
 - **Current repair（D-550）**: Sir 已确认 entity_ids 使用普通数组、默认空数组代表随机读取，移除 null 分支。
-  不增加字符串解析，不改 SOP。提交推送后重验，结果单独保存为 array，旧 batch 证据保留。
-- **Latest run**: `faa74ba` 已完成 preview 初始世界重验并清理。Refinement `5、5、4` 次均自然结束，
+  已提交 `9a7ab93` 并完成 preview 初始世界重验：15 次指定 ID 与 1 次随机批量均成功，整轮调用错误为零。
+  不增加字符串解析，不改 SOP。旧 batch 证据保留。
+- **Latest run**: array 轮 4/7 Job 完成；rumination `7、9、12`、refinement `4、12`、anchoring `12` 仍有预算耗尽。
+  工具修复有效不等于整组通过；具体轨迹、语义残余和后续待评审范围见 [普通数组重验](acceptance/array-review.md)。
+- **Previous run**: `faa74ba` 已完成 preview 初始世界重验并清理。Refinement `5、5、4` 次均自然结束，
   rumination 仍 `8、10、12` 第三次耗尽，synthesis 也耗尽；5/7 Job 完成。新增 get_entities 的 21 次指定 ID
   调用全部因字符串数组失败，一次随机批量成功。整组不通过；证据与待复核的最小修复提案见
   [批量入口重验](acceptance/batch-review.md)。暂不继续改 SOP，先评审工具干扰的修复。
