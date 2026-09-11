@@ -479,16 +479,28 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
   description="Read persisted Blocks or Relations without resolving content.",
 )
 async def get_entities(input: GetEntitiesInput) -> JSONValue:
-  if not input.entity_ids:
+  if not input.entities:
     return _project_json(
       await asyncio.to_thread(BlockManager.get_random_many, input.random_count)
     )
-  if input.entity_type == "block":
-    entities = await asyncio.to_thread(BlockManager.get_many, input.entity_ids)
-  else:
-    entities = await asyncio.to_thread(RelationManager.get_many, input.entity_ids)
-  by_id = {entity.id: entity for entity in entities}
-  return _project_json([by_id.get(entity_id) for entity_id in input.entity_ids])
+  blocks, relations = await asyncio.gather(
+    asyncio.to_thread(
+      BlockManager.get_many,
+      tuple(ref.id for ref in input.entities if ref.type == "block"),
+    ),
+    asyncio.to_thread(
+      RelationManager.get_many,
+      tuple(ref.id for ref in input.entities if ref.type == "relation"),
+    ),
+  )
+  blocks_by_id = {block.id: block for block in blocks}
+  relations_by_id = {relation.id: relation for relation in relations}
+  return _project_json(
+    [
+      blocks_by_id.get(ref.id) if ref.type == "block" else relations_by_id.get(ref.id)
+      for ref in input.entities
+    ]
+  )
 
 
 @AgentManager.tool(

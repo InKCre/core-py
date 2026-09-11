@@ -1,6 +1,13 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Current implementation（D-552）**: Sir 授权应用逐项类型引用和无需复读成功回执指导并复测。代码与定义已修改，
+  format、lint、typecheck、diff 检查通过；准备提交部署，结果单独保存为 references 轮。不新增测试。
+- **Current decision（D-551）**: get_entities 采用逐项 `{type, id}[]`。保留简洁成功回执，撤回完整 Relation
+  返回提案；用提示词明确无需复读确认成功写入。已核对既有指导并非缺失，但未阻止本例。实施状态见 D-552。
+- **Current discussion**: Sir 要求诊断实体类型误用的工具界面根因。已区分“类型跨工具重新编码”与“候选写入
+  被误认为行为执行”，取消默认类型不足以解决实际显式误选；证据和未获批方向见
+  [实体界面诊断](acceptance/entity-interface-diagnosis.md)。仅更新诊断记录，未改实现。
 - **Current repair（D-550）**: Sir 已确认 entity_ids 使用普通数组、默认空数组代表随机读取，移除 null 分支。
   已提交 `9a7ab93` 并完成 preview 初始世界重验：15 次指定 ID 与 1 次随机批量均成功，整轮调用错误为零。
   不增加字符串解析，不改 SOP。旧 batch 证据保留。
