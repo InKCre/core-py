@@ -22,13 +22,17 @@ from tests.organization.acceptance.corpus import load_manifest, read_artifact
 PG = "https://inkcre-postgrest-pr-100-b493a9d718a7.herokuapp.com"
 CORE = "https://inkcre-core-py-pr-100-daaa8aaa5621.herokuapp.com"
 MODE = sys.argv[1]
-if MODE not in ("baseline", "repaired"):
-  raise ValueError("Choose baseline or repaired")
+if MODE not in ("baseline", "repaired", "prompt", "batch"):
+  raise ValueError("Choose baseline, repaired, prompt or batch")
 OUT = Path(__file__).with_name(f"tool-repair-{MODE}.json")
 RESUME = "--resume" in sys.argv
 if OUT.exists() and not RESUME:
   raise RuntimeError("Evidence already exists; do not overwrite a prior run")
 SAVED = json.loads(Path(__file__).with_name("preview-100-deployment.json").read_text())
+DEFINITIONS_PATH = ROOT / "tests/organization/acceptance/agent_definitions.json"
+DEFINITIONS = (
+  json.loads(DEFINITIONS_PATH.read_text()) if MODE in ("prompt", "batch") else None
+)
 secret = subprocess.check_output(
   ["security", "find-generic-password", "-s", "inkcre/core-py/JWT_SECRET", "-w"], text=True
 ).strip()
@@ -186,6 +190,13 @@ try:
           set(_READ_TOOLS + b.mutation_tools + ("record_organization_candidate",))
         )
       )
+      system_prompt = saved["system_prompt"]
+      if DEFINITIONS is not None:
+        definition = DEFINITIONS["agents"][b.name]
+        tools = definition["tools"]
+        system_prompt = (
+          DEFINITIONS["common_system_prompt"] + "\n\n" + definition["system_prompt"]
+        )
       agent = insert(
         "agents",
         dict(
@@ -194,7 +205,7 @@ try:
           tools=tools,
           tool_choice="auto",
           max_model_calls_per_turn=12,
-          system_prompt=saved["system_prompt"],
+          system_prompt=system_prompt,
         ),
       )
       configured.append(b.config_key)

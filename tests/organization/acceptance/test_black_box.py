@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import typing
+from pathlib import Path
 
 import pytest
 import sqlalchemy
@@ -23,13 +24,12 @@ from app.business.organization import (
   CREATE_SYNTHESIS_TOOL,
   DRAFT_GRAPH_TOOL,
   GET_DRAFT_GRAPH_SCHEMA_TOOL,
-  GET_ENTITY_TOOL,
+  GET_ENTITIES_TOOL,
   GET_ENTITY_NEIGHBORHOOD_TOOL,
   FIND_PATH_TOOL,
   GET_CONNECTED_COMPONENTS_TOOL,
   RECORD_DUPLICATE_ASSERTION_TOOL,
   RECORD_EVIDENCE_STANCE_TOOL,
-  RECORD_ORGANIZATION_CANDIDATE_TOOL,
   RECORD_REFINEMENT_TOOL,
   RECORD_SUPERSESSION_TOOL,
   RESOLVER_TOOL,
@@ -102,7 +102,7 @@ _REQUIRED_ENVIRONMENT = (
 _READ_TOOLS = (
   RETRIEVE_TOOL,
   RESOLVER_TOOL,
-  GET_ENTITY_TOOL,
+  GET_ENTITIES_TOOL,
   GET_ENTITY_NEIGHBORHOOD_TOOL,
   FIND_PATH_TOOL,
   GET_CONNECTED_COMPONENTS_TOOL,
@@ -115,7 +115,6 @@ class _Behavior(typing.NamedTuple):
   config_schema: str
   job_type: str
   mutation_tools: tuple[str, ...]
-  instruction: str
 
 
 _BEHAVIORS = (
@@ -125,7 +124,6 @@ _BEHAVIORS = (
     RUMINATION_CONFIG_SCHEMA,
     RUMINATION_JOB_TYPE,
     (GET_DRAFT_GRAPH_SCHEMA_TOOL, DRAFT_GRAPH_TOOL, SUBMIT_GRAPH_TOOL),
-    "Reconsider information openly and add only a reusable graph distinction.",
   ),
   _Behavior(
     "supersession",
@@ -133,7 +131,6 @@ _BEHAVIORS = (
     SUPERSESSION_CONFIG_SCHEMA,
     SUPERSESSION_JOB_TYPE,
     (RECORD_SUPERSESSION_TOOL,),
-    "Record only complete, scoped, authoritative semantic replacement.",
   ),
   _Behavior(
     "refinement",
@@ -141,7 +138,6 @@ _BEHAVIORS = (
     REFINEMENT_CONFIG_SCHEMA,
     REFINEMENT_JOB_TYPE,
     (RECORD_REFINEMENT_TOOL,),
-    "Record useful compatible detail that does not make its predecessor unsafe.",
   ),
   _Behavior(
     "evidence stance",
@@ -149,7 +145,6 @@ _BEHAVIORS = (
     EVIDENCE_STANCE_CONFIG_SCHEMA,
     EVIDENCE_STANCE_JOB_TYPE,
     (RECORD_EVIDENCE_STANCE_TOOL,),
-    "Record support or challenge only for attributable, comparable evidence.",
   ),
   _Behavior(
     "synthesis",
@@ -157,10 +152,6 @@ _BEHAVIORS = (
     SYNTHESIS_CONFIG_SCHEMA,
     SYNTHESIS_JOB_TYPE,
     (CREATE_SYNTHESIS_TOOL,),
-    (
-      "Create reusable multi-source information while preserving material "
-      "provenance and disagreement."
-    ),
   ),
   _Behavior(
     "existing referent anchoring",
@@ -168,7 +159,6 @@ _BEHAVIORS = (
     REFERENT_ANCHORING_CONFIG_SCHEMA,
     REFERENT_ANCHORING_JOB_TYPE,
     (ANCHOR_EXISTING_REFERENT_TOOL,),
-    "Anchor only source-grounded fragments to already identity-bearing Blocks.",
   ),
   _Behavior(
     "duplicate assertion",
@@ -176,7 +166,6 @@ _BEHAVIORS = (
     DUPLICATE_ASSERTION_CONFIG_SCHEMA,
     DUPLICATE_ASSERTION_JOB_TYPE,
     (RECORD_DUPLICATE_ASSERTION_TOOL,),
-    "Record only whole assertions copied from the same provenance occurrence.",
   ),
 )
 
@@ -248,31 +237,17 @@ def _create_provider_and_model() -> tuple[int, int]:
 
 
 def _create_agents(model_id: int) -> dict[str, int]:
+  definitions = json.loads(Path(__file__).with_name("agent_definitions.json").read_text())
   result: dict[str, int] = {}
   with SessionLocal() as db_session:
     for behavior in _BEHAVIORS:
+      definition = definitions["agents"][behavior.name]
       agent = AgentDefinitionModel(
         name=f"Organization acceptance: {behavior.name}",
         system_prompt=(
-          "You organize a neutral information base; you are not the user-facing Agent. "
-          f"Your exact behavior is: {behavior.instruction} "
-          "The supplied seed is only a starting point. Explore with retrieval, "
-          "Resolver reads, and bounded graph navigation as needed. Prefer lexical "
-          "retrieval if semantic retrieval is unavailable. Use only the exact mutation "
-          "tool when its full semantic contract is satisfied. Otherwise make no graph "
-          "change. Cautiously mark another exact organization behavior only for a "
-          "concrete prerequisite gap. Never optimize graph density or neatness. Finish "
-          "after useful bounded work without explaining private reasoning."
+          definitions["common_system_prompt"] + "\n\n" + definition["system_prompt"]
         ),
-        tools=tuple(
-          sorted(
-            {
-              *_READ_TOOLS,
-              *behavior.mutation_tools,
-              RECORD_ORGANIZATION_CANDIDATE_TOOL,
-            }
-          )
-        ),
+        tools=tuple(definition["tools"]),
         tool_choice="auto",
         model=model_id,
         max_model_calls_per_turn=12,

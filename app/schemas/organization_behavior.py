@@ -211,19 +211,29 @@ class ResolverMetaToolInput(
   pass
 
 
-class GetEntityInput(pydantic.BaseModel):
+class GetEntitiesInput(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
   entity_type: typing.Literal["block", "relation"] = "block"
-  entity_id: int | None = pydantic.Field(
+  entity_ids: tuple[int, ...] | None = pydantic.Field(
     default=None,
-    description="Null selects a random Block; explicit missing IDs never fall back.",
+    min_length=1,
+    max_length=20,
+    description="Ordered results; missing IDs return null. Null selects random Blocks.",
+  )
+  random_count: int = pydantic.Field(
+    default=1,
+    ge=1,
+    le=20,
+    description="Maximum distinct random Blocks when entity_ids is null.",
   )
 
   @pydantic.model_validator(mode="after")
-  def relation_requires_id(self) -> typing.Self:
-    if self.entity_type == "relation" and self.entity_id is None:
-      raise ValueError("A Relation requires entity_id")
+  def validate_selection(self) -> typing.Self:
+    if self.entity_type == "relation" and self.entity_ids is None:
+      raise ValueError("Relations require entity_ids")
+    if self.entity_ids is not None and self.random_count != 1:
+      raise ValueError("random_count only applies when entity_ids is null")
     return self
 
 

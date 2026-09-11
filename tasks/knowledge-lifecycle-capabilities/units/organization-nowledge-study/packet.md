@@ -1,11 +1,24 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Acceptance authority（D-548、D-549）**: 重新验收、相关提交和推送自主执行，新修复方案先经 Sir 复核；
+  将已批准的本地工具修改发布到 preview 后重验，不能用旧版服务验证新入口。
+- **Current decision（D-547）**: Sir 授权实体读取升级为 `get_entities`，支持批量指定 ID 或一次取多个随机 Block；
+  本地实现并同步定义输入；format、lint、typecheck 与 diff 检查通过，未提交或部署，未作新一轮端到端验收。
+  历史验收记录不改写。随机读取使用数据库随机排序，尚未验证大图性能。
+- **Prompt decision（D-546）**: Sir 已确认 rumination 修复方案，并将 refinement 修正限于批量检索、无需找到
+  refinement 即可 no-op 结束；已按此更新本地定义输入，未部署或重验。预算保持不变且不向模型公开。
+- **Stopped run（D-545）**: 此前未经批准的运行保持停止，现场仅作审计记录，不能用于证明新方案效果，见
+  [已停止的诊断记录](acceptance/closure-review.md)。
 - **Current work**: 工具修复及静态检查完成；原版本端到端基线已导出并清理（7 个 Job，2 完成、5 预算耗尽）。
   修复版 4b69dd9 已完成同模型、原提示词、12 次预算的完整初始世界对照并清理：不可用方法 71→0，
   含错误的工具请求 24→2，但仍有 4 个 Job 预算耗尽及语义偏差。两项最小收口只做静态检查。
   结论与后续残余统一见 [对照评审](acceptance/tool-repair-review.md)，整组语义验收未通过。
-- **Handoff edge**: 本轮工具修复交付；后续识别 SOP、停止判断和预算属于独立干预，尚未改动。
+- **Active edge（D-542）**: 下一轮聚焦 system prompt 或工具组合，保持模型及预算不变。
+  七份 SOP 已落独立定义输入，两套现有验收入口共用；工具集合不变，完整重验与清理已完成。
+  完成 Job 3/7→5/7，自然结束 11/15→17/19，模型请求 137→133；仍有语义残余，详见
+  [本轮效果评审](acceptance/prompt-review.md)。本轮修改尚未提交。
+  依据与实施边界见 [新一轮方案](system-prompt-and-tool-composition-plan.md)。
   不能仅凭错误减少、Job 完成或增加预算认定组织结果正确。
   实施与环境证据统一见 [工具修复实施记录](acceptance/tool-repair-implementation.md)。
 - **Verification constraint（D-541）**: 不得新增任何回归测试或聚焦测试；已撤掉新增回归文件和单工具探测脚本。

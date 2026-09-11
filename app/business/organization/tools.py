@@ -27,7 +27,7 @@ from app.schemas.organization_behavior import (
   DuplicateAssertionProposal,
   EvidenceStanceProposal,
   ExistingReferentAnchorProposal,
-  GetEntityInput,
+  GetEntitiesInput,
   EntityNeighborhoodInput,
   FindPathInput,
   ConnectedComponentsInput,
@@ -59,7 +59,7 @@ DRAFT_GRAPH_TOOL = "draft_graph"
 SUBMIT_GRAPH_TOOL = "submit_graph"
 RETRIEVE_TOOL = "retrieve"
 RESOLVER_TOOL = "resolver"
-GET_ENTITY_TOOL = "get_entity"
+GET_ENTITIES_TOOL = "get_entities"
 GET_ENTITY_NEIGHBORHOOD_TOOL = "get_entity_neighborhood"
 FIND_PATH_TOOL = "find_path"
 GET_CONNECTED_COMPONENTS_TOOL = "get_connected_components"
@@ -475,20 +475,20 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
 
 
 @AgentManager.tool(
-  GET_ENTITY_TOOL,
-  description="Read a persisted Block or Relation without resolving its content.",
+  GET_ENTITIES_TOOL,
+  description="Read persisted Blocks or Relations without resolving content.",
 )
-async def get_entity(input: GetEntityInput) -> JSONValue:
-  if input.entity_type == "block":
-    entity = (
-      await asyncio.to_thread(BlockManager.get_random)
-      if input.entity_id is None
-      else await asyncio.to_thread(BlockManager.get, input.entity_id)
+async def get_entities(input: GetEntitiesInput) -> JSONValue:
+  if input.entity_ids is None:
+    return _project_json(
+      await asyncio.to_thread(BlockManager.get_random_many, input.random_count)
     )
+  if input.entity_type == "block":
+    entities = await asyncio.to_thread(BlockManager.get_many, input.entity_ids)
   else:
-    assert input.entity_id is not None
-    entity = await asyncio.to_thread(RelationManager.get_by_id, input.entity_id)
-  return _project_json(entity)
+    entities = await asyncio.to_thread(RelationManager.get_many, input.entity_ids)
+  by_id = {entity.id: entity for entity in entities}
+  return _project_json([by_id.get(entity_id) for entity_id in input.entity_ids])
 
 
 @AgentManager.tool(
