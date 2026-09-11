@@ -2,16 +2,18 @@
 
 - **Unit ID**: `organization-nowledge-study`。
 - **Current implementation（D-552）**: Sir 授权应用逐项类型引用和无需复读成功回执指导并复测。代码与定义已修改，
-  format、lint、typecheck、diff 检查通过；准备提交部署，结果单独保存为 references 轮。不新增测试。
+  format、lint、typecheck、diff 检查通过；`f4362ad` 已部署复测并清理。12 次读取引用调用均成功，5 次写入后
+  自然结束的执行均未在最后写入后再次调用工具；整组仍不通过。详见 [references 轮评审](acceptance/references-review.md)。
+  4/7 Job 完成，rumination/evidence stance/anchoring 仍耗尽；不新增测试，不继续擅改方案。
 - **Current decision（D-551）**: get_entities 采用逐项 `{type, id}[]`。保留简洁成功回执，撤回完整 Relation
   返回提案；用提示词明确无需复读确认成功写入。已核对既有指导并非缺失，但未阻止本例。实施状态见 D-552。
-- **Current discussion**: Sir 要求诊断实体类型误用的工具界面根因。已区分“类型跨工具重新编码”与“候选写入
+- **Diagnosis history**: Sir 要求诊断实体类型误用的工具界面根因。已区分“类型跨工具重新编码”与“候选写入
   被误认为行为执行”，取消默认类型不足以解决实际显式误选；证据和未获批方向见
-  [实体界面诊断](acceptance/entity-interface-diagnosis.md)。仅更新诊断记录，未改实现。
+  [实体界面诊断](acceptance/entity-interface-diagnosis.md)。后续修正与实施状态见 D-551、D-552。
 - **Current repair（D-550）**: Sir 已确认 entity_ids 使用普通数组、默认空数组代表随机读取，移除 null 分支。
   已提交 `9a7ab93` 并完成 preview 初始世界重验：15 次指定 ID 与 1 次随机批量均成功，整轮调用错误为零。
   不增加字符串解析，不改 SOP。旧 batch 证据保留。
-- **Latest run**: array 轮 4/7 Job 完成；rumination `7、9、12`、refinement `4、12`、anchoring `12` 仍有预算耗尽。
+- **Previous array run**: array 轮 4/7 Job 完成；rumination `7、9、12`、refinement `4、12`、anchoring `12` 仍有预算耗尽。
   工具修复有效不等于整组通过；具体轨迹、语义残余和后续待评审范围见 [普通数组重验](acceptance/array-review.md)。
 - **Previous run**: `faa74ba` 已完成 preview 初始世界重验并清理。Refinement `5、5、4` 次均自然结束，
   rumination 仍 `8、10、12` 第三次耗尽，synthesis 也耗尽；5/7 Job 完成。新增 get_entities 的 21 次指定 ID
