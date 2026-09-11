@@ -22,8 +22,18 @@ from tests.organization.acceptance.corpus import load_manifest, read_artifact
 PG = "https://inkcre-postgrest-pr-100-b493a9d718a7.herokuapp.com"
 CORE = "https://inkcre-core-py-pr-100-daaa8aaa5621.herokuapp.com"
 MODE = sys.argv[1]
-if MODE not in ("baseline", "repaired", "prompt", "batch", "array", "references"):
-  raise ValueError("Choose baseline, repaired, prompt, batch, array or references")
+if MODE not in (
+  "baseline",
+  "repaired",
+  "prompt",
+  "batch",
+  "array",
+  "references",
+  "guidance",
+):
+  raise ValueError(
+    "Choose baseline, repaired, prompt, batch, array, references or guidance"
+  )
 OUT = Path(__file__).with_name(f"tool-repair-{MODE}.json")
 RESUME = "--resume" in sys.argv
 if OUT.exists() and not RESUME:
@@ -32,7 +42,7 @@ SAVED = json.loads(Path(__file__).with_name("preview-100-deployment.json").read_
 DEFINITIONS_PATH = ROOT / "tests/organization/acceptance/agent_definitions.json"
 DEFINITIONS = (
   json.loads(DEFINITIONS_PATH.read_text())
-  if MODE in ("prompt", "batch", "array", "references")
+  if MODE in ("prompt", "batch", "array", "references", "guidance")
   else None
 )
 secret = subprocess.check_output(

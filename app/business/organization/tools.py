@@ -476,7 +476,10 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
 
 @AgentManager.tool(
   GET_ENTITIES_TOOL,
-  description="Read persisted Blocks or Relations without resolving content.",
+  description=(
+    "Read persisted Blocks or Relations without resolving content. "
+    "Null may indicate an incorrect entity type."
+  ),
 )
 async def get_entities(input: GetEntitiesInput) -> JSONValue:
   if not input.entities:
@@ -505,7 +508,10 @@ async def get_entities(input: GetEntitiesInput) -> JSONValue:
 
 @AgentManager.tool(
   GET_ENTITY_NEIGHBORHOOD_TOOL,
-  description="Read a Block's direct neighborhood or a Relation with its endpoints.",
+  description=(
+    "Read a Block's direct neighborhood or a Relation with its endpoints. "
+    "Null may indicate an incorrect entity type."
+  ),
 )
 async def get_entity_neighborhood(input: EntityNeighborhoodInput) -> JSONValue:
   request = input.root

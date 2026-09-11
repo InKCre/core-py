@@ -161,7 +161,9 @@ RetrievalMode: typing.TypeAlias = typing.Literal["lexical", "semantic", "hybrid"
 class OrganizationRetrieveInput(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  query: str = pydantic.Field(description="Search terms or a semantic description.")
+  query: str = pydantic.Field(
+    description="Lexical requires all query terms; semantic matches meaning."
+  )
   mode: RetrievalMode = "hybrid"
   limit: int = pydantic.Field(
     default=20, ge=1, le=20, description="Maximum matches per mode."
