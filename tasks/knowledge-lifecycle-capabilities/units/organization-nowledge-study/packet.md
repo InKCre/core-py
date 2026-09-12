@@ -1,6 +1,16 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Current implementation（D-555）**: Sir 已确认并授权实施“不以排除遗漏作为结束前提”的指导并复测。
+  已替换六种探索型 Agent 的共享目标/结束措辞，保留语义合同、工具与预算，rumination 不变。
+  准备提交部署并运行 discovery 轮，不新增测试。
+- **Current discussion**: Sir 提出无法穷尽图与担心遗漏的矛盾。待评审方向是区分“结束本次探索”与“证明不存在”，
+  以具体下一步的预期信息价值支持继续，而不以排除一切遗漏作为退出前提；不限定初始候选、不暴露预算、
+  不新增状态或报告。见 [诊断中的后续讨论](acceptance/remaining-budget-diagnosis.md)，尚未实施。
+- **Current diagnosis**: Sir 要求追查 focal 轮 evidence stance 无产出耗尽。已核对 seed 是修订方案而非已成立
+  的 stance pair；轨迹持续搜批准/验证材料，未将“没有形成可比较关系”收敛为结束。长词法查询与重读是
+  放大因素，不足以解释全部失败；目标形成/信息价值判断未生效是当前根因假设，未声称隔离因果已证明。
+  详见 [根因复核](acceptance/remaining-budget-diagnosis.md)，本轮未修改实现。
 - **Current verification**: `5fef0fd` 已完成 focal 轮验收及清理。Rumination 实际只绑定三工具，4/4/5 次
   均自然结束；整轮 5/7 Job、15/17 次执行自然结束，100 次模型/126 次工具调用，零工具错误。
   Evidence stance 检索耗尽、synthesis 最后一次写入后耗尽；写前重复读取仍存在。派生内容残余按 Sir
