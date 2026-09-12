@@ -4,6 +4,15 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.2.0 - 2026-09-12
+
+### Added
+
+- Add extensible semantic Organization behaviors, bounded graph-use queries, and Human-reviewed
+  acceptance fixtures, composable Agent read tools and opt-in development traces; also recognize schema-v3 SVC development
+  database provider configuration. (#100)
+
+
 ## 0.1.5 - 2026-09-01
 
 ### Fixed
