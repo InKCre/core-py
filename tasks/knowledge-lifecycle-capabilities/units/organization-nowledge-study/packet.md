@@ -1,6 +1,8 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **当前工作（D-557）**：Sir 已授权按断言角色与证据贡献修正 evidence stance SOP，工具合同不变。
+  已完成案例核对并替换前两段；准备只复测此行为，使用已部署应用与新 definition，不新增测试。
 - **当前实现（D-556）**：`bf16ebd` 已部署来源忠实性排除项，工具定义与 Resolver 判断合同同步；
   SOP、工具组合与预算不变，没有新增测试。
 - **当前验收**：仅 evidence stance 复测完成且临时数据清理。三次执行 12/10/6 均结束，28 次模型/32 次

@@ -34,12 +34,14 @@ if MODE not in (
   "focal",
   "discovery",
   "stance",
+  "stance-role",
 ):
   raise ValueError(
     "Choose baseline, repaired, prompt, batch, array, references, guidance, "
-    "focal, discovery or stance"
+    "focal, discovery, stance or stance-role"
   )
 OUT = Path(__file__).with_name(f"tool-repair-{MODE}.json")
+STANCE_ONLY = MODE in ("stance", "stance-role")
 RESUME = "--resume" in sys.argv
 if OUT.exists() and not RESUME:
   raise RuntimeError("Evidence already exists; do not overwrite a prior run")
@@ -48,7 +50,17 @@ DEFINITIONS_PATH = ROOT / "tests/organization/acceptance/agent_definitions.json"
 DEFINITIONS = (
   json.loads(DEFINITIONS_PATH.read_text())
   if MODE
-  in ("prompt", "batch", "array", "references", "guidance", "focal", "discovery", "stance")
+  in (
+    "prompt",
+    "batch",
+    "array",
+    "references",
+    "guidance",
+    "focal",
+    "discovery",
+    "stance",
+    "stance-role",
+  )
   else None
 )
 secret = subprocess.check_output(
@@ -111,6 +123,9 @@ else:
       ["gh", "pr", "view", "100", "--json", "headRefOid", "--jq", ".headRefOid"], text=True
     ).strip(),
     "mode": MODE,
+    "definition_head": subprocess.check_output(
+      ["git", "rev-parse", "HEAD"], text=True
+    ).strip(),
     "model": "qwen3.6-plus",
     "rounds": [],
     "cleanup": {},
@@ -200,7 +215,7 @@ try:
       ),
     )
     for b in _BEHAVIORS:
-      if MODE == "stance" and b.name != "evidence stance":
+      if STANCE_ONLY and b.name != "evidence stance":
         continue
       saved = next(a for a in SAVED["agents"] if a["name"] == "PR100 acceptance " + b.name)
       tools = (
@@ -237,7 +252,7 @@ try:
         {"schema": b.config_schema, "value": {"agent": agent}},
         core=True,
       )
-    if MODE == "stance":
+    if STANCE_ONLY:
       previous = json.loads(OUT.with_name("tool-repair-discovery.json").read_text())
       previous_stage = previous["rounds"][0]
       previous_job = next(
@@ -295,7 +310,7 @@ try:
   evidence["schedule"] = (
     "Only evidence stance: one max_seeds=3 Job with the first prior seed marked "
     "as a candidate; the remaining seeds follow ordinary automatic selection."
-    if MODE == "stance"
+    if STANCE_ONLY
     else "First three behaviors sequential; remaining four independently queued. "
     "Same schedule for both versions."
   )
@@ -327,7 +342,7 @@ try:
     )
     save()
 
-  if MODE == "stance":
+  if STANCE_ONLY:
     descriptors = call(
       "GET", "/blocks?resolver=eq.core.organization.behavior.evidence-stance.v1&select=id"
     )
