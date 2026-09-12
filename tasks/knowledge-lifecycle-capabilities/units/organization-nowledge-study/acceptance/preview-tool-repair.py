@@ -207,7 +207,9 @@ try:
         definition = DEFINITIONS["agents"][b.name]
         tools = definition["tools"]
         system_prompt = (
-          DEFINITIONS["common_system_prompt"] + "\n\n" + definition["system_prompt"]
+          definition["system_prompt"]
+          if b.name == "rumination"
+          else DEFINITIONS["common_system_prompt"] + "\n\n" + definition["system_prompt"]
         )
       agent = insert(
         "agents",

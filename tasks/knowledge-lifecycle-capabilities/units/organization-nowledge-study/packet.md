@@ -1,6 +1,11 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Current implementation（D-554）**: Sir 接受派生内容不够准确的 best-effort 残余，授权恢复 rumination
+  专用三工具组合；已移除其探索/candidate 工具与共享探索提示拼接，保留 Resolver/Job 入口及外部候选消费。
+  已检查其余六种行为，无跨行为精确写入或任意图写入工具，保留合理的读取/图检索能力；提示词明确不必
+  为写前准备重读已有完整内容。format/lint/typecheck/diff 检查已通过；本次尚未进行新的真实模型复测，
+  不沿用旧轮次结论。
 - **Current acceptance（D-553）**: `2dac3e1` 已提交部署并完成 guidance 初始世界复测及清理。
   7/7 Job、21/21 执行自然结束，113 次模型/138 次工具调用，零预算耗尽与工具错误；rumination 8/10/11、
   evidence stance 2/7/2、anchoring 3/5/5。仍有重复读取、候选/关系语义与派生内容问题，整组语义不通过。

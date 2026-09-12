@@ -77,7 +77,7 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision by registered ID: [D-553](D551-D560.md)。MCP sink retains D-381–D-420；Telegram extension retains
+- Latest confirmed decision by registered ID: [D-554](D551-D560.md)。MCP sink retains D-381–D-420；Telegram extension retains
   D-421–D-460；Organization Nowledge study owns D-461–D-560。
 - MCP and Telegram are closed。The active Unit is
   [organization-nowledge-study](../units/organization-nowledge-study/packet.md) in Verify / Acceptance after implementation。

@@ -245,7 +245,9 @@ def _create_agents(model_id: int) -> dict[str, int]:
       agent = AgentDefinitionModel(
         name=f"Organization acceptance: {behavior.name}",
         system_prompt=(
-          definitions["common_system_prompt"] + "\n\n" + definition["system_prompt"]
+          definition["system_prompt"]
+          if behavior.name == "rumination"
+          else definitions["common_system_prompt"] + "\n\n" + definition["system_prompt"]
         ),
         tools=tuple(definition["tools"]),
         tool_choice="auto",

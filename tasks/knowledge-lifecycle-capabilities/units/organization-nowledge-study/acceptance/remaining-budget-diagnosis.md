@@ -5,6 +5,53 @@
 
 ## Sir 复核后的进一步定位
 
+### guidance 轮之后：能力组合与确认性复读复核
+
+D-554 已实施恢复专用 rumination definition，原先“待复核”提案的当前状态以本段为准。
+Agent 只绑定 get_draft_graph_schema、draft_graph、submit_graph；完整独立提示词只使用输入的 focal/context，
+不再与共享探索提示拼接。现有黑盒和 preview 驱动同步装配方式。其它六个 definition 的工具列表未变：
+
+| 行为 | 自有写入 | 读取/探索的具体用途 |
+| --- | --- | --- |
+| supersession | record_supersession | 比较完整版本、scope 与可追溯连续性 |
+| refinement | record_refinement | 比较增量及适用范围，识别已有关系 |
+| evidence stance | record_evidence_stance | 寻找可比较断言、证据与来源路径 |
+| synthesis | create_synthesis | 获取多源材料、既有综合与来源/副本关系 |
+| existing referent anchoring | anchor_existing_referent | 找到既有身份承载 Block，消歧并复用已有路径 |
+| duplicate assertion | record_duplicate_assertion | 比较完整断言、追踪 provenance occurrence 与副本连接 |
+
+六者共同读取工具为 get_entities、resolver、retrieve 和三种图检索工具；公开 Resolver 入口是读方法适配。
+find_path/connected components 提供跨边路径和连通分组，不等同于单个邻域，不能由本轮少用判定可删除。
+它们都没有 draft_graph/submit_graph 或别的行为的精确写入，candidate 工具保留已确认的前置整理协作。
+本轮没有发现足以支持继续削减这些工具的职责偏移；这不声称每个工具在每次执行中都必需。
+
+共享提示词已明确无需仅为准备写入重读已有完整内容。派生内容准确性残余按 Sir 确认的 best-effort 接受，
+不实施此前提出的额外准确性提示。静态检查与代码核对覆盖装配方式，未新增自动化测试或新一轮真实模型运行。
+
+Sir 追问原 rumination 是否拥有图探索能力。迁移前 a8c929d^ 的 organization.py 提供草稿 schema、draft_graph、
+submit_graph，入口预先提供 focal 文本与直接关系；test_rumination_graph.py 的 Agent 仅绑定 draft_graph、
+submit_graph。旧 runtime 按配置选 Agent，不能从测试断言所有历史部署都没有额外工具，但仓库原有用法
+不包含主动图探索或 candidate 工具。本 unit 的验收将通用读工具与 record_organization_candidate 加给
+rumination，并使用共享候选指导，实质扩大了 Agent 的能力组合。只改 focal 措辞没有恢复原用法。
+建议恢复 rumination 专用 definition（草稿 schema/draft/submit），移除主动探索和 candidate 指导；保留其它
+behavior 的能力以及外部把 Block 标为 rumination candidate 的机制。此建议尚未实施，待 Sir 复核。
+
+已检查当前写入工具 description、输入 schema、返回模型和 guidance 实际回执：submit_graph 返回 ID 映射，
+exact relation 返回 relation_id/created，synthesis/anchor 返回相应 ID 与 created；均未附带读回确认指令。
+共享 prompt 明确说成功回执足以确认，不应为验证写入复读。AgentManager 从 definition 构造系统消息，
+Thread 传递完整消息历史；所查仓库路径没有追加确认指令。此结论不涉及服务商可能存在的内部机制。
+
+guidance 轮共有 11 个发生写入的执行，10 个在最后写入后无工具调用直接结束；另一个 supersession 在
+写入后搜索 Nimbus remediation revision 3 approved，属于后继探索，不是读回结果。此前报告中的明显重复
+读取主要在写入前（输入已有 focal 内容却再读取，或同批邻域与实体读取重叠）。因此不能把当前残余继续
+归为“谨慎确认写入”。工具职责措辞、输入与工具结果呈现差异仍可影响动作选择，但现有证据不证明某句
+说明是根因，更不能因为没有找到外部诱导就断言模型天生谨慎。
+
+派生内容准确性可通过更精确的语义指导改善，但不能承诺只改 prompt 即解决。候选最小原则是保持源信息的
+断言强度与否定范围，明确区分新增推断、原文事实与信息未给出；同时保留反刍产生新理解的空间。对于
+“未独立 reproduction”扩成“未 investigation”、新增 gating 被称为 preserved，这比泛泛要求谨慎更贴近
+错误。已有保留 uncertainty 指导不足以证明新增一句必然有效；不引入强制重读或自审循环。尚未实施。
+
 Sir 再次明确：rumination 在本 unit 是迁移，不是重新设计产品行为。已查迁移前 a8c929d^ 的
 app/business/organization.py：原入口明确为 focal-Block rumination，输入包含 focal_block 与 direct_relations，
 Agent 由配置选择。当前验收 definition 的开放式措辞不能反向成为产品 authority。修复应恢复目的，
