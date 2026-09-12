@@ -646,7 +646,10 @@ async def record_refinement(input: RefinementProposal) -> JSONValue:
   RECORD_EVIDENCE_STANCE_TOOL,
   description=(
     "Record attributable evidence supporting or challenging a whole "
-    "assertion in comparable scope, without declaring it true or false."
+    "assertion in comparable scope, without declaring it true or false. "
+    "Faithful restatement of a source, even an authoritative one, is not evidence "
+    "stance. Shared provenance is allowed when observation or reasoning "
+    "contributes reasons beyond restatement."
   ),
 )
 async def record_evidence_stance(input: EvidenceStanceProposal) -> JSONValue:

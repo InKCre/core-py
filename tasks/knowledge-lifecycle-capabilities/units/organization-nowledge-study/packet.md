@@ -1,6 +1,9 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **当前工作（D-556）**：Sir 已授权修复来源忠实性被当作 evidence stance 的语义缺口，并只复测该行为。
+  工具定义与 Resolver 判断合同已补清；保持 SOP、工具组合和预算。准备部署后使用 discovery 轮原图与三个
+  seed 单独重跑，保留结果与清理记录，不新增测试。
 - **当前实现（D-555）**：`ebf220a` 已提交、推送并部署。六种探索型 Agent 已采用“不以排除遗漏作为
   结束前提”的共享指导；rumination、工具与预算保持不变，没有新增测试。
 - **当前验收**：discovery 轮 6/7 Job、19/20 次执行自然结束，116 次模型/137 次工具调用。Evidence stance

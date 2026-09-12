@@ -3,6 +3,7 @@ import sys
 import json
 import time
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -32,20 +33,24 @@ if MODE not in (
   "guidance",
   "focal",
   "discovery",
+  "stance",
 ):
   raise ValueError(
     "Choose baseline, repaired, prompt, batch, array, references, guidance, "
-    "focal or discovery"
+    "focal, discovery or stance"
   )
 OUT = Path(__file__).with_name(f"tool-repair-{MODE}.json")
 RESUME = "--resume" in sys.argv
+if MODE == "stance" and RESUME:
+  raise RuntimeError("Inspect interrupted seed Jobs before replaying this round")
 if OUT.exists() and not RESUME:
   raise RuntimeError("Evidence already exists; do not overwrite a prior run")
 SAVED = json.loads(Path(__file__).with_name("preview-100-deployment.json").read_text())
 DEFINITIONS_PATH = ROOT / "tests/organization/acceptance/agent_definitions.json"
 DEFINITIONS = (
   json.loads(DEFINITIONS_PATH.read_text())
-  if MODE in ("prompt", "batch", "array", "references", "guidance", "focal", "discovery")
+  if MODE
+  in ("prompt", "batch", "array", "references", "guidance", "focal", "discovery", "stance")
   else None
 )
 secret = subprocess.check_output(
@@ -197,6 +202,8 @@ try:
       ),
     )
     for b in _BEHAVIORS:
+      if MODE == "stance" and b.name != "evidence stance":
+        continue
       saved = next(a for a in SAVED["agents"] if a["name"] == "PR100 acceptance " + b.name)
       tools = (
         saved["tools"]
@@ -232,27 +239,66 @@ try:
         {"schema": b.config_schema, "value": {"agent": agent}},
         core=True,
       )
-    manifest = load_manifest()
-    for world in manifest.worlds:
-      for artifact in world.artifacts:
-        aliases[artifact.alias] = insert(
-          "blocks", dict(resolver="core.text.v1", content=read_artifact(artifact.path))
-        )
-      for relation in world.relations:
-        insert(
-          "relations",
-          {
-            "from_": aliases[relation.from_],
-            "to_": aliases[relation.to],
-            "content": relation.content,
-          },
-        )
+    if MODE == "stance":
+      previous = json.loads(OUT.with_name("tool-repair-discovery.json").read_text())
+      previous_stage = previous["rounds"][0]
+      previous_job = next(
+        j
+        for j in previous_stage["jobs"]
+        if j["job"]["type"] == "core.organization.evidence-stance.automatic.v1"
+      )
+      cutoff = datetime.fromisoformat(previous_job["job"]["started_at"])
+      # Restore the graph before stance and the other concurrent behaviors wrote.
+      for block in previous_stage["graph"]["blocks"]:
+        if datetime.fromisoformat(block["created_at"]) < cutoff:
+          aliases[str(block["id"])] = insert(
+            "blocks", {k: block[k] for k in ("resolver", "storage", "content")}
+          )
+      for relation in previous_stage["graph"]["relations"]:
+        if datetime.fromisoformat(relation["updated_at"]) < cutoff:
+          insert(
+            "relations",
+            {
+              "from_": aliases[str(relation["from_"])],
+              "to_": aliases[str(relation["to_"])],
+              "content": relation["content"],
+            },
+          )
+      evidence["replay"] = {
+        "source": "tool-repair-discovery.json",
+        "source_head": previous["head"],
+        "cutoff": cutoff.isoformat(),
+        "seed_block_ids": [
+          aliases[str(json.loads(e["input"]["content"][0]["text"])["seed_block"]["id"])]
+          for e in previous_job["events"]
+          if e["event"] == "agent.turn.started"
+        ],
+      }
+    else:
+      manifest = load_manifest()
+      for world in manifest.worlds:
+        for artifact in world.artifacts:
+          aliases[artifact.alias] = insert(
+            "blocks", dict(resolver="core.text.v1", content=read_artifact(artifact.path))
+          )
+        for relation in world.relations:
+          insert(
+            "relations",
+            {
+              "from_": aliases[relation.from_],
+              "to_": aliases[relation.to],
+              "content": relation.content,
+            },
+          )
     evidence["aliases"] = aliases
     evidence["before"] = snapshot()
     evidence["definitions"] = call("GET", "/agents")
     OUT.write_text(json.dumps(evidence, ensure_ascii=False, indent=2))
   evidence["schedule"] = (
-    "First three behaviors sequential; remaining four independently queued. "
+    "Only evidence stance: replay the three prior seeds through separate max_seeds=1 "
+    "Jobs, routing each through one temporary candidate relation."
+    if MODE == "stance"
+    else "First three behaviors sequential; remaining four independently queued. "
     "Same schedule for both versions."
   )
   if not evidence["rounds"]:
@@ -283,11 +329,31 @@ try:
     )
     save()
 
-  for behavior in _BEHAVIORS[:3]:
-    record(ensure_job(behavior.job_type, {"max_seeds": 3}))
-  remaining = [ensure_job(b.job_type, {"max_seeds": 3}) for b in _BEHAVIORS[3:]]
-  for ident in remaining:
-    record(ident)
+  if MODE == "stance":
+    descriptor = insert(
+      "blocks", {"resolver": "core.organization.behavior.evidence-stance.v1", "content": ""}
+    )
+    for seed in evidence["replay"]["seed_block_ids"]:
+      candidate = insert(
+        "relations", {"from_": seed, "to_": descriptor, "content": "candidate for"}
+      )
+      record(
+        insert(
+          "jobs",
+          {
+            "type": "core.organization.evidence-stance.automatic.v1",
+            "parameters": {"max_seeds": 1},
+            "timeout_seconds": 900,
+          },
+        )
+      )
+      call("DELETE", f"/relations?id=eq.{candidate}")
+  else:
+    for behavior in _BEHAVIORS[:3]:
+      record(ensure_job(behavior.job_type, {"max_seeds": 3}))
+    remaining = [ensure_job(b.job_type, {"max_seeds": 3}) for b in _BEHAVIORS[3:]]
+    for ident in remaining:
+      record(ident)
   stage["graph"] = snapshot()
   save()
   print(
