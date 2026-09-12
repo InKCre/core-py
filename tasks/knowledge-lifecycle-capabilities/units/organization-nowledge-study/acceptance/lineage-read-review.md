@@ -1,5 +1,9 @@
 # Lineage 读取复验
 
+当前范围由 [D-561](../../../decisions/D561-D570.md) 纠正：已知 SQL 性能问题延期，1000 节点读取不是本轮新增
+合并条件。修复同步读取阻塞事件循环后，仍需完成小图端到端读取与并行健康响应；不跳过此项验收。
+以下是 4a0f266 的历史诊断，保留原始结果与当时尚未获批的建议，不代表当前实施范围。
+
 2026-09-13（Asia/Shanghai），应用提交为 `4a0f26644df6a2071454b8d5cd159db0dbafbd1a`，
 [Preview 部署](https://github.com/InKCre/core-py/actions/runs/34704150346) 成功后执行。
 使用一次性命令、已安装的 MCP SDK 和既有 Resolver Resource 接口，没有新增测试文件或生产入口。

@@ -105,7 +105,15 @@ exact requested Relation contents. It returns discovered member Blocks, spanning
 flag. A truncated result cannot prove that separate provisional components are independent. Its first use law is counting one
 `duplicates assertion` component as one provenance occurrence.
 
-`SupersessionBehaviorResolver.read_lineage()` exposes a bounded lineage graph, current frontier, cycle detection, and truncation.
+`SupersessionBehaviorResolver.read_lineage()` follows `supersedes` relations in both directions from a focal Block and returns
+the bounded graph, current frontier, cycle detection, and truncation. A relation points from successor to predecessor:
+for C supersedes B and B supersedes A, the complete acyclic result has frontier C and retains A/B in its history. The frontier
+contains Blocks with no incoming supersedes relation; a cyclic or truncated result has no current frontier. This read does
+not validate semantic supersession or select a latest Block by timestamp.
+
+The async method runs the complete synchronous traversal in a worker thread, which creates and closes its own Session.
+This keeps database round trips off the Peer event loop; it does not reduce SQL latency. Cancelling the await does not stop
+the in-flight synchronous read, which still closes its Session when it finishes. SQL round-trip optimization remains future work.
 Other relations remain usable through ordinary navigation; no shadow Organization index is maintained.
 
 ## Best-effort limits

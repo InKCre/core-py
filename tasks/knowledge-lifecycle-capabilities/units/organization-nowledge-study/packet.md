@@ -1,10 +1,10 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **当前工作（D-560）**：read_lineage 递归缺陷已修复并推送 `4a0f266`，本地长链与静态检查通过；
-  Preview 1000 节点实际读取失败，并暴露逐节点同步数据库遍历成本与 Peer 响应受阻的问题。
-  [读取复验](acceptance/lineage-read-review.md) 保留事实、命令缺陷及清理回执；未追加未确认的修复。
-  整组运行及可读性、可维护性、文档和注释专项复审已完成；下一步待 Sir 复核读取修复与说明纠正方案。
+- **当前工作（D-561）**：Sir 已批准将 read_lineage 同步读取整体移出 Peer 事件循环，并纠正公开说明和局部 TDD。
+  Session 在线程内创建和关闭；不改变查询算法或上限。SQL 性能优化明确延期，不把 1000 节点读取作为新合并门槛，
+  也不跳过读取验收。当前实施最小修正，随后用三节点链验证完整读取、截断、闭环和并行健康请求。
+  [读取复验](acceptance/lineage-read-review.md) 保留此前失败与清理回执；历史失败不扩张当前范围。
   D-559 的候选局部失败继续已实现，
   其它故障与取消仍传播，显式 rumination 不隐藏耗尽。不新增测试。已移除预定的 PR 专用临时调试设施。
   [合并前复审](merge-review.md) 记录 findings、检查和残余；本轮不合并，也不宣告 Unit 或语义验收关闭。

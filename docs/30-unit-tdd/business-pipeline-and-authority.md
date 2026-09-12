@@ -106,8 +106,8 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
   evidence stance、synthesis、existing-referent anchoring 与 duplicate assertion 是七个独立的精确
   `BehaviorResolver`；行为 descriptor 是对应 Resolver 的惰性普通 Block，候选以 `information --candidate for-->
   descriptor` 表达。
-- 每个行为拥有一个独立 automatic Job 和 `core.organization.<behavior>` deployment config。Job 只承担有界候选读取与
-  调度；Resolver 构造起始证据、调用所选 purpose-built Agent，并由 behavior-owned exact command 写普通 Block/Relation。
+- 每个行为拥有一个独立 automatic Job 和 `core.organization.<behavior>` deployment config。Job 只承担调度与运行管理；
+  Resolver 读取候选、构造起始证据、调用所选 purpose-built Agent，并由 behavior-owned exact command 写普通 Block/Relation。
   初始 seed 不限制 Agent 后续通过 retrieval、Resolver 或 graph navigation 继续探索。
 - `retrieve` 返回候选引用与已有命中信息；`get_entities` 读取普通持久实体，`resolver` 解释内容。
   `get_entity_neighborhood`、`find_path`、`get_connected_components` 直接投影 Graph Navigation 的少量稳定查询。
@@ -120,12 +120,14 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
   等机械不变量；开放世界的 referent、scope、authority、evidence、duplicate 与 synthesis 语义仍由相应 Agent 判断。
   所有结果追加到普通图，不创建 evaluated/no-op state、behavior report、relation-content registry 或级联引擎。
 - `RuminationBehaviorResolver.ruminate(block_id)` 保持原有显式 focal 与 Peer 路径。它从 focal Resolver `get_text()` 与
-  direct Relations 构造 bounded context；other endpoint 只投影 Block reference、resolver ID 与 `get_label()`。原有
+  全部一跳 direct Relations 构造上下文，不递归探索，也不按关系数量截断；other endpoint 只投影 Block reference、
+  resolver ID 与 `get_label()`。原有
   `core.organization.rumination.v1` Peer capability 与 draft/submit graph Tool IDs 保持兼容。
 - draft-capable Resolver 显式拥有简短 description、Pydantic input model 与 `create_graph(input) -> StarsGraphForm`。
   Agent run 只在 Tool schema 中看到当前 exact Resolver IDs；具体 input schema 通过 `get_draft_graph_schema` 按需读取。
 - Agent runtime 对 `draft_graph` 的通用 payload 与 selected Resolver input 完成同一轮 Pydantic validation；Tool handler
-  只调用 Resolver create，再交给 InfoBaseManager normalization。`submit_graph(GraphForm)` 是唯一 graph-write Tool。
+  只调用 Resolver create，再交给 InfoBaseManager normalization。在所附 rumination definition 中，
+  `submit_graph(GraphForm)` 是唯一 graph-write Tool。
 - rumination 的显式调用与 automatic Job 都是 additive、best-effort attempt。不能理解或模型诚实 no-op 不写图；
   automatic Job 本身不持久化 behavior report，也不自动建立 schedule。
 - `interpret_missing_media()` 是独立 system-driven approach。它扫描尚无 `interpretation` relation 的

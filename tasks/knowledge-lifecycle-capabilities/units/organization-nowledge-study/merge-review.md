@@ -6,8 +6,9 @@
 
 ## 结论与阻塞
 
-**PR 尚不能标为 ready。** 递归缺陷已修复，但 Preview 长链读取仍未成功，期间 Core 的独立健康检查也返回 503。
-本轮没有擅自扩大实现；新的数据库读取成本和异步执行问题需先确认处理方案。
+**当前正在完成 D-561 的已批准修正与小图复验。** 递归缺陷已修复；同步读取整体移到工作线程，Session 在该线程
+创建和关闭，查询算法与返回语义不变。Sir 明确已知 SQL 性能问题留待以后，不扩大节点数量，也不跳过读取验收。
+此前将 1000 节点远端读取作为新合并门槛不成立；历史失败保留，不据此扩大本轮范围。
 
 首轮发现的确定性缺陷是：`SupersessionBehaviorResolver.read_lineage()` 的默认探索上限为 1000 个 Block，
 原实现最终却使用递归 DFS 检测环。
@@ -45,19 +46,19 @@ Sir 先要求解释这个方法，随后在 D-560 同意修复其长链算法。
 本轮重新沿七种 BehaviorResolver、Agent 工具与输入模型、Resolver reflection、Graph Navigation 和开发追踪的
 调用链检查；与首轮整组差异审查合并判断。重点是读者能否恢复责任和失败含义，而不是行数、排序或消除所有重复。
 
-需要处理或确认的具体问题：
+审查发现与本轮处理：
 
 1. **实际读取成本被 async 方法隐藏。** `supersession.py:read_lineage` 在 async 方法中逐节点执行同步 SQL。
    稀疏 1000 节点链约需 2000 次关系查询，且期间不会主动让出事件循环。20 节点约 11.6 秒的远端读取、
    长链期间的健康检查超时与此一致。应把同步读取的执行位置和图遍历的往返成本分别说清、分别处理；
-   仅换环检测算法或加线程都不能证明长链延迟已解决。新的实现方案尚未批准。
+   仅换环检测算法或加线程都不能证明长链延迟已解决。D-561 批准仅将完整同步读取移出事件循环，SQL 优化延期。
 2. **公开方法说明缺少结果含义。** `read_lineage` 没有 docstring，实际方法发现只返回 `read lineage`。
-   建议用简短说明明确“读取 supersedes 历史；截断或有环时不返回 current 前沿”，详细方向、例子和限制放在
-   Organization TDD。不要把内部循环、缓存或参数重复解释塞入 Agent 可见 description。尚未修改源码说明。
+   现用简短说明明确“读取 supersedes 历史；截断或有环时不返回 current 前沿”，详细方向、例子和限制放在
+   Organization TDD。没有把内部循环、缓存或参数重复解释塞入 Agent 可见 description。
 3. **局部文档仍有职责和范围上的歧义。** `business-pipeline-and-authority.md` 将“有界候选读取”归给 Job，
    而实际由 BehaviorResolver 完成；`submit_graph 是唯一 graph-write Tool` 应明确限定为 rumination 的所附
    definition。该文档与 `semantic-retrieval.md` 将 rumination 的全部 direct relations 快照称为 bounded，
-   容易被理解为数量有限制；应准确说明“一跳、不递归，但没有关系数量截断”。这些是文档纠正，不要求重设计行为。
+   容易被理解为数量有限制；现明确说明“一跳、不递归，但没有关系数量截断”。以上三处均已纠正，不重设计行为。
 
 低优先级的类型维护机会是 `_shared.py` 配置 helper 接受任意 Pydantic model，再用 Any 访问 agent；当前实际调用者
 只有已有的 RuminationConfig 和 BehaviorAgentConfig。可以将静态类型收窄到真实输入，不需要新协议或配置抽象；
@@ -69,15 +70,16 @@ invoke 的 index/block_id/method 是 D-530 明确保留的关联信息；已有 
 给出关系定义而非重复参数。环检测新注释说明长链不应消耗 Python 调用栈，调试代码说明日志失败不得覆盖 Agent
 实际结果。未新增 generic behavior 层、关系 registry 或为了消除重复而合并行为。
 
-### 待 Sir 复核的最小下一步
+### D-561 批准的实现与验证范围
 
-建议先将 read_lineage 的同步读取整体放到工作线程，由该线程创建和结束 Session；保留公开 async 方法和返回
+将 read_lineage 的同步读取整体放到工作线程，由该线程创建和结束 Session；保留公开 async 方法和返回
 合同，不把通用 ResolverManager 改成新的执行适配层。这个修改只解决阻塞 Peer 事件循环的责任，不承诺缩短
-1000 节点遍历时间。随后对数据库侧有界遍历或其它降低往返的方案做独立比较；默认节点/关系探索边界、方向、
-截断与空前沿含义不能为优化或验收方便偷偷改变。
+SQL 遍历时间。本轮不继续比较或实施数据库优化；默认节点/关系探索边界、方向、截断与空前沿含义保持不变。
+线程读取没有共享或外部传入 Session，也不访问 Resolver 实例上的 ORM Block；返回对象仅包含已加载的图字段。
+取消 await 不会强制停止已经开始的同步读取，Session 仍由该线程退出时关闭，文档不声称解决了同步 SQL 的取消。
 
-上述说明修正可一并处理；配置 helper 类型收窄暂不纳入。验证复用既有 Preview 读取与并行健康请求，继续不新增
-测试或修改 Agent 定义/预算。本段是提案，不是已获批实现计划；当前没有追加源码或 durable-doc 变更。
+上述说明修正一并处理；配置 helper 类型收窄不纳入。验证复用既有 Preview 读取与并行健康请求，使用 C → B → A
+三节点链检查完整、截断和闭环，不新增测试或修改 Agent 定义/预算。
 
 ## 已核对的设计与实现
 

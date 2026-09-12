@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from graphlib import CycleError, TopologicalSorter
 import typing
@@ -160,8 +161,25 @@ class SupersessionBehaviorResolver(
     max_explored_blocks: int = 1000,
     max_explored_relations: int = 10000,
   ) -> SupersessionLineage:
+    """Read supersedes history; incomplete or cyclic graphs have no current frontier."""
     if max_explored_blocks < 1 or max_explored_relations < 1:
       raise ValueError("exploration bounds must be positive")
+    # Keep the synchronous traversal and its Session in one worker thread so
+    # database round trips do not block the Peer event loop.
+    return await asyncio.to_thread(
+      self._read_lineage,
+      focal_block_id,
+      max_explored_blocks=max_explored_blocks,
+      max_explored_relations=max_explored_relations,
+    )
+
+  def _read_lineage(
+    self,
+    focal_block_id: BlockID,
+    *,
+    max_explored_blocks: int,
+    max_explored_relations: int,
+  ) -> SupersessionLineage:
     with SessionLocal() as db_session:
       if BlockManager.get(focal_block_id, db_session) is None:
         raise ValueError("Focal Block does not exist")
