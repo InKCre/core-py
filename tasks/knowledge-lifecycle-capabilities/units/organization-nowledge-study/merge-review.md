@@ -1,14 +1,18 @@
 # PR #100 合并前复审
 
-2026-09-12 首轮审查基线为 `a3eaff20d720a73e31a7c2b22a65881340c98dcf`；2026-09-13 继续复验 `4a0f266`。
+2026-09-12 首轮审查基线为 `a3eaff20d720a73e31a7c2b22a65881340c98dcf`；2026-09-13 继续复验 `4a0f266`、`48ed482`。
 本轮由 Sir 要求重新审查整个 unit，
 为 PR #100 合并作准备；不执行合并，不新增回归或聚焦测试，新修复方案仍先复核。
 
 ## 结论与阻塞
 
-**当前正在完成 D-561 的已批准修正与小图复验。** 递归缺陷已修复；同步读取整体移到工作线程，Session 在该线程
-创建和关闭，查询算法与返回语义不变。Sir 明确已知 SQL 性能问题留待以后，不扩大节点数量，也不跳过读取验收。
-此前将 1000 节点远端读取作为新合并门槛不成立；历史失败保留，不据此扩大本轮范围。
+**PR 已具备按当前 best-effort 边界合并的条件；本轮不执行合并。** D-561 修正已随 `48ed482` 推送，
+Preview 三节点链的完整读取、截断和真实闭环均正确，三次并行健康请求均在读取结束前返回 200，临时资源已清理。
+递归环检测和同步读取执行位置均已修复，查询算法与上限不变；已知 SQL 性能问题按 Sir 的明确决定留待以后。
+此前将 1000 节点远端读取作为新合并门槛不成立，历史失败保留，不扩大本轮范围，也没有跳过读取验收。
+
+本结论表示已批准修复、局部文档纠正、既有 CI 与实际读取验证闭合，不表示整组语义判断全部正确、默认可以
+自动启用或已关闭 Unit。下文的错误关系与未覆盖输入仍是交付残余。
 
 首轮发现的确定性缺陷是：`SupersessionBehaviorResolver.read_lineage()` 的默认探索上限为 1000 个 Block，
 原实现最终却使用递归 DFS 检测环。
@@ -46,16 +50,20 @@ Sir 先要求解释这个方法，随后在 D-560 同意修复其长链算法。
 本轮重新沿七种 BehaviorResolver、Agent 工具与输入模型、Resolver reflection、Graph Navigation 和开发追踪的
 调用链检查；与首轮整组差异审查合并判断。重点是读者能否恢复责任和失败含义，而不是行数、排序或消除所有重复。
 
+小图复验后再次核对公开/私有读取边界、Session 退出后的图字段、七种 Job 路由、候选局部失败边界和对应说明，
+没有新增合并阻塞。总览中“seed 限制起始成本”的表述也统一纠正：Job 限制 seed 数量，不代表 rumination
+一跳上下文具有关系数量上限。未借此调整现有行为或重构配置 helper。
+
 审查发现与本轮处理：
 
-1. **实际读取成本被 async 方法隐藏。** `supersession.py:read_lineage` 在 async 方法中逐节点执行同步 SQL。
+1. **实际读取成本被 async 方法隐藏。** 修正前 `supersession.py:read_lineage` 在 async 方法中逐节点执行同步 SQL。
    稀疏 1000 节点链约需 2000 次关系查询，且期间不会主动让出事件循环。20 节点约 11.6 秒的远端读取、
    长链期间的健康检查超时与此一致。应把同步读取的执行位置和图遍历的往返成本分别说清、分别处理；
    仅换环检测算法或加线程都不能证明长链延迟已解决。D-561 批准仅将完整同步读取移出事件循环，SQL 优化延期。
-2. **公开方法说明缺少结果含义。** `read_lineage` 没有 docstring，实际方法发现只返回 `read lineage`。
+2. **公开方法说明缺少结果含义。** 修正前 `read_lineage` 没有 docstring，实际方法发现只返回 `read lineage`。
    现用简短说明明确“读取 supersedes 历史；截断或有环时不返回 current 前沿”，详细方向、例子和限制放在
    Organization TDD。没有把内部循环、缓存或参数重复解释塞入 Agent 可见 description。
-3. **局部文档仍有职责和范围上的歧义。** `business-pipeline-and-authority.md` 将“有界候选读取”归给 Job，
+3. **局部文档的职责和范围有歧义。** `business-pipeline-and-authority.md` 原先将“有界候选读取”归给 Job，
    而实际由 BehaviorResolver 完成；`submit_graph 是唯一 graph-write Tool` 应明确限定为 rumination 的所附
    definition。该文档与 `semantic-retrieval.md` 将 rumination 的全部 direct relations 快照称为 bounded，
    容易被理解为数量有限制；现明确说明“一跳、不递归，但没有关系数量截断”。以上三处均已纠正，不重设计行为。
@@ -121,6 +129,12 @@ SQL 遍历时间。本轮不继续比较或实施数据库优化；默认节点/
 
 4a0f266 修复后再次运行上述本地检查，结果相同：14 passed / 53 skipped，typecheck 0 diagnostics，静态审查
 0 errors / 0 warnings；三个 required checks 和 Preview 部署通过。这些检查不能证明语义质量或长链读取延迟。
+
+48ed482 再次通过相同本地检查，三个 required checks 均成功，
+[Preview 部署](https://github.com/InKCre/core-py/actions/runs/34707301558) 通过；
+[本轮小图读取](acceptance/lineage-read-review.md) 的三种结果和并行健康响应全部通过。分支包含检查时最新 main
+（0 behind / 29 ahead），PR 非 draft，没有 review conversation 待解决。最终证据提交仅更新文档与 task packet，
+不改变已验收源码；其 CI 状态以 PR 页面为准。
 
 ## 语义质量及尚未覆盖的范围
 

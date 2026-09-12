@@ -52,8 +52,8 @@ framework。
 [Organization Nowledge vertical](units/organization-nowledge-study/packet.md) 是处于 Verify / Acceptance 的 active
 implementation Unit。逐项 Nowledge study 与 D-493 transfer audit 是它已完成的 Product phase；D-495 修正了将其误判
 为 research-only Unit 的错误，D-496 修正了继续拆 delivery slices 的错误。整组实现及多轮真实 preview/provider
-验收已执行；当前重新审查 PR #100 的合并条件。递归环检测已修复；D-561 已批准把 lineage 的完整同步读取
-移出 Peer 事件循环，并在小图上复验实际读取与并行健康响应。已知 SQL 性能问题延期，不增加大图验收门槛。
+验收已执行；PR #100 当前范围的合并准备已完成，不执行合并。递归环检测已修复；D-561 的 lineage 同步读取
+线程修正已推送，小图实际读取与并行健康响应通过，临时资源已清理。已知 SQL 性能问题延期，不增加大图验收门槛。
 整组 Job 均结束不等于所有 seeds 或图语义正确；保留语义误判、预算耗尽
 未观测项与未覆盖输入的残余，不能写成
 整组语义验收通过。内部平行行为不获得独立 phase/gate。

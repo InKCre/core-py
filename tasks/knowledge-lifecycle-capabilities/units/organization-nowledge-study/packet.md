@@ -1,10 +1,10 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **当前工作（D-561）**：Sir 已批准将 read_lineage 同步读取整体移出 Peer 事件循环，并纠正公开说明和局部 TDD。
-  Session 在线程内创建和关闭；不改变查询算法或上限。SQL 性能优化明确延期，不把 1000 节点读取作为新合并门槛，
-  也不跳过读取验收。当前实施最小修正，随后用三节点链验证完整读取、截断、闭环和并行健康请求。
-  [读取复验](acceptance/lineage-read-review.md) 保留此前失败与清理回执；历史失败不扩张当前范围。
+- **当前工作（D-561）**：read_lineage 同步读取移出 Peer 事件循环的修正已随 `48ed482` 推送，公开说明与局部 TDD
+  已纠正。Session 在线程内创建和关闭，查询算法与上限不变。Preview 三节点完整读取、截断、真实闭环以及并行
+  健康响应均通过，临时资源已清理。SQL 性能优化明确延期，没有扩节点或跳过读取验收。
+  [读取复验](acceptance/lineage-read-review.md) 保留新结果、此前失败与清理回执；PR 已具备当前范围的合并条件。
   D-559 的候选局部失败继续已实现，
   其它故障与取消仍传播，显式 rumination 不隐藏耗尽。不新增测试。已移除预定的 PR 专用临时调试设施。
   [合并前复审](merge-review.md) 记录 findings、检查和残余；本轮不合并，也不宣告 Unit 或语义验收关闭。
@@ -12,7 +12,7 @@
   共享提示词、模型、预算与工具组合不变。使用现有 preview 配置新 definition 验证，没有新增测试。
 - **当前验收**：4a0f266 的 Job 101–107 全部 finished，18/6 初始图变为 39/27，临时数据和配置已清理。
   没有逐次 Agent 日志，不能宣称零预算耗尽；图中仍有局部陈述被误作 whole-Block 重复、来源重述被记 supports
-  等问题。见 [整组复评](acceptance/merge-run-review.md)。PR 尚不能标为 ready，不宣告语义验收通过。
+  等问题。见 [整组复评](acceptance/merge-run-review.md)。合并准备完成不代表整组语义验收通过。
 - **下一步边界**：新发现的实现修复先复核；不继续无边界地微调提示词。结束探索与不存在性证明的区分已沉淀至
   [通用模式](../../common-patterns/agent-tools.md)，新的修复方案仍先经 Sir 复核。
 

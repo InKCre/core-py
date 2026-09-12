@@ -8,7 +8,7 @@ core-py topology and exact local contracts.
 ```text
 automatic Job / explicit rumination
   -> exact BehaviorResolver
-     -> bounded deterministic seed evidence
+     -> behavior-owned initial context
      -> purpose-built Agent selected by core.organization.<behavior>
         -> definition-selected retrieval / Resolver / graph navigation
         -> no graph effect
@@ -18,7 +18,9 @@ automatic Job / explicit rumination
 ```
 
 Organization improves an existing info-base for plausible later use. It neither predicts an exact future query nor reorganizes
-for structural neatness. Initial seeds bound starting cost but do not bound Agent exploration.
+for structural neatness. Automatic Jobs bound the number of initial seeds, not the size of every seed's context or subsequent
+Agent exploration. Rumination's focal context includes all direct relations; exploratory behaviors use a relation-count limit
+for their initial seed context.
 
 ## Behavior carriers
 
