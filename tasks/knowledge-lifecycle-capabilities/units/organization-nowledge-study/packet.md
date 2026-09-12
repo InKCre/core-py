@@ -1,10 +1,9 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **当前工作（D-559）**：Sir 同意落实 D-519。七种自动行为已对候选缺失/单次预算耗尽记录并继续，
-  其它故障与取消仍传播；显式 rumination 不隐藏耗尽。静态检查及既有测试通过（14 passed / 53 skipped），
-  无新增测试或真实模型复测。Lineage 的用途先解释，
-  默认范围内递归溢出的修复尚未授权。已移除预定的 PR 专用临时调试设施，并修正过期交付说明。
+- **当前工作（D-560）**：Sir 同意修复 read_lineage；已用标准库迭代环检测替换递归，长链复现和静态检查通过，
+  正准备 Preview 复验及可读性、可维护性、文档和注释专项复审。D-559 的候选局部失败继续已实现，
+  其它故障与取消仍传播，显式 rumination 不隐藏耗尽。不新增测试。已移除预定的 PR 专用临时调试设施。
   [合并前复审](merge-review.md) 记录 findings、检查和残余；本轮不合并，也不宣告 Unit 或语义验收关闭。
 - **当前实现（D-557）**：`7bb868c` 的 evidence stance SOP 已先识别目标命题与证据贡献；工具合同、
   共享提示词、模型、预算与工具组合不变。使用现有 preview 配置新 definition 验证，没有新增测试。

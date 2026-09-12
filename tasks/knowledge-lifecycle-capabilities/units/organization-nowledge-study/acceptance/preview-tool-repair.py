@@ -35,10 +35,11 @@ if MODE not in (
   "discovery",
   "stance",
   "stance-role",
+  "merge",
 ):
   raise ValueError(
     "Choose baseline, repaired, prompt, batch, array, references, guidance, "
-    "focal, discovery, stance or stance-role"
+    "focal, discovery, stance, stance-role or merge"
   )
 OUT = Path(__file__).with_name(f"tool-repair-{MODE}.json")
 STANCE_ONLY = MODE in ("stance", "stance-role")
@@ -60,6 +61,7 @@ DEFINITIONS = (
     "discovery",
     "stance",
     "stance-role",
+    "merge",
   )
   else None
 )

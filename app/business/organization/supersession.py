@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+from graphlib import CycleError, TopologicalSorter
 import typing
 
 import sqlmodel
@@ -233,25 +234,18 @@ class SupersessionBehaviorResolver(
     blocks: typing.Collection[BlockID],
     relations: typing.Collection[RelationModel],
   ) -> bool:
-    outgoing: dict[BlockID, set[BlockID]] = {block_id: set() for block_id in blocks}
+    # The standard library uses an explicit stack, so long lineages do not
+    # consume Python call-stack depth.
+    sorter: TopologicalSorter[BlockID] = TopologicalSorter()
+    for block_id in blocks:
+      sorter.add(block_id)
     for relation in relations:
-      outgoing.setdefault(relation.from_, set()).add(relation.to_)
-    visiting: set[BlockID] = set()
-    visited: set[BlockID] = set()
-
-    def visit(block_id: BlockID) -> bool:
-      if block_id in visiting:
-        return True
-      if block_id in visited:
-        return False
-      visiting.add(block_id)
-      if any(visit(neighbor) for neighbor in outgoing.get(block_id, ())):
-        return True
-      visiting.remove(block_id)
-      visited.add(block_id)
-      return False
-
-    return any(visit(block_id) for block_id in blocks if block_id not in visited)
+      sorter.add(relation.to_, relation.from_)
+    try:
+      sorter.prepare()
+    except CycleError:
+      return True
+    return False
 
   @classmethod
   def can_run_automatic(cls) -> bool:
