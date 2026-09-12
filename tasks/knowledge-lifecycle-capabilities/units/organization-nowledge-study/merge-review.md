@@ -1,19 +1,24 @@
 # PR #100 合并前复审
 
-2026-09-12，审查基线为 `a3eaff20d720a73e31a7c2b22a65881340c98dcf`。本轮由 Sir 要求重新审查整个 unit，
+2026-09-12 首轮审查基线为 `a3eaff20d720a73e31a7c2b22a65881340c98dcf`；2026-09-13 继续复验 `4a0f266`。
+本轮由 Sir 要求重新审查整个 unit，
 为 PR #100 合并作准备；不执行合并，不新增回归或聚焦测试，新修复方案仍先复核。
 
 ## 结论与阻塞
 
-运行拓扑符合已确认设计，但发现一个应在合并前修复的确定性缺陷：
-`SupersessionBehaviorResolver.read_lineage()` 的默认探索上限为 1000 个 Block，最终却使用递归 DFS 检测环。
+**PR 尚不能标为 ready。** 递归缺陷已修复，但 Preview 长链读取仍未成功，期间 Core 的独立健康检查也返回 503。
+本轮没有擅自扩大实现；新的数据库读取成本和异步执行问题需先确认处理方案。
+
+首轮发现的确定性缺陷是：`SupersessionBehaviorResolver.read_lineage()` 的默认探索上限为 1000 个 Block，
+原实现最终却使用递归 DFS 检测环。
 一条合法的 1000 节点无环链在 `_cycle_detected()` 中触发 `RecursionError`，无法返回 current/history 投影。
 同一实现的 100 和 400 节点输入正常返回 false。复现只创建内存 RelationModel，使用不可连接的本地数据库
 占位配置，没有访问数据库、调用模型或新增测试文件。
 
 D-560 中 Sir 已同意修复。环检测现改为标准库 TopologicalSorter 的显式栈实现，保持接口、探索上限、方向
 和环判定含义不变；不提高 Python 递归上限，不改变图模型。本地一次性检查的 100/400/1000/10000 节点链
-及其闭环均得到正确结果，静态检查通过；Preview 读取及当前整组运行正在准备，尚不宣告动态验收通过。
+及其闭环均得到正确结果，静态检查通过。Preview 小链读取和截断结果正确，1000 节点读取失败；
+详见 [读取复验](acceptance/lineage-read-review.md)，其中也披露了一次辅助闭环探查的构造错误。
 
 复审发现的另一项历史合同差距：D-519 要求候选局部失败不丢弃其它 seeds，原六种探索行为的
 `run_automatic()` 直接等待 `build_seed_message()` 和 `run_configured_agent()`。一个 seed 在选择后消失，
@@ -23,7 +28,8 @@ Rumination 原先仅单独容忍 seed_missing。Sir 随后在 D-559 同意落实
 rumination 的错误行为不变。已提交的图效果保留，正常遍历结束的 Job 可以 finished，但不说明每个 seed
 成功或图语义正确。实现使用私有异常边界，无 broad catch、重试、新状态或报告。
 本次 format/lint/typecheck、foundation、静态审查、既有测试（14 passed / 53 skipped）及 diff 检查通过；
-七处自动边界与显式调用链已逐项审阅。没有新增测试或重新运行真实模型，不声称该异常路径已有新的远端证据。
+七处自动边界与显式调用链已逐项审阅。当时未重新运行真实模型；后续 4a0f266 整组 Job 均 finished，但没有逐次
+Agent 日志，因此仍不能声称已经动态覆盖这两种候选局部失败路径。
 
 ### read_lineage 的定位
 
@@ -33,6 +39,45 @@ Resolver base。它从一个 focal Block 沿已有 supersedes 关系取得有界
 例如 C supersedes B、B supersedes A 时，完整无环结果的前沿是 C，A/B 仍在返回历史中；它不判定图上
 替代关系是否语义正确、不按时间戳选择“最新”、不隐藏检索结果，也不是第八种 Organization 行为。
 Sir 先要求解释这个方法，随后在 D-560 同意修复其长链算法。
+
+## 可读性、可维护性、文档与注释复审
+
+本轮重新沿七种 BehaviorResolver、Agent 工具与输入模型、Resolver reflection、Graph Navigation 和开发追踪的
+调用链检查；与首轮整组差异审查合并判断。重点是读者能否恢复责任和失败含义，而不是行数、排序或消除所有重复。
+
+需要处理或确认的具体问题：
+
+1. **实际读取成本被 async 方法隐藏。** `supersession.py:read_lineage` 在 async 方法中逐节点执行同步 SQL。
+   稀疏 1000 节点链约需 2000 次关系查询，且期间不会主动让出事件循环。20 节点约 11.6 秒的远端读取、
+   长链期间的健康检查超时与此一致。应把同步读取的执行位置和图遍历的往返成本分别说清、分别处理；
+   仅换环检测算法或加线程都不能证明长链延迟已解决。新的实现方案尚未批准。
+2. **公开方法说明缺少结果含义。** `read_lineage` 没有 docstring，实际方法发现只返回 `read lineage`。
+   建议用简短说明明确“读取 supersedes 历史；截断或有环时不返回 current 前沿”，详细方向、例子和限制放在
+   Organization TDD。不要把内部循环、缓存或参数重复解释塞入 Agent 可见 description。尚未修改源码说明。
+3. **局部文档仍有职责和范围上的歧义。** `business-pipeline-and-authority.md` 将“有界候选读取”归给 Job，
+   而实际由 BehaviorResolver 完成；`submit_graph 是唯一 graph-write Tool` 应明确限定为 rumination 的所附
+   definition。该文档与 `semantic-retrieval.md` 将 rumination 的全部 direct relations 快照称为 bounded，
+   容易被理解为数量有限制；应准确说明“一跳、不递归，但没有关系数量截断”。这些是文档纠正，不要求重设计行为。
+
+低优先级的类型维护机会是 `_shared.py` 配置 helper 接受任意 Pydantic model，再用 Any 访问 agent；当前实际调用者
+只有已有的 RuminationConfig 和 BehaviorAgentConfig。可以将静态类型收窄到真实输入，不需要新协议或配置抽象；
+它不是这次已观察失败的原因，也不作为合并阻塞，本轮未修改。
+
+以下复杂度有明确依据，审查未发现需要借此扩大重构的理由：七种独立行为保持本地写入和选择策略，Job 路由简单明确；
+Resolver 工具 schema 的动态分支和 envelope 是已观察 provider 合同的适配，相关注释解释了保留原因；
+invoke 的 index/block_id/method 是 D-530 明确保留的关联信息；已有 schema 字段名称保留实体身份，写入工具描述
+给出关系定义而非重复参数。环检测新注释说明长链不应消耗 Python 调用栈，调试代码说明日志失败不得覆盖 Agent
+实际结果。未新增 generic behavior 层、关系 registry 或为了消除重复而合并行为。
+
+### 待 Sir 复核的最小下一步
+
+建议先将 read_lineage 的同步读取整体放到工作线程，由该线程创建和结束 Session；保留公开 async 方法和返回
+合同，不把通用 ResolverManager 改成新的执行适配层。这个修改只解决阻塞 Peer 事件循环的责任，不承诺缩短
+1000 节点遍历时间。随后对数据库侧有界遍历或其它降低往返的方案做独立比较；默认节点/关系探索边界、方向、
+截断与空前沿含义不能为优化或验收方便偷偷改变。
+
+上述说明修正可一并处理；配置 helper 类型收窄暂不纳入。验证复用既有 Preview 读取与并行健康请求，继续不新增
+测试或修改 Agent 定义/预算。本段是提案，不是已获批实现计划；当前没有追加源码或 durable-doc 变更。
 
 ## 已核对的设计与实现
 
@@ -72,11 +117,16 @@ Sir 先要求解释这个方法，随后在 D-560 同意修复其长链算法。
 - backend 技能的静态审查为 0 errors / 0 warnings；
 - `git diff --check` 通过。
 
-这些检查不能证明语义质量，也没有覆盖尚待确认的修复。
+4a0f266 修复后再次运行上述本地检查，结果相同：14 passed / 53 skipped，typecheck 0 diagnostics，静态审查
+0 errors / 0 warnings；三个 required checks 和 Preview 部署通过。这些检查不能证明语义质量或长链读取延迟。
 
 ## 语义质量及尚未覆盖的范围
 
-最新整组初始世界证据是 [discovery 轮](acceptance/discovery-review.md)：6/7 Job、19/20 次执行自然结束。
+最新整组初始世界证据是 [merge 轮](acceptance/merge-run-review.md)：七个 Job 均 finished，最终 39 Block / 27 Relation。
+无逐次 Agent 日志，不能据此声称零预算耗尽或每个 seed 自然结束。完整提案与局部 rollout 陈述被记 duplicates
+assertion、来源重述被记 supports 等误判仍在；临时数据与配置已清理。运行结束不等于语义验收通过。
+
+此前有逐次轨迹的整组证据是 [discovery 轮](acceptance/discovery-review.md)：6/7 Job、19/20 次执行自然结束。
 Refinement 仍有无产出耗尽；技术摘要被用来替代完整旧提案、来源重述被写成支持关系等误判仍可见。
 最新 evidence stance 专项是 [stance-role 轮](acceptance/stance-role-review.md)：5/4/4 次调用，零错误/耗尽；
 技术摘要正确 no-op，但 rollout 条件仍被原方案错误 supports。不能把三次自然结束写成语义验收通过。

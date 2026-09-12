@@ -1,15 +1,18 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **当前工作（D-560）**：Sir 同意修复 read_lineage；已用标准库迭代环检测替换递归，长链复现和静态检查通过，
-  正准备 Preview 复验及可读性、可维护性、文档和注释专项复审。D-559 的候选局部失败继续已实现，
+- **当前工作（D-560）**：read_lineage 递归缺陷已修复并推送 `4a0f266`，本地长链与静态检查通过；
+  Preview 1000 节点实际读取失败，并暴露逐节点同步数据库遍历成本与 Peer 响应受阻的问题。
+  [读取复验](acceptance/lineage-read-review.md) 保留事实、命令缺陷及清理回执；未追加未确认的修复。
+  整组运行及可读性、可维护性、文档和注释专项复审已完成；下一步待 Sir 复核读取修复与说明纠正方案。
+  D-559 的候选局部失败继续已实现，
   其它故障与取消仍传播，显式 rumination 不隐藏耗尽。不新增测试。已移除预定的 PR 专用临时调试设施。
   [合并前复审](merge-review.md) 记录 findings、检查和残余；本轮不合并，也不宣告 Unit 或语义验收关闭。
 - **当前实现（D-557）**：`7bb868c` 的 evidence stance SOP 已先识别目标命题与证据贡献；工具合同、
   共享提示词、模型、预算与工具组合不变。使用现有 preview 配置新 definition 验证，没有新增测试。
-- **当前验收**：Job 99 三次执行 5/4/4 均结束，13 次模型/15 次工具调用，零错误/耗尽。技术摘要正确
-  no-op，但 rollout 条件仍写同源 supports，修复只有部分改善，未稳定解决误判；数据已清理。见
-  [stance-role 评审](acceptance/stance-role-review.md)。
+- **当前验收**：4a0f266 的 Job 101–107 全部 finished，18/6 初始图变为 39/27，临时数据和配置已清理。
+  没有逐次 Agent 日志，不能宣称零预算耗尽；图中仍有局部陈述被误作 whole-Block 重复、来源重述被记 supports
+  等问题。见 [整组复评](acceptance/merge-run-review.md)。PR 尚不能标为 ready，不宣告语义验收通过。
 - **下一步边界**：新发现的实现修复先复核；不继续无边界地微调提示词。结束探索与不存在性证明的区分已沉淀至
   [通用模式](../../common-patterns/agent-tools.md)，新的修复方案仍先经 Sir 复核。
 
@@ -17,6 +20,8 @@
 
 以下记录保留各轮当时状态；当前实现、验收及授权边界以页首和最新 decision 为准。
 
+- **D-557 验收**：Job 99 的 5/4/4 次执行均结束，零错误/耗尽；rollout 条件仍写同源 supports。见
+  [stance-role 评审](acceptance/stance-role-review.md)，不以这次专项结果代替当前整组证据。
 - **D-556 验收**：工具定义与 Resolver 合同补充来源忠实性排除项后，stance 轮 12/10/6 均结束，但两个
   同源 supports 误判重现。驱动参数已按既有至少 3 的合同纠正，清理完成，见 [stance 评审](acceptance/stance-review.md)。
 - **D-555 验收**：`ebf220a` 的结束探索指导完成 discovery 轮，6/7 Job、19/20 次执行自然结束；
