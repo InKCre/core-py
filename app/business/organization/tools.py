@@ -647,8 +647,9 @@ async def record_refinement(input: RefinementProposal) -> JSONValue:
   description=(
     "Record attributable evidence supporting or challenging a whole "
     "assertion in comparable scope, without declaring it true or false. "
-    "Faithful restatement of a source, even an authoritative one, is not evidence "
-    "stance. Shared provenance is allowed when observation or reasoning "
+    "Merely establishing that derived content faithfully restates its source is "
+    "not evidence stance, regardless of source authority. Shared provenance is "
+    "allowed when observation or reasoning "
     "contributes reasons beyond restatement."
   ),
 )

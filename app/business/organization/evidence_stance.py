@@ -59,7 +59,7 @@ class EvidenceStanceBehaviorResolver(
     "Evidence and assertion are complete addressable information units.",
     "The source is evidence and the target is an evaluable assertion.",
     "Their proposition and applicable scope are comparable.",
-    "The evidence contributes reasons beyond faithful source restatement; "
+    "The evidence contributes reasons beyond establishing source fidelity; "
     "source authority alone is insufficient.",
     "Evidence provenance and speaker attribution remain recoverable.",
     "The stance is unambiguously support or challenge for the whole assertion.",
