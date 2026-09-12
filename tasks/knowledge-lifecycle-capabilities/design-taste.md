@@ -10,6 +10,9 @@ The task's Human/Agent roles、Unit gates、write-back discipline and parallel-s
 
 ## Experimental Discussion Model
 
+Agent Tool 的 task-level 设计原则统一维护于 [Agent Tool common patterns](common-patterns/agent-tools.md)。
+涉及工具形态、发现、参数/说明、错误或响应设计时先读该文件；本处不另存一份规则。
+
 The unit of progress is a more coherent、evidence-backed current system model，not another answered question or a longer
 decision register。Sir's preference to ask one question at a time is an upper bound on simultaneous human review，not a
 requirement to manufacture one question after every answer。
@@ -84,6 +87,35 @@ treated “produce another decision question” as progress and mechanically pro
 existing facts already implied one parameterless convergence Job：Cron owns a static template，Organization derives modality per
 candidate，and graph state changes the next candidate set。A topology plus two-occurrence sequence would have made that
 implication explicit，but the root correction is to make model reconciliation—not question production—the work unit。
+
+### Do not escalate an unavoidable defect into a universal prerequisite
+
+Another recurring Agent failure shape is：
+
+```text
+notice one case where an accepted mechanism cannot provide an absolute guarantee
+  -> silently upgrade best-effort Product semantics into a completeness requirement
+     -> overlook the accepted repair/degradation path
+        -> invent a new global identity、state or infrastructure prerequisite
+           -> reopen Product scope and ask Sir to choose among invented machinery
+```
+
+The underlying bias is toward logical closure：a universal invariant is easier to reason about than a useful mechanism with an
+explicit residual。That neatness is not Product value。It converts an unavoidable or low-observability defect into scope growth，
+discards existing recovery topology and makes the Human review a solution to a problem the accepted model did not promise to
+eliminate。
+
+Before promoting an imperfection into a prerequisite：
+
+1. recover the already accepted normal path、version/change representation and repair/reapplication law；
+2. distinguish a producer violating the preferred path from a limitation that the system cannot observe or control；
+3. simulate how the graph reaches a corrected state when the change is observable；
+4. state the remaining defect and best-effort boundary without pretending it vanished；
+5. add identity/state/infrastructure only if the residual defeats the promised Product value at material frequency or harm。
+
+The Organization synthesis correction is the reference case：ordinary edits should create a new Block plus `edited` Relation；
+`contributes to` conducts observable upstream change into re-synthesis；bytes changing behind an unchanged external Storage
+pointer remain an acknowledged best-effort defect。That defect does not justify a universal stable-address/version subsystem。
 
 ## Scope Discipline
 

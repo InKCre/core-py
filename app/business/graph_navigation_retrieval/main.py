@@ -1,5 +1,6 @@
 """Bounded, presentation-neutral navigation over persisted graph authority."""
 
+from collections import deque
 import typing
 
 import sqlmodel
@@ -8,7 +9,16 @@ from app.business.info_base.block import BlockManager
 from app.business.info_base.relation import RelationManager
 from app.engine import SessionLocal
 from app.schemas.graph_navigation_retrieval import (
+  DEFAULT_NEIGHBORHOOD_LIMIT,
+  MAX_NEIGHBORHOOD_LIMIT,
+  DEFAULT_MAX_HOPS,
+  MAX_MAX_HOPS,
+  DEFAULT_MAX_EXPLORED_BLOCKS,
+  MAX_MAX_EXPLORED_BLOCKS,
+  DEFAULT_MAX_EXPLORED_RELATIONS,
   BlockNeighborhood,
+  ConnectedComponentsResult,
+  ConnectedSeedComponent,
   GraphDirection,
   GraphModel,
   PathFound,
@@ -21,17 +31,11 @@ from app.schemas.info_base.block import BlockID, BlockModel
 from app.schemas.info_base.relation import RelationID, RelationModel
 
 
-DEFAULT_NEIGHBORHOOD_LIMIT = 20
-MAX_NEIGHBORHOOD_LIMIT = 100
-DEFAULT_MAX_HOPS = 4
-MAX_MAX_HOPS = 8
-DEFAULT_MAX_EXPLORED_BLOCKS = 1000
-MAX_MAX_EXPLORED_BLOCKS = 10000
 FRONTIER_QUERY_SIZE = 200
 
 
 class GraphNavigationRetrievalManager:
-  """Own graph-navigation semantics while hiding query and closure mechanics."""
+  """Own bounded graph-navigation queries over persisted entities."""
 
   @classmethod
   def get_random_block(
@@ -141,6 +145,122 @@ class GraphNavigationRetrievalManager:
     return RelationNeighborhood(
       focal_relation=focal_relation,
       graph=GraphModel(blocks=blocks, relations=(relation,)),
+    )
+
+  @classmethod
+  def get_connected_components(
+    cls,
+    seed_block_ids: typing.Collection[BlockID],
+    *,
+    contents: typing.Collection[str],
+    max_explored_blocks: int = DEFAULT_MAX_EXPLORED_BLOCKS,
+    max_explored_relations: int = DEFAULT_MAX_EXPLORED_RELATIONS,
+    db_session: sqlmodel.Session | None = None,
+  ) -> ConnectedComponentsResult:
+    """Partition existing seeds by bounded undirected exact-content reachability."""
+    seeds = tuple(dict.fromkeys(seed_block_ids))
+    relation_contents = tuple(dict.fromkeys(contents))
+    if not relation_contents:
+      raise ValueError("contents must not be empty")
+    if max_explored_blocks < 1 or max_explored_relations < 1:
+      raise ValueError("exploration bounds must be positive")
+    if len(seeds) > max_explored_blocks:
+      raise ValueError("seed blocks exceed max_explored_blocks")
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_connected_components(
+          seeds,
+          contents=relation_contents,
+          max_explored_blocks=max_explored_blocks,
+          max_explored_relations=max_explored_relations,
+          db_session=owned_session,
+        )
+
+    existing_blocks = BlockManager.get_many(seeds, db_session)
+    existing_seed_ids = {block.id for block in existing_blocks if block.id is not None}
+    missing = tuple(seed for seed in seeds if seed not in existing_seed_ids)
+    assigned_seeds: set[BlockID] = set()
+    explored_blocks = set(existing_seed_ids)
+    seen_relations: set[RelationID] = set()
+    explored_relation_count = 0
+    proof_relations: dict[RelationID, RelationModel] = {}
+    components: list[ConnectedSeedComponent] = []
+    truncated = False
+
+    for seed in seeds:
+      if seed not in existing_seed_ids or seed in assigned_seeds:
+        continue
+      if truncated:
+        components.append(
+          ConnectedSeedComponent(seed_block_ids=(seed,), member_block_ids=(seed,))
+        )
+        assigned_seeds.add(seed)
+        continue
+
+      members = {seed}
+      frontier = deque((seed,))
+      while frontier and not truncated:
+        current = frontier.popleft()
+        for endpoint in ("from", "to"):
+          cursor: RelationID | None = None
+          while not truncated:
+            remaining = max_explored_relations - explored_relation_count
+            if remaining == 0:
+              truncated = True
+              break
+            requested = min(FRONTIER_QUERY_SIZE, remaining + 1)
+            page = RelationManager.get_endpoint_page(
+              (current,),
+              endpoint=typing.cast(typing.Literal["from", "to"], endpoint),
+              contents=relation_contents,
+              cursor=cursor,
+              limit=requested,
+              db_session=db_session,
+            )
+            if len(page) > remaining:
+              page = page[:remaining]
+              truncated = True
+            explored_relation_count += len(page)
+            for relation in page:
+              if relation.id is None or relation.id in seen_relations:
+                continue
+              relation_id = relation.id
+              seen_relations.add(relation_id)
+              neighbor = relation.to_ if relation.from_ == current else relation.from_
+              if neighbor in members:
+                continue
+              if (
+                neighbor not in explored_blocks
+                and len(explored_blocks) >= max_explored_blocks
+              ):
+                truncated = True
+                break
+              members.add(neighbor)
+              explored_blocks.add(neighbor)
+              frontier.append(neighbor)
+              proof_relations[relation_id] = relation
+            if truncated or len(page) < requested:
+              break
+            cursor = typing.cast(RelationID, page[-1].id)
+
+      component_seeds = tuple(seed_id for seed_id in seeds if seed_id in members)
+      assigned_seeds.update(component_seeds)
+      components.append(
+        ConnectedSeedComponent(
+          seed_block_ids=component_seeds,
+          member_block_ids=tuple(sorted(members)),
+        )
+      )
+
+    proof_blocks = BlockManager.get_many(explored_blocks, db_session)
+    return ConnectedComponentsResult(
+      components=tuple(components),
+      proof_graph=GraphModel(
+        blocks=proof_blocks,
+        relations=tuple(proof_relations.values()),
+      ),
+      missing_seed_block_ids=missing,
+      truncated=truncated,
     )
 
   @classmethod

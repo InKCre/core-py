@@ -7,17 +7,20 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | `mcp-sink` | `01a04610-338e-7311-93df-847f9801c5af` | merged through PR #88；the current root worktree retains only local task-control state | protected `main` merge `459a6df` | Closed | D-381–D-420 | No active implementation ownership；MCP runtime、ChatGPT Tool acceptance and production delivery are complete |
 | `telegram-extension` | `01a04685-aa31-7682-a4a2-824727eacce5` | core-py PR #89 / `.github` PR #28 | merged as core-py `42d8527` and `.github` `f7269b9` | Closed / merged | D-421–D-460 | Telegram、repository-wide Changie→Towncrier cutover and organization guidance are complete；Unit worktrees are retired and Release PR #90 is independently owned by the release lifecycle |
+| `organization-nowledge-study` | current session | `feat/organization-nowledge-vertical` / current core-py worktree | protected `main` `2282d59` | Verify / Acceptance | D-461–D-570 | Whole implementation vertical owns `units/organization-nowledge-study/**` and reserved decisions；MCP Resolver-reflection overlap is reconciled against current `main` |
 
 ## Shared-worktree coordination
 
-The Human permitted the two Units to share the root core-py worktree during preflight。MCP is now closed and Telegram has an
-independent implementation worktree；task-control and operational state can still intersect：
+MCP and Telegram are closed；the Organization vertical now owns the active root-worktree implementation and its narrow
+task-control updates。Historical task-control and operational state can still intersect：
 
 - `mcp-sink` has no remaining implementation ownership。Its Core、Extension Runtime and production changes are authoritative
   on protected `main` at `459a6df`；the root worktree's remaining dirty state is task control，not unmerged MCP source。
 - `telegram-extension` owns its Unit packet and future `extensions/telegram/**` implementation。Its scope now also owns the
   repository-wide Changie→Towncrier cutover: root PDM dependency/lock state, release fragments and changelogs, release-contract
   orchestration scripts and their CI/documentation consumers。It still does not own Core Source/Resolver/Extension framework。
+- `organization-nowledge-study` owns its exact BehaviorResolver、Graph Navigation、Agent Tool、Job、local Unit TDD and
+  acceptance-corpus surfaces。It preserves merged MCP projection and Telegram/release truth rather than reopening either Unit。
 - The former root `pyproject.toml` / `pdm.lock` overlap is resolved by PR #88's merge。Telegram's independent implementation
   must use protected `main` `459a6df` or a later integrated main commit as its address-sensitive baseline。
 - `docs/openapi.json` is a possible generated-output intersection。Whichever Unit regenerates it must compare against the

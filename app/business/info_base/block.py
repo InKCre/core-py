@@ -48,6 +48,22 @@ class BlockManager:
     )
 
   @classmethod
+  def get_random_many(
+    cls, count: int, db_session: Opt[sqlmodel.Session] = None
+  ) -> tuple[BlockModel, ...]:
+    """Return up to count distinct random Blocks."""
+    if count <= 0:
+      return ()
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_random_many(count, owned_session)
+    return tuple(
+      db_session.exec(
+        sqlmodel.select(BlockModel).order_by(sqlmodel.func.random()).limit(count)
+      ).all()
+    )
+
+  @classmethod
   def get_random(
     cls,
     db_session: Opt[sqlmodel.Session] = None,

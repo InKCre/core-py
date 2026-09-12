@@ -4,7 +4,7 @@ __all__ = ["ROUTER"]
 
 import fastapi
 
-from app.business.organization import RUMINATION_CAPABILITY, OrganizationManager
+from app.business.organization import RUMINATION_CAPABILITY, RuminationBehaviorResolver
 from app.business.peer import PeerHTTPInbound
 from app.schemas.organization import RuminationRequest
 
@@ -22,4 +22,4 @@ PEER_INBOUND = PeerHTTPInbound(
   status_code=fastapi.status.HTTP_204_NO_CONTENT,
 )
 async def ruminate(body: RuminationRequest) -> None:
-  await OrganizationManager.ruminate_local(body.block)
+  await RuminationBehaviorResolver.ruminate_local(body.block)

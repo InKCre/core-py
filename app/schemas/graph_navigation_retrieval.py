@@ -10,6 +10,14 @@ from app.schemas.info_base.relation import RelationID, RelationModel
 
 GraphDirection: typing.TypeAlias = typing.Literal["in", "out", "both"]
 
+DEFAULT_NEIGHBORHOOD_LIMIT = 20
+MAX_NEIGHBORHOOD_LIMIT = 100
+DEFAULT_MAX_HOPS = 4
+MAX_MAX_HOPS = 8
+DEFAULT_MAX_EXPLORED_BLOCKS = 1000
+MAX_MAX_EXPLORED_BLOCKS = 10000
+DEFAULT_MAX_EXPLORED_RELATIONS = 10000
+
 
 class GraphModel(pydantic.BaseModel):
   """Endpoint-closed persisted graph read model."""
@@ -33,6 +41,26 @@ class RelationNeighborhood(pydantic.BaseModel):
 
   focal_relation: RelationID
   graph: GraphModel
+
+
+class ConnectedSeedComponent(pydantic.BaseModel):
+  """One observed undirected component containing one or more input seeds."""
+
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  seed_block_ids: tuple[BlockID, ...]
+  member_block_ids: tuple[BlockID, ...]
+
+
+class ConnectedComponentsResult(pydantic.BaseModel):
+  """Bounded seed partition plus an endpoint-closed spanning proof."""
+
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  components: tuple[ConnectedSeedComponent, ...]
+  proof_graph: GraphModel
+  missing_seed_block_ids: tuple[BlockID, ...]
+  truncated: bool
 
 
 class PathFound(pydantic.BaseModel):

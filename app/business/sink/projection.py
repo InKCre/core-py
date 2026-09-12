@@ -6,31 +6,18 @@ import base64
 import dataclasses
 import datetime
 import enum
-import inspect
 import json
 import typing
 
 import pydantic
 
 from app.business.info_base.resolver import ResolverManager
-from app.schemas.info_base.block import BlockModel, ResolverType
+from app.schemas.info_base.block import BlockModel
 
 from .contracts import ContentMode
 
 
 INLINE_BUDGET = 64 * 1024
-_READ_PREFIXES = ("get_", "read_")
-
-
-@dataclasses.dataclass(frozen=True)
-class ResolverMethodContract:
-  name: str
-  description: str
-  input_model: type[pydantic.BaseModel]
-
-  @property
-  def input_schema(self) -> dict[str, typing.Any]:
-    return self.input_model.model_json_schema()
 
 
 def block_preview(block: BlockModel) -> dict[str, typing.Any]:
@@ -201,53 +188,3 @@ def project_value(
       resources.extend(nested)
     return result_list, resources
   raise TypeError(f"Unsupported projected content type: {type(value).__name__}")
-
-
-def resolver_method_contracts(
-  resolver: ResolverType,
-) -> tuple[ResolverMethodContract, ...]:
-  resolver_cls = ResolverManager.RESOLVER_CLS.get(resolver)
-  if resolver_cls is None:
-    return ()
-  contracts: list[ResolverMethodContract] = []
-  for name, function in inspect.getmembers(resolver_cls, predicate=inspect.isfunction):
-    if name.startswith("_") or not name.startswith(_READ_PREFIXES):
-      continue
-    try:
-      signature = inspect.signature(function, eval_str=True)
-      fields: dict[str, tuple[typing.Any, typing.Any]] = {}
-      for parameter in signature.parameters.values():
-        if parameter.name == "self":
-          continue
-        if parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD):
-          raise TypeError("Variadic Resolver methods are not projectable")
-        if parameter.annotation is inspect.Parameter.empty:
-          raise TypeError("Resolver method parameters must be typed")
-        default = ... if parameter.default is inspect.Parameter.empty else parameter.default
-        fields[parameter.name] = (parameter.annotation, default)
-      input_model = typing.cast(typing.Any, pydantic.create_model)(
-        f"{resolver_cls.__name__}_{name}_Arguments",
-        __config__=pydantic.ConfigDict(extra="forbid"),
-        **fields,
-      )
-      input_model.model_json_schema()
-    except (NameError, TypeError, pydantic.PydanticSchemaGenerationError):
-      continue
-    contracts.append(
-      ResolverMethodContract(
-        name=name,
-        description=inspect.getdoc(function) or name.replace("_", " "),
-        input_model=input_model,
-      )
-    )
-  return tuple(contracts)
-
-
-def get_resolver_method(
-  resolver: ResolverType,
-  name: str,
-) -> ResolverMethodContract | None:
-  return next(
-    (contract for contract in resolver_method_contracts(resolver) if contract.name == name),
-    None,
-  )

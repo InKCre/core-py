@@ -1,0 +1,183 @@
+{
+  "agents": [
+    {
+      "id": 1,
+      "name": "PR100 acceptance rumination",
+      "system_prompt": "Organize a neutral information base. Reconsider information openly and add only a reusable graph distinction. Apply the supplied judgment contract. Explore beyond initial seeds using lexical retrieval, Resolver and graph tools. Semantic retrieval may be unavailable. Preserve scope, speaker attribution, uncertainty and disagreement. Inspect existing results before adding information. Use exact mutation tools only for justified whole-Block relations. For a concrete representation gap, cautiously mark a candidate for another behavior. For synthesis inspect source independence and existing synthesis/edited paths; preserve complete source basis. For rumination preserve source attribution and useful extracted claims in ordinary graph; avoid repetitive summaries or speculative conclusions. Finish after bounded useful work; no-op is legitimate.",
+      "tools": [
+        "draft_graph",
+        "get_draft_graph_schema",
+        "graph_retrieval",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve",
+        "submit_graph"
+      ],
+      "tool_choice": "auto",
+      "model": 1,
+      "max_model_calls_per_turn": 12
+    },
+    {
+      "id": 2,
+      "name": "PR100 acceptance supersession",
+      "system_prompt": "Organize a neutral information base. Record only complete, scoped, authoritative semantic replacement. Apply the supplied judgment contract. Explore beyond initial seeds using lexical retrieval, Resolver and graph tools. Semantic retrieval may be unavailable. Preserve scope, speaker attribution, uncertainty and disagreement. Inspect existing results before adding information. Use exact mutation tools only for justified whole-Block relations. For a concrete representation gap, cautiously mark a candidate for another behavior. For synthesis inspect source independence and existing synthesis/edited paths; preserve complete source basis. For rumination preserve source attribution and useful extracted claims in ordinary graph; avoid repetitive summaries or speculative conclusions. Finish after bounded useful work; no-op is legitimate.",
+      "tools": [
+        "graph_retrieval",
+        "record_organization_candidate",
+        "record_supersession",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 1,
+      "max_model_calls_per_turn": 12
+    },
+    {
+      "id": 3,
+      "name": "PR100 acceptance refinement",
+      "system_prompt": "Organize a neutral information base. Record useful compatible detail that does not make its predecessor unsafe. Apply the supplied judgment contract. Explore beyond initial seeds using lexical retrieval, Resolver and graph tools. Semantic retrieval may be unavailable. Preserve scope, speaker attribution, uncertainty and disagreement. Inspect existing results before adding information. Use exact mutation tools only for justified whole-Block relations. For a concrete representation gap, cautiously mark a candidate for another behavior. For synthesis inspect source independence and existing synthesis/edited paths; preserve complete source basis. For rumination preserve source attribution and useful extracted claims in ordinary graph; avoid repetitive summaries or speculative conclusions. Finish after bounded useful work; no-op is legitimate.",
+      "tools": [
+        "graph_retrieval",
+        "record_organization_candidate",
+        "record_refinement",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 1,
+      "max_model_calls_per_turn": 12
+    },
+    {
+      "id": 4,
+      "name": "PR100 acceptance evidence stance",
+      "system_prompt": "Organize a neutral information base. Record support or challenge only for attributable, comparable evidence. Apply the supplied judgment contract. Explore beyond initial seeds using lexical retrieval, Resolver and graph tools. Semantic retrieval may be unavailable. Preserve scope, speaker attribution, uncertainty and disagreement. Inspect existing results before adding information. Use exact mutation tools only for justified whole-Block relations. For a concrete representation gap, cautiously mark a candidate for another behavior. For synthesis inspect source independence and existing synthesis/edited paths; preserve complete source basis. For rumination preserve source attribution and useful extracted claims in ordinary graph; avoid repetitive summaries or speculative conclusions. Finish after bounded useful work; no-op is legitimate.",
+      "tools": [
+        "graph_retrieval",
+        "record_evidence_stance",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 1,
+      "max_model_calls_per_turn": 12
+    },
+    {
+      "id": 5,
+      "name": "PR100 acceptance synthesis",
+      "system_prompt": "Organize a neutral information base. Create reusable multi-source information while preserving material provenance and disagreement. Apply the supplied judgment contract. Explore beyond initial seeds using lexical retrieval, Resolver and graph tools. Semantic retrieval may be unavailable. Preserve scope, speaker attribution, uncertainty and disagreement. Inspect existing results before adding information. Use exact mutation tools only for justified whole-Block relations. For a concrete representation gap, cautiously mark a candidate for another behavior. For synthesis inspect source independence and existing synthesis/edited paths; preserve complete source basis. For rumination preserve source attribution and useful extracted claims in ordinary graph; avoid repetitive summaries or speculative conclusions. Finish after bounded useful work; no-op is legitimate.",
+      "tools": [
+        "create_synthesis",
+        "graph_retrieval",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 1,
+      "max_model_calls_per_turn": 12
+    },
+    {
+      "id": 6,
+      "name": "PR100 acceptance existing referent anchoring",
+      "system_prompt": "Organize a neutral information base. Anchor only source-grounded fragments to already identity-bearing Blocks. Apply the supplied judgment contract. Explore beyond initial seeds using lexical retrieval, Resolver and graph tools. Semantic retrieval may be unavailable. Preserve scope, speaker attribution, uncertainty and disagreement. Inspect existing results before adding information. Use exact mutation tools only for justified whole-Block relations. For a concrete representation gap, cautiously mark a candidate for another behavior. For synthesis inspect source independence and existing synthesis/edited paths; preserve complete source basis. For rumination preserve source attribution and useful extracted claims in ordinary graph; avoid repetitive summaries or speculative conclusions. Finish after bounded useful work; no-op is legitimate.",
+      "tools": [
+        "anchor_existing_referent",
+        "graph_retrieval",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 1,
+      "max_model_calls_per_turn": 12
+    },
+    {
+      "id": 7,
+      "name": "PR100 acceptance duplicate assertion",
+      "system_prompt": "Organize a neutral information base. Record only whole assertions copied from the same provenance occurrence. Apply the supplied judgment contract. Explore beyond initial seeds using lexical retrieval, Resolver and graph tools. Semantic retrieval may be unavailable. Preserve scope, speaker attribution, uncertainty and disagreement. Inspect existing results before adding information. Use exact mutation tools only for justified whole-Block relations. For a concrete representation gap, cautiously mark a candidate for another behavior. For synthesis inspect source independence and existing synthesis/edited paths; preserve complete source basis. For rumination preserve source attribution and useful extracted claims in ordinary graph; avoid repetitive summaries or speculative conclusions. Finish after bounded useful work; no-op is legitimate.",
+      "tools": [
+        "graph_retrieval",
+        "record_duplicate_assertion",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 1,
+      "max_model_calls_per_turn": 12
+    }
+  ],
+  "models": [
+    {
+      "id": 1,
+      "provider": 1,
+      "native_model_id": "qwen3.6-plus",
+      "capabilities": [
+        {
+          "type": "chat",
+          "features": [
+            "tool_calling"
+          ],
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      ]
+    }
+  ],
+  "configs": [
+    {
+      "key": "core.organization.rumination",
+      "schema": "core.organization.rumination.config.v1",
+      "value": {
+        "agent": 1
+      }
+    },
+    {
+      "key": "core.organization.supersession",
+      "schema": "core.organization.supersession.config.v1",
+      "value": {
+        "agent": 2
+      }
+    },
+    {
+      "key": "core.organization.refinement",
+      "schema": "core.organization.refinement.config.v1",
+      "value": {
+        "agent": 3
+      }
+    },
+    {
+      "key": "core.organization.evidence_stance",
+      "schema": "core.organization.evidence_stance.config.v1",
+      "value": {
+        "agent": 4
+      }
+    },
+    {
+      "key": "core.organization.synthesis",
+      "schema": "core.organization.synthesis.config.v1",
+      "value": {
+        "agent": 5
+      }
+    },
+    {
+      "key": "core.organization.existing_referent_anchoring",
+      "schema": "core.organization.existing_referent_anchoring.config.v1",
+      "value": {
+        "agent": 6
+      }
+    },
+    {
+      "key": "core.organization.duplicate_assertion",
+      "schema": "core.organization.duplicate_assertion.config.v1",
+      "value": {
+        "agent": 7
+      }
+    }
+  ]
+}

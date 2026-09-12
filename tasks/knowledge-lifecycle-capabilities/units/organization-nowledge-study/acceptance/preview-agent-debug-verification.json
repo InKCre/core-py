@@ -1,0 +1,260 @@
+{
+  "source": "cebf2fa",
+  "purpose": "live preview debug trace verification",
+  "job": {
+    "id": 20,
+    "type": "core.organization.rumination.automatic.v1",
+    "parameters": {
+      "max_seeds": 3
+    },
+    "state": {},
+    "timeout_seconds": 300,
+    "status": "finished",
+    "created_at": "2026-09-10T07:48:19.966502+00:00",
+    "started_at": "2026-09-10T07:48:41.466674+00:00",
+    "closed_at": "2026-09-10T07:49:12.501139+00:00"
+  },
+  "events": [
+    {
+      "event": "agent.thread.created",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "agent_id": 8,
+      "agent_name": "Agent debug read verification",
+      "state": {
+        "model": 2,
+        "tools": [
+          {
+            "id": "resolver",
+            "description": "Describe or invoke public typed read methods on exact Block Resolvers.",
+            "input_schema": {
+              "$defs": {
+                "JsonValue": {},
+                "ResolverMethodCall": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "block": {
+                      "title": "Block",
+                      "type": "integer"
+                    },
+                    "method": {
+                      "title": "Method",
+                      "type": "string"
+                    },
+                    "arguments": {
+                      "additionalProperties": {
+                        "$ref": "#/$defs/JsonValue"
+                      },
+                      "title": "Arguments",
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "block",
+                    "method"
+                  ],
+                  "title": "ResolverMethodCall",
+                  "type": "object"
+                }
+              },
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "enum": [
+                    "describe",
+                    "invoke"
+                  ],
+                  "title": "Action",
+                  "type": "string"
+                },
+                "resolvers": {
+                  "default": [],
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Resolvers",
+                  "type": "array"
+                },
+                "blocks": {
+                  "default": [],
+                  "items": {
+                    "type": "integer"
+                  },
+                  "title": "Blocks",
+                  "type": "array"
+                },
+                "calls": {
+                  "default": [],
+                  "items": {
+                    "$ref": "#/$defs/ResolverMethodCall"
+                  },
+                  "maxItems": 20,
+                  "title": "Calls",
+                  "type": "array"
+                }
+              },
+              "required": [
+                "action"
+              ],
+              "title": "ResolverMetaToolInput",
+              "type": "object"
+            }
+          }
+        ],
+        "tool_choice": "auto",
+        "max_model_calls_per_turn": 12,
+        "messages": [
+          {
+            "type": "system",
+            "content": "This is a development trace verification. Read the focal Block using resolver action invoke, method get_text, block=focal_block.id. After a successful read, finish briefly. Do not modify information."
+          }
+        ]
+      }
+    },
+    {
+      "event": "agent.turn.started",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "turn": 1,
+      "input": {
+        "type": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"available_draft_resolvers\":[{\"description\":\"Create one ordinary plain-text semantic content Block.\",\"resolver\":\"core.text.v1\"}],\"direct_relations\":[],\"focal_block\":{\"id\":45,\"resolver\":\"core.text.v1\",\"text\":\"Agent debug verification ff853545-5a5b-4636-baff-f59bd0b28606\"},\"request\":\"ruminate\"}"
+          }
+        ]
+      },
+      "model": 2,
+      "max_model_calls": 12
+    },
+    {
+      "event": "agent.model.started",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "turn": 1,
+      "call": 1
+    },
+    {
+      "event": "agent.model.completed",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "turn": 1,
+      "call": 1,
+      "response": {
+        "type": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_4d57bda21ad94b2bba09da66",
+            "tool": "resolver",
+            "arguments": {
+              "action": "invoke",
+              "calls": [
+                {
+                  "block": 45,
+                  "method": "get_text"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "elapsed_seconds": 4.637252544998773
+    },
+    {
+      "event": "agent.tool.started",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "turn": 1,
+      "call": 1,
+      "tool_call": {
+        "id": "call_4d57bda21ad94b2bba09da66",
+        "tool": "resolver",
+        "arguments": {
+          "action": "invoke",
+          "calls": [
+            {
+              "block": 45,
+              "method": "get_text"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "event": "agent.tool.completed",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "turn": 1,
+      "call": 1,
+      "tool": "resolver",
+      "result": {
+        "tool_call_id": "call_4d57bda21ad94b2bba09da66",
+        "content": {
+          "results": [
+            {
+              "index": 0,
+              "block": 45,
+              "method": "get_text",
+              "result": "Agent debug verification ff853545-5a5b-4636-baff-f59bd0b28606"
+            }
+          ]
+        },
+        "is_error": false
+      },
+      "elapsed_seconds": 0.8561503579985583
+    },
+    {
+      "event": "agent.model.started",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "turn": 1,
+      "call": 2
+    },
+    {
+      "event": "agent.model.completed",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "turn": 1,
+      "call": 2,
+      "response": {
+        "type": "assistant",
+        "content": "Read successful.\n\nBlock 45 text: \"Agent debug verification ff853545-5a5b-4636-baff-f59bd0b28606\"",
+        "tool_calls": []
+      },
+      "elapsed_seconds": 5.588311496001552
+    },
+    {
+      "event": "agent.turn.finished",
+      "thread_id": "71cffed0-5509-4b97-9f6c-a9bd3299b48c",
+      "trace_id": "job.20",
+      "turn": 1,
+      "model_calls": 2,
+      "outcome": "completed",
+      "elapsed_seconds": 17.56353322599898
+    }
+  ],
+  "event_counts": {
+    "agent.thread.created": 1,
+    "agent.turn.started": 1,
+    "agent.model.started": 2,
+    "agent.model.completed": 2,
+    "agent.tool.started": 1,
+    "agent.tool.completed": 1,
+    "agent.turn.finished": 1
+  },
+  "verified": true,
+  "cleaned": {
+    "ai_providers": 2,
+    "ai_models": 2,
+    "agents": 8,
+    "blocks": 45,
+    "jobs": 20
+  },
+  "cleaned_block_ids": [
+    45,
+    46
+  ],
+  "remaining_blocks": []
+}

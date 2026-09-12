@@ -1,0 +1,58 @@
+[
+  {
+    "tool": "resolver",
+    "request": {
+      "action": "invoke",
+      "calls": [
+        {
+          "block_id": 17,
+          "method": "get_text",
+          "arguments": {}
+        }
+      ]
+    },
+    "valid": true,
+    "usage": {
+      "completion_tokens": 152,
+      "prompt_tokens": 2426,
+      "total_tokens": 2578,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": null,
+        "audio_tokens": null,
+        "reasoning_tokens": 89,
+        "rejected_prediction_tokens": null,
+        "text_tokens": 152
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": null,
+        "cached_tokens": null,
+        "text_tokens": 2426
+      }
+    }
+  },
+  {
+    "tool": "get_entity_neighborhood",
+    "request": {
+      "entity_type": "relation",
+      "entity_id": 17
+    },
+    "valid": true,
+    "usage": {
+      "completion_tokens": 174,
+      "prompt_tokens": 839,
+      "total_tokens": 1013,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": null,
+        "audio_tokens": null,
+        "reasoning_tokens": 127,
+        "rejected_prediction_tokens": null,
+        "text_tokens": 174
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": null,
+        "cached_tokens": null,
+        "text_tokens": 839
+      }
+    }
+  }
+]

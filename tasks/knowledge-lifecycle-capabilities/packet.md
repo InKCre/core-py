@@ -1,29 +1,37 @@
 # Knowledge Lifecycle Capabilities
 
-- **Objective**: 增强 InKCre 的收集、整理与应用能力，并让每个可实现单元从产品设计、
-  技术设计、验收、实现计划与 preflight 可审计地进入实现。
+- **Objective**: 增强 InKCre 的收集、整理与应用能力，使三条 capability action axis 都能由准确的 Core / Extension
+  owner 扩展，并让每个可实现单元从产品设计、技术设计、验收、实现计划与 preflight 可审计地进入实现。
 - **Guardrails**: 收集、整理、应用是能力动作而非信息状态；block / relation graph 是
-  info-base 的持久 authority；横切机制只由具体单元的真实压力推动；durable docs 与业务代码
+  info-base 的持久 authority；Extension contribution 不创建第二套 graph authority，也不因 first-party status 自动
+  成为 Core；横切机制只由具体单元的真实压力推动；durable docs 与业务代码
   各自只有在完成对应 Impact Handshake 且 Sir 明确“开始”后才修改，并按 owner 分离操作。
 - **Verification**: 每个 active unit 必须拥有自己的可执行验收合同、阶段 gate、Impact
   Handshake 与验证结果；D-049 要求结构性验证优先交给 static mechanisms，runtime acceptance
   black-box-first。Program 完成还要求所有获批 durable truth 回到唯一 owner。
-- **Current Truth**: program 拆分和术语基线已经形成；InKCre 的长期产品事实是不建立 terminal-user、tenant
+- **Current Truth**: program 拆分和术语基线已经形成；parallel Unit sessions 是平等、默认正交的 owner，没有 standing
+  coordinator；parent task 没有统一的 Product / Technical / Execute phase，每个 implementable Unit 独立拥有 delivery
+  loop。各 session 维护自己的 Unit packet，并只为本 Unit 的登记、阶段或集成结果最小更新共享 task control。
+  InKCre 的长期产品事实是不建立 terminal-user、tenant
   或 per-user ownership/ACL domain；deployment 是单一 owner context，runtime nodes 称为 peers（D-033/D-109）。
   Memos、RSS、Mail、semantic retrieval、feature/lexical retrieval 与 graph-navigation retrieval 均已关闭；
   current summaries live in [capability-map.md](capability-map.md)，details stay in each unit packet and the
   [decision register](decisions/index.md)。GitHub extension 的 collection-side correction remains queued, but no longer
   blocks root-usability selection after ownership corrections merged。
-- **Next Step**: 完成 [MCP sink](units/mcp-sink/packet.md) implementation、cross-repository Runtime release/pin 与
-  deterministic/preview acceptance。Current selection premise remains：
-  info-base query 三类基础 primitive 已经具备；为了让 InKCre 更可用，下一缺口更可能是 sink。MCP sink MVP 的边界是
-  **Agent retrieves InKCre**，不是写作、设计或其他最终工作类型。This does not authorize or imply a generic sink
-  framework。
+- **Next Step**: closed MCP and Telegram fronts remain integrated；the
+  [organization Nowledge vertical](units/organization-nowledge-study/packet.md) completed its Product mechanism review and anti-
+  overlearning audit under D-493 and its whole implementation under D-527。It is now in Verify / Acceptance；its results do not
+  authorize a generic organization framework。
 
 ## Program Boundary
 
+任务级可复用模式：[Agent Tool 设计与诊断](common-patterns/agent-tools.md)。这是当前 task 的共同设计依据；
+具体工具的批准状态与落地仍归对应 unit，不因模式沉淀而扩大实施范围。
+
 - **Collection**: 现有 sources、memo-like、CalDAV、Nextcloud Files、Apple Notes。
 - **Organization**: 以改善 use 为目标；breakdown、merge、linking 是已知能力，不是完备枚举。
+  Organization 与 Collection、Use 一样是 Extension growth axis；exact contribution seam 必须由获批的具体 behavior
+  及其 authority/effect/Acceptance 反推，不预设 generic organization hook。
 - **Use / Application**: info-base query 与 sink。Query 包含特征检索、语义检索、图导航检索；indexing 是应用支撑，
   不属于 organization。Sink 是相对 source 的 downstream delivery capability：让 downstream actors 在自己的工作
   上下文中使用被选择的 info-base information，而不接管 graph authority。
@@ -33,13 +41,22 @@
 - deployment-scoped single-owner 是长期产品边界；外部 source account 或协议中的 `user` 不自动成为 InKCre core
   domain user，也不引入 tenant 或 per-user ownership/AC。
 
-## Active Implementable Unit
+## Active Units
 
-[MCP sink](units/mcp-sink/packet.md) 是当前已登记的 active implementable Unit，处于 Execute。
+[MCP sink](units/mcp-sink/packet.md) 已通过 PR #88 合并并关闭。
 
 MCP sink MVP 复用现有 retrieval primitives，让外部 Agent/tool client 检索 InKCre 并取得可用的
 block/relation/solved-content context；最终用于写作、设计、编码还是 chat，由 caller 拥有。它不授权 generic sink
 framework。
+
+[Organization Nowledge vertical](units/organization-nowledge-study/packet.md) 是处于 Verify / Acceptance 的 active
+implementation Unit。逐项 Nowledge study 与 D-493 transfer audit 是它已完成的 Product phase；D-495 修正了将其误判
+为 research-only Unit 的错误，D-496 修正了继续拆 delivery slices 的错误。整组实现及多轮真实 preview/provider
+验收已执行；PR #100 当前范围的合并准备已完成，不执行合并。递归环检测已修复；D-561 的 lineage 同步读取
+线程修正已推送，小图实际读取与并行健康响应通过，临时资源已清理。已知 SQL 性能问题延期，不增加大图验收门槛。
+整组 Job 均结束不等于所有 seeds 或图语义正确；保留语义误判、预算耗尽
+未观测项与未覆盖输入的残余，不能写成
+整组语义验收通过。内部平行行为不获得独立 phase/gate。
 
 [GitHub extension](units/github-extension/packet.md) 的首轮实现和真实账号 acceptance 已随 PR #80 合并；durable
 owner 与 core/Extension catalog 错误已由独立 correction 关闭，但 batch graph interface、PyGithub integration、
@@ -67,7 +84,8 @@ resolver/hydration contract 而重新打开。
 [Memos extension](units/memos-extension/packet.md) 已关闭；future collector/product generations 不继承其
 backend MVP approval。
 
-每个 session 同一时刻最多推进一个 active Unit；program 可以在 [parallel roster](collaboration/roster.md) 中声明
+每个 session 同一时刻最多推进一个 active Unit；parallel sessions 是默认正交的 peers，program 可以在
+[parallel roster](collaboration/roster.md) 中声明
 多个并行 active Units。每个 Unit 必须拥有独立 branch/worktree、decision range、owner surface 与 dependency/overlap
 说明。supporting documents 不维护独立 phase 或 `Current question`；它们由 unit packet 路由。
 

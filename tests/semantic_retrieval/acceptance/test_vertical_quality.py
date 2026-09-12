@@ -28,7 +28,7 @@ from app.business.organization import (
   RUMINATION_CONFIG_KEY,
   RUMINATION_CONFIG_SCHEMA,
   SUBMIT_GRAPH_TOOL,
-  OrganizationManager,
+  RuminationBehaviorResolver,
 )
 from app.business.semantic_retrieval import SemanticRetrievalManager
 from app.business.job import JobManager
@@ -695,7 +695,7 @@ async def _exercise_quality(
       include_out=True,
     )
   }
-  await OrganizationManager.ruminate_local(sqlite_id)
+  await RuminationBehaviorResolver.ruminate_local(sqlite_id)
   interpretation = max(
     (
       relation

@@ -1,0 +1,4353 @@
+{
+  "model": "qwen3.6-plus",
+  "budget": 24,
+  "checkpoint": 12,
+  "cases": [
+    {
+      "behavior": "evidence stance",
+      "seed": 11,
+      "calls": [
+        {
+          "index": 1,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 11,
+                    "method": "content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 10,
+                    "method": "content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 13,
+                    "method": "content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 24,
+                    "method": "content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 33,
+                    "method": "content",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 11,
+                    "method": "content",
+                    "error": "ValueError",
+                    "message": "Resolver method is not available"
+                  },
+                  {
+                    "index": 1,
+                    "block": 10,
+                    "method": "content",
+                    "error": "ValueError",
+                    "message": "Resolver method is not available"
+                  },
+                  {
+                    "index": 2,
+                    "block": 13,
+                    "method": "content",
+                    "error": "ValueError",
+                    "message": "Resolver method is not available"
+                  },
+                  {
+                    "index": 3,
+                    "block": 24,
+                    "method": "content",
+                    "error": "ValueError",
+                    "message": "Resolver method is not available"
+                  },
+                  {
+                    "index": 4,
+                    "block": 33,
+                    "method": "content",
+                    "error": "ValueError",
+                    "message": "Resolver method is not available"
+                  }
+                ]
+              },
+              "result_digest": "c91d91ebd8bdf372a8ce0ce65ef345e062178d45f26231641b172f98f9ffd625"
+            }
+          ],
+          "seconds": 10.68,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 11,
+                    "method": "content"
+                  },
+                  {
+                    "block": 10,
+                    "method": "content"
+                  },
+                  {
+                    "block": 13,
+                    "method": "content"
+                  },
+                  {
+                    "block": 24,
+                    "method": "content"
+                  },
+                  {
+                    "block": 33,
+                    "method": "content"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 2,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "describe",
+                "resolvers": [
+                  "core.text.v1"
+                ],
+                "blocks": [],
+                "calls": []
+              },
+              "result": {
+                "results": [
+                  {
+                    "resolver": "core.text.v1",
+                    "methods": [
+                      {
+                        "name": "get_label",
+                        "description": "Return one concise, stable, Block-local resolver-qualified label.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_label_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_raw_content",
+                        "description": "Delegate hydrated-content mechanics and caching to the block instance.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_raw_content_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_relations",
+                        "description": "Get relations of the block.\n\n:param include_in: bool, whether to get incoming relations. Default True.\n:param include_out: bool, whether to get outgoing relations. Default True.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "include_in": {
+                              "default": true,
+                              "title": "Include In",
+                              "type": "boolean"
+                            },
+                            "include_out": {
+                              "default": true,
+                              "title": "Include Out",
+                              "type": "boolean"
+                            },
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_relations_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_solved_content",
+                        "description": "Return use-facing semantic completion after any permitted lazy work.\n\nThe result does not expose whether internal mechanics created、reused、raced\nor fetched content unless that fact belongs to the solved domain semantics.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            },
+                            "materialize_missing": {
+                              "default": true,
+                              "title": "Materialize Missing",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_solved_content_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_text",
+                        "description": "Return a Block-local text projection for one stable use context.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "context": {
+                              "default": "default",
+                              "enum": [
+                                "default",
+                                "lexical"
+                              ],
+                              "title": "Context",
+                              "type": "string"
+                            },
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            },
+                            "materialize_missing": {
+                              "default": true,
+                              "title": "Materialize Missing",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_text_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_transfer_url",
+                        "description": "Return an optional Storage-owned transfer hint for this exact pointer.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {},
+                          "title": "TextResolver_get_transfer_url_Arguments",
+                          "type": "object"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "missing_blocks": [],
+                "missing_resolvers": []
+              },
+              "result_digest": "8b22ac2991f8a5d43e3cc47cf5803e2da2a1c3ff63d860c8bbc2330be742d0f6"
+            }
+          ],
+          "seconds": 2.08,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "describe",
+                "resolvers": [
+                  "core.text.v1"
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 3,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 11,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 10,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 13,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 24,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 33,
+                    "method": "get_text",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 11,
+                    "method": "get_text",
+                    "result": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure."
+                  },
+                  {
+                    "index": 1,
+                    "block": 10,
+                    "method": "get_text",
+                    "result": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause."
+                  },
+                  {
+                    "index": 2,
+                    "block": 13,
+                    "method": "get_text",
+                    "result": "Checkout application team hypothesis, written before load replay.\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion."
+                  },
+                  {
+                    "index": 3,
+                    "block": 24,
+                    "method": "get_text",
+                    "result": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged."
+                  },
+                  {
+                    "index": 4,
+                    "block": 33,
+                    "method": "get_text",
+                    "result": "Connection-wait spikes and retry amplification were observed by the database team"
+                  }
+                ]
+              },
+              "result_digest": "e6b7e4cfd417e3051953a833a306427da33f7fe65d31efe9cd3c18a2f6b410ba"
+            }
+          ],
+          "seconds": 3.23,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 11,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 10,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 13,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 24,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 33,
+                    "method": "get_text"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 4,
+          "tools": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "query": "Nimbus incident retry amplification database connection routing",
+                "mode": "lexical",
+                "limit": 20
+              },
+              "result": {
+                "lexical": {
+                  "matches": [
+                    {
+                      "block": {
+                        "storage": null,
+                        "resolver": "core.text.v1",
+                        "content": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged.",
+                        "id": 24,
+                        "created_at": "2026-09-10T06:37:38.793540Z",
+                        "updated_at": "2026-09-10T06:37:38.793540Z"
+                      },
+                      "label": "text <Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal spec…>",
+                      "excerpt": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evide…",
+                      "evidence": "terms",
+                      "rank": 1.0052668051794171
+                    },
+                    {
+                      "block": {
+                        "storage": null,
+                        "resolver": "core.text.v1",
+                        "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+                        "id": 11,
+                        "created_at": "2026-09-10T06:37:38.793540Z",
+                        "updated_at": "2026-09-10T06:37:38.793540Z"
+                      },
+                      "label": "text <Database team observation for the Nimbus incident review.>",
+                      "excerpt": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+                      "evidence": "terms",
+                      "rank": 1.0045454544015229
+                    }
+                  ]
+                }
+              },
+              "result_digest": "03e452791d8a5fcb54246147be8652425896b4b0a4abb05bd1a6afe95904f0a6"
+            }
+          ],
+          "seconds": 18.54,
+          "requests": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "limit": 20,
+                "mode": "lexical",
+                "query": "Nimbus incident retry amplification database connection routing"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 5,
+          "tools": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "query": "Nimbus checkout error routing change retry",
+                "mode": "lexical",
+                "limit": 20
+              },
+              "result": {
+                "lexical": {
+                  "matches": []
+                }
+              },
+              "result_digest": "967afb0cc2f27d71c89b741e30d0e5428285f9643d3921829f3bcc8f0cb05270"
+            }
+          ],
+          "seconds": 3.23,
+          "requests": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "limit": 20,
+                "mode": "lexical",
+                "query": "Nimbus checkout error routing change retry"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 6,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 11,
+                    "method": "get_relations",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 10,
+                    "method": "get_relations",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 13,
+                    "method": "get_relations",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 11,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 11,
+                        "to_": 10,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "responds to",
+                        "id": 5
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 11,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "references-incident-finding",
+                        "id": 14
+                      },
+                      {
+                        "from_": 33,
+                        "to_": 11,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "refers to",
+                        "id": 28
+                      },
+                      {
+                        "from_": 11,
+                        "to_": 13,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "supports",
+                        "id": 36
+                      }
+                    ]
+                  },
+                  {
+                    "index": 1,
+                    "block": 10,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 13,
+                        "to_": 10,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "responds to",
+                        "id": 4
+                      },
+                      {
+                        "from_": 11,
+                        "to_": 10,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "responds to",
+                        "id": 5
+                      },
+                      {
+                        "from_": 12,
+                        "to_": 10,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "responds to",
+                        "id": 6
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 10,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "references-incident-finding",
+                        "id": 13
+                      },
+                      {
+                        "from_": 34,
+                        "to_": 10,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "refers to",
+                        "id": 30
+                      }
+                    ]
+                  },
+                  {
+                    "index": 2,
+                    "block": 13,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 13,
+                        "to_": 10,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "responds to",
+                        "id": 4
+                      },
+                      {
+                        "from_": 11,
+                        "to_": 13,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "supports",
+                        "id": 36
+                      }
+                    ]
+                  }
+                ]
+              },
+              "result_digest": "973cf155283569bf90bcccf42a000355fa237493b8d934c93514e527accc619e"
+            }
+          ],
+          "seconds": 2.44,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 11,
+                    "method": "get_relations"
+                  },
+                  {
+                    "block": 10,
+                    "method": "get_relations"
+                  },
+                  {
+                    "block": 13,
+                    "method": "get_relations"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 7,
+          "tools": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "describe",
+                "methods": [
+                  "neighbors"
+                ],
+                "calls": []
+              },
+              "result": {
+                "methods": [],
+                "missing_methods": [
+                  "neighbors"
+                ]
+              },
+              "result_digest": "891464da84ed6a8dff76334478d31bbadd519c24384aeb4a06fd96ae470a8413"
+            }
+          ],
+          "seconds": 1.47,
+          "requests": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "describe",
+                "methods": [
+                  "neighbors"
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 8,
+          "tools": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "describe",
+                "methods": [],
+                "calls": []
+              },
+              "result": {
+                "methods": [
+                  {
+                    "name": "find_path",
+                    "description": "find path",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "from_block": {
+                          "title": "From Block",
+                          "type": "integer"
+                        },
+                        "to_block": {
+                          "title": "To Block",
+                          "type": "integer"
+                        },
+                        "direction": {
+                          "default": "both",
+                          "enum": [
+                            "in",
+                            "out",
+                            "both"
+                          ],
+                          "title": "Direction",
+                          "type": "string"
+                        },
+                        "contents": {
+                          "default": [],
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Contents",
+                          "type": "array"
+                        },
+                        "max_hops": {
+                          "default": 4,
+                          "title": "Max Hops",
+                          "type": "integer"
+                        },
+                        "max_explored_blocks": {
+                          "default": 1000,
+                          "title": "Max Explored Blocks",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "from_block",
+                        "to_block"
+                      ],
+                      "title": "GraphNavigation_find_path_Arguments",
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "name": "get_block_neighborhood",
+                    "description": "get block neighborhood",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "focal_block": {
+                          "title": "Focal Block",
+                          "type": "integer"
+                        },
+                        "direction": {
+                          "default": "both",
+                          "enum": [
+                            "in",
+                            "out",
+                            "both"
+                          ],
+                          "title": "Direction",
+                          "type": "string"
+                        },
+                        "contents": {
+                          "default": [],
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Contents",
+                          "type": "array"
+                        },
+                        "limit": {
+                          "default": 20,
+                          "title": "Limit",
+                          "type": "integer"
+                        },
+                        "cursor": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "title": "Cursor"
+                        }
+                      },
+                      "required": [
+                        "focal_block"
+                      ],
+                      "title": "GraphNavigation_get_block_neighborhood_Arguments",
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "name": "get_connected_components",
+                    "description": "Partition existing seeds by bounded undirected exact-content reachability.",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "seed_block_ids": {
+                          "items": {
+                            "type": "integer"
+                          },
+                          "title": "Seed Block Ids",
+                          "type": "array"
+                        },
+                        "contents": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Contents",
+                          "type": "array"
+                        },
+                        "max_explored_blocks": {
+                          "default": 1000,
+                          "title": "Max Explored Blocks",
+                          "type": "integer"
+                        },
+                        "max_explored_relations": {
+                          "default": 10000,
+                          "title": "Max Explored Relations",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seed_block_ids",
+                        "contents"
+                      ],
+                      "title": "GraphNavigation_get_connected_components_Arguments",
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "name": "get_random_block",
+                    "description": "get random block",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {},
+                      "title": "GraphNavigation_get_random_block_Arguments",
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "name": "get_relation_neighborhood",
+                    "description": "get relation neighborhood",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "focal_relation": {
+                          "title": "Focal Relation",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "focal_relation"
+                      ],
+                      "title": "GraphNavigation_get_relation_neighborhood_Arguments",
+                      "type": "object"
+                    }
+                  }
+                ],
+                "missing_methods": []
+              },
+              "result_digest": "c9604df99535d8c6cf3bd56d66b81dccc6150e786b081a701aa30d550cffefcb"
+            }
+          ],
+          "seconds": 1.67,
+          "requests": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "describe"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 9,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 12,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 14,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 16,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 34,
+                    "method": "get_text",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 12,
+                    "method": "get_text",
+                    "result": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors."
+                  },
+                  {
+                    "index": 1,
+                    "block": 14,
+                    "method": "get_text",
+                    "result": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction."
+                  },
+                  {
+                    "index": 2,
+                    "block": 16,
+                    "method": "get_text",
+                    "result": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged."
+                  },
+                  {
+                    "index": 3,
+                    "block": 34,
+                    "method": "get_text",
+                    "result": "The incident timeline attributes checkout errors to a routing change"
+                  }
+                ]
+              },
+              "result_digest": "323fe4b1cfb4cc9b700571aabc1882e31e4ab70616b1080aa0430ce574702a22"
+            }
+          ],
+          "seconds": 5.3,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 12,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 14,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 16,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 34,
+                    "method": "get_text"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 10,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 14,
+                    "method": "get_relations",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 16,
+                    "method": "get_relations",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 14,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 15,
+                        "to_": 14,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "cites",
+                        "id": 3
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 14,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "references-replay-finding",
+                        "id": 15
+                      },
+                      {
+                        "from_": 32,
+                        "to_": 14,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "refers to",
+                        "id": 24
+                      },
+                      {
+                        "from_": 14,
+                        "to_": 15,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "duplicates assertion",
+                        "id": 33
+                      }
+                    ]
+                  },
+                  {
+                    "index": 1,
+                    "block": 16,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 24,
+                        "to_": 16,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "distinguishes-from-revision",
+                        "id": 16
+                      },
+                      {
+                        "from_": 17,
+                        "to_": 16,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "supersedes",
+                        "id": 26
+                      },
+                      {
+                        "from_": 35,
+                        "to_": 16,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "refers to",
+                        "id": 32
+                      }
+                    ]
+                  }
+                ]
+              },
+              "result_digest": "b29b76cf4c8bd6324e74d39ad424197951db895c307dddcddd3facdc9252fe33"
+            }
+          ],
+          "seconds": 50.4,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 14,
+                    "method": "get_relations"
+                  },
+                  {
+                    "block": 16,
+                    "method": "get_relations"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 11,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 15,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 17,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 15,
+                    "method": "get_relations",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 15,
+                    "method": "get_text",
+                    "result": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction."
+                  },
+                  {
+                    "index": 1,
+                    "block": 17,
+                    "method": "get_text",
+                    "result": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes."
+                  },
+                  {
+                    "index": 2,
+                    "block": 15,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 15,
+                        "to_": 14,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "cites",
+                        "id": 3
+                      },
+                      {
+                        "from_": 14,
+                        "to_": 15,
+                        "updated_at": "2026-09-10T06:38:05",
+                        "content": "duplicates assertion",
+                        "id": 33
+                      }
+                    ]
+                  }
+                ]
+              },
+              "result_digest": "81977864359a8083b8a2a4c208fe407ccca721fde04f420cd67d3d3e2848d7cc"
+            }
+          ],
+          "seconds": 13.99,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 15,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 17,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 15,
+                    "method": "get_relations"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 12,
+          "tools": [
+            {
+              "tool": "record_evidence_stance",
+              "arguments": {
+                "evidence_id": 14,
+                "assertion_id": 13,
+                "stance": "supports"
+              },
+              "result": {
+                "relation": 38,
+                "created": true
+              },
+              "result_digest": "8e84593d64e5c439acbfcbc9162795c742a8918cf0c39c5fd1e7c42000a8459c"
+            }
+          ],
+          "seconds": 41.63,
+          "requests": [
+            {
+              "tool": "record_evidence_stance",
+              "arguments": {
+                "evidence_id": 14,
+                "assertion_id": 13,
+                "stance": "supports"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 13,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 32,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 35,
+                    "method": "get_text",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 32,
+                    "method": "get_text",
+                    "result": "Pool concentration was reproduced by the Reliability Lab replay"
+                  },
+                  {
+                    "index": 1,
+                    "block": 35,
+                    "method": "get_text",
+                    "result": "Revision 2 replaces the revision 1 approach which used a static per-pool ceiling, manual rollback, and left retry unchanged"
+                  }
+                ]
+              },
+              "result_digest": "576958cd0bdc9902a958e48d476c82d5dcdaec709fe8298a634aaaa43b2ef790"
+            }
+          ],
+          "seconds": 24.78,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 32,
+                    "method": "get_text"
+                  },
+                  {
+                    "block": 35,
+                    "method": "get_text"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 14,
+          "tools": [],
+          "seconds": 11.29,
+          "requests": [],
+          "finished": true
+        }
+      ],
+      "termination": "completed",
+      "tool_result_errors": [],
+      "final_relations": [
+        {
+          "id": 1,
+          "from_": 6,
+          "to_": 5,
+          "content": "cites"
+        },
+        {
+          "id": 2,
+          "from_": 1,
+          "to_": 2,
+          "content": "published after"
+        },
+        {
+          "id": 3,
+          "from_": 15,
+          "to_": 14,
+          "content": "cites"
+        },
+        {
+          "id": 4,
+          "from_": 13,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 5,
+          "from_": 11,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 6,
+          "from_": 12,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 7,
+          "from_": 20,
+          "to_": 18,
+          "content": "extracted causal claim from"
+        },
+        {
+          "id": 8,
+          "from_": 21,
+          "to_": 18,
+          "content": "extracted scope exclusion from"
+        },
+        {
+          "id": 9,
+          "from_": 18,
+          "to_": 19,
+          "content": "candidate for"
+        },
+        {
+          "id": 10,
+          "from_": 1,
+          "to_": 22,
+          "content": "candidate for"
+        },
+        {
+          "id": 11,
+          "from_": 23,
+          "to_": 1,
+          "content": "extracted claim from"
+        },
+        {
+          "id": 12,
+          "from_": 24,
+          "to_": 17,
+          "content": "extracted-claims-from"
+        },
+        {
+          "id": 13,
+          "from_": 24,
+          "to_": 10,
+          "content": "references-incident-finding"
+        },
+        {
+          "id": 14,
+          "from_": 24,
+          "to_": 11,
+          "content": "references-incident-finding"
+        },
+        {
+          "id": 15,
+          "from_": 24,
+          "to_": 14,
+          "content": "references-replay-finding"
+        },
+        {
+          "id": 16,
+          "from_": 24,
+          "to_": 16,
+          "content": "distinguishes-from-revision"
+        },
+        {
+          "id": 17,
+          "from_": 17,
+          "to_": 19,
+          "content": "candidate for"
+        },
+        {
+          "id": 18,
+          "from_": 1,
+          "to_": 2,
+          "content": "supersedes"
+        },
+        {
+          "id": 19,
+          "from_": 1,
+          "to_": 30,
+          "content": "synthesis"
+        },
+        {
+          "id": 20,
+          "from_": 2,
+          "to_": 30,
+          "content": "synthesis"
+        },
+        {
+          "id": 21,
+          "from_": 24,
+          "to_": 31,
+          "content": "has mention"
+        },
+        {
+          "id": 22,
+          "from_": 31,
+          "to_": 17,
+          "content": "refers to"
+        },
+        {
+          "id": 23,
+          "from_": 24,
+          "to_": 32,
+          "content": "has mention"
+        },
+        {
+          "id": 24,
+          "from_": 32,
+          "to_": 14,
+          "content": "refers to"
+        },
+        {
+          "id": 25,
+          "from_": 1,
+          "to_": 2,
+          "content": "challenges"
+        },
+        {
+          "id": 26,
+          "from_": 17,
+          "to_": 16,
+          "content": "supersedes"
+        },
+        {
+          "id": 27,
+          "from_": 24,
+          "to_": 33,
+          "content": "has mention"
+        },
+        {
+          "id": 28,
+          "from_": 33,
+          "to_": 11,
+          "content": "refers to"
+        },
+        {
+          "id": 29,
+          "from_": 24,
+          "to_": 34,
+          "content": "has mention"
+        },
+        {
+          "id": 30,
+          "from_": 34,
+          "to_": 10,
+          "content": "refers to"
+        },
+        {
+          "id": 31,
+          "from_": 24,
+          "to_": 35,
+          "content": "has mention"
+        },
+        {
+          "id": 32,
+          "from_": 35,
+          "to_": 16,
+          "content": "refers to"
+        },
+        {
+          "id": 33,
+          "from_": 14,
+          "to_": 15,
+          "content": "duplicates assertion"
+        },
+        {
+          "id": 34,
+          "from_": 24,
+          "to_": 25,
+          "content": "candidate for"
+        },
+        {
+          "id": 35,
+          "from_": 1,
+          "to_": 23,
+          "content": "duplicates assertion"
+        },
+        {
+          "id": 36,
+          "from_": 11,
+          "to_": 13,
+          "content": "supports"
+        },
+        {
+          "id": 37,
+          "from_": 17,
+          "to_": 36,
+          "content": "edited"
+        },
+        {
+          "id": 38,
+          "from_": 14,
+          "to_": 13,
+          "content": "supports"
+        }
+      ]
+    },
+    {
+      "behavior": "existing referent anchoring",
+      "seed": 24,
+      "calls": [
+        {
+          "index": 1,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "describe",
+                "resolvers": [
+                  "core.text.v1"
+                ],
+                "blocks": [],
+                "calls": []
+              },
+              "result": {
+                "results": [
+                  {
+                    "resolver": "core.text.v1",
+                    "methods": [
+                      {
+                        "name": "get_label",
+                        "description": "Return one concise, stable, Block-local resolver-qualified label.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_label_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_raw_content",
+                        "description": "Delegate hydrated-content mechanics and caching to the block instance.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_raw_content_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_relations",
+                        "description": "Get relations of the block.\n\n:param include_in: bool, whether to get incoming relations. Default True.\n:param include_out: bool, whether to get outgoing relations. Default True.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "include_in": {
+                              "default": true,
+                              "title": "Include In",
+                              "type": "boolean"
+                            },
+                            "include_out": {
+                              "default": true,
+                              "title": "Include Out",
+                              "type": "boolean"
+                            },
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_relations_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_solved_content",
+                        "description": "Return use-facing semantic completion after any permitted lazy work.\n\nThe result does not expose whether internal mechanics created、reused、raced\nor fetched content unless that fact belongs to the solved domain semantics.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            },
+                            "materialize_missing": {
+                              "default": true,
+                              "title": "Materialize Missing",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_solved_content_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_text",
+                        "description": "Return a Block-local text projection for one stable use context.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "context": {
+                              "default": "default",
+                              "enum": [
+                                "default",
+                                "lexical"
+                              ],
+                              "title": "Context",
+                              "type": "string"
+                            },
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            },
+                            "materialize_missing": {
+                              "default": true,
+                              "title": "Materialize Missing",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_text_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_transfer_url",
+                        "description": "Return an optional Storage-owned transfer hint for this exact pointer.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {},
+                          "title": "TextResolver_get_transfer_url_Arguments",
+                          "type": "object"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "missing_blocks": [],
+                "missing_resolvers": []
+              },
+              "result_digest": "8b22ac2991f8a5d43e3cc47cf5803e2da2a1c3ff63d860c8bbc2330be742d0f6"
+            }
+          ],
+          "seconds": 11.51,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "describe",
+                "resolvers": [
+                  "core.text.v1"
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 2,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 24,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 17,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 31,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 32,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 33,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 34,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 35,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 24,
+                    "method": "get_solved_content",
+                    "result": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged."
+                  },
+                  {
+                    "index": 1,
+                    "block": 17,
+                    "method": "get_solved_content",
+                    "result": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes."
+                  },
+                  {
+                    "index": 2,
+                    "block": 31,
+                    "method": "get_solved_content",
+                    "result": "the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate"
+                  },
+                  {
+                    "index": 3,
+                    "block": 32,
+                    "method": "get_solved_content",
+                    "result": "Pool concentration was reproduced by the Reliability Lab replay"
+                  },
+                  {
+                    "index": 4,
+                    "block": 33,
+                    "method": "get_solved_content",
+                    "result": "Connection-wait spikes and retry amplification were observed by the database team"
+                  },
+                  {
+                    "index": 5,
+                    "block": 34,
+                    "method": "get_solved_content",
+                    "result": "The incident timeline attributes checkout errors to a routing change"
+                  },
+                  {
+                    "index": 6,
+                    "block": 35,
+                    "method": "get_solved_content",
+                    "result": "Revision 2 replaces the revision 1 approach which used a static per-pool ceiling, manual rollback, and left retry unchanged"
+                  }
+                ]
+              },
+              "result_digest": "40e9975dc92854436f43f401794d77f52d2a2f7c7b80118380220a40ada29f2a"
+            }
+          ],
+          "seconds": 4.12,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 24,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 17,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 31,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 32,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 33,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 34,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 35,
+                    "method": "get_solved_content"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 3,
+          "tools": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "describe",
+                "methods": [
+                  "find_referents",
+                  "list_referents"
+                ],
+                "calls": []
+              },
+              "result": {
+                "methods": [],
+                "missing_methods": [
+                  "find_referents",
+                  "list_referents"
+                ]
+              },
+              "result_digest": "b0e9b454f04dc81c0ab8c22d0b517ded7ca21dd63d504e7bcb76dec3afa7a66a"
+            }
+          ],
+          "seconds": 3.06,
+          "requests": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "describe",
+                "methods": [
+                  "find_referents",
+                  "list_referents"
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 4,
+          "tools": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "describe",
+                "methods": [],
+                "calls": []
+              },
+              "result": {
+                "methods": [
+                  {
+                    "name": "find_path",
+                    "description": "find path",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "from_block": {
+                          "title": "From Block",
+                          "type": "integer"
+                        },
+                        "to_block": {
+                          "title": "To Block",
+                          "type": "integer"
+                        },
+                        "direction": {
+                          "default": "both",
+                          "enum": [
+                            "in",
+                            "out",
+                            "both"
+                          ],
+                          "title": "Direction",
+                          "type": "string"
+                        },
+                        "contents": {
+                          "default": [],
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Contents",
+                          "type": "array"
+                        },
+                        "max_hops": {
+                          "default": 4,
+                          "title": "Max Hops",
+                          "type": "integer"
+                        },
+                        "max_explored_blocks": {
+                          "default": 1000,
+                          "title": "Max Explored Blocks",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "from_block",
+                        "to_block"
+                      ],
+                      "title": "GraphNavigation_find_path_Arguments",
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "name": "get_block_neighborhood",
+                    "description": "get block neighborhood",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "focal_block": {
+                          "title": "Focal Block",
+                          "type": "integer"
+                        },
+                        "direction": {
+                          "default": "both",
+                          "enum": [
+                            "in",
+                            "out",
+                            "both"
+                          ],
+                          "title": "Direction",
+                          "type": "string"
+                        },
+                        "contents": {
+                          "default": [],
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Contents",
+                          "type": "array"
+                        },
+                        "limit": {
+                          "default": 20,
+                          "title": "Limit",
+                          "type": "integer"
+                        },
+                        "cursor": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "title": "Cursor"
+                        }
+                      },
+                      "required": [
+                        "focal_block"
+                      ],
+                      "title": "GraphNavigation_get_block_neighborhood_Arguments",
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "name": "get_connected_components",
+                    "description": "Partition existing seeds by bounded undirected exact-content reachability.",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "seed_block_ids": {
+                          "items": {
+                            "type": "integer"
+                          },
+                          "title": "Seed Block Ids",
+                          "type": "array"
+                        },
+                        "contents": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Contents",
+                          "type": "array"
+                        },
+                        "max_explored_blocks": {
+                          "default": 1000,
+                          "title": "Max Explored Blocks",
+                          "type": "integer"
+                        },
+                        "max_explored_relations": {
+                          "default": 10000,
+                          "title": "Max Explored Relations",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seed_block_ids",
+                        "contents"
+                      ],
+                      "title": "GraphNavigation_get_connected_components_Arguments",
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "name": "get_random_block",
+                    "description": "get random block",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {},
+                      "title": "GraphNavigation_get_random_block_Arguments",
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "name": "get_relation_neighborhood",
+                    "description": "get relation neighborhood",
+                    "input_schema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "focal_relation": {
+                          "title": "Focal Relation",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "focal_relation"
+                      ],
+                      "title": "GraphNavigation_get_relation_neighborhood_Arguments",
+                      "type": "object"
+                    }
+                  }
+                ],
+                "missing_methods": []
+              },
+              "result_digest": "c9604df99535d8c6cf3bd56d66b81dccc6150e786b081a701aa30d550cffefcb"
+            }
+          ],
+          "seconds": 2.06,
+          "requests": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "describe"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 5,
+          "tools": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "source_id": 24,
+                "selected_text": "Nimbus remediation proposal revision 2",
+                "referent_id": 17
+              },
+              "result": {
+                "fragment": 37,
+                "fragment_created": true,
+                "has_mention": {
+                  "relation": 38,
+                  "created": true
+                },
+                "refers_to": {
+                  "relation": 39,
+                  "created": true
+                }
+              },
+              "result_digest": "6ba4ade6b62b48049a52d1f64971e7eda0ec7ce82643c0bf40609e82f0705790"
+            }
+          ],
+          "seconds": 78.03,
+          "requests": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "source_id": 24,
+                "selected_text": "Nimbus remediation proposal revision 2",
+                "referent_id": 17
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 6,
+          "tools": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "source_id": 24,
+                "selected_text": "Reliability Lab replay",
+                "referent_id": 14
+              },
+              "result": {
+                "fragment": 38,
+                "fragment_created": true,
+                "has_mention": {
+                  "relation": 40,
+                  "created": true
+                },
+                "refers_to": {
+                  "relation": 41,
+                  "created": true
+                }
+              },
+              "result_digest": "cfa08c7a8b4b281c93d365eed93db90d1419f4f3cdeaad21e2e23ffbfa1faeb5"
+            }
+          ],
+          "seconds": 4.82,
+          "requests": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "referent_id": 14,
+                "selected_text": "Reliability Lab replay",
+                "source_id": 24
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 7,
+          "tools": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "source_id": 24,
+                "selected_text": "database team",
+                "referent_id": 11
+              },
+              "result": {
+                "fragment": 39,
+                "fragment_created": true,
+                "has_mention": {
+                  "relation": 42,
+                  "created": true
+                },
+                "refers_to": {
+                  "relation": 43,
+                  "created": true
+                }
+              },
+              "result_digest": "18c1c8a0ccb3c275415c08aee18055e58dea55efe93a4a38d78a6b651c2dc933"
+            }
+          ],
+          "seconds": 10.23,
+          "requests": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "referent_id": 11,
+                "selected_text": "database team",
+                "source_id": 24
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 8,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 10,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 16,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 14,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 11,
+                    "method": "get_solved_content",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 10,
+                    "method": "get_solved_content",
+                    "result": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause."
+                  },
+                  {
+                    "index": 1,
+                    "block": 16,
+                    "method": "get_solved_content",
+                    "result": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged."
+                  },
+                  {
+                    "index": 2,
+                    "block": 14,
+                    "method": "get_solved_content",
+                    "result": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction."
+                  },
+                  {
+                    "index": 3,
+                    "block": 11,
+                    "method": "get_solved_content",
+                    "result": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure."
+                  }
+                ]
+              },
+              "result_digest": "6705f28e7614a4023f1e3f072e8733e1575653c314988a8b3dee6d07cb74cb3b"
+            }
+          ],
+          "seconds": 3.34,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "block": 10,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 16,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 14,
+                    "method": "get_solved_content"
+                  },
+                  {
+                    "block": 11,
+                    "method": "get_solved_content"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 9,
+          "tools": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "source_id": 24,
+                "selected_text": "revision 1 approach",
+                "referent_id": 16
+              },
+              "result": {
+                "fragment": 40,
+                "fragment_created": true,
+                "has_mention": {
+                  "relation": 44,
+                  "created": true
+                },
+                "refers_to": {
+                  "relation": 45,
+                  "created": true
+                }
+              },
+              "result_digest": "59bcf16cbdeb40059bcd90f11714558a29040b8d615ce7d59099695cece78e1b"
+            }
+          ],
+          "seconds": 10.36,
+          "requests": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "referent_id": 16,
+                "selected_text": "revision 1 approach",
+                "source_id": 24
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 10,
+          "tools": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "source_id": 24,
+                "selected_text": "incident timeline",
+                "referent_id": 10
+              },
+              "result": {
+                "fragment": 41,
+                "fragment_created": true,
+                "has_mention": {
+                  "relation": 46,
+                  "created": true
+                },
+                "refers_to": {
+                  "relation": 47,
+                  "created": true
+                }
+              },
+              "result_digest": "7176361b087f8deff747585b1e547dc50dcc5823b702eb06927baf517918068c"
+            }
+          ],
+          "seconds": 4.12,
+          "requests": [
+            {
+              "tool": "anchor_existing_referent",
+              "arguments": {
+                "referent_id": 10,
+                "selected_text": "incident timeline",
+                "source_id": 24
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 11,
+          "tools": [],
+          "seconds": 10.52,
+          "requests": [],
+          "finished": true
+        }
+      ],
+      "termination": "completed",
+      "tool_result_errors": [],
+      "final_relations": [
+        {
+          "id": 1,
+          "from_": 6,
+          "to_": 5,
+          "content": "cites"
+        },
+        {
+          "id": 2,
+          "from_": 1,
+          "to_": 2,
+          "content": "published after"
+        },
+        {
+          "id": 3,
+          "from_": 15,
+          "to_": 14,
+          "content": "cites"
+        },
+        {
+          "id": 4,
+          "from_": 13,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 5,
+          "from_": 11,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 6,
+          "from_": 12,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 7,
+          "from_": 20,
+          "to_": 18,
+          "content": "extracted causal claim from"
+        },
+        {
+          "id": 8,
+          "from_": 21,
+          "to_": 18,
+          "content": "extracted scope exclusion from"
+        },
+        {
+          "id": 9,
+          "from_": 18,
+          "to_": 19,
+          "content": "candidate for"
+        },
+        {
+          "id": 10,
+          "from_": 1,
+          "to_": 22,
+          "content": "candidate for"
+        },
+        {
+          "id": 11,
+          "from_": 23,
+          "to_": 1,
+          "content": "extracted claim from"
+        },
+        {
+          "id": 12,
+          "from_": 24,
+          "to_": 17,
+          "content": "extracted-claims-from"
+        },
+        {
+          "id": 13,
+          "from_": 24,
+          "to_": 10,
+          "content": "references-incident-finding"
+        },
+        {
+          "id": 14,
+          "from_": 24,
+          "to_": 11,
+          "content": "references-incident-finding"
+        },
+        {
+          "id": 15,
+          "from_": 24,
+          "to_": 14,
+          "content": "references-replay-finding"
+        },
+        {
+          "id": 16,
+          "from_": 24,
+          "to_": 16,
+          "content": "distinguishes-from-revision"
+        },
+        {
+          "id": 17,
+          "from_": 17,
+          "to_": 19,
+          "content": "candidate for"
+        },
+        {
+          "id": 18,
+          "from_": 1,
+          "to_": 2,
+          "content": "supersedes"
+        },
+        {
+          "id": 19,
+          "from_": 1,
+          "to_": 30,
+          "content": "synthesis"
+        },
+        {
+          "id": 20,
+          "from_": 2,
+          "to_": 30,
+          "content": "synthesis"
+        },
+        {
+          "id": 21,
+          "from_": 24,
+          "to_": 31,
+          "content": "has mention"
+        },
+        {
+          "id": 22,
+          "from_": 31,
+          "to_": 17,
+          "content": "refers to"
+        },
+        {
+          "id": 23,
+          "from_": 24,
+          "to_": 32,
+          "content": "has mention"
+        },
+        {
+          "id": 24,
+          "from_": 32,
+          "to_": 14,
+          "content": "refers to"
+        },
+        {
+          "id": 25,
+          "from_": 1,
+          "to_": 2,
+          "content": "challenges"
+        },
+        {
+          "id": 26,
+          "from_": 17,
+          "to_": 16,
+          "content": "supersedes"
+        },
+        {
+          "id": 27,
+          "from_": 24,
+          "to_": 33,
+          "content": "has mention"
+        },
+        {
+          "id": 28,
+          "from_": 33,
+          "to_": 11,
+          "content": "refers to"
+        },
+        {
+          "id": 29,
+          "from_": 24,
+          "to_": 34,
+          "content": "has mention"
+        },
+        {
+          "id": 30,
+          "from_": 34,
+          "to_": 10,
+          "content": "refers to"
+        },
+        {
+          "id": 31,
+          "from_": 24,
+          "to_": 35,
+          "content": "has mention"
+        },
+        {
+          "id": 32,
+          "from_": 35,
+          "to_": 16,
+          "content": "refers to"
+        },
+        {
+          "id": 33,
+          "from_": 14,
+          "to_": 15,
+          "content": "duplicates assertion"
+        },
+        {
+          "id": 34,
+          "from_": 24,
+          "to_": 25,
+          "content": "candidate for"
+        },
+        {
+          "id": 35,
+          "from_": 1,
+          "to_": 23,
+          "content": "duplicates assertion"
+        },
+        {
+          "id": 36,
+          "from_": 11,
+          "to_": 13,
+          "content": "supports"
+        },
+        {
+          "id": 37,
+          "from_": 17,
+          "to_": 36,
+          "content": "edited"
+        },
+        {
+          "id": 38,
+          "from_": 24,
+          "to_": 37,
+          "content": "has mention"
+        },
+        {
+          "id": 39,
+          "from_": 37,
+          "to_": 17,
+          "content": "refers to"
+        },
+        {
+          "id": 40,
+          "from_": 24,
+          "to_": 38,
+          "content": "has mention"
+        },
+        {
+          "id": 41,
+          "from_": 38,
+          "to_": 14,
+          "content": "refers to"
+        },
+        {
+          "id": 42,
+          "from_": 24,
+          "to_": 39,
+          "content": "has mention"
+        },
+        {
+          "id": 43,
+          "from_": 39,
+          "to_": 11,
+          "content": "refers to"
+        },
+        {
+          "id": 44,
+          "from_": 24,
+          "to_": 40,
+          "content": "has mention"
+        },
+        {
+          "id": 45,
+          "from_": 40,
+          "to_": 16,
+          "content": "refers to"
+        },
+        {
+          "id": 46,
+          "from_": 24,
+          "to_": 41,
+          "content": "has mention"
+        },
+        {
+          "id": 47,
+          "from_": 41,
+          "to_": 10,
+          "content": "refers to"
+        }
+      ]
+    },
+    {
+      "behavior": "synthesis",
+      "seed": 36,
+      "calls": [
+        {
+          "index": 1,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 36,
+                    "method": "read",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 17,
+                    "method": "read",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 36,
+                    "method": "read",
+                    "error": "ValueError",
+                    "message": "Resolver method is not available"
+                  },
+                  {
+                    "index": 1,
+                    "block": 17,
+                    "method": "read",
+                    "error": "ValueError",
+                    "message": "Resolver method is not available"
+                  }
+                ]
+              },
+              "result_digest": "c88ba126a30345d96783ce0f9855cdc2e6d6f54a9c92d71bd5479e3861ddfd99"
+            }
+          ],
+          "seconds": 4.99,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "arguments": {},
+                    "block": 36,
+                    "method": "read"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 17,
+                    "method": "read"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 2,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "describe",
+                "resolvers": [
+                  "core.text.v1"
+                ],
+                "blocks": [],
+                "calls": []
+              },
+              "result": {
+                "results": [
+                  {
+                    "resolver": "core.text.v1",
+                    "methods": [
+                      {
+                        "name": "get_label",
+                        "description": "Return one concise, stable, Block-local resolver-qualified label.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_label_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_raw_content",
+                        "description": "Delegate hydrated-content mechanics and caching to the block instance.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_raw_content_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_relations",
+                        "description": "Get relations of the block.\n\n:param include_in: bool, whether to get incoming relations. Default True.\n:param include_out: bool, whether to get outgoing relations. Default True.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "include_in": {
+                              "default": true,
+                              "title": "Include In",
+                              "type": "boolean"
+                            },
+                            "include_out": {
+                              "default": true,
+                              "title": "Include Out",
+                              "type": "boolean"
+                            },
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_relations_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_solved_content",
+                        "description": "Return use-facing semantic completion after any permitted lazy work.\n\nThe result does not expose whether internal mechanics created、reused、raced\nor fetched content unless that fact belongs to the solved domain semantics.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            },
+                            "materialize_missing": {
+                              "default": true,
+                              "title": "Materialize Missing",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_solved_content_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_text",
+                        "description": "Return a Block-local text projection for one stable use context.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "context": {
+                              "default": "default",
+                              "enum": [
+                                "default",
+                                "lexical"
+                              ],
+                              "title": "Context",
+                              "type": "string"
+                            },
+                            "refresh": {
+                              "default": false,
+                              "title": "Refresh",
+                              "type": "boolean"
+                            },
+                            "materialize_missing": {
+                              "default": true,
+                              "title": "Materialize Missing",
+                              "type": "boolean"
+                            }
+                          },
+                          "title": "TextResolver_get_text_Arguments",
+                          "type": "object"
+                        }
+                      },
+                      {
+                        "name": "get_transfer_url",
+                        "description": "Return an optional Storage-owned transfer hint for this exact pointer.",
+                        "input_schema": {
+                          "additionalProperties": false,
+                          "properties": {},
+                          "title": "TextResolver_get_transfer_url_Arguments",
+                          "type": "object"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "missing_blocks": [],
+                "missing_resolvers": []
+              },
+              "result_digest": "8b22ac2991f8a5d43e3cc47cf5803e2da2a1c3ff63d860c8bbc2330be742d0f6"
+            },
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "invoke",
+                "methods": [],
+                "calls": [
+                  {
+                    "method": "incoming_relations",
+                    "arguments": {
+                      "block_id": 36
+                    }
+                  },
+                  {
+                    "method": "outgoing_relations",
+                    "arguments": {
+                      "block_id": 36
+                    }
+                  },
+                  {
+                    "method": "incoming_relations",
+                    "arguments": {
+                      "block_id": 17
+                    }
+                  },
+                  {
+                    "method": "outgoing_relations",
+                    "arguments": {
+                      "block_id": 17
+                    }
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "method": "incoming_relations",
+                    "error": "ValueError",
+                    "message": "Graph navigation query is not available"
+                  },
+                  {
+                    "index": 1,
+                    "method": "outgoing_relations",
+                    "error": "ValueError",
+                    "message": "Graph navigation query is not available"
+                  },
+                  {
+                    "index": 2,
+                    "method": "incoming_relations",
+                    "error": "ValueError",
+                    "message": "Graph navigation query is not available"
+                  },
+                  {
+                    "index": 3,
+                    "method": "outgoing_relations",
+                    "error": "ValueError",
+                    "message": "Graph navigation query is not available"
+                  }
+                ]
+              },
+              "result_digest": "e44c6a206efe25497cf083a5daa5106b385d14d0f76ec20b8792984e7a315d2d"
+            }
+          ],
+          "seconds": 4.22,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "describe",
+                "resolvers": [
+                  "core.text.v1"
+                ]
+              }
+            },
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "arguments": {
+                      "block_id": 36
+                    },
+                    "method": "incoming_relations"
+                  },
+                  {
+                    "arguments": {
+                      "block_id": 36
+                    },
+                    "method": "outgoing_relations"
+                  },
+                  {
+                    "arguments": {
+                      "block_id": 17
+                    },
+                    "method": "incoming_relations"
+                  },
+                  {
+                    "arguments": {
+                      "block_id": 17
+                    },
+                    "method": "outgoing_relations"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 3,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 36,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 17,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 36,
+                    "method": "get_relations",
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    }
+                  },
+                  {
+                    "block": 17,
+                    "method": "get_relations",
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    }
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 36,
+                    "method": "get_text",
+                    "result": "Nimbus remediation proposal, revision 3, approved after canary validation.\n\nContinue adaptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload."
+                  },
+                  {
+                    "index": 1,
+                    "block": 17,
+                    "method": "get_text",
+                    "result": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes."
+                  },
+                  {
+                    "index": 2,
+                    "block": 36,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 17,
+                        "to_": 36,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "edited",
+                        "id": 37
+                      }
+                    ]
+                  },
+                  {
+                    "index": 3,
+                    "block": 17,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 24,
+                        "to_": 17,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "extracted-claims-from",
+                        "id": 12
+                      },
+                      {
+                        "from_": 17,
+                        "to_": 19,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "candidate for",
+                        "id": 17
+                      },
+                      {
+                        "from_": 31,
+                        "to_": 17,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "refers to",
+                        "id": 22
+                      },
+                      {
+                        "from_": 17,
+                        "to_": 16,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "supersedes",
+                        "id": 26
+                      },
+                      {
+                        "from_": 17,
+                        "to_": 36,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "edited",
+                        "id": 37
+                      }
+                    ]
+                  }
+                ]
+              },
+              "result_digest": "6d87950668980b71fb3d7ceb865340b150d5577391e4ff2b305e8d9b8502cf6b"
+            }
+          ],
+          "seconds": 3.62,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "arguments": {},
+                    "block": 36,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 17,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    },
+                    "block": 36,
+                    "method": "get_relations"
+                  },
+                  {
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    },
+                    "block": 17,
+                    "method": "get_relations"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 4,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 24,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 19,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 31,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 16,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 24,
+                    "method": "get_relations",
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    }
+                  },
+                  {
+                    "block": 31,
+                    "method": "get_relations",
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    }
+                  },
+                  {
+                    "block": 16,
+                    "method": "get_relations",
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    }
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 24,
+                    "method": "get_text",
+                    "result": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged."
+                  },
+                  {
+                    "index": 1,
+                    "block": 19,
+                    "method": "get_text",
+                    "result": "Open-ended reconsideration of one information Block that may add a useful graph."
+                  },
+                  {
+                    "index": 2,
+                    "block": 31,
+                    "method": "get_text",
+                    "result": "the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate"
+                  },
+                  {
+                    "index": 3,
+                    "block": 16,
+                    "method": "get_text",
+                    "result": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged."
+                  },
+                  {
+                    "index": 4,
+                    "block": 24,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 24,
+                        "to_": 17,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "extracted-claims-from",
+                        "id": 12
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 10,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "references-incident-finding",
+                        "id": 13
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 11,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "references-incident-finding",
+                        "id": 14
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 14,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "references-replay-finding",
+                        "id": 15
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 16,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "distinguishes-from-revision",
+                        "id": 16
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 31,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "has mention",
+                        "id": 21
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 32,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "has mention",
+                        "id": 23
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 33,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "has mention",
+                        "id": 27
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 34,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "has mention",
+                        "id": 29
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 35,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "has mention",
+                        "id": 31
+                      },
+                      {
+                        "from_": 24,
+                        "to_": 25,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "candidate for",
+                        "id": 34
+                      }
+                    ]
+                  },
+                  {
+                    "index": 5,
+                    "block": 31,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 24,
+                        "to_": 31,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "has mention",
+                        "id": 21
+                      },
+                      {
+                        "from_": 31,
+                        "to_": 17,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "refers to",
+                        "id": 22
+                      }
+                    ]
+                  },
+                  {
+                    "index": 6,
+                    "block": 16,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 24,
+                        "to_": 16,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "distinguishes-from-revision",
+                        "id": 16
+                      },
+                      {
+                        "from_": 17,
+                        "to_": 16,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "supersedes",
+                        "id": 26
+                      },
+                      {
+                        "from_": 35,
+                        "to_": 16,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "refers to",
+                        "id": 32
+                      }
+                    ]
+                  }
+                ]
+              },
+              "result_digest": "bc24cad48c62d01eed3b91f1990d58e7b8c2836e09621fd82d021b32b90ecdf6"
+            }
+          ],
+          "seconds": 6.02,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "arguments": {},
+                    "block": 24,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 19,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 31,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 16,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    },
+                    "block": 24,
+                    "method": "get_relations"
+                  },
+                  {
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    },
+                    "block": 31,
+                    "method": "get_relations"
+                  },
+                  {
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    },
+                    "block": 16,
+                    "method": "get_relations"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 5,
+          "tools": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "invoke",
+                "methods": [],
+                "calls": [
+                  {
+                    "method": "incoming_relations",
+                    "arguments": {
+                      "block_id": 24
+                    }
+                  },
+                  {
+                    "method": "get_text",
+                    "arguments": {
+                      "block_id": 14
+                    }
+                  },
+                  {
+                    "method": "get_text",
+                    "arguments": {
+                      "block_id": 10
+                    }
+                  },
+                  {
+                    "method": "get_text",
+                    "arguments": {
+                      "block_id": 11
+                    }
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "method": "incoming_relations",
+                    "error": "ValueError",
+                    "message": "Graph navigation query is not available"
+                  },
+                  {
+                    "index": 1,
+                    "method": "get_text",
+                    "error": "ValueError",
+                    "message": "Graph navigation query is not available"
+                  },
+                  {
+                    "index": 2,
+                    "method": "get_text",
+                    "error": "ValueError",
+                    "message": "Graph navigation query is not available"
+                  },
+                  {
+                    "index": 3,
+                    "method": "get_text",
+                    "error": "ValueError",
+                    "message": "Graph navigation query is not available"
+                  }
+                ]
+              },
+              "result_digest": "60712f98624f185e611ec530ebb9ec4588f11efca0bb5d4d28667a9d443bbf25"
+            }
+          ],
+          "seconds": 7.4,
+          "requests": [
+            {
+              "tool": "graph_retrieval",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "arguments": {
+                      "block_id": 24
+                    },
+                    "method": "incoming_relations"
+                  },
+                  {
+                    "arguments": {
+                      "block_id": 14
+                    },
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {
+                      "block_id": 10
+                    },
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {
+                      "block_id": 11
+                    },
+                    "method": "get_text"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 6,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 14,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 10,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 11,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 32,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 33,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 34,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 35,
+                    "method": "get_text",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 14,
+                    "method": "get_text",
+                    "result": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction."
+                  },
+                  {
+                    "index": 1,
+                    "block": 10,
+                    "method": "get_text",
+                    "result": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause."
+                  },
+                  {
+                    "index": 2,
+                    "block": 11,
+                    "method": "get_text",
+                    "result": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure."
+                  },
+                  {
+                    "index": 3,
+                    "block": 32,
+                    "method": "get_text",
+                    "result": "Pool concentration was reproduced by the Reliability Lab replay"
+                  },
+                  {
+                    "index": 4,
+                    "block": 33,
+                    "method": "get_text",
+                    "result": "Connection-wait spikes and retry amplification were observed by the database team"
+                  },
+                  {
+                    "index": 5,
+                    "block": 34,
+                    "method": "get_text",
+                    "result": "The incident timeline attributes checkout errors to a routing change"
+                  },
+                  {
+                    "index": 6,
+                    "block": 35,
+                    "method": "get_text",
+                    "result": "Revision 2 replaces the revision 1 approach which used a static per-pool ceiling, manual rollback, and left retry unchanged"
+                  }
+                ]
+              },
+              "result_digest": "6b148b1664b9106688b0528ea5ba097b70971d7a26b5ec4075993437e2cf439c"
+            }
+          ],
+          "seconds": 4.2,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "arguments": {},
+                    "block": 14,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 10,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 11,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 32,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 33,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 34,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 35,
+                    "method": "get_text"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 7,
+          "tools": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "query": "Nimbus remediation proposal synthesis revision",
+                "mode": "lexical",
+                "limit": 10
+              },
+              "result": {
+                "lexical": {
+                  "matches": []
+                }
+              },
+              "result_digest": "967afb0cc2f27d71c89b741e30d0e5428285f9643d3921829f3bcc8f0cb05270"
+            }
+          ],
+          "seconds": 2.41,
+          "requests": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "query": "Nimbus remediation proposal synthesis revision",
+                "limit": 10,
+                "mode": "lexical"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 8,
+          "tools": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "query": "Nimbus remediation revision adaptive pool balancing retry rollback",
+                "mode": "lexical",
+                "limit": 15
+              },
+              "result": {
+                "lexical": {
+                  "matches": [
+                    {
+                      "block": {
+                        "storage": null,
+                        "resolver": "core.text.v1",
+                        "content": "Nimbus remediation proposal, revision 3, approved after canary validation.\n\nContinue adaptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload.",
+                        "id": 36,
+                        "created_at": "2026-09-10T06:37:38.793540Z",
+                        "updated_at": "2026-09-10T06:37:38.793540Z"
+                      },
+                      "label": "text <Nimbus remediation proposal, revision 3, approved after canary validation.>",
+                      "excerpt": "Nimbus remediation proposal, revision 3, approved after canary validation.\n\nContinue adaptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload.",
+                      "evidence": "terms",
+                      "rank": 1.0058823530562222
+                    },
+                    {
+                      "block": {
+                        "storage": null,
+                        "resolver": "core.text.v1",
+                        "content": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged.",
+                        "id": 24,
+                        "created_at": "2026-09-10T06:37:38.793540Z",
+                        "updated_at": "2026-09-10T06:37:38.793540Z"
+                      },
+                      "label": "text <Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal spec…>",
+                      "excerpt": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evide…",
+                      "evidence": "terms",
+                      "rank": 1.0021276595070958
+                    }
+                  ]
+                }
+              },
+              "result_digest": "2c46683f18918363f46f66a2994e77d462cfbe6bc4df840e34caf4649706e9ca"
+            }
+          ],
+          "seconds": 8.64,
+          "requests": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "limit": 15,
+                "mode": "lexical",
+                "query": "Nimbus remediation revision adaptive pool balancing retry rollback"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 9,
+          "tools": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "query": "Nimbus synthesis",
+                "mode": "lexical",
+                "limit": 20
+              },
+              "result": {
+                "lexical": {
+                  "matches": []
+                }
+              },
+              "result_digest": "967afb0cc2f27d71c89b741e30d0e5428285f9643d3921829f3bcc8f0cb05270"
+            }
+          ],
+          "seconds": 2.22,
+          "requests": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "limit": 20,
+                "mode": "lexical",
+                "query": "Nimbus synthesis"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 10,
+          "tools": [
+            {
+              "tool": "create_synthesis",
+              "arguments": {
+                "text": "The Nimbus remediation proposal evolved across three revisions, each replacing its predecessor:\n\n**Revision 1** (block 16) specified a static per-pool traffic ceiling with manual rollback when connection waits exceeded the threshold, and left retry behavior unchanged.\n\n**Revision 2** (block 17), approved by service owners, replaced revision 1 entirely. It introduced adaptive pool balancing, bounded retries (three attempts), automatic routing rollback, and a production-scale replay gate before rollout. These four mechanisms each responded to findings in the Nimbus incident evidence base.\n\n**Revision 3** (block 36), approved after canary validation, continued the adaptive pool balancing and automatic routing rollback from revision 2 but lowered the bounded retry budget from three attempts to two, after canary tests showed faster recovery under overload.",
+                "source_ids": [
+                  16,
+                  17,
+                  36
+                ],
+                "previous_synthesis_id": null
+              },
+              "result": {
+                "synthesis": 37,
+                "synthesis_created": true,
+                "basis": [
+                  {
+                    "relation": 38,
+                    "created": true
+                  },
+                  {
+                    "relation": 39,
+                    "created": true
+                  },
+                  {
+                    "relation": 40,
+                    "created": true
+                  }
+                ],
+                "edited": null
+              },
+              "result_digest": "080e3830d47c0c1321d1d6107461ca1b224156571a1f84750566117049468a7a"
+            }
+          ],
+          "seconds": 21.01,
+          "requests": [
+            {
+              "tool": "create_synthesis",
+              "arguments": {
+                "source_ids": [
+                  16,
+                  17,
+                  36
+                ],
+                "text": "The Nimbus remediation proposal evolved across three revisions, each replacing its predecessor:\n\n**Revision 1** (block 16) specified a static per-pool traffic ceiling with manual rollback when connection waits exceeded the threshold, and left retry behavior unchanged.\n\n**Revision 2** (block 17), approved by service owners, replaced revision 1 entirely. It introduced adaptive pool balancing, bounded retries (three attempts), automatic routing rollback, and a production-scale replay gate before rollout. These four mechanisms each responded to findings in the Nimbus incident evidence base.\n\n**Revision 3** (block 36), approved after canary validation, continued the adaptive pool balancing and automatic routing rollback from revision 2 but lowered the bounded retry budget from three attempts to two, after canary tests showed faster recovery under overload."
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 11,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 25,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 25,
+                    "method": "get_relations",
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    }
+                  },
+                  {
+                    "block": 19,
+                    "method": "get_text",
+                    "arguments": {}
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 25,
+                    "method": "get_text",
+                    "result": "Relate useful compatible detail that refines but does not replace information."
+                  },
+                  {
+                    "index": 1,
+                    "block": 25,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 24,
+                        "to_": 25,
+                        "updated_at": "2026-09-10T06:43:42",
+                        "content": "candidate for",
+                        "id": 34
+                      }
+                    ]
+                  },
+                  {
+                    "index": 2,
+                    "block": 19,
+                    "method": "get_text",
+                    "result": "Open-ended reconsideration of one information Block that may add a useful graph."
+                  }
+                ]
+              },
+              "result_digest": "018d407d8b7f9119d1445fd854207b3a367aa3d668bffbf6260fd73487fd6ea3"
+            }
+          ],
+          "seconds": 5.5,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "arguments": {},
+                    "block": 25,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    },
+                    "block": 25,
+                    "method": "get_relations"
+                  },
+                  {
+                    "arguments": {},
+                    "block": 19,
+                    "method": "get_text"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 12,
+          "tools": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "query": "Nimbus revision evolution retry budget adaptive",
+                "mode": "lexical",
+                "limit": 20
+              },
+              "result": {
+                "lexical": {
+                  "matches": []
+                }
+              },
+              "result_digest": "967afb0cc2f27d71c89b741e30d0e5428285f9643d3921829f3bcc8f0cb05270"
+            }
+          ],
+          "seconds": 4.36,
+          "requests": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "limit": 20,
+                "mode": "lexical",
+                "query": "Nimbus revision evolution retry budget adaptive"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 13,
+          "tools": [
+            {
+              "tool": "record_organization_candidate",
+              "arguments": {
+                "information_id": 37,
+                "behavior": "core.organization.behavior.synthesis.v1"
+              },
+              "result": {
+                "descriptor": 27,
+                "relation": 41,
+                "created": true
+              },
+              "result_digest": "37a879a7018901606ff45e65dc5981a00dda1e78c2174f56e9a08dc2e6a21504"
+            }
+          ],
+          "seconds": 2.38,
+          "requests": [
+            {
+              "tool": "record_organization_candidate",
+              "arguments": {
+                "behavior": "core.organization.behavior.synthesis.v1",
+                "information_id": 37
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 14,
+          "tools": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "query": "Nimbus incident evidence database team routing",
+                "mode": "lexical",
+                "limit": 20
+              },
+              "result": {
+                "lexical": {
+                  "matches": [
+                    {
+                      "block": {
+                        "storage": null,
+                        "resolver": "core.text.v1",
+                        "content": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged.",
+                        "id": 24,
+                        "created_at": "2026-09-10T06:37:38.793540Z",
+                        "updated_at": "2026-09-10T06:37:38.793540Z"
+                      },
+                      "label": "text <Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal spec…>",
+                      "excerpt": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evide…",
+                      "evidence": "terms",
+                      "rank": 1.005064102821052
+                    }
+                  ]
+                }
+              },
+              "result_digest": "27d300c6ca3bd45270b7122d1064b690457f4db4ee6a2bbf5402ed774204d18d"
+            }
+          ],
+          "seconds": 3.57,
+          "requests": [
+            {
+              "tool": "retrieve",
+              "arguments": {
+                "limit": 20,
+                "mode": "lexical",
+                "query": "Nimbus incident evidence database team routing"
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 15,
+          "tools": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "resolvers": [],
+                "blocks": [],
+                "calls": [
+                  {
+                    "block": 37,
+                    "method": "get_text",
+                    "arguments": {}
+                  },
+                  {
+                    "block": 37,
+                    "method": "get_relations",
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    }
+                  }
+                ]
+              },
+              "result": {
+                "results": [
+                  {
+                    "index": 0,
+                    "block": 37,
+                    "method": "get_text",
+                    "result": "The Nimbus remediation proposal evolved across three revisions, each replacing its predecessor:\n\n**Revision 1** (block 16) specified a static per-pool traffic ceiling with manual rollback when connection waits exceeded the threshold, and left retry behavior unchanged.\n\n**Revision 2** (block 17), approved by service owners, replaced revision 1 entirely. It introduced adaptive pool balancing, bounded retries (three attempts), automatic routing rollback, and a production-scale replay gate before rollout. These four mechanisms each responded to findings in the Nimbus incident evidence base.\n\n**Revision 3** (block 36), approved after canary validation, continued the adaptive pool balancing and automatic routing rollback from revision 2 but lowered the bounded retry budget from three attempts to two, after canary tests showed faster recovery under overload."
+                  },
+                  {
+                    "index": 1,
+                    "block": 37,
+                    "method": "get_relations",
+                    "result": [
+                      {
+                        "from_": 16,
+                        "to_": 37,
+                        "updated_at": "2026-09-10T06:44:52",
+                        "content": "synthesis",
+                        "id": 38
+                      },
+                      {
+                        "from_": 17,
+                        "to_": 37,
+                        "updated_at": "2026-09-10T06:44:52",
+                        "content": "synthesis",
+                        "id": 39
+                      },
+                      {
+                        "from_": 36,
+                        "to_": 37,
+                        "updated_at": "2026-09-10T06:44:52",
+                        "content": "synthesis",
+                        "id": 40
+                      },
+                      {
+                        "from_": 37,
+                        "to_": 27,
+                        "updated_at": "2026-09-10T06:45:07",
+                        "content": "candidate for",
+                        "id": 41
+                      }
+                    ]
+                  }
+                ]
+              },
+              "result_digest": "f7921ef53a5b3dc0b45dac5932380fcb063f35c886d77295aecf7d198d675c76"
+            }
+          ],
+          "seconds": 2.84,
+          "requests": [
+            {
+              "tool": "resolver",
+              "arguments": {
+                "action": "invoke",
+                "calls": [
+                  {
+                    "arguments": {},
+                    "block": 37,
+                    "method": "get_text"
+                  },
+                  {
+                    "arguments": {
+                      "include_in": true,
+                      "include_out": true
+                    },
+                    "block": 37,
+                    "method": "get_relations"
+                  }
+                ]
+              }
+            }
+          ],
+          "finished": false
+        },
+        {
+          "index": 16,
+          "tools": [],
+          "seconds": 14.42,
+          "requests": [],
+          "finished": true
+        }
+      ],
+      "termination": "completed",
+      "tool_result_errors": [],
+      "final_relations": [
+        {
+          "id": 1,
+          "from_": 6,
+          "to_": 5,
+          "content": "cites"
+        },
+        {
+          "id": 2,
+          "from_": 1,
+          "to_": 2,
+          "content": "published after"
+        },
+        {
+          "id": 3,
+          "from_": 15,
+          "to_": 14,
+          "content": "cites"
+        },
+        {
+          "id": 4,
+          "from_": 13,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 5,
+          "from_": 11,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 6,
+          "from_": 12,
+          "to_": 10,
+          "content": "responds to"
+        },
+        {
+          "id": 7,
+          "from_": 20,
+          "to_": 18,
+          "content": "extracted causal claim from"
+        },
+        {
+          "id": 8,
+          "from_": 21,
+          "to_": 18,
+          "content": "extracted scope exclusion from"
+        },
+        {
+          "id": 9,
+          "from_": 18,
+          "to_": 19,
+          "content": "candidate for"
+        },
+        {
+          "id": 10,
+          "from_": 1,
+          "to_": 22,
+          "content": "candidate for"
+        },
+        {
+          "id": 11,
+          "from_": 23,
+          "to_": 1,
+          "content": "extracted claim from"
+        },
+        {
+          "id": 12,
+          "from_": 24,
+          "to_": 17,
+          "content": "extracted-claims-from"
+        },
+        {
+          "id": 13,
+          "from_": 24,
+          "to_": 10,
+          "content": "references-incident-finding"
+        },
+        {
+          "id": 14,
+          "from_": 24,
+          "to_": 11,
+          "content": "references-incident-finding"
+        },
+        {
+          "id": 15,
+          "from_": 24,
+          "to_": 14,
+          "content": "references-replay-finding"
+        },
+        {
+          "id": 16,
+          "from_": 24,
+          "to_": 16,
+          "content": "distinguishes-from-revision"
+        },
+        {
+          "id": 17,
+          "from_": 17,
+          "to_": 19,
+          "content": "candidate for"
+        },
+        {
+          "id": 18,
+          "from_": 1,
+          "to_": 2,
+          "content": "supersedes"
+        },
+        {
+          "id": 19,
+          "from_": 1,
+          "to_": 30,
+          "content": "synthesis"
+        },
+        {
+          "id": 20,
+          "from_": 2,
+          "to_": 30,
+          "content": "synthesis"
+        },
+        {
+          "id": 21,
+          "from_": 24,
+          "to_": 31,
+          "content": "has mention"
+        },
+        {
+          "id": 22,
+          "from_": 31,
+          "to_": 17,
+          "content": "refers to"
+        },
+        {
+          "id": 23,
+          "from_": 24,
+          "to_": 32,
+          "content": "has mention"
+        },
+        {
+          "id": 24,
+          "from_": 32,
+          "to_": 14,
+          "content": "refers to"
+        },
+        {
+          "id": 25,
+          "from_": 1,
+          "to_": 2,
+          "content": "challenges"
+        },
+        {
+          "id": 26,
+          "from_": 17,
+          "to_": 16,
+          "content": "supersedes"
+        },
+        {
+          "id": 27,
+          "from_": 24,
+          "to_": 33,
+          "content": "has mention"
+        },
+        {
+          "id": 28,
+          "from_": 33,
+          "to_": 11,
+          "content": "refers to"
+        },
+        {
+          "id": 29,
+          "from_": 24,
+          "to_": 34,
+          "content": "has mention"
+        },
+        {
+          "id": 30,
+          "from_": 34,
+          "to_": 10,
+          "content": "refers to"
+        },
+        {
+          "id": 31,
+          "from_": 24,
+          "to_": 35,
+          "content": "has mention"
+        },
+        {
+          "id": 32,
+          "from_": 35,
+          "to_": 16,
+          "content": "refers to"
+        },
+        {
+          "id": 33,
+          "from_": 14,
+          "to_": 15,
+          "content": "duplicates assertion"
+        },
+        {
+          "id": 34,
+          "from_": 24,
+          "to_": 25,
+          "content": "candidate for"
+        },
+        {
+          "id": 35,
+          "from_": 1,
+          "to_": 23,
+          "content": "duplicates assertion"
+        },
+        {
+          "id": 36,
+          "from_": 11,
+          "to_": 13,
+          "content": "supports"
+        },
+        {
+          "id": 37,
+          "from_": 17,
+          "to_": 36,
+          "content": "edited"
+        },
+        {
+          "id": 38,
+          "from_": 16,
+          "to_": 37,
+          "content": "synthesis"
+        },
+        {
+          "id": 39,
+          "from_": 17,
+          "to_": 37,
+          "content": "synthesis"
+        },
+        {
+          "id": 40,
+          "from_": 36,
+          "to_": 37,
+          "content": "synthesis"
+        },
+        {
+          "id": 41,
+          "from_": 37,
+          "to_": 27,
+          "content": "candidate for"
+        }
+      ]
+    }
+  ],
+  "limitations": "Controlled reproduction, original corpus graph with isolated SQLite graph storage; production lexical retrieval, runtime and tool handlers. Not original thread replay.",
+  "cleanup_remaining_blocks": []
+}

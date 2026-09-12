@@ -102,18 +102,35 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
 
 - organization 是为后续 use 改善既有 info-base 的能力，不是 collection lifecycle 或信息状态。Block CRUD、source
   collection 和 extension protocol ingestion 都不会隐式触发 organization。
-- 当前 explicit focal approach 是 `OrganizationManager.ruminate(block_id)`。它从 focal Resolver `get_text()` 与全部 direct
-  Relations 构造 bounded context；other endpoint 只投影正数 Block reference、resolver ID 与 `get_label()`，不递归读取。
-- deployment config `core.organization.rumination` 通过 schema `core.organization.rumination.config.v1` 选择一个 persisted
-  Agent。缺少 config 与悬空 Agent reference 在 use 时分别失败；config relation 不取得 Agent 生命周期所有权。
+- organization 没有统一 manager、dispatcher、behavior table 或专用持久实体。rumination、supersession、refinement、
+  evidence stance、synthesis、existing-referent anchoring 与 duplicate assertion 是七个独立的精确
+  `BehaviorResolver`；行为 descriptor 是对应 Resolver 的惰性普通 Block，候选以 `information --candidate for-->
+  descriptor` 表达。
+- 每个行为拥有一个独立 automatic Job 和 `core.organization.<behavior>` deployment config。Job 只承担调度与运行管理；
+  Resolver 读取候选、构造起始证据、调用所选 purpose-built Agent，并由 behavior-owned exact command 写普通 Block/Relation。
+  初始 seed 不限制 Agent 后续通过 retrieval、Resolver 或 graph navigation 继续探索。
+- `retrieve` 返回候选引用与已有命中信息；`get_entities` 读取普通持久实体，`resolver` 解释内容。
+  `get_entity_neighborhood`、`find_path`、`get_connected_components` 直接投影 Graph Navigation 的少量稳定查询。
+  Resolver method reflection 由 `ResolverManager` 拥有；公共读取方法直接进入 Agent schema，额外方法按需发现。
+  MCP Sink 只投影同一 owner contract，不成为 Organization 的依赖，也不继承内部 Agent Tool 的请求包装。
+- 工具定义表达关系含义，字段名称保留所指实体身份；行为识别过程属于所选 Agent definition。
+  Resolver 的方法参数由实际 owner 逐调用验证，错误不丢弃同批其它结果。schema 由同一方法合同投影，
+  顶层分支同时显示字段形状，以兼容只从顶层 properties 推断参数类型的 provider。
+- 精确写入工具只接受最小 graph proposal，并校验 endpoint、cycle/opposite stance、source basis 或 occurrence-local path
+  等机械不变量；开放世界的 referent、scope、authority、evidence、duplicate 与 synthesis 语义仍由相应 Agent 判断。
+  所有结果追加到普通图，不创建 evaluated/no-op state、behavior report、relation-content registry 或级联引擎。
+- `RuminationBehaviorResolver.ruminate(block_id)` 保持原有显式 focal 与 Peer 路径。它从 focal Resolver `get_text()` 与
+  全部一跳 direct Relations 构造上下文，不递归探索，也不按关系数量截断；other endpoint 只投影 Block reference、
+  resolver ID 与 `get_label()`。原有
+  `core.organization.rumination.v1` Peer capability 与 draft/submit graph Tool IDs 保持兼容。
 - draft-capable Resolver 显式拥有简短 description、Pydantic input model 与 `create_graph(input) -> StarsGraphForm`。
   Agent run 只在 Tool schema 中看到当前 exact Resolver IDs；具体 input schema 通过 `get_draft_graph_schema` 按需读取。
 - Agent runtime 对 `draft_graph` 的通用 payload 与 selected Resolver input 完成同一轮 Pydantic validation；Tool handler
-  只调用 Resolver create，再交给 InfoBaseManager normalization。`submit_graph(GraphForm)` 是唯一 graph-write Tool。
-- rumination 是一次显式、additive、best-effort attempt。不能理解或模型诚实 no-op 都浅层完成；model-call budget
-  exhaustion 成为一个 organization-level failure，caller cancellation 传导到 Turn。没有 retry、rollback、run record、
-  job、scheduler、freshness skip 或自动 deduplication。
-- `OrganizationManager.interpret_missing_media()` 是独立 system-driven approach。它扫描尚无 `interpretation` relation 的
+  只调用 Resolver create，再交给 InfoBaseManager normalization。在所附 rumination definition 中，
+  `submit_graph(GraphForm)` 是唯一 graph-write Tool。
+- rumination 的显式调用与 automatic Job 都是 additive、best-effort attempt。不能理解或模型诚实 no-op 不写图；
+  automatic Job 本身不持久化 behavior report，也不自动建立 schedule。
+- `interpret_missing_media()` 是独立 system-driven approach。它扫描尚无 `interpretation` relation 的
   image/audio/video Blocks，按 modality 选择 deployment-owned Agent，把 solved media 作为 canonical AI content part 交给
   Agent，并只接受现有 graph Tool 的 additive result。它不写 lexical records，也不是 Resolver faithful materialization。
 

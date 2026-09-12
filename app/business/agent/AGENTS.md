@@ -15,3 +15,5 @@ transport policy.
 - Tool registration is decorator-owned. Exact persisted Tool IDs have set semantics and are bound once per new Thread;
   later registry changes do not rewrite existing Thread schemas or handlers.
 - Cancellation owns no rollback, retry, shielding, or compensation. Completed Tool effects remain.
+- `OBSRV__AGENT_DEBUG` enables development events through existing logging. These are diagnostic records, not execution
+  persistence or recovery authority. Preserve the actual ToolResult and Turn outcome when changing debug instrumentation.

@@ -1,0 +1,2649 @@
+{
+  "head": "a8c929d87619ee2f036629aef006bc75297729b2",
+  "model": "qwen3.6-plus",
+  "rounds": [
+    {
+      "round": 1,
+      "jobs": [
+        {
+          "id": 2,
+          "type": "core.organization.rumination.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {},
+          "timeout_seconds": 900,
+          "status": "finished",
+          "created_at": "2026-09-10T02:33:40.725451+00:00",
+          "started_at": "2026-09-10T02:34:02.649186+00:00",
+          "closed_at": "2026-09-10T02:39:51.819768+00:00"
+        },
+        {
+          "id": 3,
+          "type": "core.organization.supersession.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {},
+          "timeout_seconds": 900,
+          "status": "finished",
+          "created_at": "2026-09-10T02:39:59.715795+00:00",
+          "started_at": "2026-09-10T02:40:32.754819+00:00",
+          "closed_at": "2026-09-10T02:46:49.902671+00:00"
+        },
+        {
+          "id": 4,
+          "type": "core.organization.refinement.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {
+            "error": "Organization Agent exceeded its per-Turn model-call budget"
+          },
+          "timeout_seconds": 900,
+          "status": "failed",
+          "created_at": "2026-09-10T02:41:25.410414+00:00",
+          "started_at": "2026-09-10T02:42:13.685933+00:00",
+          "closed_at": "2026-09-10T02:47:38.874997+00:00"
+        },
+        {
+          "id": 5,
+          "type": "core.organization.evidence-stance.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {
+            "error": "Organization Agent exceeded its per-Turn model-call budget"
+          },
+          "timeout_seconds": 900,
+          "status": "failed",
+          "created_at": "2026-09-10T02:41:27.220415+00:00",
+          "started_at": "2026-09-10T02:42:26.269424+00:00",
+          "closed_at": "2026-09-10T02:50:10.877918+00:00"
+        },
+        {
+          "id": 6,
+          "type": "core.organization.synthesis.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {
+            "error": "Organization Agent exceeded its per-Turn model-call budget"
+          },
+          "timeout_seconds": 900,
+          "status": "failed",
+          "created_at": "2026-09-10T02:41:28.800299+00:00",
+          "started_at": "2026-09-10T02:42:38.796884+00:00",
+          "closed_at": "2026-09-10T02:48:45.06857+00:00"
+        },
+        {
+          "id": 7,
+          "type": "core.organization.existing-referent-anchoring.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {
+            "error": "Organization Agent exceeded its per-Turn model-call budget"
+          },
+          "timeout_seconds": 900,
+          "status": "failed",
+          "created_at": "2026-09-10T02:41:30.176403+00:00",
+          "started_at": "2026-09-10T02:42:52.184466+00:00",
+          "closed_at": "2026-09-10T02:49:08.400388+00:00"
+        },
+        {
+          "id": 8,
+          "type": "core.organization.duplicate-assertion.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {},
+          "timeout_seconds": 900,
+          "status": "finished",
+          "created_at": "2026-09-10T02:41:31.540423+00:00",
+          "started_at": "2026-09-10T02:43:03.842985+00:00",
+          "closed_at": "2026-09-10T02:48:40.335409+00:00"
+        }
+      ],
+      "maintenance": {
+        "id": 1,
+        "type": "core.feature_retrieval.lexical.maintain.v1",
+        "parameters": {
+          "options": {
+            "max_records": 10000
+          }
+        },
+        "state": {
+          "failed": 0,
+          "indexed": 18,
+          "diagnostics": [],
+          "unavailable": 0
+        },
+        "timeout_seconds": 900,
+        "status": "finished",
+        "created_at": "2026-09-10T02:33:00.732715+00:00",
+        "started_at": "2026-09-10T02:33:27.016805+00:00",
+        "closed_at": "2026-09-10T02:33:34.294368+00:00"
+      },
+      "graph": {
+        "blocks": [
+          {
+            "id": 1,
+            "updated_at": "2026-09-10T02:32:24.117001+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official service operations bulletin, Europe region, 2025-03-12.\n\nFor the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\nThis bulletin replaces the Europe concurrency paragraph in the 2024 operating limits.",
+            "created_at": "2026-09-10T02:32:24.117001+00:00"
+          },
+          {
+            "id": 2,
+            "updated_at": "2026-09-10T02:32:25.682043+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Atlas service operating limits, Europe region, revision 2024-11.\n\nEach European tenant may run at most 30 concurrent imports. Requests above that limit remain\nqueued until capacity is available.",
+            "created_at": "2026-09-10T02:32:25.682043+00:00"
+          },
+          {
+            "id": 3,
+            "updated_at": "2026-09-10T02:32:27.031702+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Atlas service operating limits, United States region, revision 2025-03.\n\nEach United States tenant may run at most 100 concurrent imports. This regional value does not\napply to Europe.",
+            "created_at": "2026-09-10T02:32:27.031702+00:00"
+          },
+          {
+            "id": 4,
+            "updated_at": "2026-09-10T02:32:28.383575+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas Europe rollout note from the service operations team, 2025-03-13.\n\nThe new 50-import limit is enabled gradually. Tenants created before March 1 retain 30 until\ntheir control-plane migration completes. The queue behavior itself is unchanged.",
+            "created_at": "2026-09-10T02:32:28.383575+00:00"
+          },
+          {
+            "id": 5,
+            "updated_at": "2026-09-10T02:32:29.735891+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Capacity test by the Reliability Lab, 2025-03-18.\n\nIn three independent Atlas Europe tenants already migrated to the new control plane, 50 imports\nran concurrently and the fifty-first remained queued. The Lab did not test legacy tenants.",
+            "created_at": "2026-09-10T02:32:29.735891+00:00"
+          },
+          {
+            "id": 6,
+            "updated_at": "2026-09-10T02:32:31.087325+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Partner newsletter, 2025-03-19.\n\nThe newsletter repeats the Reliability Lab result: migrated Atlas Europe tenants ran 50 imports\nand queued the fifty-first. Its author links to the Lab note and reports no separate test.",
+            "created_at": "2026-09-10T02:32:31.087325+00:00"
+          },
+          {
+            "id": 7,
+            "updated_at": "2026-09-10T02:32:32.437323+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Customer engineering note after an Atlas Europe migration.\n\nAfter the control-plane move, the service accepted 50 simultaneous imports for our tenant. It\nqueued the next request. Before the move we still observed the old cap.",
+            "created_at": "2026-09-10T02:32:32.437323+00:00"
+          },
+          {
+            "id": 8,
+            "updated_at": "2026-09-10T02:32:33.792291+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Internal support quick reference, copied from several regional pages.\n\nEurope allows 50 concurrent imports after migration, while the United States allows 100. Legacy\nEuropean tenants can still be limited to 30. Verify the tenant region before advising a customer.",
+            "created_at": "2026-09-10T02:32:33.792291+00:00"
+          },
+          {
+            "id": 9,
+            "updated_at": "2026-09-10T02:32:35.142946+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas Export service release note, 2025-03-12.\n\nThe unrelated export product now retains completed archives for 50 days in every region. This is\na retention duration, not an ingestion concurrency limit.",
+            "created_at": "2026-09-10T02:32:35.142946+00:00"
+          },
+          {
+            "id": 10,
+            "updated_at": "2026-09-10T02:32:39.420707+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause.",
+            "created_at": "2026-09-10T02:32:39.420707+00:00"
+          },
+          {
+            "id": 11,
+            "updated_at": "2026-09-10T02:32:40.771145+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+            "created_at": "2026-09-10T02:32:40.771145+00:00"
+          },
+          {
+            "id": 12,
+            "updated_at": "2026-09-10T02:32:42.12329+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors.",
+            "created_at": "2026-09-10T02:32:42.12329+00:00"
+          },
+          {
+            "id": 13,
+            "updated_at": "2026-09-10T02:32:43.508772+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Checkout application team hypothesis, written before load replay.\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion.",
+            "created_at": "2026-09-10T02:32:43.508772+00:00"
+          },
+          {
+            "id": 14,
+            "updated_at": "2026-09-10T02:32:44.860133+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction.",
+            "created_at": "2026-09-10T02:32:44.860133+00:00"
+          },
+          {
+            "id": 15,
+            "updated_at": "2026-09-10T02:32:46.213401+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction.",
+            "created_at": "2026-09-10T02:32:46.213401+00:00"
+          },
+          {
+            "id": 16,
+            "updated_at": "2026-09-10T02:32:47.769493+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+            "created_at": "2026-09-10T02:32:47.769493+00:00"
+          },
+          {
+            "id": 17,
+            "updated_at": "2026-09-10T02:32:49.318784+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes.",
+            "created_at": "2026-09-10T02:32:49.318784+00:00"
+          },
+          {
+            "id": 18,
+            "updated_at": "2026-09-10T02:32:50.66516+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus mobile application postmortem, 2025-05-10.\n\nAn image cache key collision caused stale profile photographs. The incident did not involve checkout,\nrouting pools, database retries, or the June payments outage.",
+            "created_at": "2026-09-10T02:32:50.66516+00:00"
+          },
+          {
+            "id": 19,
+            "updated_at": "2026-09-10T02:34:04.144471+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.rumination.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:34:04.144471+00:00"
+          },
+          {
+            "id": 20,
+            "updated_at": "2026-09-10T02:35:04.421776+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus mobile application: image cache key collision caused stale profile photographs.",
+            "created_at": "2026-09-10T02:35:04.421776+00:00"
+          },
+          {
+            "id": 21,
+            "updated_at": "2026-09-10T02:35:04.421776+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "The 2025-05-10 Nimbus incident scope exclusion: the image cache incident did not involve checkout, routing pools, database retries, or the June payments outage.",
+            "created_at": "2026-09-10T02:35:04.421776+00:00"
+          },
+          {
+            "id": 22,
+            "updated_at": "2026-09-10T02:36:43.497276+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.supersession.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:36:43.497276+00:00"
+          },
+          {
+            "id": 23,
+            "updated_at": "2026-09-10T02:37:11.944011+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas ingestion service, Europe: each tenant may run at most 50 concurrent imports (2025-03-12 bulletin).",
+            "created_at": "2026-09-10T02:37:11.944011+00:00"
+          },
+          {
+            "id": 24,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged.",
+            "created_at": "2026-09-10T02:39:26.784138+00:00"
+          },
+          {
+            "id": 25,
+            "updated_at": "2026-09-10T02:42:15.190484+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.refinement.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:42:15.190484+00:00"
+          },
+          {
+            "id": 26,
+            "updated_at": "2026-09-10T02:42:27.76415+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.evidence-stance.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:42:27.76415+00:00"
+          },
+          {
+            "id": 27,
+            "updated_at": "2026-09-10T02:42:40.302299+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.synthesis.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:42:40.302299+00:00"
+          },
+          {
+            "id": 28,
+            "updated_at": "2026-09-10T02:42:53.698626+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.existing-referent-anchoring.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:42:53.698626+00:00"
+          },
+          {
+            "id": 29,
+            "updated_at": "2026-09-10T02:43:05.36346+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.duplicate-assertion.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:43:05.36346+00:00"
+          },
+          {
+            "id": 30,
+            "updated_at": "2026-09-10T02:44:20.551671+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas ingestion service (Europe region) — tenant concurrent import limit: increased from 30 to 50, effective 2025-03-12.\n\nOriginal limit (2024-11): \"Each European tenant may run at most 30 concurrent imports. Requests above that limit remain queued until capacity is available.\" [Block 2: Official Atlas service operating limits, Europe region, revision 2024-11.]\n\nUpdated limit (2025-03-12): \"For the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\" [Block 1: Official service operations bulletin, Europe region, 2025-03-12.]\n\nThe 2025-03-12 bulletin explicitly states it \"replaces the Europe concurrency paragraph in the 2024 operating limits.\"",
+            "created_at": "2026-09-10T02:44:20.551671+00:00"
+          },
+          {
+            "id": 31,
+            "updated_at": "2026-09-10T02:45:04.734112+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate",
+            "created_at": "2026-09-10T02:45:04.734112+00:00"
+          },
+          {
+            "id": 32,
+            "updated_at": "2026-09-10T02:45:14.469367+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Pool concentration was reproduced by the Reliability Lab replay",
+            "created_at": "2026-09-10T02:45:14.469367+00:00"
+          },
+          {
+            "id": 33,
+            "updated_at": "2026-09-10T02:45:33.147314+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Connection-wait spikes and retry amplification were observed by the database team",
+            "created_at": "2026-09-10T02:45:33.147314+00:00"
+          },
+          {
+            "id": 34,
+            "updated_at": "2026-09-10T02:45:45.80749+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "The incident timeline attributes checkout errors to a routing change",
+            "created_at": "2026-09-10T02:45:45.80749+00:00"
+          },
+          {
+            "id": 35,
+            "updated_at": "2026-09-10T02:46:04.873219+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Revision 2 replaces the revision 1 approach which used a static per-pool ceiling, manual rollback, and left retry unchanged",
+            "created_at": "2026-09-10T02:46:04.873219+00:00"
+          }
+        ],
+        "relations": [
+          {
+            "id": 1,
+            "updated_at": "2026-09-10T02:32:36.501716+00:00",
+            "from_": 6,
+            "to_": 5,
+            "content": "cites"
+          },
+          {
+            "id": 2,
+            "updated_at": "2026-09-10T02:32:38.069568+00:00",
+            "from_": 1,
+            "to_": 2,
+            "content": "published after"
+          },
+          {
+            "id": 3,
+            "updated_at": "2026-09-10T02:32:52.002555+00:00",
+            "from_": 15,
+            "to_": 14,
+            "content": "cites"
+          },
+          {
+            "id": 4,
+            "updated_at": "2026-09-10T02:32:53.348944+00:00",
+            "from_": 13,
+            "to_": 10,
+            "content": "responds to"
+          },
+          {
+            "id": 5,
+            "updated_at": "2026-09-10T02:32:54.899381+00:00",
+            "from_": 11,
+            "to_": 10,
+            "content": "responds to"
+          },
+          {
+            "id": 6,
+            "updated_at": "2026-09-10T02:32:56.243861+00:00",
+            "from_": 12,
+            "to_": 10,
+            "content": "responds to"
+          },
+          {
+            "id": 7,
+            "updated_at": "2026-09-10T02:35:04.421776+00:00",
+            "from_": 20,
+            "to_": 18,
+            "content": "extracted causal claim from"
+          },
+          {
+            "id": 8,
+            "updated_at": "2026-09-10T02:35:04.421776+00:00",
+            "from_": 21,
+            "to_": 18,
+            "content": "extracted scope exclusion from"
+          },
+          {
+            "id": 9,
+            "updated_at": "2026-09-10T02:35:11.698556+00:00",
+            "from_": 18,
+            "to_": 19,
+            "content": "candidate for"
+          },
+          {
+            "id": 10,
+            "updated_at": "2026-09-10T02:36:43.497276+00:00",
+            "from_": 1,
+            "to_": 22,
+            "content": "candidate for"
+          },
+          {
+            "id": 11,
+            "updated_at": "2026-09-10T02:37:11.944011+00:00",
+            "from_": 23,
+            "to_": 1,
+            "content": "extracted claim from"
+          },
+          {
+            "id": 12,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 17,
+            "content": "extracted-claims-from"
+          },
+          {
+            "id": 13,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 10,
+            "content": "references-incident-finding"
+          },
+          {
+            "id": 14,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 11,
+            "content": "references-incident-finding"
+          },
+          {
+            "id": 15,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 14,
+            "content": "references-replay-finding"
+          },
+          {
+            "id": 16,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 16,
+            "content": "distinguishes-from-revision"
+          },
+          {
+            "id": 17,
+            "updated_at": "2026-09-10T02:39:37.914497+00:00",
+            "from_": 17,
+            "to_": 19,
+            "content": "candidate for"
+          },
+          {
+            "id": 18,
+            "updated_at": "2026-09-10T02:41:28.918506+00:00",
+            "from_": 1,
+            "to_": 2,
+            "content": "supersedes"
+          },
+          {
+            "id": 19,
+            "updated_at": "2026-09-10T02:44:20.551671+00:00",
+            "from_": 1,
+            "to_": 30,
+            "content": "synthesis"
+          },
+          {
+            "id": 20,
+            "updated_at": "2026-09-10T02:44:20.551671+00:00",
+            "from_": 2,
+            "to_": 30,
+            "content": "synthesis"
+          },
+          {
+            "id": 21,
+            "updated_at": "2026-09-10T02:45:04.734112+00:00",
+            "from_": 24,
+            "to_": 31,
+            "content": "has mention"
+          },
+          {
+            "id": 22,
+            "updated_at": "2026-09-10T02:45:04.734112+00:00",
+            "from_": 31,
+            "to_": 17,
+            "content": "refers to"
+          },
+          {
+            "id": 23,
+            "updated_at": "2026-09-10T02:45:14.469367+00:00",
+            "from_": 24,
+            "to_": 32,
+            "content": "has mention"
+          },
+          {
+            "id": 24,
+            "updated_at": "2026-09-10T02:45:14.469367+00:00",
+            "from_": 32,
+            "to_": 14,
+            "content": "refers to"
+          },
+          {
+            "id": 25,
+            "updated_at": "2026-09-10T02:45:18.920672+00:00",
+            "from_": 1,
+            "to_": 2,
+            "content": "challenges"
+          },
+          {
+            "id": 26,
+            "updated_at": "2026-09-10T02:45:27.179997+00:00",
+            "from_": 17,
+            "to_": 16,
+            "content": "supersedes"
+          },
+          {
+            "id": 27,
+            "updated_at": "2026-09-10T02:45:33.147314+00:00",
+            "from_": 24,
+            "to_": 33,
+            "content": "has mention"
+          },
+          {
+            "id": 28,
+            "updated_at": "2026-09-10T02:45:33.147314+00:00",
+            "from_": 33,
+            "to_": 11,
+            "content": "refers to"
+          },
+          {
+            "id": 29,
+            "updated_at": "2026-09-10T02:45:45.80749+00:00",
+            "from_": 24,
+            "to_": 34,
+            "content": "has mention"
+          },
+          {
+            "id": 30,
+            "updated_at": "2026-09-10T02:45:45.80749+00:00",
+            "from_": 34,
+            "to_": 10,
+            "content": "refers to"
+          },
+          {
+            "id": 31,
+            "updated_at": "2026-09-10T02:46:04.873219+00:00",
+            "from_": 24,
+            "to_": 35,
+            "content": "has mention"
+          },
+          {
+            "id": 32,
+            "updated_at": "2026-09-10T02:46:04.873219+00:00",
+            "from_": 35,
+            "to_": 16,
+            "content": "refers to"
+          },
+          {
+            "id": 33,
+            "updated_at": "2026-09-10T02:47:13.104452+00:00",
+            "from_": 14,
+            "to_": 15,
+            "content": "duplicates assertion"
+          },
+          {
+            "id": 34,
+            "updated_at": "2026-09-10T02:47:36.137223+00:00",
+            "from_": 24,
+            "to_": 25,
+            "content": "candidate for"
+          },
+          {
+            "id": 35,
+            "updated_at": "2026-09-10T02:48:26.973763+00:00",
+            "from_": 1,
+            "to_": 23,
+            "content": "duplicates assertion"
+          },
+          {
+            "id": 36,
+            "updated_at": "2026-09-10T02:50:08.949703+00:00",
+            "from_": 11,
+            "to_": 13,
+            "content": "supports"
+          }
+        ]
+      }
+    },
+    {
+      "round": 2,
+      "maintenance": {
+        "id": 9,
+        "type": "core.feature_retrieval.lexical.maintain.v1",
+        "parameters": {
+          "options": {
+            "max_records": 10000
+          }
+        },
+        "state": {
+          "failed": 0,
+          "indexed": 18,
+          "diagnostics": [],
+          "unavailable": 0
+        },
+        "timeout_seconds": 900,
+        "status": "finished",
+        "created_at": "2026-09-10T02:50:22.959195+00:00",
+        "started_at": "2026-09-10T02:50:27.060347+00:00",
+        "closed_at": "2026-09-10T02:50:34.38627+00:00"
+      },
+      "jobs": [
+        {
+          "id": 10,
+          "type": "core.organization.rumination.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {},
+          "timeout_seconds": 900,
+          "status": "finished",
+          "created_at": "2026-09-10T02:50:38.060227+00:00",
+          "started_at": "2026-09-10T02:51:19.59618+00:00",
+          "closed_at": "2026-09-10T03:00:43.979521+00:00"
+        },
+        {
+          "id": 11,
+          "type": "core.organization.supersession.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {},
+          "timeout_seconds": 900,
+          "status": "finished",
+          "created_at": "2026-09-10T02:50:39.419495+00:00",
+          "started_at": "2026-09-10T02:51:31.289188+00:00",
+          "closed_at": "2026-09-10T02:58:20.399147+00:00"
+        },
+        {
+          "id": 12,
+          "type": "core.organization.refinement.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {
+            "error": "Organization Agent exceeded its per-Turn model-call budget"
+          },
+          "timeout_seconds": 900,
+          "status": "failed",
+          "created_at": "2026-09-10T02:50:40.809117+00:00",
+          "started_at": "2026-09-10T02:51:43.263762+00:00",
+          "closed_at": "2026-09-10T03:02:23.243347+00:00"
+        },
+        {
+          "id": 13,
+          "type": "core.organization.evidence-stance.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {
+            "error": "Organization Agent exceeded its per-Turn model-call budget"
+          },
+          "timeout_seconds": 900,
+          "status": "failed",
+          "created_at": "2026-09-10T02:50:42.380452+00:00",
+          "started_at": "2026-09-10T02:51:55.310088+00:00",
+          "closed_at": "2026-09-10T03:01:27.132952+00:00"
+        },
+        {
+          "id": 14,
+          "type": "core.organization.synthesis.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {
+            "error": "Organization Agent exceeded its per-Turn model-call budget"
+          },
+          "timeout_seconds": 900,
+          "status": "failed",
+          "created_at": "2026-09-10T02:50:43.770338+00:00",
+          "started_at": "2026-09-10T02:52:07.305182+00:00",
+          "closed_at": "2026-09-10T02:59:05.367199+00:00"
+        },
+        {
+          "id": 15,
+          "type": "core.organization.existing-referent-anchoring.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {},
+          "timeout_seconds": 900,
+          "status": "finished",
+          "created_at": "2026-09-10T02:50:45.129084+00:00",
+          "started_at": "2026-09-10T02:52:20.14069+00:00",
+          "closed_at": "2026-09-10T02:59:23.552289+00:00"
+        },
+        {
+          "id": 16,
+          "type": "core.organization.duplicate-assertion.automatic.v1",
+          "parameters": {
+            "max_seeds": 3
+          },
+          "state": {
+            "error": "Organization Agent exceeded its per-Turn model-call budget"
+          },
+          "timeout_seconds": 900,
+          "status": "failed",
+          "created_at": "2026-09-10T02:50:46.51816+00:00",
+          "started_at": "2026-09-10T02:52:31.293755+00:00",
+          "closed_at": "2026-09-10T02:58:03.388692+00:00"
+        }
+      ],
+      "graph": {
+        "blocks": [
+          {
+            "id": 1,
+            "updated_at": "2026-09-10T02:32:24.117001+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official service operations bulletin, Europe region, 2025-03-12.\n\nFor the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\nThis bulletin replaces the Europe concurrency paragraph in the 2024 operating limits.",
+            "created_at": "2026-09-10T02:32:24.117001+00:00"
+          },
+          {
+            "id": 2,
+            "updated_at": "2026-09-10T02:32:25.682043+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Atlas service operating limits, Europe region, revision 2024-11.\n\nEach European tenant may run at most 30 concurrent imports. Requests above that limit remain\nqueued until capacity is available.",
+            "created_at": "2026-09-10T02:32:25.682043+00:00"
+          },
+          {
+            "id": 3,
+            "updated_at": "2026-09-10T02:32:27.031702+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Atlas service operating limits, United States region, revision 2025-03.\n\nEach United States tenant may run at most 100 concurrent imports. This regional value does not\napply to Europe.",
+            "created_at": "2026-09-10T02:32:27.031702+00:00"
+          },
+          {
+            "id": 4,
+            "updated_at": "2026-09-10T02:32:28.383575+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas Europe rollout note from the service operations team, 2025-03-13.\n\nThe new 50-import limit is enabled gradually. Tenants created before March 1 retain 30 until\ntheir control-plane migration completes. The queue behavior itself is unchanged.",
+            "created_at": "2026-09-10T02:32:28.383575+00:00"
+          },
+          {
+            "id": 5,
+            "updated_at": "2026-09-10T02:32:29.735891+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Capacity test by the Reliability Lab, 2025-03-18.\n\nIn three independent Atlas Europe tenants already migrated to the new control plane, 50 imports\nran concurrently and the fifty-first remained queued. The Lab did not test legacy tenants.",
+            "created_at": "2026-09-10T02:32:29.735891+00:00"
+          },
+          {
+            "id": 6,
+            "updated_at": "2026-09-10T02:32:31.087325+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Partner newsletter, 2025-03-19.\n\nThe newsletter repeats the Reliability Lab result: migrated Atlas Europe tenants ran 50 imports\nand queued the fifty-first. Its author links to the Lab note and reports no separate test.",
+            "created_at": "2026-09-10T02:32:31.087325+00:00"
+          },
+          {
+            "id": 7,
+            "updated_at": "2026-09-10T02:32:32.437323+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Customer engineering note after an Atlas Europe migration.\n\nAfter the control-plane move, the service accepted 50 simultaneous imports for our tenant. It\nqueued the next request. Before the move we still observed the old cap.",
+            "created_at": "2026-09-10T02:32:32.437323+00:00"
+          },
+          {
+            "id": 8,
+            "updated_at": "2026-09-10T02:32:33.792291+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Internal support quick reference, copied from several regional pages.\n\nEurope allows 50 concurrent imports after migration, while the United States allows 100. Legacy\nEuropean tenants can still be limited to 30. Verify the tenant region before advising a customer.",
+            "created_at": "2026-09-10T02:32:33.792291+00:00"
+          },
+          {
+            "id": 9,
+            "updated_at": "2026-09-10T02:32:35.142946+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas Export service release note, 2025-03-12.\n\nThe unrelated export product now retains completed archives for 50 days in every region. This is\na retention duration, not an ingestion concurrency limit.",
+            "created_at": "2026-09-10T02:32:35.142946+00:00"
+          },
+          {
+            "id": 10,
+            "updated_at": "2026-09-10T02:32:39.420707+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause.",
+            "created_at": "2026-09-10T02:32:39.420707+00:00"
+          },
+          {
+            "id": 11,
+            "updated_at": "2026-09-10T02:32:40.771145+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+            "created_at": "2026-09-10T02:32:40.771145+00:00"
+          },
+          {
+            "id": 12,
+            "updated_at": "2026-09-10T02:32:42.12329+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors.",
+            "created_at": "2026-09-10T02:32:42.12329+00:00"
+          },
+          {
+            "id": 13,
+            "updated_at": "2026-09-10T02:32:43.508772+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Checkout application team hypothesis, written before load replay.\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion.",
+            "created_at": "2026-09-10T02:32:43.508772+00:00"
+          },
+          {
+            "id": 14,
+            "updated_at": "2026-09-10T02:32:44.860133+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction.",
+            "created_at": "2026-09-10T02:32:44.860133+00:00"
+          },
+          {
+            "id": 15,
+            "updated_at": "2026-09-10T02:32:46.213401+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction.",
+            "created_at": "2026-09-10T02:32:46.213401+00:00"
+          },
+          {
+            "id": 16,
+            "updated_at": "2026-09-10T02:32:47.769493+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+            "created_at": "2026-09-10T02:32:47.769493+00:00"
+          },
+          {
+            "id": 17,
+            "updated_at": "2026-09-10T02:32:49.318784+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes.",
+            "created_at": "2026-09-10T02:32:49.318784+00:00"
+          },
+          {
+            "id": 18,
+            "updated_at": "2026-09-10T02:32:50.66516+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus mobile application postmortem, 2025-05-10.\n\nAn image cache key collision caused stale profile photographs. The incident did not involve checkout,\nrouting pools, database retries, or the June payments outage.",
+            "created_at": "2026-09-10T02:32:50.66516+00:00"
+          },
+          {
+            "id": 19,
+            "updated_at": "2026-09-10T02:34:04.144471+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.rumination.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:34:04.144471+00:00"
+          },
+          {
+            "id": 20,
+            "updated_at": "2026-09-10T02:35:04.421776+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus mobile application: image cache key collision caused stale profile photographs.",
+            "created_at": "2026-09-10T02:35:04.421776+00:00"
+          },
+          {
+            "id": 21,
+            "updated_at": "2026-09-10T02:35:04.421776+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "The 2025-05-10 Nimbus incident scope exclusion: the image cache incident did not involve checkout, routing pools, database retries, or the June payments outage.",
+            "created_at": "2026-09-10T02:35:04.421776+00:00"
+          },
+          {
+            "id": 22,
+            "updated_at": "2026-09-10T02:36:43.497276+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.supersession.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:36:43.497276+00:00"
+          },
+          {
+            "id": 23,
+            "updated_at": "2026-09-10T02:37:11.944011+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas ingestion service, Europe: each tenant may run at most 50 concurrent imports (2025-03-12 bulletin).",
+            "created_at": "2026-09-10T02:37:11.944011+00:00"
+          },
+          {
+            "id": 24,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged.",
+            "created_at": "2026-09-10T02:39:26.784138+00:00"
+          },
+          {
+            "id": 25,
+            "updated_at": "2026-09-10T02:42:15.190484+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.refinement.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:42:15.190484+00:00"
+          },
+          {
+            "id": 26,
+            "updated_at": "2026-09-10T02:42:27.76415+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.evidence-stance.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:42:27.76415+00:00"
+          },
+          {
+            "id": 27,
+            "updated_at": "2026-09-10T02:42:40.302299+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.synthesis.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:42:40.302299+00:00"
+          },
+          {
+            "id": 28,
+            "updated_at": "2026-09-10T02:42:53.698626+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.existing-referent-anchoring.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:42:53.698626+00:00"
+          },
+          {
+            "id": 29,
+            "updated_at": "2026-09-10T02:43:05.36346+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.duplicate-assertion.v1",
+            "content": "",
+            "created_at": "2026-09-10T02:43:05.36346+00:00"
+          },
+          {
+            "id": 30,
+            "updated_at": "2026-09-10T02:44:20.551671+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas ingestion service (Europe region) — tenant concurrent import limit: increased from 30 to 50, effective 2025-03-12.\n\nOriginal limit (2024-11): \"Each European tenant may run at most 30 concurrent imports. Requests above that limit remain queued until capacity is available.\" [Block 2: Official Atlas service operating limits, Europe region, revision 2024-11.]\n\nUpdated limit (2025-03-12): \"For the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\" [Block 1: Official service operations bulletin, Europe region, 2025-03-12.]\n\nThe 2025-03-12 bulletin explicitly states it \"replaces the Europe concurrency paragraph in the 2024 operating limits.\"",
+            "created_at": "2026-09-10T02:44:20.551671+00:00"
+          },
+          {
+            "id": 31,
+            "updated_at": "2026-09-10T02:45:04.734112+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate",
+            "created_at": "2026-09-10T02:45:04.734112+00:00"
+          },
+          {
+            "id": 32,
+            "updated_at": "2026-09-10T02:45:14.469367+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Pool concentration was reproduced by the Reliability Lab replay",
+            "created_at": "2026-09-10T02:45:14.469367+00:00"
+          },
+          {
+            "id": 33,
+            "updated_at": "2026-09-10T02:45:33.147314+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Connection-wait spikes and retry amplification were observed by the database team",
+            "created_at": "2026-09-10T02:45:33.147314+00:00"
+          },
+          {
+            "id": 34,
+            "updated_at": "2026-09-10T02:45:45.80749+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "The incident timeline attributes checkout errors to a routing change",
+            "created_at": "2026-09-10T02:45:45.80749+00:00"
+          },
+          {
+            "id": 35,
+            "updated_at": "2026-09-10T02:46:04.873219+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Revision 2 replaces the revision 1 approach which used a static per-pool ceiling, manual rollback, and left retry unchanged",
+            "created_at": "2026-09-10T02:46:04.873219+00:00"
+          },
+          {
+            "id": 36,
+            "updated_at": "2026-09-10T02:50:19.787324+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal, revision 3, approved after canary validation.\n\nContinue adaptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload.",
+            "created_at": "2026-09-10T02:50:19.787324+00:00"
+          },
+          {
+            "id": 37,
+            "updated_at": "2026-09-10T02:54:09.959909+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "revision 2",
+            "created_at": "2026-09-10T02:54:09.959909+00:00"
+          },
+          {
+            "id": 38,
+            "updated_at": "2026-09-10T02:55:12.340017+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "The Nimbus service had two separate incidents in 2025: (a) the 2025-05-10 mobile application image cache incident, where a cache key collision caused stale profile photographs (postmortem in block 18; causal claim in block 20); and (b) the 2025-06-04 payments incident, where a routing change caused checkout errors (timeline in block 10). The May postmortem explicitly excludes the June incident's scope (block 21).",
+            "created_at": "2026-09-10T02:55:12.340017+00:00"
+          },
+          {
+            "id": 39,
+            "updated_at": "2026-09-10T02:55:27.864209+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposals evolved across three revisions in response to incident evidence. Revision 1 proposed a static per-pool traffic ceiling with manual rollback, leaving retry behavior unchanged. Revision 2, approved by service owners, replaced this with adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate. The approved revision 2 proposal specified these four mechanisms as responses to findings in the Nimbus incident evidence base: pool concentration reproduced by the Reliability Lab replay; connection-wait spikes and retry amplification observed by the database team (which noted uncertainty about whether retry amplification initiated the failure); checkout errors attributed to a routing change in the incident timeline (which did not assign a single root cause); and replacement of the revision 1 approach. Revision 3, approved after canary validation, continued adaptive pool balancing and automatic routing rollback from revision 2 but lowered the bounded retry budget from three attempts to two after canary tests showed faster recovery under overload.",
+            "created_at": "2026-09-10T02:55:27.864209+00:00"
+          },
+          {
+            "id": 40,
+            "updated_at": "2026-09-10T02:57:33.34261+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Canary validation evidence: reducing the bounded retry budget from three attempts to two resulted in faster recovery under overload conditions.",
+            "created_at": "2026-09-10T02:57:33.34261+00:00"
+          },
+          {
+            "id": 41,
+            "updated_at": "2026-09-10T02:58:33.246988+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Revision 2",
+            "created_at": "2026-09-10T02:58:33.246988+00:00"
+          },
+          {
+            "id": 42,
+            "updated_at": "2026-09-10T02:58:44.013965+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Capacity of imports on migrated Atlas Europe tenants (new control plane): The Reliability Lab (2025-03-18) tested three independent Atlas Europe tenants already migrated to the new control plane and observed that 50 imports ran concurrently while the fifty-first remained queued. The Lab did not test legacy tenants. A partner newsletter (2025-03-19) repeated the Lab's finding and linked to the Lab note, but the newsletter author performed no separate test. Consequently, this observation rests on a single independent test source (the Reliability Lab); the newsletter constitutes a derivative communication, not additional independent corroboration. The scope of the tested capacity is limited to migrated tenants on the new control plane; no tested capacity is available for legacy tenants.",
+            "created_at": "2026-09-10T02:58:44.013965+00:00"
+          },
+          {
+            "id": 43,
+            "updated_at": "2026-09-10T02:58:47.970552+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "revision 1",
+            "created_at": "2026-09-10T02:58:47.970552+00:00"
+          },
+          {
+            "id": 44,
+            "updated_at": "2026-09-10T03:00:32.787243+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Block 11 (database team observation) contains two distinguishable claims: (1) a confirmed observation that connection wait time rose sharply at 09:14 UTC, two minutes after the routing change; and (2) a belief with acknowledged uncertainty that retry amplification contributed to the spike, paired with explicit inability to determine whether retry amplification initiated the failure. The existing fragment in block 33 (\"Connection-wait spikes and retry amplification were observed by the database team\") elides the uncertainty qualifier and may overstate the team's confidence.",
+            "created_at": "2026-09-10T03:00:32.787243+00:00"
+          }
+        ],
+        "relations": [
+          {
+            "id": 1,
+            "updated_at": "2026-09-10T02:32:36.501716+00:00",
+            "from_": 6,
+            "to_": 5,
+            "content": "cites"
+          },
+          {
+            "id": 2,
+            "updated_at": "2026-09-10T02:32:38.069568+00:00",
+            "from_": 1,
+            "to_": 2,
+            "content": "published after"
+          },
+          {
+            "id": 3,
+            "updated_at": "2026-09-10T02:32:52.002555+00:00",
+            "from_": 15,
+            "to_": 14,
+            "content": "cites"
+          },
+          {
+            "id": 4,
+            "updated_at": "2026-09-10T02:32:53.348944+00:00",
+            "from_": 13,
+            "to_": 10,
+            "content": "responds to"
+          },
+          {
+            "id": 5,
+            "updated_at": "2026-09-10T02:32:54.899381+00:00",
+            "from_": 11,
+            "to_": 10,
+            "content": "responds to"
+          },
+          {
+            "id": 6,
+            "updated_at": "2026-09-10T02:32:56.243861+00:00",
+            "from_": 12,
+            "to_": 10,
+            "content": "responds to"
+          },
+          {
+            "id": 7,
+            "updated_at": "2026-09-10T02:35:04.421776+00:00",
+            "from_": 20,
+            "to_": 18,
+            "content": "extracted causal claim from"
+          },
+          {
+            "id": 8,
+            "updated_at": "2026-09-10T02:35:04.421776+00:00",
+            "from_": 21,
+            "to_": 18,
+            "content": "extracted scope exclusion from"
+          },
+          {
+            "id": 9,
+            "updated_at": "2026-09-10T02:35:11.698556+00:00",
+            "from_": 18,
+            "to_": 19,
+            "content": "candidate for"
+          },
+          {
+            "id": 10,
+            "updated_at": "2026-09-10T02:36:43.497276+00:00",
+            "from_": 1,
+            "to_": 22,
+            "content": "candidate for"
+          },
+          {
+            "id": 11,
+            "updated_at": "2026-09-10T02:37:11.944011+00:00",
+            "from_": 23,
+            "to_": 1,
+            "content": "extracted claim from"
+          },
+          {
+            "id": 12,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 17,
+            "content": "extracted-claims-from"
+          },
+          {
+            "id": 13,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 10,
+            "content": "references-incident-finding"
+          },
+          {
+            "id": 14,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 11,
+            "content": "references-incident-finding"
+          },
+          {
+            "id": 15,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 14,
+            "content": "references-replay-finding"
+          },
+          {
+            "id": 16,
+            "updated_at": "2026-09-10T02:39:26.784138+00:00",
+            "from_": 24,
+            "to_": 16,
+            "content": "distinguishes-from-revision"
+          },
+          {
+            "id": 17,
+            "updated_at": "2026-09-10T02:39:37.914497+00:00",
+            "from_": 17,
+            "to_": 19,
+            "content": "candidate for"
+          },
+          {
+            "id": 18,
+            "updated_at": "2026-09-10T02:41:28.918506+00:00",
+            "from_": 1,
+            "to_": 2,
+            "content": "supersedes"
+          },
+          {
+            "id": 19,
+            "updated_at": "2026-09-10T02:44:20.551671+00:00",
+            "from_": 1,
+            "to_": 30,
+            "content": "synthesis"
+          },
+          {
+            "id": 20,
+            "updated_at": "2026-09-10T02:44:20.551671+00:00",
+            "from_": 2,
+            "to_": 30,
+            "content": "synthesis"
+          },
+          {
+            "id": 21,
+            "updated_at": "2026-09-10T02:45:04.734112+00:00",
+            "from_": 24,
+            "to_": 31,
+            "content": "has mention"
+          },
+          {
+            "id": 22,
+            "updated_at": "2026-09-10T02:45:04.734112+00:00",
+            "from_": 31,
+            "to_": 17,
+            "content": "refers to"
+          },
+          {
+            "id": 23,
+            "updated_at": "2026-09-10T02:45:14.469367+00:00",
+            "from_": 24,
+            "to_": 32,
+            "content": "has mention"
+          },
+          {
+            "id": 24,
+            "updated_at": "2026-09-10T02:45:14.469367+00:00",
+            "from_": 32,
+            "to_": 14,
+            "content": "refers to"
+          },
+          {
+            "id": 25,
+            "updated_at": "2026-09-10T02:45:18.920672+00:00",
+            "from_": 1,
+            "to_": 2,
+            "content": "challenges"
+          },
+          {
+            "id": 26,
+            "updated_at": "2026-09-10T02:45:27.179997+00:00",
+            "from_": 17,
+            "to_": 16,
+            "content": "supersedes"
+          },
+          {
+            "id": 27,
+            "updated_at": "2026-09-10T02:45:33.147314+00:00",
+            "from_": 24,
+            "to_": 33,
+            "content": "has mention"
+          },
+          {
+            "id": 28,
+            "updated_at": "2026-09-10T02:45:33.147314+00:00",
+            "from_": 33,
+            "to_": 11,
+            "content": "refers to"
+          },
+          {
+            "id": 29,
+            "updated_at": "2026-09-10T02:45:45.80749+00:00",
+            "from_": 24,
+            "to_": 34,
+            "content": "has mention"
+          },
+          {
+            "id": 30,
+            "updated_at": "2026-09-10T02:45:45.80749+00:00",
+            "from_": 34,
+            "to_": 10,
+            "content": "refers to"
+          },
+          {
+            "id": 31,
+            "updated_at": "2026-09-10T02:46:04.873219+00:00",
+            "from_": 24,
+            "to_": 35,
+            "content": "has mention"
+          },
+          {
+            "id": 32,
+            "updated_at": "2026-09-10T02:46:04.873219+00:00",
+            "from_": 35,
+            "to_": 16,
+            "content": "refers to"
+          },
+          {
+            "id": 33,
+            "updated_at": "2026-09-10T02:47:13.104452+00:00",
+            "from_": 14,
+            "to_": 15,
+            "content": "duplicates assertion"
+          },
+          {
+            "id": 34,
+            "updated_at": "2026-09-10T02:47:36.137223+00:00",
+            "from_": 24,
+            "to_": 25,
+            "content": "candidate for"
+          },
+          {
+            "id": 35,
+            "updated_at": "2026-09-10T02:48:26.973763+00:00",
+            "from_": 1,
+            "to_": 23,
+            "content": "duplicates assertion"
+          },
+          {
+            "id": 36,
+            "updated_at": "2026-09-10T02:50:08.949703+00:00",
+            "from_": 11,
+            "to_": 13,
+            "content": "supports"
+          },
+          {
+            "id": 37,
+            "updated_at": "2026-09-10T02:50:21.391947+00:00",
+            "from_": 17,
+            "to_": 36,
+            "content": "edited"
+          },
+          {
+            "id": 38,
+            "updated_at": "2026-09-10T02:54:09.959909+00:00",
+            "from_": 36,
+            "to_": 37,
+            "content": "has mention"
+          },
+          {
+            "id": 39,
+            "updated_at": "2026-09-10T02:54:09.959909+00:00",
+            "from_": 37,
+            "to_": 17,
+            "content": "refers to"
+          },
+          {
+            "id": 40,
+            "updated_at": "2026-09-10T02:55:12.340017+00:00",
+            "from_": 38,
+            "to_": 18,
+            "content": "disambiguates incident references in"
+          },
+          {
+            "id": 41,
+            "updated_at": "2026-09-10T02:55:12.340017+00:00",
+            "from_": 38,
+            "to_": 10,
+            "content": "distinguishes separate incident from"
+          },
+          {
+            "id": 42,
+            "updated_at": "2026-09-10T02:55:12.340017+00:00",
+            "from_": 38,
+            "to_": 20,
+            "content": "attributes causal claim to"
+          },
+          {
+            "id": 43,
+            "updated_at": "2026-09-10T02:55:12.340017+00:00",
+            "from_": 38,
+            "to_": 21,
+            "content": "attributes scope exclusion to"
+          },
+          {
+            "id": 44,
+            "updated_at": "2026-09-10T02:55:15.175901+00:00",
+            "from_": 21,
+            "to_": 28,
+            "content": "candidate for"
+          },
+          {
+            "id": 45,
+            "updated_at": "2026-09-10T02:55:22.222282+00:00",
+            "from_": 24,
+            "to_": 17,
+            "content": "refines"
+          },
+          {
+            "id": 46,
+            "updated_at": "2026-09-10T02:55:27.864209+00:00",
+            "from_": 16,
+            "to_": 39,
+            "content": "synthesis"
+          },
+          {
+            "id": 47,
+            "updated_at": "2026-09-10T02:55:27.864209+00:00",
+            "from_": 17,
+            "to_": 39,
+            "content": "synthesis"
+          },
+          {
+            "id": 48,
+            "updated_at": "2026-09-10T02:55:27.864209+00:00",
+            "from_": 24,
+            "to_": 39,
+            "content": "synthesis"
+          },
+          {
+            "id": 49,
+            "updated_at": "2026-09-10T02:55:27.864209+00:00",
+            "from_": 36,
+            "to_": 39,
+            "content": "synthesis"
+          },
+          {
+            "id": 50,
+            "updated_at": "2026-09-10T02:56:03.806724+00:00",
+            "from_": 36,
+            "to_": 17,
+            "content": "supersedes"
+          },
+          {
+            "id": 51,
+            "updated_at": "2026-09-10T02:57:10.099881+00:00",
+            "from_": 36,
+            "to_": 22,
+            "content": "candidate for"
+          },
+          {
+            "id": 52,
+            "updated_at": "2026-09-10T02:57:33.34261+00:00",
+            "from_": 40,
+            "to_": 36,
+            "content": "evidence"
+          },
+          {
+            "id": 53,
+            "updated_at": "2026-09-10T02:57:58.638524+00:00",
+            "from_": 31,
+            "to_": 17,
+            "content": "refines"
+          },
+          {
+            "id": 54,
+            "updated_at": "2026-09-10T02:58:01.43682+00:00",
+            "from_": 14,
+            "to_": 15,
+            "content": "supersedes"
+          },
+          {
+            "id": 55,
+            "updated_at": "2026-09-10T02:58:33.246988+00:00",
+            "from_": 35,
+            "to_": 41,
+            "content": "has mention"
+          },
+          {
+            "id": 56,
+            "updated_at": "2026-09-10T02:58:33.246988+00:00",
+            "from_": 41,
+            "to_": 17,
+            "content": "refers to"
+          },
+          {
+            "id": 57,
+            "updated_at": "2026-09-10T02:58:44.013965+00:00",
+            "from_": 5,
+            "to_": 42,
+            "content": "synthesis"
+          },
+          {
+            "id": 58,
+            "updated_at": "2026-09-10T02:58:44.013965+00:00",
+            "from_": 6,
+            "to_": 42,
+            "content": "synthesis"
+          },
+          {
+            "id": 59,
+            "updated_at": "2026-09-10T02:58:47.970552+00:00",
+            "from_": 35,
+            "to_": 43,
+            "content": "has mention"
+          },
+          {
+            "id": 60,
+            "updated_at": "2026-09-10T02:58:47.970552+00:00",
+            "from_": 43,
+            "to_": 16,
+            "content": "refers to"
+          },
+          {
+            "id": 61,
+            "updated_at": "2026-09-10T02:59:01.766801+00:00",
+            "from_": 5,
+            "to_": 27,
+            "content": "candidate for"
+          },
+          {
+            "id": 62,
+            "updated_at": "2026-09-10T02:59:03.432367+00:00",
+            "from_": 6,
+            "to_": 27,
+            "content": "candidate for"
+          },
+          {
+            "id": 63,
+            "updated_at": "2026-09-10T03:00:22.167729+00:00",
+            "from_": 11,
+            "to_": 19,
+            "content": "candidate for"
+          }
+        ]
+      }
+    }
+  ],
+  "cleanup": {
+    "relations": {
+      "removed": 63,
+      "remaining_new_ids": []
+    },
+    "blocks": {
+      "removed": 44,
+      "remaining_new_ids": []
+    },
+    "jobs": {
+      "removed": 16,
+      "remaining_new_ids": []
+    },
+    "agents": {
+      "removed": 7,
+      "remaining_new_ids": []
+    },
+    "ai_models": {
+      "removed": 1,
+      "remaining_new_ids": []
+    },
+    "ai_providers": {
+      "removed": 1,
+      "remaining_new_ids": []
+    },
+    "config_keys_remaining": []
+  },
+  "aliases": {
+    "atlas.eu-limit-2025": 1,
+    "atlas.eu-limit-2024": 2,
+    "atlas.us-limit": 3,
+    "atlas.eu-rollout": 4,
+    "atlas.measurement": 5,
+    "atlas.newsletter-copy": 6,
+    "atlas.implicit-reference": 7,
+    "atlas.composite-limits": 8,
+    "atlas.distractor": 9,
+    "nimbus.timeline": 10,
+    "nimbus.database": 11,
+    "nimbus.network": 12,
+    "nimbus.application": 13,
+    "nimbus.validation": 14,
+    "nimbus.copied-report": 15,
+    "nimbus.remediation-v1": 16,
+    "nimbus.remediation-v2": 17,
+    "nimbus.distractor": 18,
+    "nimbus.remediation-v3": 36
+  },
+  "before": {
+    "blocks": [
+      {
+        "id": 1,
+        "updated_at": "2026-09-10T02:32:24.117001+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official service operations bulletin, Europe region, 2025-03-12.\n\nFor the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\nThis bulletin replaces the Europe concurrency paragraph in the 2024 operating limits.",
+        "created_at": "2026-09-10T02:32:24.117001+00:00"
+      },
+      {
+        "id": 2,
+        "updated_at": "2026-09-10T02:32:25.682043+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Atlas service operating limits, Europe region, revision 2024-11.\n\nEach European tenant may run at most 30 concurrent imports. Requests above that limit remain\nqueued until capacity is available.",
+        "created_at": "2026-09-10T02:32:25.682043+00:00"
+      },
+      {
+        "id": 3,
+        "updated_at": "2026-09-10T02:32:27.031702+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Atlas service operating limits, United States region, revision 2025-03.\n\nEach United States tenant may run at most 100 concurrent imports. This regional value does not\napply to Europe.",
+        "created_at": "2026-09-10T02:32:27.031702+00:00"
+      },
+      {
+        "id": 4,
+        "updated_at": "2026-09-10T02:32:28.383575+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Atlas Europe rollout note from the service operations team, 2025-03-13.\n\nThe new 50-import limit is enabled gradually. Tenants created before March 1 retain 30 until\ntheir control-plane migration completes. The queue behavior itself is unchanged.",
+        "created_at": "2026-09-10T02:32:28.383575+00:00"
+      },
+      {
+        "id": 5,
+        "updated_at": "2026-09-10T02:32:29.735891+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Capacity test by the Reliability Lab, 2025-03-18.\n\nIn three independent Atlas Europe tenants already migrated to the new control plane, 50 imports\nran concurrently and the fifty-first remained queued. The Lab did not test legacy tenants.",
+        "created_at": "2026-09-10T02:32:29.735891+00:00"
+      },
+      {
+        "id": 6,
+        "updated_at": "2026-09-10T02:32:31.087325+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Partner newsletter, 2025-03-19.\n\nThe newsletter repeats the Reliability Lab result: migrated Atlas Europe tenants ran 50 imports\nand queued the fifty-first. Its author links to the Lab note and reports no separate test.",
+        "created_at": "2026-09-10T02:32:31.087325+00:00"
+      },
+      {
+        "id": 7,
+        "updated_at": "2026-09-10T02:32:32.437323+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Customer engineering note after an Atlas Europe migration.\n\nAfter the control-plane move, the service accepted 50 simultaneous imports for our tenant. It\nqueued the next request. Before the move we still observed the old cap.",
+        "created_at": "2026-09-10T02:32:32.437323+00:00"
+      },
+      {
+        "id": 8,
+        "updated_at": "2026-09-10T02:32:33.792291+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Internal support quick reference, copied from several regional pages.\n\nEurope allows 50 concurrent imports after migration, while the United States allows 100. Legacy\nEuropean tenants can still be limited to 30. Verify the tenant region before advising a customer.",
+        "created_at": "2026-09-10T02:32:33.792291+00:00"
+      },
+      {
+        "id": 9,
+        "updated_at": "2026-09-10T02:32:35.142946+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Atlas Export service release note, 2025-03-12.\n\nThe unrelated export product now retains completed archives for 50 days in every region. This is\na retention duration, not an ingestion concurrency limit.",
+        "created_at": "2026-09-10T02:32:35.142946+00:00"
+      },
+      {
+        "id": 10,
+        "updated_at": "2026-09-10T02:32:39.420707+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause.",
+        "created_at": "2026-09-10T02:32:39.420707+00:00"
+      },
+      {
+        "id": 11,
+        "updated_at": "2026-09-10T02:32:40.771145+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+        "created_at": "2026-09-10T02:32:40.771145+00:00"
+      },
+      {
+        "id": 12,
+        "updated_at": "2026-09-10T02:32:42.12329+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors.",
+        "created_at": "2026-09-10T02:32:42.12329+00:00"
+      },
+      {
+        "id": 13,
+        "updated_at": "2026-09-10T02:32:43.508772+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Checkout application team hypothesis, written before load replay.\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion.",
+        "created_at": "2026-09-10T02:32:43.508772+00:00"
+      },
+      {
+        "id": 14,
+        "updated_at": "2026-09-10T02:32:44.860133+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction.",
+        "created_at": "2026-09-10T02:32:44.860133+00:00"
+      },
+      {
+        "id": 15,
+        "updated_at": "2026-09-10T02:32:46.213401+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction.",
+        "created_at": "2026-09-10T02:32:46.213401+00:00"
+      },
+      {
+        "id": 16,
+        "updated_at": "2026-09-10T02:32:47.769493+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+        "created_at": "2026-09-10T02:32:47.769493+00:00"
+      },
+      {
+        "id": 17,
+        "updated_at": "2026-09-10T02:32:49.318784+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes.",
+        "created_at": "2026-09-10T02:32:49.318784+00:00"
+      },
+      {
+        "id": 18,
+        "updated_at": "2026-09-10T02:32:50.66516+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus mobile application postmortem, 2025-05-10.\n\nAn image cache key collision caused stale profile photographs. The incident did not involve checkout,\nrouting pools, database retries, or the June payments outage.",
+        "created_at": "2026-09-10T02:32:50.66516+00:00"
+      }
+    ],
+    "relations": [
+      {
+        "id": 1,
+        "updated_at": "2026-09-10T02:32:36.501716+00:00",
+        "from_": 6,
+        "to_": 5,
+        "content": "cites"
+      },
+      {
+        "id": 2,
+        "updated_at": "2026-09-10T02:32:38.069568+00:00",
+        "from_": 1,
+        "to_": 2,
+        "content": "published after"
+      },
+      {
+        "id": 3,
+        "updated_at": "2026-09-10T02:32:52.002555+00:00",
+        "from_": 15,
+        "to_": 14,
+        "content": "cites"
+      },
+      {
+        "id": 4,
+        "updated_at": "2026-09-10T02:32:53.348944+00:00",
+        "from_": 13,
+        "to_": 10,
+        "content": "responds to"
+      },
+      {
+        "id": 5,
+        "updated_at": "2026-09-10T02:32:54.899381+00:00",
+        "from_": 11,
+        "to_": 10,
+        "content": "responds to"
+      },
+      {
+        "id": 6,
+        "updated_at": "2026-09-10T02:32:56.243861+00:00",
+        "from_": 12,
+        "to_": 10,
+        "content": "responds to"
+      }
+    ]
+  },
+  "schedule": "Round 1 rumination first; remaining independent Jobs concurrent; round 2 concurrent after upstream edit.",
+  "owned_jobs": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "final_graph": {
+    "blocks": [
+      {
+        "id": 1,
+        "updated_at": "2026-09-10T02:32:24.117001+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official service operations bulletin, Europe region, 2025-03-12.\n\nFor the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\nThis bulletin replaces the Europe concurrency paragraph in the 2024 operating limits.",
+        "created_at": "2026-09-10T02:32:24.117001+00:00"
+      },
+      {
+        "id": 2,
+        "updated_at": "2026-09-10T02:32:25.682043+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Atlas service operating limits, Europe region, revision 2024-11.\n\nEach European tenant may run at most 30 concurrent imports. Requests above that limit remain\nqueued until capacity is available.",
+        "created_at": "2026-09-10T02:32:25.682043+00:00"
+      },
+      {
+        "id": 3,
+        "updated_at": "2026-09-10T02:32:27.031702+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Atlas service operating limits, United States region, revision 2025-03.\n\nEach United States tenant may run at most 100 concurrent imports. This regional value does not\napply to Europe.",
+        "created_at": "2026-09-10T02:32:27.031702+00:00"
+      },
+      {
+        "id": 4,
+        "updated_at": "2026-09-10T02:32:28.383575+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Atlas Europe rollout note from the service operations team, 2025-03-13.\n\nThe new 50-import limit is enabled gradually. Tenants created before March 1 retain 30 until\ntheir control-plane migration completes. The queue behavior itself is unchanged.",
+        "created_at": "2026-09-10T02:32:28.383575+00:00"
+      },
+      {
+        "id": 5,
+        "updated_at": "2026-09-10T02:32:29.735891+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Capacity test by the Reliability Lab, 2025-03-18.\n\nIn three independent Atlas Europe tenants already migrated to the new control plane, 50 imports\nran concurrently and the fifty-first remained queued. The Lab did not test legacy tenants.",
+        "created_at": "2026-09-10T02:32:29.735891+00:00"
+      },
+      {
+        "id": 6,
+        "updated_at": "2026-09-10T02:32:31.087325+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Partner newsletter, 2025-03-19.\n\nThe newsletter repeats the Reliability Lab result: migrated Atlas Europe tenants ran 50 imports\nand queued the fifty-first. Its author links to the Lab note and reports no separate test.",
+        "created_at": "2026-09-10T02:32:31.087325+00:00"
+      },
+      {
+        "id": 7,
+        "updated_at": "2026-09-10T02:32:32.437323+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Customer engineering note after an Atlas Europe migration.\n\nAfter the control-plane move, the service accepted 50 simultaneous imports for our tenant. It\nqueued the next request. Before the move we still observed the old cap.",
+        "created_at": "2026-09-10T02:32:32.437323+00:00"
+      },
+      {
+        "id": 8,
+        "updated_at": "2026-09-10T02:32:33.792291+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Internal support quick reference, copied from several regional pages.\n\nEurope allows 50 concurrent imports after migration, while the United States allows 100. Legacy\nEuropean tenants can still be limited to 30. Verify the tenant region before advising a customer.",
+        "created_at": "2026-09-10T02:32:33.792291+00:00"
+      },
+      {
+        "id": 9,
+        "updated_at": "2026-09-10T02:32:35.142946+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Atlas Export service release note, 2025-03-12.\n\nThe unrelated export product now retains completed archives for 50 days in every region. This is\na retention duration, not an ingestion concurrency limit.",
+        "created_at": "2026-09-10T02:32:35.142946+00:00"
+      },
+      {
+        "id": 10,
+        "updated_at": "2026-09-10T02:32:39.420707+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause.",
+        "created_at": "2026-09-10T02:32:39.420707+00:00"
+      },
+      {
+        "id": 11,
+        "updated_at": "2026-09-10T02:32:40.771145+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+        "created_at": "2026-09-10T02:32:40.771145+00:00"
+      },
+      {
+        "id": 12,
+        "updated_at": "2026-09-10T02:32:42.12329+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors.",
+        "created_at": "2026-09-10T02:32:42.12329+00:00"
+      },
+      {
+        "id": 13,
+        "updated_at": "2026-09-10T02:32:43.508772+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Checkout application team hypothesis, written before load replay.\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion.",
+        "created_at": "2026-09-10T02:32:43.508772+00:00"
+      },
+      {
+        "id": 14,
+        "updated_at": "2026-09-10T02:32:44.860133+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction.",
+        "created_at": "2026-09-10T02:32:44.860133+00:00"
+      },
+      {
+        "id": 15,
+        "updated_at": "2026-09-10T02:32:46.213401+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction.",
+        "created_at": "2026-09-10T02:32:46.213401+00:00"
+      },
+      {
+        "id": 16,
+        "updated_at": "2026-09-10T02:32:47.769493+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+        "created_at": "2026-09-10T02:32:47.769493+00:00"
+      },
+      {
+        "id": 17,
+        "updated_at": "2026-09-10T02:32:49.318784+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes.",
+        "created_at": "2026-09-10T02:32:49.318784+00:00"
+      },
+      {
+        "id": 18,
+        "updated_at": "2026-09-10T02:32:50.66516+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus mobile application postmortem, 2025-05-10.\n\nAn image cache key collision caused stale profile photographs. The incident did not involve checkout,\nrouting pools, database retries, or the June payments outage.",
+        "created_at": "2026-09-10T02:32:50.66516+00:00"
+      },
+      {
+        "id": 19,
+        "updated_at": "2026-09-10T02:34:04.144471+00:00",
+        "storage": null,
+        "resolver": "core.organization.behavior.rumination.v1",
+        "content": "",
+        "created_at": "2026-09-10T02:34:04.144471+00:00"
+      },
+      {
+        "id": 20,
+        "updated_at": "2026-09-10T02:35:04.421776+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus mobile application: image cache key collision caused stale profile photographs.",
+        "created_at": "2026-09-10T02:35:04.421776+00:00"
+      },
+      {
+        "id": 21,
+        "updated_at": "2026-09-10T02:35:04.421776+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "The 2025-05-10 Nimbus incident scope exclusion: the image cache incident did not involve checkout, routing pools, database retries, or the June payments outage.",
+        "created_at": "2026-09-10T02:35:04.421776+00:00"
+      },
+      {
+        "id": 22,
+        "updated_at": "2026-09-10T02:36:43.497276+00:00",
+        "storage": null,
+        "resolver": "core.organization.behavior.supersession.v1",
+        "content": "",
+        "created_at": "2026-09-10T02:36:43.497276+00:00"
+      },
+      {
+        "id": 23,
+        "updated_at": "2026-09-10T02:37:11.944011+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Atlas ingestion service, Europe: each tenant may run at most 50 concurrent imports (2025-03-12 bulletin).",
+        "created_at": "2026-09-10T02:37:11.944011+00:00"
+      },
+      {
+        "id": 24,
+        "updated_at": "2026-09-10T02:39:26.784138+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Extracted from the Nimbus remediation proposal revision 2 (block 17): the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate—each responding to a finding in the Nimbus incident evidence base. Pool concentration was reproduced by the Reliability Lab replay (block 14). Connection-wait spikes and retry amplification were observed by the database team (block 11) and reproduced in the replay (block 14). The incident timeline attributes checkout errors to a routing change (block 10). Revision 2 replaces the revision 1 approach (block 16) which used a static per-pool ceiling, manual rollback, and left retry unchanged.",
+        "created_at": "2026-09-10T02:39:26.784138+00:00"
+      },
+      {
+        "id": 25,
+        "updated_at": "2026-09-10T02:42:15.190484+00:00",
+        "storage": null,
+        "resolver": "core.organization.behavior.refinement.v1",
+        "content": "",
+        "created_at": "2026-09-10T02:42:15.190484+00:00"
+      },
+      {
+        "id": 26,
+        "updated_at": "2026-09-10T02:42:27.76415+00:00",
+        "storage": null,
+        "resolver": "core.organization.behavior.evidence-stance.v1",
+        "content": "",
+        "created_at": "2026-09-10T02:42:27.76415+00:00"
+      },
+      {
+        "id": 27,
+        "updated_at": "2026-09-10T02:42:40.302299+00:00",
+        "storage": null,
+        "resolver": "core.organization.behavior.synthesis.v1",
+        "content": "",
+        "created_at": "2026-09-10T02:42:40.302299+00:00"
+      },
+      {
+        "id": 28,
+        "updated_at": "2026-09-10T02:42:53.698626+00:00",
+        "storage": null,
+        "resolver": "core.organization.behavior.existing-referent-anchoring.v1",
+        "content": "",
+        "created_at": "2026-09-10T02:42:53.698626+00:00"
+      },
+      {
+        "id": 29,
+        "updated_at": "2026-09-10T02:43:05.36346+00:00",
+        "storage": null,
+        "resolver": "core.organization.behavior.duplicate-assertion.v1",
+        "content": "",
+        "created_at": "2026-09-10T02:43:05.36346+00:00"
+      },
+      {
+        "id": 30,
+        "updated_at": "2026-09-10T02:44:20.551671+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Atlas ingestion service (Europe region) — tenant concurrent import limit: increased from 30 to 50, effective 2025-03-12.\n\nOriginal limit (2024-11): \"Each European tenant may run at most 30 concurrent imports. Requests above that limit remain queued until capacity is available.\" [Block 2: Official Atlas service operating limits, Europe region, revision 2024-11.]\n\nUpdated limit (2025-03-12): \"For the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\" [Block 1: Official service operations bulletin, Europe region, 2025-03-12.]\n\nThe 2025-03-12 bulletin explicitly states it \"replaces the Europe concurrency paragraph in the 2024 operating limits.\"",
+        "created_at": "2026-09-10T02:44:20.551671+00:00"
+      },
+      {
+        "id": 31,
+        "updated_at": "2026-09-10T02:45:04.734112+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "the approved proposal specifies four mechanisms—adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate",
+        "created_at": "2026-09-10T02:45:04.734112+00:00"
+      },
+      {
+        "id": 32,
+        "updated_at": "2026-09-10T02:45:14.469367+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Pool concentration was reproduced by the Reliability Lab replay",
+        "created_at": "2026-09-10T02:45:14.469367+00:00"
+      },
+      {
+        "id": 33,
+        "updated_at": "2026-09-10T02:45:33.147314+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Connection-wait spikes and retry amplification were observed by the database team",
+        "created_at": "2026-09-10T02:45:33.147314+00:00"
+      },
+      {
+        "id": 34,
+        "updated_at": "2026-09-10T02:45:45.80749+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "The incident timeline attributes checkout errors to a routing change",
+        "created_at": "2026-09-10T02:45:45.80749+00:00"
+      },
+      {
+        "id": 35,
+        "updated_at": "2026-09-10T02:46:04.873219+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Revision 2 replaces the revision 1 approach which used a static per-pool ceiling, manual rollback, and left retry unchanged",
+        "created_at": "2026-09-10T02:46:04.873219+00:00"
+      },
+      {
+        "id": 36,
+        "updated_at": "2026-09-10T02:50:19.787324+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus remediation proposal, revision 3, approved after canary validation.\n\nContinue adaptive pool balancing and automatic routing rollback from revision 2, but lower the bounded\nretry budget from three attempts to two after canary tests showed faster recovery under overload.",
+        "created_at": "2026-09-10T02:50:19.787324+00:00"
+      },
+      {
+        "id": 37,
+        "updated_at": "2026-09-10T02:54:09.959909+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "revision 2",
+        "created_at": "2026-09-10T02:54:09.959909+00:00"
+      },
+      {
+        "id": 38,
+        "updated_at": "2026-09-10T02:55:12.340017+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "The Nimbus service had two separate incidents in 2025: (a) the 2025-05-10 mobile application image cache incident, where a cache key collision caused stale profile photographs (postmortem in block 18; causal claim in block 20); and (b) the 2025-06-04 payments incident, where a routing change caused checkout errors (timeline in block 10). The May postmortem explicitly excludes the June incident's scope (block 21).",
+        "created_at": "2026-09-10T02:55:12.340017+00:00"
+      },
+      {
+        "id": 39,
+        "updated_at": "2026-09-10T02:55:27.864209+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus remediation proposals evolved across three revisions in response to incident evidence. Revision 1 proposed a static per-pool traffic ceiling with manual rollback, leaving retry behavior unchanged. Revision 2, approved by service owners, replaced this with adaptive pool balancing, bounded retries, automatic routing rollback, and a production-scale replay gate. The approved revision 2 proposal specified these four mechanisms as responses to findings in the Nimbus incident evidence base: pool concentration reproduced by the Reliability Lab replay; connection-wait spikes and retry amplification observed by the database team (which noted uncertainty about whether retry amplification initiated the failure); checkout errors attributed to a routing change in the incident timeline (which did not assign a single root cause); and replacement of the revision 1 approach. Revision 3, approved after canary validation, continued adaptive pool balancing and automatic routing rollback from revision 2 but lowered the bounded retry budget from three attempts to two after canary tests showed faster recovery under overload.",
+        "created_at": "2026-09-10T02:55:27.864209+00:00"
+      },
+      {
+        "id": 40,
+        "updated_at": "2026-09-10T02:57:33.34261+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Canary validation evidence: reducing the bounded retry budget from three attempts to two resulted in faster recovery under overload conditions.",
+        "created_at": "2026-09-10T02:57:33.34261+00:00"
+      },
+      {
+        "id": 41,
+        "updated_at": "2026-09-10T02:58:33.246988+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Revision 2",
+        "created_at": "2026-09-10T02:58:33.246988+00:00"
+      },
+      {
+        "id": 42,
+        "updated_at": "2026-09-10T02:58:44.013965+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Capacity of imports on migrated Atlas Europe tenants (new control plane): The Reliability Lab (2025-03-18) tested three independent Atlas Europe tenants already migrated to the new control plane and observed that 50 imports ran concurrently while the fifty-first remained queued. The Lab did not test legacy tenants. A partner newsletter (2025-03-19) repeated the Lab's finding and linked to the Lab note, but the newsletter author performed no separate test. Consequently, this observation rests on a single independent test source (the Reliability Lab); the newsletter constitutes a derivative communication, not additional independent corroboration. The scope of the tested capacity is limited to migrated tenants on the new control plane; no tested capacity is available for legacy tenants.",
+        "created_at": "2026-09-10T02:58:44.013965+00:00"
+      },
+      {
+        "id": 43,
+        "updated_at": "2026-09-10T02:58:47.970552+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "revision 1",
+        "created_at": "2026-09-10T02:58:47.970552+00:00"
+      },
+      {
+        "id": 44,
+        "updated_at": "2026-09-10T03:00:32.787243+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Block 11 (database team observation) contains two distinguishable claims: (1) a confirmed observation that connection wait time rose sharply at 09:14 UTC, two minutes after the routing change; and (2) a belief with acknowledged uncertainty that retry amplification contributed to the spike, paired with explicit inability to determine whether retry amplification initiated the failure. The existing fragment in block 33 (\"Connection-wait spikes and retry amplification were observed by the database team\") elides the uncertainty qualifier and may overstate the team's confidence.",
+        "created_at": "2026-09-10T03:00:32.787243+00:00"
+      }
+    ],
+    "relations": [
+      {
+        "id": 1,
+        "updated_at": "2026-09-10T02:32:36.501716+00:00",
+        "from_": 6,
+        "to_": 5,
+        "content": "cites"
+      },
+      {
+        "id": 2,
+        "updated_at": "2026-09-10T02:32:38.069568+00:00",
+        "from_": 1,
+        "to_": 2,
+        "content": "published after"
+      },
+      {
+        "id": 3,
+        "updated_at": "2026-09-10T02:32:52.002555+00:00",
+        "from_": 15,
+        "to_": 14,
+        "content": "cites"
+      },
+      {
+        "id": 4,
+        "updated_at": "2026-09-10T02:32:53.348944+00:00",
+        "from_": 13,
+        "to_": 10,
+        "content": "responds to"
+      },
+      {
+        "id": 5,
+        "updated_at": "2026-09-10T02:32:54.899381+00:00",
+        "from_": 11,
+        "to_": 10,
+        "content": "responds to"
+      },
+      {
+        "id": 6,
+        "updated_at": "2026-09-10T02:32:56.243861+00:00",
+        "from_": 12,
+        "to_": 10,
+        "content": "responds to"
+      },
+      {
+        "id": 7,
+        "updated_at": "2026-09-10T02:35:04.421776+00:00",
+        "from_": 20,
+        "to_": 18,
+        "content": "extracted causal claim from"
+      },
+      {
+        "id": 8,
+        "updated_at": "2026-09-10T02:35:04.421776+00:00",
+        "from_": 21,
+        "to_": 18,
+        "content": "extracted scope exclusion from"
+      },
+      {
+        "id": 9,
+        "updated_at": "2026-09-10T02:35:11.698556+00:00",
+        "from_": 18,
+        "to_": 19,
+        "content": "candidate for"
+      },
+      {
+        "id": 10,
+        "updated_at": "2026-09-10T02:36:43.497276+00:00",
+        "from_": 1,
+        "to_": 22,
+        "content": "candidate for"
+      },
+      {
+        "id": 11,
+        "updated_at": "2026-09-10T02:37:11.944011+00:00",
+        "from_": 23,
+        "to_": 1,
+        "content": "extracted claim from"
+      },
+      {
+        "id": 12,
+        "updated_at": "2026-09-10T02:39:26.784138+00:00",
+        "from_": 24,
+        "to_": 17,
+        "content": "extracted-claims-from"
+      },
+      {
+        "id": 13,
+        "updated_at": "2026-09-10T02:39:26.784138+00:00",
+        "from_": 24,
+        "to_": 10,
+        "content": "references-incident-finding"
+      },
+      {
+        "id": 14,
+        "updated_at": "2026-09-10T02:39:26.784138+00:00",
+        "from_": 24,
+        "to_": 11,
+        "content": "references-incident-finding"
+      },
+      {
+        "id": 15,
+        "updated_at": "2026-09-10T02:39:26.784138+00:00",
+        "from_": 24,
+        "to_": 14,
+        "content": "references-replay-finding"
+      },
+      {
+        "id": 16,
+        "updated_at": "2026-09-10T02:39:26.784138+00:00",
+        "from_": 24,
+        "to_": 16,
+        "content": "distinguishes-from-revision"
+      },
+      {
+        "id": 17,
+        "updated_at": "2026-09-10T02:39:37.914497+00:00",
+        "from_": 17,
+        "to_": 19,
+        "content": "candidate for"
+      },
+      {
+        "id": 18,
+        "updated_at": "2026-09-10T02:41:28.918506+00:00",
+        "from_": 1,
+        "to_": 2,
+        "content": "supersedes"
+      },
+      {
+        "id": 19,
+        "updated_at": "2026-09-10T02:44:20.551671+00:00",
+        "from_": 1,
+        "to_": 30,
+        "content": "synthesis"
+      },
+      {
+        "id": 20,
+        "updated_at": "2026-09-10T02:44:20.551671+00:00",
+        "from_": 2,
+        "to_": 30,
+        "content": "synthesis"
+      },
+      {
+        "id": 21,
+        "updated_at": "2026-09-10T02:45:04.734112+00:00",
+        "from_": 24,
+        "to_": 31,
+        "content": "has mention"
+      },
+      {
+        "id": 22,
+        "updated_at": "2026-09-10T02:45:04.734112+00:00",
+        "from_": 31,
+        "to_": 17,
+        "content": "refers to"
+      },
+      {
+        "id": 23,
+        "updated_at": "2026-09-10T02:45:14.469367+00:00",
+        "from_": 24,
+        "to_": 32,
+        "content": "has mention"
+      },
+      {
+        "id": 24,
+        "updated_at": "2026-09-10T02:45:14.469367+00:00",
+        "from_": 32,
+        "to_": 14,
+        "content": "refers to"
+      },
+      {
+        "id": 25,
+        "updated_at": "2026-09-10T02:45:18.920672+00:00",
+        "from_": 1,
+        "to_": 2,
+        "content": "challenges"
+      },
+      {
+        "id": 26,
+        "updated_at": "2026-09-10T02:45:27.179997+00:00",
+        "from_": 17,
+        "to_": 16,
+        "content": "supersedes"
+      },
+      {
+        "id": 27,
+        "updated_at": "2026-09-10T02:45:33.147314+00:00",
+        "from_": 24,
+        "to_": 33,
+        "content": "has mention"
+      },
+      {
+        "id": 28,
+        "updated_at": "2026-09-10T02:45:33.147314+00:00",
+        "from_": 33,
+        "to_": 11,
+        "content": "refers to"
+      },
+      {
+        "id": 29,
+        "updated_at": "2026-09-10T02:45:45.80749+00:00",
+        "from_": 24,
+        "to_": 34,
+        "content": "has mention"
+      },
+      {
+        "id": 30,
+        "updated_at": "2026-09-10T02:45:45.80749+00:00",
+        "from_": 34,
+        "to_": 10,
+        "content": "refers to"
+      },
+      {
+        "id": 31,
+        "updated_at": "2026-09-10T02:46:04.873219+00:00",
+        "from_": 24,
+        "to_": 35,
+        "content": "has mention"
+      },
+      {
+        "id": 32,
+        "updated_at": "2026-09-10T02:46:04.873219+00:00",
+        "from_": 35,
+        "to_": 16,
+        "content": "refers to"
+      },
+      {
+        "id": 33,
+        "updated_at": "2026-09-10T02:47:13.104452+00:00",
+        "from_": 14,
+        "to_": 15,
+        "content": "duplicates assertion"
+      },
+      {
+        "id": 34,
+        "updated_at": "2026-09-10T02:47:36.137223+00:00",
+        "from_": 24,
+        "to_": 25,
+        "content": "candidate for"
+      },
+      {
+        "id": 35,
+        "updated_at": "2026-09-10T02:48:26.973763+00:00",
+        "from_": 1,
+        "to_": 23,
+        "content": "duplicates assertion"
+      },
+      {
+        "id": 36,
+        "updated_at": "2026-09-10T02:50:08.949703+00:00",
+        "from_": 11,
+        "to_": 13,
+        "content": "supports"
+      },
+      {
+        "id": 37,
+        "updated_at": "2026-09-10T02:50:21.391947+00:00",
+        "from_": 17,
+        "to_": 36,
+        "content": "edited"
+      },
+      {
+        "id": 38,
+        "updated_at": "2026-09-10T02:54:09.959909+00:00",
+        "from_": 36,
+        "to_": 37,
+        "content": "has mention"
+      },
+      {
+        "id": 39,
+        "updated_at": "2026-09-10T02:54:09.959909+00:00",
+        "from_": 37,
+        "to_": 17,
+        "content": "refers to"
+      },
+      {
+        "id": 40,
+        "updated_at": "2026-09-10T02:55:12.340017+00:00",
+        "from_": 38,
+        "to_": 18,
+        "content": "disambiguates incident references in"
+      },
+      {
+        "id": 41,
+        "updated_at": "2026-09-10T02:55:12.340017+00:00",
+        "from_": 38,
+        "to_": 10,
+        "content": "distinguishes separate incident from"
+      },
+      {
+        "id": 42,
+        "updated_at": "2026-09-10T02:55:12.340017+00:00",
+        "from_": 38,
+        "to_": 20,
+        "content": "attributes causal claim to"
+      },
+      {
+        "id": 43,
+        "updated_at": "2026-09-10T02:55:12.340017+00:00",
+        "from_": 38,
+        "to_": 21,
+        "content": "attributes scope exclusion to"
+      },
+      {
+        "id": 44,
+        "updated_at": "2026-09-10T02:55:15.175901+00:00",
+        "from_": 21,
+        "to_": 28,
+        "content": "candidate for"
+      },
+      {
+        "id": 45,
+        "updated_at": "2026-09-10T02:55:22.222282+00:00",
+        "from_": 24,
+        "to_": 17,
+        "content": "refines"
+      },
+      {
+        "id": 46,
+        "updated_at": "2026-09-10T02:55:27.864209+00:00",
+        "from_": 16,
+        "to_": 39,
+        "content": "synthesis"
+      },
+      {
+        "id": 47,
+        "updated_at": "2026-09-10T02:55:27.864209+00:00",
+        "from_": 17,
+        "to_": 39,
+        "content": "synthesis"
+      },
+      {
+        "id": 48,
+        "updated_at": "2026-09-10T02:55:27.864209+00:00",
+        "from_": 24,
+        "to_": 39,
+        "content": "synthesis"
+      },
+      {
+        "id": 49,
+        "updated_at": "2026-09-10T02:55:27.864209+00:00",
+        "from_": 36,
+        "to_": 39,
+        "content": "synthesis"
+      },
+      {
+        "id": 50,
+        "updated_at": "2026-09-10T02:56:03.806724+00:00",
+        "from_": 36,
+        "to_": 17,
+        "content": "supersedes"
+      },
+      {
+        "id": 51,
+        "updated_at": "2026-09-10T02:57:10.099881+00:00",
+        "from_": 36,
+        "to_": 22,
+        "content": "candidate for"
+      },
+      {
+        "id": 52,
+        "updated_at": "2026-09-10T02:57:33.34261+00:00",
+        "from_": 40,
+        "to_": 36,
+        "content": "evidence"
+      },
+      {
+        "id": 53,
+        "updated_at": "2026-09-10T02:57:58.638524+00:00",
+        "from_": 31,
+        "to_": 17,
+        "content": "refines"
+      },
+      {
+        "id": 54,
+        "updated_at": "2026-09-10T02:58:01.43682+00:00",
+        "from_": 14,
+        "to_": 15,
+        "content": "supersedes"
+      },
+      {
+        "id": 55,
+        "updated_at": "2026-09-10T02:58:33.246988+00:00",
+        "from_": 35,
+        "to_": 41,
+        "content": "has mention"
+      },
+      {
+        "id": 56,
+        "updated_at": "2026-09-10T02:58:33.246988+00:00",
+        "from_": 41,
+        "to_": 17,
+        "content": "refers to"
+      },
+      {
+        "id": 57,
+        "updated_at": "2026-09-10T02:58:44.013965+00:00",
+        "from_": 5,
+        "to_": 42,
+        "content": "synthesis"
+      },
+      {
+        "id": 58,
+        "updated_at": "2026-09-10T02:58:44.013965+00:00",
+        "from_": 6,
+        "to_": 42,
+        "content": "synthesis"
+      },
+      {
+        "id": 59,
+        "updated_at": "2026-09-10T02:58:47.970552+00:00",
+        "from_": 35,
+        "to_": 43,
+        "content": "has mention"
+      },
+      {
+        "id": 60,
+        "updated_at": "2026-09-10T02:58:47.970552+00:00",
+        "from_": 43,
+        "to_": 16,
+        "content": "refers to"
+      },
+      {
+        "id": 61,
+        "updated_at": "2026-09-10T02:59:01.766801+00:00",
+        "from_": 5,
+        "to_": 27,
+        "content": "candidate for"
+      },
+      {
+        "id": 62,
+        "updated_at": "2026-09-10T02:59:03.432367+00:00",
+        "from_": 6,
+        "to_": 27,
+        "content": "candidate for"
+      },
+      {
+        "id": 63,
+        "updated_at": "2026-09-10T03:00:22.167729+00:00",
+        "from_": 11,
+        "to_": 19,
+        "content": "candidate for"
+      }
+    ]
+  }
+}

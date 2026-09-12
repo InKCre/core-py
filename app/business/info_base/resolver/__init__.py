@@ -10,7 +10,12 @@ from .contracts import (
   UnknownResolverError,
   UnsupportedResolverCapability,
 )
-from .main import Resolver, ResolverDraftCapability, ResolverManager
+from .main import (
+  Resolver,
+  ResolverDraftCapability,
+  ResolverManager,
+  ResolverMethodContract,
+)
 
 __all__ = [
   "ResolverManager",
@@ -26,6 +31,7 @@ __all__ = [
   "ResolverContentError",
   "UnsupportedResolverCapability",
   "ResolverDraftCapability",
+  "ResolverMethodContract",
   "AudioResolver",
   "EPUBResolver",
   "FileResolver",

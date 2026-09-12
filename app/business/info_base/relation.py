@@ -14,6 +14,26 @@ logger = get_logger()
 
 class RelationManager:
   @classmethod
+  def get_many(
+    cls,
+    relation_ids: typing.Collection[RelationID],
+    db_session: Opt[sqlmodel.Session] = None,
+  ) -> tuple[RelationModel, ...]:
+    """Return the existing Relations from a bounded identity set."""
+    if not relation_ids:
+      return ()
+    if db_session is None:
+      with SessionLocal() as owned_session:
+        return cls.get_many(relation_ids, owned_session)
+    return tuple(
+      db_session.exec(
+        sqlmodel.select(RelationModel).where(
+          sqlmodel.col(RelationModel.id).in_(tuple(relation_ids))
+        )
+      ).all()
+    )
+
+  @classmethod
   def get_by_id(
     cls,
     relation_id: RelationID,

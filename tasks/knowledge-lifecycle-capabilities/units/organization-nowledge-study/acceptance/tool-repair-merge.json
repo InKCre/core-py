@@ -1,0 +1,1046 @@
+{
+  "head": "4a0f26644df6a2071454b8d5cd159db0dbafbd1a",
+  "mode": "merge",
+  "definition_head": "4a0f26644df6a2071454b8d5cd159db0dbafbd1a",
+  "model": "qwen3.6-plus",
+  "rounds": [
+    {
+      "round": 1,
+      "jobs": [
+        {
+          "job": {
+            "id": 101,
+            "type": "core.organization.rumination.automatic.v1",
+            "parameters": {
+              "max_seeds": 3
+            },
+            "state": {},
+            "timeout_seconds": 900,
+            "status": "finished",
+            "created_at": "2026-09-12T16:21:59.261992+00:00",
+            "started_at": "2026-09-12T16:22:23.320083+00:00",
+            "closed_at": "2026-09-12T16:27:19.746016+00:00"
+          },
+          "events": []
+        },
+        {
+          "job": {
+            "id": 102,
+            "type": "core.organization.supersession.automatic.v1",
+            "parameters": {
+              "max_seeds": 3
+            },
+            "state": {},
+            "timeout_seconds": 900,
+            "status": "finished",
+            "created_at": "2026-09-12T16:27:26.829796+00:00",
+            "started_at": "2026-09-12T16:27:53.578079+00:00",
+            "closed_at": "2026-09-12T16:30:59.07587+00:00"
+          },
+          "events": []
+        },
+        {
+          "job": {
+            "id": 103,
+            "type": "core.organization.refinement.automatic.v1",
+            "parameters": {
+              "max_seeds": 3
+            },
+            "state": {},
+            "timeout_seconds": 900,
+            "status": "finished",
+            "created_at": "2026-09-12T16:31:04.874848+00:00",
+            "started_at": "2026-09-12T16:31:23.690488+00:00",
+            "closed_at": "2026-09-12T16:37:09.237725+00:00"
+          },
+          "events": []
+        },
+        {
+          "job": {
+            "id": 104,
+            "type": "core.organization.evidence-stance.automatic.v1",
+            "parameters": {
+              "max_seeds": 3
+            },
+            "state": {},
+            "timeout_seconds": 900,
+            "status": "finished",
+            "created_at": "2026-09-12T16:37:14.71587+00:00",
+            "started_at": "2026-09-12T16:38:15.167978+00:00",
+            "closed_at": "2026-09-12T16:45:33.438777+00:00"
+          },
+          "events": []
+        },
+        {
+          "job": {
+            "id": 105,
+            "type": "core.organization.synthesis.automatic.v1",
+            "parameters": {
+              "max_seeds": 3
+            },
+            "state": {},
+            "timeout_seconds": 900,
+            "status": "finished",
+            "created_at": "2026-09-12T16:37:17.601209+00:00",
+            "started_at": "2026-09-12T16:38:28.266897+00:00",
+            "closed_at": "2026-09-12T16:44:58.659972+00:00"
+          },
+          "events": []
+        },
+        {
+          "job": {
+            "id": 106,
+            "type": "core.organization.existing-referent-anchoring.automatic.v1",
+            "parameters": {
+              "max_seeds": 3
+            },
+            "state": {},
+            "timeout_seconds": 900,
+            "status": "finished",
+            "created_at": "2026-09-12T16:37:20.274056+00:00",
+            "started_at": "2026-09-12T16:38:02.878097+00:00",
+            "closed_at": "2026-09-12T16:43:20.722961+00:00"
+          },
+          "events": []
+        },
+        {
+          "job": {
+            "id": 107,
+            "type": "core.organization.duplicate-assertion.automatic.v1",
+            "parameters": {
+              "max_seeds": 3
+            },
+            "state": {},
+            "timeout_seconds": 900,
+            "status": "finished",
+            "created_at": "2026-09-12T16:37:22.972673+00:00",
+            "started_at": "2026-09-12T16:38:42.159395+00:00",
+            "closed_at": "2026-09-12T16:42:52.961065+00:00"
+          },
+          "events": []
+        }
+      ],
+      "maintenance": {
+        "id": 100,
+        "type": "core.feature_retrieval.lexical.maintain.v1",
+        "parameters": {
+          "options": {
+            "max_records": 10000
+          }
+        },
+        "state": {
+          "failed": 0,
+          "indexed": 18,
+          "diagnostics": [],
+          "unavailable": 0
+        },
+        "timeout_seconds": 900,
+        "status": "finished",
+        "created_at": "2026-09-12T16:21:16.555697+00:00",
+        "started_at": "2026-09-12T16:21:47.642791+00:00",
+        "closed_at": "2026-09-12T16:21:55.290379+00:00"
+      },
+      "graph": {
+        "blocks": [
+          {
+            "id": 1514,
+            "updated_at": "2026-09-12T16:20:35.78884+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official service operations bulletin, Europe region, 2025-03-12.\n\nFor the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\nThis bulletin replaces the Europe concurrency paragraph in the 2024 operating limits.",
+            "created_at": "2026-09-12T16:20:35.78884+00:00"
+          },
+          {
+            "id": 1515,
+            "updated_at": "2026-09-12T16:20:37.406372+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Atlas service operating limits, Europe region, revision 2024-11.\n\nEach European tenant may run at most 30 concurrent imports. Requests above that limit remain\nqueued until capacity is available.",
+            "created_at": "2026-09-12T16:20:37.406372+00:00"
+          },
+          {
+            "id": 1516,
+            "updated_at": "2026-09-12T16:20:38.802954+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Atlas service operating limits, United States region, revision 2025-03.\n\nEach United States tenant may run at most 100 concurrent imports. This regional value does not\napply to Europe.",
+            "created_at": "2026-09-12T16:20:38.802954+00:00"
+          },
+          {
+            "id": 1517,
+            "updated_at": "2026-09-12T16:20:40.199339+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas Europe rollout note from the service operations team, 2025-03-13.\n\nThe new 50-import limit is enabled gradually. Tenants created before March 1 retain 30 until\ntheir control-plane migration completes. The queue behavior itself is unchanged.",
+            "created_at": "2026-09-12T16:20:40.199339+00:00"
+          },
+          {
+            "id": 1518,
+            "updated_at": "2026-09-12T16:20:41.596265+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Capacity test by the Reliability Lab, 2025-03-18.\n\nIn three independent Atlas Europe tenants already migrated to the new control plane, 50 imports\nran concurrently and the fifty-first remained queued. The Lab did not test legacy tenants.",
+            "created_at": "2026-09-12T16:20:41.596265+00:00"
+          },
+          {
+            "id": 1519,
+            "updated_at": "2026-09-12T16:20:42.992407+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Partner newsletter, 2025-03-19.\n\nThe newsletter repeats the Reliability Lab result: migrated Atlas Europe tenants ran 50 imports\nand queued the fifty-first. Its author links to the Lab note and reports no separate test.",
+            "created_at": "2026-09-12T16:20:42.992407+00:00"
+          },
+          {
+            "id": 1520,
+            "updated_at": "2026-09-12T16:20:44.387759+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Customer engineering note after an Atlas Europe migration.\n\nAfter the control-plane move, the service accepted 50 simultaneous imports for our tenant. It\nqueued the next request. Before the move we still observed the old cap.",
+            "created_at": "2026-09-12T16:20:44.387759+00:00"
+          },
+          {
+            "id": 1521,
+            "updated_at": "2026-09-12T16:20:45.783744+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Internal support quick reference, copied from several regional pages.\n\nEurope allows 50 concurrent imports after migration, while the United States allows 100. Legacy\nEuropean tenants can still be limited to 30. Verify the tenant region before advising a customer.",
+            "created_at": "2026-09-12T16:20:45.783744+00:00"
+          },
+          {
+            "id": 1522,
+            "updated_at": "2026-09-12T16:20:47.179678+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Atlas Export service release note, 2025-03-12.\n\nThe unrelated export product now retains completed archives for 50 days in every region. This is\na retention duration, not an ingestion concurrency limit.",
+            "created_at": "2026-09-12T16:20:47.179678+00:00"
+          },
+          {
+            "id": 1523,
+            "updated_at": "2026-09-12T16:20:51.480192+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause.",
+            "created_at": "2026-09-12T16:20:51.480192+00:00"
+          },
+          {
+            "id": 1524,
+            "updated_at": "2026-09-12T16:20:52.875061+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+            "created_at": "2026-09-12T16:20:52.875061+00:00"
+          },
+          {
+            "id": 1525,
+            "updated_at": "2026-09-12T16:20:54.270593+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors.",
+            "created_at": "2026-09-12T16:20:54.270593+00:00"
+          },
+          {
+            "id": 1526,
+            "updated_at": "2026-09-12T16:20:55.667757+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Checkout application team hypothesis, written before load replay.\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion.",
+            "created_at": "2026-09-12T16:20:55.667757+00:00"
+          },
+          {
+            "id": 1527,
+            "updated_at": "2026-09-12T16:20:57.063765+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction.",
+            "created_at": "2026-09-12T16:20:57.063765+00:00"
+          },
+          {
+            "id": 1528,
+            "updated_at": "2026-09-12T16:20:58.458086+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction.",
+            "created_at": "2026-09-12T16:20:58.458086+00:00"
+          },
+          {
+            "id": 1529,
+            "updated_at": "2026-09-12T16:20:59.855014+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+            "created_at": "2026-09-12T16:20:59.855014+00:00"
+          },
+          {
+            "id": 1530,
+            "updated_at": "2026-09-12T16:21:01.249805+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes.",
+            "created_at": "2026-09-12T16:21:01.249805+00:00"
+          },
+          {
+            "id": 1531,
+            "updated_at": "2026-09-12T16:21:02.647464+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus mobile application postmortem, 2025-05-10.\n\nAn image cache key collision caused stale profile photographs. The incident did not involve checkout,\nrouting pools, database retries, or the June payments outage.",
+            "created_at": "2026-09-12T16:21:02.647464+00:00"
+          },
+          {
+            "id": 1532,
+            "updated_at": "2026-09-12T16:22:24.889167+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.rumination.v1",
+            "content": "",
+            "created_at": "2026-09-12T16:22:24.889167+00:00"
+          },
+          {
+            "id": 1533,
+            "updated_at": "2026-09-12T16:23:05.789849+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus mobile application: image cache key collision caused stale profile photographs (incident, 2025-05-10).",
+            "created_at": "2026-09-12T16:23:05.789849+00:00"
+          },
+          {
+            "id": 1534,
+            "updated_at": "2026-09-12T16:23:05.789849+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus mobile application incident (2025-05-10) did not involve checkout, routing pools, or database retries.",
+            "created_at": "2026-09-12T16:23:05.789849+00:00"
+          },
+          {
+            "id": 1535,
+            "updated_at": "2026-09-12T16:23:05.789849+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus June payments outage is a separate incident from the 2025-05-10 image cache key collision incident.",
+            "created_at": "2026-09-12T16:23:05.789849+00:00"
+          },
+          {
+            "id": 1536,
+            "updated_at": "2026-09-12T16:24:10.423476+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Network team reported that packet loss remained within the normal range throughout the 2025-06-04 Nimbus incident.",
+            "created_at": "2026-09-12T16:24:10.423476+00:00"
+          },
+          {
+            "id": 1537,
+            "updated_at": "2026-09-12T16:24:10.423476+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Network team position: an upstream network fault did not initiate the Nimbus checkout errors on 2025-06-04.",
+            "created_at": "2026-09-12T16:24:10.423476+00:00"
+          },
+          {
+            "id": 1538,
+            "updated_at": "2026-09-12T16:26:04.321156+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Network team observation: Packet loss remained within the normal range throughout the 2025-06-04 Nimbus incident.",
+            "created_at": "2026-09-12T16:26:04.321156+00:00"
+          },
+          {
+            "id": 1539,
+            "updated_at": "2026-09-12T16:26:04.321156+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Network team position: An upstream network fault did not initiate the checkout errors on 2025-06-04.",
+            "created_at": "2026-09-12T16:26:04.321156+00:00"
+          },
+          {
+            "id": 1540,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal, revision 2",
+            "created_at": "2026-09-12T16:27:04.050396+00:00"
+          },
+          {
+            "id": 1541,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Approved by service owners",
+            "created_at": "2026-09-12T16:27:04.050396+00:00"
+          },
+          {
+            "id": 1542,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Replace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic routing rollback",
+            "created_at": "2026-09-12T16:27:04.050396+00:00"
+          },
+          {
+            "id": 1543,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Production-scale replay passes",
+            "created_at": "2026-09-12T16:27:04.050396+00:00"
+          },
+          {
+            "id": 1544,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Rollout of Nimbus remediation proposal revision 2 begins",
+            "created_at": "2026-09-12T16:27:04.050396+00:00"
+          },
+          {
+            "id": 1545,
+            "updated_at": "2026-09-12T16:27:55.14022+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.supersession.v1",
+            "content": "",
+            "created_at": "2026-09-12T16:27:55.14022+00:00"
+          },
+          {
+            "id": 1546,
+            "updated_at": "2026-09-12T16:31:25.259029+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.refinement.v1",
+            "content": "",
+            "created_at": "2026-09-12T16:31:25.259029+00:00"
+          },
+          {
+            "id": 1547,
+            "updated_at": "2026-09-12T16:38:04.411577+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.existing-referent-anchoring.v1",
+            "content": "",
+            "created_at": "2026-09-12T16:38:04.411577+00:00"
+          },
+          {
+            "id": 1548,
+            "updated_at": "2026-09-12T16:38:16.699491+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.evidence-stance.v1",
+            "content": "",
+            "created_at": "2026-09-12T16:38:16.699491+00:00"
+          },
+          {
+            "id": 1549,
+            "updated_at": "2026-09-12T16:38:29.807576+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.synthesis.v1",
+            "content": "",
+            "created_at": "2026-09-12T16:38:29.807576+00:00"
+          },
+          {
+            "id": 1550,
+            "updated_at": "2026-09-12T16:38:43.719625+00:00",
+            "storage": null,
+            "resolver": "core.organization.behavior.duplicate-assertion.v1",
+            "content": "",
+            "created_at": "2026-09-12T16:38:43.719625+00:00"
+          },
+          {
+            "id": 1551,
+            "updated_at": "2026-09-12T16:40:54.237262+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "Nimbus remediation proposal revision 2, approved by service owners, supersedes revision 1's approach of a static per-pool traffic ceiling with manual rollback (leaving retry behavior unchanged). Revision 2 specifies adaptive pool balancing, bounded retries, and automatic routing rollback.",
+            "created_at": "2026-09-12T16:40:54.237262+00:00"
+          },
+          {
+            "id": 1552,
+            "updated_at": "2026-09-12T16:43:08.512961+00:00",
+            "storage": null,
+            "resolver": "core.text.v1",
+            "content": "production-scale replay passes",
+            "created_at": "2026-09-12T16:43:08.512961+00:00"
+          }
+        ],
+        "relations": [
+          {
+            "id": 1367,
+            "updated_at": "2026-09-12T16:20:48.685962+00:00",
+            "from_": 1519,
+            "to_": 1518,
+            "content": "cites"
+          },
+          {
+            "id": 1368,
+            "updated_at": "2026-09-12T16:20:50.083327+00:00",
+            "from_": 1514,
+            "to_": 1515,
+            "content": "published after"
+          },
+          {
+            "id": 1369,
+            "updated_at": "2026-09-12T16:21:04.045187+00:00",
+            "from_": 1528,
+            "to_": 1527,
+            "content": "cites"
+          },
+          {
+            "id": 1370,
+            "updated_at": "2026-09-12T16:21:05.43966+00:00",
+            "from_": 1526,
+            "to_": 1523,
+            "content": "responds to"
+          },
+          {
+            "id": 1371,
+            "updated_at": "2026-09-12T16:21:06.837324+00:00",
+            "from_": 1524,
+            "to_": 1523,
+            "content": "responds to"
+          },
+          {
+            "id": 1372,
+            "updated_at": "2026-09-12T16:21:08.23401+00:00",
+            "from_": 1525,
+            "to_": 1523,
+            "content": "responds to"
+          },
+          {
+            "id": 1373,
+            "updated_at": "2026-09-12T16:24:10.423476+00:00",
+            "from_": 1536,
+            "to_": 1525,
+            "content": "supports claim"
+          },
+          {
+            "id": 1374,
+            "updated_at": "2026-09-12T16:24:10.423476+00:00",
+            "from_": 1537,
+            "to_": 1525,
+            "content": "supports position"
+          },
+          {
+            "id": 1375,
+            "updated_at": "2026-09-12T16:24:10.423476+00:00",
+            "from_": 1536,
+            "to_": 1537,
+            "content": "separates reported observation from"
+          },
+          {
+            "id": 1376,
+            "updated_at": "2026-09-12T16:26:04.321156+00:00",
+            "from_": 1538,
+            "to_": 1525,
+            "content": "observation stated in"
+          },
+          {
+            "id": 1377,
+            "updated_at": "2026-09-12T16:26:04.321156+00:00",
+            "from_": 1539,
+            "to_": 1525,
+            "content": "position stated in"
+          },
+          {
+            "id": 1378,
+            "updated_at": "2026-09-12T16:26:04.321156+00:00",
+            "from_": 1538,
+            "to_": 1539,
+            "content": "observation used to support"
+          },
+          {
+            "id": 1379,
+            "updated_at": "2026-09-12T16:26:04.321156+00:00",
+            "from_": 1525,
+            "to_": 1523,
+            "content": "incident timeline"
+          },
+          {
+            "id": 1380,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "from_": 1540,
+            "to_": 1541,
+            "content": "status"
+          },
+          {
+            "id": 1381,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "from_": 1540,
+            "to_": 1542,
+            "content": "specified change"
+          },
+          {
+            "id": 1382,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "from_": 1543,
+            "to_": 1544,
+            "content": "prerequisite for"
+          },
+          {
+            "id": 1383,
+            "updated_at": "2026-09-12T16:27:04.050396+00:00",
+            "from_": 1544,
+            "to_": 1540,
+            "content": "applies to"
+          },
+          {
+            "id": 1384,
+            "updated_at": "2026-09-12T16:29:34.092812+00:00",
+            "from_": 1540,
+            "to_": 1529,
+            "content": "supersedes"
+          },
+          {
+            "id": 1385,
+            "updated_at": "2026-09-12T16:40:54.237262+00:00",
+            "from_": 1529,
+            "to_": 1551,
+            "content": "synthesis"
+          },
+          {
+            "id": 1386,
+            "updated_at": "2026-09-12T16:40:54.237262+00:00",
+            "from_": 1540,
+            "to_": 1551,
+            "content": "synthesis"
+          },
+          {
+            "id": 1387,
+            "updated_at": "2026-09-12T16:40:54.237262+00:00",
+            "from_": 1541,
+            "to_": 1551,
+            "content": "synthesis"
+          },
+          {
+            "id": 1388,
+            "updated_at": "2026-09-12T16:40:54.237262+00:00",
+            "from_": 1542,
+            "to_": 1551,
+            "content": "synthesis"
+          },
+          {
+            "id": 1389,
+            "updated_at": "2026-09-12T16:41:01.26893+00:00",
+            "from_": 1530,
+            "to_": 1544,
+            "content": "duplicates assertion"
+          },
+          {
+            "id": 1390,
+            "updated_at": "2026-09-12T16:42:12.05532+00:00",
+            "from_": 1518,
+            "to_": 1519,
+            "content": "duplicates assertion"
+          },
+          {
+            "id": 1391,
+            "updated_at": "2026-09-12T16:42:13.945841+00:00",
+            "from_": 1531,
+            "to_": 1535,
+            "content": "supports"
+          },
+          {
+            "id": 1392,
+            "updated_at": "2026-09-12T16:43:08.512961+00:00",
+            "from_": 1543,
+            "to_": 1552,
+            "content": "has mention"
+          },
+          {
+            "id": 1393,
+            "updated_at": "2026-09-12T16:43:08.512961+00:00",
+            "from_": 1552,
+            "to_": 1530,
+            "content": "refers to"
+          }
+        ]
+      }
+    }
+  ],
+  "cleanup": {
+    "relations": {
+      "removed": 27,
+      "remaining_new_ids": []
+    },
+    "blocks": {
+      "removed": 39,
+      "remaining_new_ids": []
+    },
+    "jobs": {
+      "removed": 8,
+      "remaining_new_ids": []
+    },
+    "agents": {
+      "removed": 7,
+      "remaining_new_ids": []
+    },
+    "ai_models": {
+      "removed": 1,
+      "remaining_new_ids": []
+    },
+    "ai_providers": {
+      "removed": 1,
+      "remaining_new_ids": []
+    }
+  },
+  "initial_ids": {
+    "blocks": [],
+    "relations": [],
+    "jobs": [],
+    "agents": [],
+    "ai_models": [],
+    "ai_providers": []
+  },
+  "config_backups": {},
+  "configured": [
+    "core.organization.rumination",
+    "core.organization.supersession",
+    "core.organization.refinement",
+    "core.organization.evidence_stance",
+    "core.organization.synthesis",
+    "core.organization.existing_referent_anchoring",
+    "core.organization.duplicate_assertion"
+  ],
+  "aliases": {
+    "atlas.eu-limit-2025": 1514,
+    "atlas.eu-limit-2024": 1515,
+    "atlas.us-limit": 1516,
+    "atlas.eu-rollout": 1517,
+    "atlas.measurement": 1518,
+    "atlas.newsletter-copy": 1519,
+    "atlas.implicit-reference": 1520,
+    "atlas.composite-limits": 1521,
+    "atlas.distractor": 1522,
+    "nimbus.timeline": 1523,
+    "nimbus.database": 1524,
+    "nimbus.network": 1525,
+    "nimbus.application": 1526,
+    "nimbus.validation": 1527,
+    "nimbus.copied-report": 1528,
+    "nimbus.remediation-v1": 1529,
+    "nimbus.remediation-v2": 1530,
+    "nimbus.distractor": 1531
+  },
+  "before": {
+    "blocks": [
+      {
+        "id": 1514,
+        "updated_at": "2026-09-12T16:20:35.78884+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official service operations bulletin, Europe region, 2025-03-12.\n\nFor the Atlas ingestion service in Europe, each tenant may run at most 50 concurrent imports.\nThis bulletin replaces the Europe concurrency paragraph in the 2024 operating limits.",
+        "created_at": "2026-09-12T16:20:35.78884+00:00"
+      },
+      {
+        "id": 1515,
+        "updated_at": "2026-09-12T16:20:37.406372+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Atlas service operating limits, Europe region, revision 2024-11.\n\nEach European tenant may run at most 30 concurrent imports. Requests above that limit remain\nqueued until capacity is available.",
+        "created_at": "2026-09-12T16:20:37.406372+00:00"
+      },
+      {
+        "id": 1516,
+        "updated_at": "2026-09-12T16:20:38.802954+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Atlas service operating limits, United States region, revision 2025-03.\n\nEach United States tenant may run at most 100 concurrent imports. This regional value does not\napply to Europe.",
+        "created_at": "2026-09-12T16:20:38.802954+00:00"
+      },
+      {
+        "id": 1517,
+        "updated_at": "2026-09-12T16:20:40.199339+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Atlas Europe rollout note from the service operations team, 2025-03-13.\n\nThe new 50-import limit is enabled gradually. Tenants created before March 1 retain 30 until\ntheir control-plane migration completes. The queue behavior itself is unchanged.",
+        "created_at": "2026-09-12T16:20:40.199339+00:00"
+      },
+      {
+        "id": 1518,
+        "updated_at": "2026-09-12T16:20:41.596265+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Capacity test by the Reliability Lab, 2025-03-18.\n\nIn three independent Atlas Europe tenants already migrated to the new control plane, 50 imports\nran concurrently and the fifty-first remained queued. The Lab did not test legacy tenants.",
+        "created_at": "2026-09-12T16:20:41.596265+00:00"
+      },
+      {
+        "id": 1519,
+        "updated_at": "2026-09-12T16:20:42.992407+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Partner newsletter, 2025-03-19.\n\nThe newsletter repeats the Reliability Lab result: migrated Atlas Europe tenants ran 50 imports\nand queued the fifty-first. Its author links to the Lab note and reports no separate test.",
+        "created_at": "2026-09-12T16:20:42.992407+00:00"
+      },
+      {
+        "id": 1520,
+        "updated_at": "2026-09-12T16:20:44.387759+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Customer engineering note after an Atlas Europe migration.\n\nAfter the control-plane move, the service accepted 50 simultaneous imports for our tenant. It\nqueued the next request. Before the move we still observed the old cap.",
+        "created_at": "2026-09-12T16:20:44.387759+00:00"
+      },
+      {
+        "id": 1521,
+        "updated_at": "2026-09-12T16:20:45.783744+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Internal support quick reference, copied from several regional pages.\n\nEurope allows 50 concurrent imports after migration, while the United States allows 100. Legacy\nEuropean tenants can still be limited to 30. Verify the tenant region before advising a customer.",
+        "created_at": "2026-09-12T16:20:45.783744+00:00"
+      },
+      {
+        "id": 1522,
+        "updated_at": "2026-09-12T16:20:47.179678+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Atlas Export service release note, 2025-03-12.\n\nThe unrelated export product now retains completed archives for 50 days in every region. This is\na retention duration, not an ingestion concurrency limit.",
+        "created_at": "2026-09-12T16:20:47.179678+00:00"
+      },
+      {
+        "id": 1523,
+        "updated_at": "2026-09-12T16:20:51.480192+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Official Nimbus payments incident timeline, 2025-06-04.\n\nAt 09:12 UTC checkout errors rose after a routing change. The team rolled back routing at 09:31,\nand error rates returned to baseline by 09:38. The timeline does not assign a single root cause.",
+        "created_at": "2026-09-12T16:20:51.480192+00:00"
+      },
+      {
+        "id": 1524,
+        "updated_at": "2026-09-12T16:20:52.875061+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Database team observation for the Nimbus incident review.\n\nConnection wait time rose sharply at 09:14 UTC, two minutes after the routing change. The team\nbelieves retry amplification contributed, but cannot determine whether it initiated the failure.",
+        "created_at": "2026-09-12T16:20:52.875061+00:00"
+      },
+      {
+        "id": 1525,
+        "updated_at": "2026-09-12T16:20:54.270593+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Network team statement for the Nimbus incident review.\n\nPacket loss remained within the normal range throughout the incident. The team disputes the claim\nthat an upstream network fault initiated the checkout errors.",
+        "created_at": "2026-09-12T16:20:54.270593+00:00"
+      },
+      {
+        "id": 1526,
+        "updated_at": "2026-09-12T16:20:55.667757+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Checkout application team hypothesis, written before load replay.\n\nA malformed routing rule may have concentrated traffic on one pool and triggered database retry\namplification. This is a working explanation, not a confirmed causal conclusion.",
+        "created_at": "2026-09-12T16:20:55.667757+00:00"
+      },
+      {
+        "id": 1527,
+        "updated_at": "2026-09-12T16:20:57.063765+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Independent Reliability Lab replay, 2025-06-09.\n\nReplaying the routing rule against production-scale synthetic traffic reproduced pool concentration,\nconnection waits, and retry amplification. No abnormal packet loss was required for reproduction.",
+        "created_at": "2026-09-12T16:20:57.063765+00:00"
+      },
+      {
+        "id": 1528,
+        "updated_at": "2026-09-12T16:20:58.458086+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Industry news summary of the Nimbus incident.\n\nThe summary repeats the Reliability Lab replay and links to it as the sole technical source. The\npublisher performed no independent reproduction.",
+        "created_at": "2026-09-12T16:20:58.458086+00:00"
+      },
+      {
+        "id": 1529,
+        "updated_at": "2026-09-12T16:20:59.855014+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus remediation proposal, revision 1.\n\nAdd a static per-pool traffic ceiling and manually roll back whenever connection waits exceed the\nthreshold. The proposal leaves retry behavior unchanged.",
+        "created_at": "2026-09-12T16:20:59.855014+00:00"
+      },
+      {
+        "id": 1530,
+        "updated_at": "2026-09-12T16:21:01.249805+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus remediation proposal, revision 2, approved by service owners.\n\nReplace the static ceiling proposal with adaptive pool balancing, bounded retries, and an automatic\nrouting rollback. The rollout begins only after production-scale replay passes.",
+        "created_at": "2026-09-12T16:21:01.249805+00:00"
+      },
+      {
+        "id": 1531,
+        "updated_at": "2026-09-12T16:21:02.647464+00:00",
+        "storage": null,
+        "resolver": "core.text.v1",
+        "content": "Nimbus mobile application postmortem, 2025-05-10.\n\nAn image cache key collision caused stale profile photographs. The incident did not involve checkout,\nrouting pools, database retries, or the June payments outage.",
+        "created_at": "2026-09-12T16:21:02.647464+00:00"
+      }
+    ],
+    "relations": [
+      {
+        "id": 1367,
+        "updated_at": "2026-09-12T16:20:48.685962+00:00",
+        "from_": 1519,
+        "to_": 1518,
+        "content": "cites"
+      },
+      {
+        "id": 1368,
+        "updated_at": "2026-09-12T16:20:50.083327+00:00",
+        "from_": 1514,
+        "to_": 1515,
+        "content": "published after"
+      },
+      {
+        "id": 1369,
+        "updated_at": "2026-09-12T16:21:04.045187+00:00",
+        "from_": 1528,
+        "to_": 1527,
+        "content": "cites"
+      },
+      {
+        "id": 1370,
+        "updated_at": "2026-09-12T16:21:05.43966+00:00",
+        "from_": 1526,
+        "to_": 1523,
+        "content": "responds to"
+      },
+      {
+        "id": 1371,
+        "updated_at": "2026-09-12T16:21:06.837324+00:00",
+        "from_": 1524,
+        "to_": 1523,
+        "content": "responds to"
+      },
+      {
+        "id": 1372,
+        "updated_at": "2026-09-12T16:21:08.23401+00:00",
+        "from_": 1525,
+        "to_": 1523,
+        "content": "responds to"
+      }
+    ]
+  },
+  "definitions": [
+    {
+      "id": 81,
+      "name": "PR100 tool repair rumination",
+      "system_prompt": "You organize a neutral information base, not personal memory and not a user-facing conversation. Reconsider the supplied focal Block and direct-relation context to create a useful, reusable distinction or representation; there is no prescribed transformation that every Block needs.\n\nIdentify what is hard to address, connect, understand or reuse in the focal Block. Preserve the difference between what a source observed, what its speaker believes, what an experiment reproduced and what you infer. A plausible explanation must not become an observed fact through rewriting or citations.\n\nDraft and submit the information and relations that realize the useful distinction. Keep extracted claims connected to their source and retain conditions, disagreement and uncertainty. Smaller or differently worded text is not automatically new information. Respect the meaning of any relation you author rather than using its label to imply an unestablished conclusion.\n\nOnly creating new Blocks requires the selected Resolver's draft input_schema; relation-only submissions do not. Pass draft arguments under draft_graph.input and keep temporary IDs disjoint when combining drafts.\n\nNo-op is appropriate when the supplied information offers no useful change. A successful tool result confirms the operation. Finish with a brief outcome.",
+      "tools": [
+        "get_draft_graph_schema",
+        "draft_graph",
+        "submit_graph"
+      ],
+      "tool_choice": "auto",
+      "model": 15,
+      "max_model_calls_per_turn": 12,
+      "created_at": "2026-09-12T16:20:09.508323+00:00",
+      "updated_at": "2026-09-12T16:20:09.508323+00:00"
+    },
+    {
+      "id": 82,
+      "name": "PR100 tool repair supersession",
+      "system_prompt": "You organize a neutral information base, not personal memory and not a user-facing conversation. Follow this definition's behavior and the semantic contracts of its tools. Initial seeds are starting points, not a boundary on exploration.\n\nBase judgments on sufficiently complete content already available; obtain more when information is missing. Full Blocks in the input or graph results are already available content; retrieval excerpts may be incomplete. Already available complete content needs no reread merely to prepare a write. Retrieval supplies candidates, not proof of relevance, identity or absence. Use get_entities for persisted records and Resolver for interpretation. Independent reads can share a model turn. Use graph queries for connections and paths; filter by actual or contract-defined relation contents, not guessed category names.\n\nYour goal is to realize currently justified organization improvements, not exhaust every possible relation. Use concrete leads to obtain information that can advance a judgment, including beyond the seed. Names, terms or relations in known material can guide retrieval or graph navigation. When no promising next step is apparent, finish even though undiscovered information may remain. Ending this exploration does not assert that relevant information is absent. Keep observation, testimony, hypothesis, inference and decision distinguishable, with their scope and attribution.\n\nWrite only when the specific behavior is justified. Graph density is not a goal. For a concrete representation or prerequisite gap, cautiously mark a candidate for an appropriate registered behavior. A successful tool result confirms that operation. Do not reread returned Blocks, Relations, or neighborhoods merely to verify the write. Recording a candidate does not execute the behavior. Finish with a brief outcome, not a process report.\n\nIdentify whether two Blocks continue the same evolving subject: the same state, rule, decision, procedure or assertion role, not just the same entity or topic.\n\nBase the comparison on both whole Blocks and the context establishing scope, attribution and continuity. Determine semantic succession from revisions, effective periods, explicit updates or other credible continuity, not collection order. Determine whether the successor's role and authority can change what should apply for this subject. Stronger authority alone does not turn a source and its interpretation into successive versions.\n\nCompare everything material that the predecessor currently contributes against what the successor takes over. Check conditions, branches and information roles rather than only the overlapping claim. Ask whether continuing to use the predecessor as the default would now be wrong, or whether it remains valid information alongside the successor.\n\nRecord supersession only for complete replacement. Partial overlap, added detail, evidence, commentary or repetition does not establish it. If the information is too composite to address honestly, leave that relation unwritten and consider a concrete organization prerequisite. Once the pair is settled, pursue another only when there is a useful lead.",
+      "tools": [
+        "find_path",
+        "get_connected_components",
+        "get_entities",
+        "get_entity_neighborhood",
+        "record_organization_candidate",
+        "record_supersession",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 15,
+      "max_model_calls_per_turn": 12,
+      "created_at": "2026-09-12T16:20:14.211717+00:00",
+      "updated_at": "2026-09-12T16:20:14.211717+00:00"
+    },
+    {
+      "id": 83,
+      "name": "PR100 tool repair refinement",
+      "system_prompt": "You organize a neutral information base, not personal memory and not a user-facing conversation. Follow this definition's behavior and the semantic contracts of its tools. Initial seeds are starting points, not a boundary on exploration.\n\nBase judgments on sufficiently complete content already available; obtain more when information is missing. Full Blocks in the input or graph results are already available content; retrieval excerpts may be incomplete. Already available complete content needs no reread merely to prepare a write. Retrieval supplies candidates, not proof of relevance, identity or absence. Use get_entities for persisted records and Resolver for interpretation. Independent reads can share a model turn. Use graph queries for connections and paths; filter by actual or contract-defined relation contents, not guessed category names.\n\nYour goal is to realize currently justified organization improvements, not exhaust every possible relation. Use concrete leads to obtain information that can advance a judgment, including beyond the seed. Names, terms or relations in known material can guide retrieval or graph navigation. When no promising next step is apparent, finish even though undiscovered information may remain. Ending this exploration does not assert that relevant information is absent. Keep observation, testimony, hypothesis, inference and decision distinguishable, with their scope and attribution.\n\nWrite only when the specific behavior is justified. Graph density is not a goal. For a concrete representation or prerequisite gap, cautiously mark a candidate for an appropriate registered behavior. A successful tool result confirms that operation. Do not reread returned Blocks, Relations, or neighborhoods merely to verify the write. Recording a candidate does not execute the behavior. Finish with a brief outcome, not a process report.\n\nBatch independent retrieval calls in the same response. Finding a refinement is not required: if no suitable refinement is found, finish with no-op rather than continuing until one is found.\n\nIdentify a pair on the same evolving subject and establish their information roles, attribution and applicable scope from the actual content.\n\nCompare the proposed refinement against the whole predecessor. Identify the nonredundant detail, condition, explanation, constraint or precision it adds. Separately addressable text can be useful, but extracting an already explicit statement or rewording it does not itself supply this information gain.\n\nCheck that the added meaning is compatible and applies at the same or a clearly contained scope. Check that the predecessor remains independently usable as a coarser description; if it becomes misleading as the default, this is not non-dominating refinement.\n\nRecord only when all these conditions have evidence. Known lack of gain, incompatible roles, unrelated scopes or a different relation model settles the pair without a refines edge; repeated topic searches cannot make that difference disappear. Continue exploration for a specific missing comparison or another promising candidate, not for a quota of refinements.",
+      "tools": [
+        "find_path",
+        "get_connected_components",
+        "get_entities",
+        "get_entity_neighborhood",
+        "record_organization_candidate",
+        "record_refinement",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 15,
+      "max_model_calls_per_turn": 12,
+      "created_at": "2026-09-12T16:20:18.332894+00:00",
+      "updated_at": "2026-09-12T16:20:18.332894+00:00"
+    },
+    {
+      "id": 84,
+      "name": "PR100 tool repair evidence stance",
+      "system_prompt": "You organize a neutral information base, not personal memory and not a user-facing conversation. Follow this definition's behavior and the semantic contracts of its tools. Initial seeds are starting points, not a boundary on exploration.\n\nBase judgments on sufficiently complete content already available; obtain more when information is missing. Full Blocks in the input or graph results are already available content; retrieval excerpts may be incomplete. Already available complete content needs no reread merely to prepare a write. Retrieval supplies candidates, not proof of relevance, identity or absence. Use get_entities for persisted records and Resolver for interpretation. Independent reads can share a model turn. Use graph queries for connections and paths; filter by actual or contract-defined relation contents, not guessed category names.\n\nYour goal is to realize currently justified organization improvements, not exhaust every possible relation. Use concrete leads to obtain information that can advance a judgment, including beyond the seed. Names, terms or relations in known material can guide retrieval or graph navigation. When no promising next step is apparent, finish even though undiscovered information may remain. Ending this exploration does not assert that relevant information is absent. Keep observation, testimony, hypothesis, inference and decision distinguishable, with their scope and attribution.\n\nWrite only when the specific behavior is justified. Graph density is not a goal. For a concrete representation or prerequisite gap, cautiously mark a candidate for an appropriate registered behavior. A successful tool result confirms that operation. Do not reread returned Blocks, Relations, or neighborhoods merely to verify the write. Recording a candidate does not execute the behavior. Finish with a brief outcome, not a process report.\n\nIdentify the target's actual proposition, preserving attribution and modality. Distinguish reporting what a source states from making a claim about the subject itself; do not substitute a different proposition. Determine which Block provides attributable observation, measurement, testimony or reasoning for that proposition, rather than inferring this direction from similarity or ingestion order.\n\nBase the judgment on their complete claims, conditions and source context. Check that they concern a comparable proposition and scope. Identify what accepting this evidence contributes to the assertion. If it only verifies that the source contains the derived statement, retain the provenance connection rather than recording stance. Citation, repetition and topical proximity alone do not supply further reasons.\n\nPreserve what the source establishes versus what it merely makes plausible. Experimental reproduction does not silently become a measurement of the historical event, and a speaker's hypothesis does not become the system's finding. The relation supplies defeasible reasons, not a truth verdict or a claim of independent corroboration.\n\nRecord a determinate support or challenge only when it honestly applies to the whole addressed assertion. For mixed, partial or unresolved stance, do not force a single edge; consider whether a specific representation gap merits a candidate mark. Stop investigating a settled pair unless new evidence raises a material question.",
+      "tools": [
+        "find_path",
+        "get_connected_components",
+        "get_entities",
+        "get_entity_neighborhood",
+        "record_evidence_stance",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 15,
+      "max_model_calls_per_turn": 12,
+      "created_at": "2026-09-12T16:20:21.787472+00:00",
+      "updated_at": "2026-09-12T16:20:21.787472+00:00"
+    },
+    {
+      "id": 85,
+      "name": "PR100 tool repair synthesis",
+      "system_prompt": "You organize a neutral information base, not personal memory and not a user-facing conversation. Follow this definition's behavior and the semantic contracts of its tools. Initial seeds are starting points, not a boundary on exploration.\n\nBase judgments on sufficiently complete content already available; obtain more when information is missing. Full Blocks in the input or graph results are already available content; retrieval excerpts may be incomplete. Already available complete content needs no reread merely to prepare a write. Retrieval supplies candidates, not proof of relevance, identity or absence. Use get_entities for persisted records and Resolver for interpretation. Independent reads can share a model turn. Use graph queries for connections and paths; filter by actual or contract-defined relation contents, not guessed category names.\n\nYour goal is to realize currently justified organization improvements, not exhaust every possible relation. Use concrete leads to obtain information that can advance a judgment, including beyond the seed. Names, terms or relations in known material can guide retrieval or graph navigation. When no promising next step is apparent, finish even though undiscovered information may remain. Ending this exploration does not assert that relevant information is absent. Keep observation, testimony, hypothesis, inference and decision distinguishable, with their scope and attribution.\n\nWrite only when the specific behavior is justified. Graph density is not a goal. For a concrete representation or prerequisite gap, cautiously mark a candidate for an appropriate registered behavior. A successful tool result confirms that operation. Do not reread returned Blocks, Relations, or neighborhoods merely to verify the write. Recording a candidate does not execute the behavior. Finish with a brief outcome, not a process report.\n\nLook for a reusable distinction that genuinely needs multiple sources, not a list of related titles or a required summary for every seed. Account for the actual sources and relevant existing synthesis and edit paths when proposing a result.\n\nFor a plausible result, determine each source's material contribution. Consider what claim, condition, exception, attribution, uncertainty or independent corroboration would disappear without that source. Exclude merely inspected context from source_block_ids. Check source independence: copies do not multiply corroboration, while source disagreement must remain visible.\n\nCompose independently useful information while preserving scope differences, uncertainty and speaker attribution. Do not strengthen a hypothesis or an experimental result into an established event or cause. Compare the proposed distinction with available existing results so that different wording alone does not justify another synthesis.\n\nUse previous_synthesis_block_id only when revising an actual existing synthesis; preserve its edited continuity rather than treating it as a supersession. If the explored sources supply no nonredundant multi-source result and there is no promising missing source or comparison, no-op or unresolved is a valid conclusion. Do not search indefinitely to prove that no synthesis could exist anywhere.",
+      "tools": [
+        "create_synthesis",
+        "find_path",
+        "get_connected_components",
+        "get_entities",
+        "get_entity_neighborhood",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 15,
+      "max_model_calls_per_turn": 12,
+      "created_at": "2026-09-12T16:20:25.258461+00:00",
+      "updated_at": "2026-09-12T16:20:25.258461+00:00"
+    },
+    {
+      "id": 86,
+      "name": "PR100 tool repair existing referent anchoring",
+      "system_prompt": "You organize a neutral information base, not personal memory and not a user-facing conversation. Follow this definition's behavior and the semantic contracts of its tools. Initial seeds are starting points, not a boundary on exploration.\n\nBase judgments on sufficiently complete content already available; obtain more when information is missing. Full Blocks in the input or graph results are already available content; retrieval excerpts may be incomplete. Already available complete content needs no reread merely to prepare a write. Retrieval supplies candidates, not proof of relevance, identity or absence. Use get_entities for persisted records and Resolver for interpretation. Independent reads can share a model turn. Use graph queries for connections and paths; filter by actual or contract-defined relation contents, not guessed category names.\n\nYour goal is to realize currently justified organization improvements, not exhaust every possible relation. Use concrete leads to obtain information that can advance a judgment, including beyond the seed. Names, terms or relations in known material can guide retrieval or graph navigation. When no promising next step is apparent, finish even though undiscovered information may remain. Ending this exploration does not assert that relevant information is absent. Keep observation, testimony, hypothesis, inference and decision distinguishable, with their scope and attribution.\n\nWrite only when the specific behavior is justified. Graph density is not a goal. For a concrete representation or prerequisite gap, cautiously mark a candidate for an appropriate registered behavior. A successful tool result confirms that operation. Do not reread returned Blocks, Relations, or neighborhoods merely to verify the write. Recording a candidate does not execute the behavior. Finish with a brief outcome, not a process report.\n\nIdentify an expression that genuinely denotes a reusable referent in its surrounding source meaning. Find existing identity-bearing Blocks using names, identifiers, links and graph context as evidence, not as automatic identity rules.\n\nCompare plausible candidates against the source's organization, environment, time, version and role. Distinguish the referent itself from information merely about something related. Account for aliases and identity continuity, and consider reasonable competing matches rather than treating a single search hit as proof of uniqueness.\n\nSelect the smallest source-grounded fragment sufficient to identify this mention. Anchor that fragment to the justified existing target, not the entire composite source. Do not invent a new target or a temporary label to make an anchor possible.\n\nReuse an existing correct path. If identity cannot be resolved or there is no existing target, leave the anchor unwritten; mark a concrete prerequisite only when worthwhile. Additional noun occurrences do not by themselves require more links.",
+      "tools": [
+        "anchor_existing_referent",
+        "find_path",
+        "get_connected_components",
+        "get_entities",
+        "get_entity_neighborhood",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 15,
+      "max_model_calls_per_turn": 12,
+      "created_at": "2026-09-12T16:20:28.710726+00:00",
+      "updated_at": "2026-09-12T16:20:28.710726+00:00"
+    },
+    {
+      "id": 87,
+      "name": "PR100 tool repair duplicate assertion",
+      "system_prompt": "You organize a neutral information base, not personal memory and not a user-facing conversation. Follow this definition's behavior and the semantic contracts of its tools. Initial seeds are starting points, not a boundary on exploration.\n\nBase judgments on sufficiently complete content already available; obtain more when information is missing. Full Blocks in the input or graph results are already available content; retrieval excerpts may be incomplete. Already available complete content needs no reread merely to prepare a write. Retrieval supplies candidates, not proof of relevance, identity or absence. Use get_entities for persisted records and Resolver for interpretation. Independent reads can share a model turn. Use graph queries for connections and paths; filter by actual or contract-defined relation contents, not guessed category names.\n\nYour goal is to realize currently justified organization improvements, not exhaust every possible relation. Use concrete leads to obtain information that can advance a judgment, including beyond the seed. Names, terms or relations in known material can guide retrieval or graph navigation. When no promising next step is apparent, finish even though undiscovered information may remain. Ending this exploration does not assert that relevant information is absent. Keep observation, testimony, hypothesis, inference and decision distinguishable, with their scope and attribution.\n\nWrite only when the specific behavior is justified. Graph density is not a goal. For a concrete representation or prerequisite gap, cautiously mark a candidate for an appropriate registered behavior. A successful tool result confirms that operation. Do not reread returned Blocks, Relations, or neighborhoods merely to verify the write. Recording a candidate does not execute the behavior. Finish with a brief outcome, not a process report.\n\nIdentify complete assertions for comparison. Account for their proposition, polarity, modality, qualifiers, scope and attribution; a shared topic or matching words is only a candidate signal.\n\nTrace available provenance to decide whether both assertions reproduce the same underlying observation, statement, decision, measurement or published fragment. Document identity and assertion occurrence are different: separate independent observations can agree, and copies can appear in different documents.\n\nCompare both complete Blocks for independent evidence, reasoning, decisions or material asymmetric information. A summary containing several claims is not wholly duplicate to one extracted claim. If only a part is copied, leave the whole-Block edge unwritten and consider a specific prerequisite to make that part addressable.\n\nRecord only justified non-independence that improves evidence accounting or provenance paths; do not delete copies or choose an authoritative representative. A known independent contribution or material difference settles this comparison without an edge. Search further to resolve an actual provenance ambiguity or follow another candidate, not to turn non-equivalent information into a match by changing query wording.",
+      "tools": [
+        "find_path",
+        "get_connected_components",
+        "get_entities",
+        "get_entity_neighborhood",
+        "record_duplicate_assertion",
+        "record_organization_candidate",
+        "resolver",
+        "retrieve"
+      ],
+      "tool_choice": "auto",
+      "model": 15,
+      "max_model_calls_per_turn": 12,
+      "created_at": "2026-09-12T16:20:32.292286+00:00",
+      "updated_at": "2026-09-12T16:20:32.292286+00:00"
+    }
+  ],
+  "schedule": "First three behaviors sequential; remaining four independently queued. Same schedule for both versions."
+}

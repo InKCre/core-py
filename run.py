@@ -48,6 +48,17 @@ from app.business.sink import SinkManager
 
 # Import core-owned Job contracts before their catalog is synchronized.
 from app.business.organization_job import MediaInterpretationJobHandler  # noqa: F401
+
+# Import independent Organization Job contracts before catalog synchronization.
+from app.business.organization.jobs import (  # noqa: F401
+  DuplicateAssertionJobHandler,
+  EvidenceStanceJobHandler,
+  ExistingReferentAnchoringJobHandler,
+  RefinementJobHandler,
+  RuminationJobHandler,
+  SupersessionJobHandler,
+  SynthesisJobHandler,
+)
 from app.middleware import LoggingMiddleware, require_peer_jwt
 from app.schemas.peer import PEER_EXECUTION_HEADER
 from app.health import check_database_readiness
@@ -61,6 +72,7 @@ from app.scheduler import scheduler
 async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   """Initialize database-backed runtime services after migrations are ready."""
   from app.business.info_base.resolver import register_core_resolvers
+  from app.business.organization import register_core_organization_behaviors
   from app.business.info_base.storage import StorageManager
 
   # Register this Peer first so extension enablement can resolve its identity.
@@ -73,6 +85,7 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
 
   # Core decoders exist independently of installed/enabled extensions.
   register_core_resolvers()
+  register_core_organization_behaviors()
 
   # Setup built-in storage instances
   StorageManager.setup_builtin_storages()

@@ -6,7 +6,8 @@ import asyncio
 from enum import StrEnum
 import inspect
 import json
-import logging
+import time
+import traceback
 import typing
 
 import pydantic
@@ -23,9 +24,11 @@ from app.schemas.ai import (
 
 from .contracts import AgentTurnActiveError, BoundAgentTool, ToolExecutionError
 from .persistence import ThreadID, ThreadPersistenceBackend, ThreadState
+from .debug import trace
+from libs.obsrv.main import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger().getChild("agent.thread")
 
 
 class TurnTermination(StrEnum):
@@ -48,6 +51,8 @@ class Thread:
     self._persistence = persistence
     self._tools = {tool.definition.id: tool for tool in tools}
     self.current_turn: asyncio.Task[TurnTermination] | None = None
+    self._turn_index = 0
+    self._model_calls = 0
 
   @property
   def messages(self):
@@ -85,17 +90,78 @@ class Thread:
     return self.current_turn
 
   async def _run_turn(self, input: UserMessage) -> TurnTermination:
+    self._turn_index += 1
+    self._model_calls = 0
+    started = time.monotonic()
+    await trace(
+      "agent.turn.started",
+      self.id,
+      turn=self._turn_index,
+      input=input,
+      model=self.model,
+      max_model_calls=self.max_model_calls_per_turn,
+    )
+    try:
+      outcome = await self._execute_turn(input)
+    except asyncio.CancelledError:
+      await trace(
+        "agent.turn.finished",
+        self.id,
+        turn=self._turn_index,
+        model_calls=self._model_calls,
+        outcome="cancelled",
+        elapsed_seconds=time.monotonic() - started,
+      )
+      raise
+    except Exception as error:
+      await trace(
+        "agent.turn.finished",
+        self.id,
+        turn=self._turn_index,
+        model_calls=self._model_calls,
+        outcome="failed",
+        error_type=type(error).__name__,
+        error=str(error),
+        traceback=traceback.format_exc(),
+        elapsed_seconds=time.monotonic() - started,
+      )
+      raise
+    await trace(
+      "agent.turn.finished",
+      self.id,
+      turn=self._turn_index,
+      model_calls=self._model_calls,
+      outcome=outcome,
+      elapsed_seconds=time.monotonic() - started,
+    )
+    return outcome
+
+  async def _execute_turn(self, input: UserMessage) -> TurnTermination:
     self._state = await self._persistence.discard_trailing_incomplete_tool_calls(self.id)
     self._state = await self._persistence.append(self.id, (input,))
-    model_calls = 0
 
     while True:
-      model_calls += 1
+      self._model_calls += 1
+      await trace(
+        "agent.model.started",
+        self.id,
+        turn=self._turn_index,
+        call=self._model_calls,
+      )
+      started = time.monotonic()
       assistant = await AIManager.chat(
         self._state.model,
         self._state.messages,
         self._state.tools,
         self._state.tool_choice,
+      )
+      await trace(
+        "agent.model.completed",
+        self.id,
+        turn=self._turn_index,
+        call=self._model_calls,
+        response=assistant,
+        elapsed_seconds=time.monotonic() - started,
       )
       if not assistant.tool_calls:
         self._state = await self._persistence.append(self.id, (assistant,))
@@ -106,7 +172,7 @@ class Thread:
         self.id,
         (assistant, ToolResultMessage(results=results)),
       )
-      if model_calls >= self._state.max_model_calls_per_turn:
+      if self._model_calls >= self._state.max_model_calls_per_turn:
         return TurnTermination.MAX_MODEL_CALLS
 
   async def _execute_tool_batch(
@@ -123,6 +189,39 @@ class Thread:
     return tuple(await asyncio.gather(*tasks))
 
   async def _execute_tool_call(self, call: ToolCall) -> ToolResult:
+    await trace(
+      "agent.tool.started",
+      self.id,
+      turn=self._turn_index,
+      call=self._model_calls,
+      tool_call=call,
+    )
+    started = time.monotonic()
+    try:
+      result = await self._invoke_tool_call(call)
+    except asyncio.CancelledError:
+      await trace(
+        "agent.tool.cancelled",
+        self.id,
+        turn=self._turn_index,
+        call=self._model_calls,
+        tool_call_id=call.id,
+        tool=call.tool,
+        elapsed_seconds=time.monotonic() - started,
+      )
+      raise
+    await trace(
+      "agent.tool.completed",
+      self.id,
+      turn=self._turn_index,
+      call=self._model_calls,
+      tool=call.tool,
+      result=result,
+      elapsed_seconds=time.monotonic() - started,
+    )
+    return result
+
+  async def _invoke_tool_call(self, call: ToolCall) -> ToolResult:
     tool = self._tools.get(call.tool)
     if tool is None:
       return ToolResult(
@@ -151,7 +250,18 @@ class Thread:
         content=error.content,
         is_error=True,
       )
-    except Exception:
+    except Exception as error:
+      await trace(
+        "agent.tool.exception",
+        self.id,
+        turn=self._turn_index,
+        call=self._model_calls,
+        tool_call_id=call.id,
+        tool=call.tool,
+        error_type=type(error).__name__,
+        error=str(error),
+        traceback=traceback.format_exc(),
+      )
       logger.exception("Unexpected Agent Tool failure", extra={"tool": call.tool})
       return ToolResult(
         tool_call_id=call.id,

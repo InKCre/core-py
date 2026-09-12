@@ -245,6 +245,21 @@ MEDIA_INTERPRETATION_PARAMETERS_SCHEMA = {
   "type": "object",
 }
 
+AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA = {
+  "additionalProperties": False,
+  "properties": {
+    "max_seeds": {
+      "default": 10,
+      "maximum": 100,
+      "minimum": 3,
+      "title": "Max Seeds",
+      "type": "integer",
+    }
+  },
+  "title": "AutomaticOrganizationJobParameters",
+  "type": "object",
+}
+
 BUILTIN_JOB_TYPES = (
   JobTypeProfile(
     "core.source.collect.v1",
@@ -286,6 +301,48 @@ BUILTIN_JOB_TYPES = (
     "core.organization.media_interpretation.v1",
     "Interpret missing image, audio, and video Blocks through configured Agents.",
     MEDIA_INTERPRETATION_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.organization.rumination.automatic.v1",
+    "Automatically reconsider bounded information seeds through rumination.",
+    AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.organization.supersession.automatic.v1",
+    "Automatically judge bounded scoped-supersession candidates.",
+    AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.organization.refinement.automatic.v1",
+    "Automatically judge bounded non-dominating refinement candidates.",
+    AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.organization.evidence-stance.automatic.v1",
+    "Automatically judge bounded attributable evidence stances.",
+    AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.organization.synthesis.automatic.v1",
+    "Automatically create bounded provenance-preserving syntheses.",
+    AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.organization.existing-referent-anchoring.automatic.v1",
+    "Automatically anchor bounded mentions to existing referents.",
+    AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,
+    1800,
+  ),
+  JobTypeProfile(
+    "core.organization.duplicate-assertion.automatic.v1",
+    "Automatically judge bounded provenance-aware duplicate assertions.",
+    AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,
     1800,
   ),
 )
