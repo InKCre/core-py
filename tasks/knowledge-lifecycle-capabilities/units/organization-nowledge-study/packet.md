@@ -1,14 +1,11 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **当前工作（D-556）**：Sir 已授权修复来源忠实性被当作 evidence stance 的语义缺口，并只复测该行为。
-  工具定义与 Resolver 判断合同已补清；保持 SOP、工具组合和预算。准备部署后使用 discovery 轮原图与三个
-  seed 单独重跑，保留结果与清理记录，不新增测试。
-- **当前实现（D-555）**：`ebf220a` 已提交、推送并部署。六种探索型 Agent 已采用“不以排除遗漏作为
-  结束前提”的共享指导；rumination、工具与预算保持不变，没有新增测试。
-- **当前验收**：discovery 轮 6/7 Job、19/20 次执行自然结束，116 次模型/137 次工具调用。Evidence stance
-  6/6/6 均结束，但三条关系把来源重述作为支持；refinement 9/12，第二次无产出耗尽。不能宣布探索收敛
-  或整组语义问题解决。两次草稿字段错误恢复成功，临时数据已清理且无残留；见 [discovery 评审](acceptance/discovery-review.md)。
+- **当前实现（D-556）**：`bf16ebd` 已部署来源忠实性排除项，工具定义与 Resolver 判断合同同步；
+  SOP、工具组合与预算不变，没有新增测试。
+- **当前验收**：仅 evidence stance 复测完成且临时数据清理。三次执行 12/10/6 均结束，28 次模型/32 次
+  工具调用，零工具错误；两条同源 supports 误判仍重现，修复未达到预期。驱动初次 max_seeds=1 错误
+  导致排队而未执行，已按现有至少 3 的合同纠正；实际起点及比较边界见 [stance 评审](acceptance/stance-review.md)。
 - **下一步边界**：本轮不追加修复。结束探索与不存在性证明的区分已沉淀至
   [通用模式](../../common-patterns/agent-tools.md)，新的修复方案仍先经 Sir 复核。
 
@@ -16,6 +13,8 @@
 
 以下记录保留各轮当时状态；当前实现、验收及授权边界以页首和最新 decision 为准。
 
+- **D-555 验收**：`ebf220a` 的结束探索指导完成 discovery 轮，6/7 Job、19/20 次执行自然结束；
+  refinement 仍无写入耗尽，evidence stance 把来源重述写为支持。清理完成，见 [discovery 评审](acceptance/discovery-review.md)。
 - **D-554 验收**：`5fef0fd` focal 轮 5/7 Job、15/17 次执行结束；evidence stance 无写入耗尽，
   synthesis 最后一次写入后耗尽。清理完成，见 [focal 评审](acceptance/focal-review.md)。
 - **Current implementation（D-554）**: Sir 接受派生内容不够准确的 best-effort 残余，授权恢复 rumination

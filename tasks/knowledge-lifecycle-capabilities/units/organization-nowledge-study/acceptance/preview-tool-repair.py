@@ -41,8 +41,6 @@ if MODE not in (
   )
 OUT = Path(__file__).with_name(f"tool-repair-{MODE}.json")
 RESUME = "--resume" in sys.argv
-if MODE == "stance" and RESUME:
-  raise RuntimeError("Inspect interrupted seed Jobs before replaying this round")
 if OUT.exists() and not RESUME:
   raise RuntimeError("Evidence already exists; do not overwrite a prior run")
 SAVED = json.loads(Path(__file__).with_name("preview-100-deployment.json").read_text())
@@ -295,8 +293,8 @@ try:
     evidence["definitions"] = call("GET", "/agents")
     OUT.write_text(json.dumps(evidence, ensure_ascii=False, indent=2))
   evidence["schedule"] = (
-    "Only evidence stance: replay the three prior seeds through separate max_seeds=1 "
-    "Jobs, routing each through one temporary candidate relation."
+    "Only evidence stance: one max_seeds=3 Job with the first prior seed marked "
+    "as a candidate; the remaining seeds follow ordinary automatic selection."
     if MODE == "stance"
     else "First three behaviors sequential; remaining four independently queued. "
     "Same schedule for both versions."
@@ -330,24 +328,30 @@ try:
     save()
 
   if MODE == "stance":
-    descriptor = insert(
-      "blocks", {"resolver": "core.organization.behavior.evidence-stance.v1", "content": ""}
+    descriptors = call(
+      "GET", "/blocks?resolver=eq.core.organization.behavior.evidence-stance.v1&select=id"
     )
-    for seed in evidence["replay"]["seed_block_ids"]:
-      candidate = insert(
+    descriptor = (
+      descriptors[0]["id"]
+      if descriptors
+      else insert(
+        "blocks",
+        {"resolver": "core.organization.behavior.evidence-stance.v1", "content": ""},
+      )
+    )
+    seed = evidence["replay"]["seed_block_ids"][0]
+    candidates = call(
+      "GET", f"/relations?from_=eq.{seed}&to_=eq.{descriptor}&content=eq.candidate%20for"
+    )
+    candidate = (
+      candidates[0]["id"]
+      if candidates
+      else insert(
         "relations", {"from_": seed, "to_": descriptor, "content": "candidate for"}
       )
-      record(
-        insert(
-          "jobs",
-          {
-            "type": "core.organization.evidence-stance.automatic.v1",
-            "parameters": {"max_seeds": 1},
-            "timeout_seconds": 900,
-          },
-        )
-      )
-      call("DELETE", f"/relations?id=eq.{candidate}")
+    )
+    record(ensure_job("core.organization.evidence-stance.automatic.v1", {"max_seeds": 3}))
+    call("DELETE", f"/relations?id=eq.{candidate}")
   else:
     for behavior in _BEHAVIORS[:3]:
       record(ensure_job(behavior.job_type, {"max_seeds": 3}))
