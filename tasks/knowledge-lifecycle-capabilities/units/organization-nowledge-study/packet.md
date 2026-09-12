@@ -1,12 +1,15 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **当前工作（D-558）**：Sir 要求整组复审并准备 PR #100 合并；已核对实现、最新证据与 CI，发现 lineage
+  递归环检测在默认范围内崩溃，修复方案待确认。已移除预定的 PR 专用临时调试设施，并修正过期交付说明。
+  [合并前复审](merge-review.md) 记录 findings、检查和残余；本轮不合并，也不宣告 Unit 或语义验收关闭。
 - **当前实现（D-557）**：`7bb868c` 的 evidence stance SOP 已先识别目标命题与证据贡献；工具合同、
   共享提示词、模型、预算与工具组合不变。使用现有 preview 配置新 definition 验证，没有新增测试。
 - **当前验收**：Job 99 三次执行 5/4/4 均结束，13 次模型/15 次工具调用，零错误/耗尽。技术摘要正确
   no-op，但 rollout 条件仍写同源 supports，修复只有部分改善，未稳定解决误判；数据已清理。见
   [stance-role 评审](acceptance/stance-role-review.md)。
-- **下一步边界**：本轮不追加修复。结束探索与不存在性证明的区分已沉淀至
+- **下一步边界**：新发现的实现修复先复核；不继续无边界地微调提示词。结束探索与不存在性证明的区分已沉淀至
   [通用模式](../../common-patterns/agent-tools.md)，新的修复方案仍先经 Sir 复核。
 
 ## 历史进度

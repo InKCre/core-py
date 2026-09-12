@@ -1,9 +1,11 @@
 # Organization Nowledge Vertical — Implementation Evidence
 
-> **状态**：2026-09-10 preview 两轮真实 provider 验收已执行，Agent 建议不通过语义验收，待 Sir 复核。
-> 运行链可用，但已观察到错误 authority 和预算耗尽；不能以 CI 通过替代语义验收。
+> **当前入口**：2026-09-12 已进入 [PR #100 合并前复审](merge-review.md)。多轮工具/SOP 修复与真实 preview
+> 验收已执行；最新专项见 [stance-role 评审](acceptance/stance-role-review.md)，整组样本见
+> [discovery 评审](acceptance/discovery-review.md)。语义误判与偶发预算耗尽仍保留，不以 CI 通过替代语义验收。
+> 本文件下方是 2026-09-10 的实现基线历史，不代表最新修复状态；当前工作以 [unit packet](packet.md) 为准。
 
-## 当前验收结论
+## 2026-09-10 实现与验收基线
 
 当前修复规划已独立写入 [Agent Tool 合同修复方案](agent-tool-repair-plan.md)，待 Sir 复核；明确代码 owner、发现与
 错误反馈修复、字段语义、同源 schema/校验和保持 12 次预算的真实对照。本方案尚未实施。
@@ -18,7 +20,7 @@ PostgreSQL 日志。Job 20 的真实 `qwen3.6-plus` 运行正常结束，取回 
 终止原因均可读。见 [远端验证证据](acceptance/preview-agent-debug-verification.json)。测试 Blocks 45/46、Job 20、
 Agent 8、model/provider 2、本次临时 config 与 Job 日志已清理；调试开关和 PostgreSQL 日志保持开启。
 临时限定 PR #100 的配置 workflow 首次即时校验未通过，但真实追踪已证明生效；幂等重试后配置校验通过。
-该操作脚本及 workflow 是诊断期临时设施，合并前应移除；后续 preview 部署可能覆盖日志配置，需要同步重新启用。
+该操作脚本及 workflow 是诊断期临时设施，已在 D-558 合并准备中移除；通用开发追踪开关和操作文档保留。
 
 后续[预算诊断](acceptance/budget-diagnosis.md)：五条受控复现均自然结束（7/9/14/11/16 次请求），没有观察到持续
 死循环；12 次对部分正常探索偏紧，且方法猜测/错误工具归属增加开销。原先提出的 24 次对照建议现已延后：

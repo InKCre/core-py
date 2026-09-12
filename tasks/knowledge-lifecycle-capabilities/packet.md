@@ -51,8 +51,9 @@ framework。
 
 [Organization Nowledge vertical](units/organization-nowledge-study/packet.md) 是处于 Verify / Acceptance 的 active
 implementation Unit。逐项 Nowledge study 与 D-493 transfer audit 是它已完成的 Product phase；D-495 修正了将其误判
-为 research-only Unit 的错误，D-496 修正了继续拆 delivery slices 的错误。整组实现已经形成；当前保留真实
-PostgreSQL/provider 黑盒证据 residual，内部平行行为不获得独立 phase/gate。
+为 research-only Unit 的错误，D-496 修正了继续拆 delivery slices 的错误。整组实现及多轮真实 preview/provider
+验收已执行；当前重新审查 PR #100 的合并条件，保留语义误判、偶发预算耗尽与未覆盖输入的残余，不能写成
+整组语义验收通过。内部平行行为不获得独立 phase/gate。
 
 [GitHub extension](units/github-extension/packet.md) 的首轮实现和真实账号 acceptance 已随 PR #80 合并；durable
 owner 与 core/Extension catalog 错误已由独立 correction 关闭，但 batch graph interface、PyGithub integration、

@@ -10,7 +10,7 @@ automatic Job / explicit rumination
   -> exact BehaviorResolver
      -> bounded deterministic seed evidence
      -> purpose-built Agent selected by core.organization.<behavior>
-        -> retrieve / resolver / graph_retrieval
+        -> definition-selected retrieval / Resolver / graph navigation
         -> no graph effect
         -> exact behavior mutation tool
            -> ordinary Block / Relation transaction
@@ -56,19 +56,27 @@ keyed by exact text plus exact source basis; the ordinary Block identity rule is
 
 ## Reading and Agent boundary
 
-Agents receive three owner-coherent read tools:
+Exploratory behavior definitions compose the following read tools:
 
 - `retrieve(query, mode)` combines lexical/semantic entry without hiding their separate results;
+- `get_entities(entities, random_count)` reads ordinary persisted records in request order; each reference carries its own
+  `type` and `id`, missing records return null, and an empty reference list selects random Blocks;
 - `resolver` describes or invokes typed public `get_*`/`read_*` methods through `ResolverManager`;
-- `graph_retrieval` describes or invokes bounded graph queries through `GraphNavigationRetrievalManager`.
+- `get_entity_neighborhood`, `find_path`, and `get_connected_components` directly expose the small, stable query set owned by
+  `GraphNavigationRetrievalManager`.
 
-The corresponding owners create Pydantic method contracts and validate invocation. Agent adapters serialize values and reject
-binary projection; they do not replace Resolver or Graph Navigation APIs. MCP Sink consumes the same Resolver-owned reflection
-contract but Organization does not depend on MCP.
+Common Resolver reads are visible in the invocation schema; additional methods are discoverable. ResolverManager owns method
+contracts and invocation validation. An invalid invocation returns its error and available contract without discarding other
+calls in the batch. Agent adapters serialize values and reject binary projection; they do not replace Resolver or Graph
+Navigation APIs. MCP Sink consumes the same Resolver-owned reflection contract but Organization does not depend on MCP.
 
 Mutation tools are behavior-specific, except the single dynamic `record_organization_candidate` tool. Agent definitions—not an
 extra runtime allowlist—select the tools appropriate to each behavior. AgentManager and AIManager remain graph-blind execution
 infrastructure; they do not own Organization semantics or writes.
+
+The supplied rumination definition retains only `get_draft_graph_schema`, `draft_graph`, and `submit_graph`. Its task is to
+reconsider the supplied focal Block, not to search the graph or mark candidates for other behaviors. Other behaviors may still
+mark a rumination candidate. These choices belong to Agent definitions, not an additional runtime enforcement layer.
 
 ## Automatic Jobs and configuration
 
