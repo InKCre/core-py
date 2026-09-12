@@ -30,9 +30,10 @@ if MODE not in (
   "array",
   "references",
   "guidance",
+  "focal",
 ):
   raise ValueError(
-    "Choose baseline, repaired, prompt, batch, array, references or guidance"
+    "Choose baseline, repaired, prompt, batch, array, references, guidance or focal"
   )
 OUT = Path(__file__).with_name(f"tool-repair-{MODE}.json")
 RESUME = "--resume" in sys.argv
@@ -42,7 +43,7 @@ SAVED = json.loads(Path(__file__).with_name("preview-100-deployment.json").read_
 DEFINITIONS_PATH = ROOT / "tests/organization/acceptance/agent_definitions.json"
 DEFINITIONS = (
   json.loads(DEFINITIONS_PATH.read_text())
-  if MODE in ("prompt", "batch", "array", "references", "guidance")
+  if MODE in ("prompt", "batch", "array", "references", "guidance", "focal")
   else None
 )
 secret = subprocess.check_output(

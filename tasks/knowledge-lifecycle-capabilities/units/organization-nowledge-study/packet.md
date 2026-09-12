@@ -1,6 +1,10 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
+- **Current verification**: `5fef0fd` 已完成 focal 轮验收及清理。Rumination 实际只绑定三工具，4/4/5 次
+  均自然结束；整轮 5/7 Job、15/17 次执行自然结束，100 次模型/126 次工具调用，零工具错误。
+  Evidence stance 检索耗尽、synthesis 最后一次写入后耗尽；写前重复读取仍存在。派生内容残余按 Sir
+  确认的 best-effort 记录，不追加修复。详见 [focal 轮评审](acceptance/focal-review.md)。
 - **Current implementation（D-554）**: Sir 接受派生内容不够准确的 best-effort 残余，授权恢复 rumination
   专用三工具组合；已移除其探索/candidate 工具与共享探索提示拼接，保留 Resolver/Job 入口及外部候选消费。
   已检查其余六种行为，无跨行为精确写入或任意图写入工具，保留合理的读取/图检索能力；提示词明确不必
