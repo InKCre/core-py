@@ -21,5 +21,9 @@ class OrganizationExecutionError(OrganizationError):
   pass
 
 
+class OrganizationBudgetExceededError(OrganizationExecutionError):
+  """One Agent Turn ended at its configured model-call limit."""
+
+
 class OrganizationDelegationError(OrganizationError):
   pass

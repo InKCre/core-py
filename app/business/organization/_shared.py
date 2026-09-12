@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
+import logging
 import typing
 
 import pydantic
@@ -28,6 +30,7 @@ from app.schemas.organization_behavior import CandidateWriteResult, RelationWrit
 from .contracts import (
   OrganizationAgentNotFoundError,
   OrganizationBlockNotFoundError,
+  OrganizationBudgetExceededError,
   OrganizationExecutionError,
   OrganizationNotConfiguredError,
 )
@@ -214,6 +217,31 @@ def configured_agent_available(
   return AgentManager.can_execute(typing.cast(typing.Any, config).agent, "text")
 
 
+@contextmanager
+def continue_after_seed_failure(
+  logger: logging.Logger,
+  behavior: ResolverType,
+  seed_block_id: BlockID,
+) -> typing.Generator[None, None, None]:
+  """Recover only candidate-local failures in an automatic attempt."""
+  try:
+    yield
+  except (OrganizationBlockNotFoundError, OrganizationBudgetExceededError) as error:
+    logger.warning(
+      "organization.seed.considered",
+      extra={
+        "behavior": behavior,
+        "seed_block_ids": (seed_block_id,),
+        "outcome": "recoverable_failure",
+        "reason": (
+          "seed_missing"
+          if isinstance(error, OrganizationBlockNotFoundError)
+          else "model_call_limit"
+        ),
+      },
+    )
+
+
 async def run_configured_agent(
   config_key: str,
   config_type: type[pydantic.BaseModel],
@@ -238,7 +266,7 @@ async def run_configured_agent(
     raise OrganizationExecutionError("Organization Agent did not start a Turn")
   outcome = await turn
   if outcome == TurnTermination.MAX_MODEL_CALLS:
-    raise OrganizationExecutionError(
+    raise OrganizationBudgetExceededError(
       "Organization Agent exceeded its per-Turn model-call budget"
     )
 

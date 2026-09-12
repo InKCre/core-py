@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import typing
 
 import sqlmodel
@@ -10,6 +9,7 @@ import sqlmodel
 from app.business.deployment_config import DeploymentConfigManager
 from app.business.info_base.resolver import Resolver
 from app.engine import SessionLocal
+from libs.obsrv.main import get_logger
 from app.schemas.info_base.block import BlockID
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.organization_behavior import (
@@ -22,6 +22,7 @@ from ._shared import (
   build_seed_message,
   candidate_seed_ids,
   configured_agent_available,
+  continue_after_seed_failure,
   fetchsert_relation,
   merge_seed_categories,
   random_block_ids,
@@ -35,7 +36,7 @@ from ._shared import (
 from .supersession import EDITED_RELATION
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger().getChild(__name__)
 
 REFINES_RELATION = "refines"
 REFINEMENT_BEHAVIOR = "core.organization.behavior.refinement.v1"
@@ -169,29 +170,30 @@ class RefinementBehaviorResolver(
       },
     )
     for seed in seeds:
-      message = await build_seed_message(
-        "Determine only useful non-dominating refinement relations.",
-        cls.judgment_contract,
-        seed,
-      )
-      if message is None:
+      with continue_after_seed_failure(LOGGER, cls.__rsotype__, seed):
+        message = await build_seed_message(
+          "Determine only useful non-dominating refinement relations.",
+          cls.judgment_contract,
+          seed,
+        )
+        if message is None:
+          LOGGER.info(
+            "organization.seed.considered",
+            extra={
+              "behavior": cls.__rsotype__,
+              "seed_block_ids": (seed,),
+              "outcome": "unresolved",
+              "reason": "text_unavailable",
+            },
+          )
+          continue
+        await run_configured_agent(REFINEMENT_CONFIG_KEY, BehaviorAgentConfig, message)
         LOGGER.info(
           "organization.seed.considered",
           extra={
             "behavior": cls.__rsotype__,
             "seed_block_ids": (seed,),
-            "outcome": "unresolved",
-            "reason": "text_unavailable",
+            "outcome": "considered",
+            "reason": "agent_completed",
           },
         )
-        continue
-      await run_configured_agent(REFINEMENT_CONFIG_KEY, BehaviorAgentConfig, message)
-      LOGGER.info(
-        "organization.seed.considered",
-        extra={
-          "behavior": cls.__rsotype__,
-          "seed_block_ids": (seed,),
-          "outcome": "considered",
-          "reason": "agent_completed",
-        },
-      )

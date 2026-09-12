@@ -4,6 +4,7 @@ from .bootstrap import register_core_organization_behaviors
 from .contracts import (
   OrganizationAgentNotFoundError,
   OrganizationBlockNotFoundError,
+  OrganizationBudgetExceededError,
   OrganizationDelegationError,
   OrganizationError,
   OrganizationExecutionError,
@@ -74,6 +75,7 @@ __all__ = [
   "HAS_MENTION_RELATION",
   "OrganizationAgentNotFoundError",
   "OrganizationBlockNotFoundError",
+  "OrganizationBudgetExceededError",
   "OrganizationDelegationError",
   "OrganizationError",
   "OrganizationExecutionError",

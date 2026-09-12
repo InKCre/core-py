@@ -92,6 +92,12 @@ Candidate selection combines behavior-owned strong signals, recent Blocks, expli
 fallback. A completed Job may write nothing. Missing/unavailable runtime prevents claim; unhandled provider, database, or model
 execution failure uses the existing failed/timed-out Job lifecycle.
 
+Automatic execution logs a selected Block disappearing or one Agent Turn reaching its model-call limit as a recoverable seed
+failure, then continues with the remaining seeds. Already committed graph effects remain. If all attempts complete without a
+batch-level failure, the Job finishes even when individual seeds failed; this is not a semantic success verdict. Configuration,
+provider, database, unexpected execution errors, and cancellation still escape. Explicit focal rumination continues to report
+budget exhaustion to its caller. These diagnostics use the existing application logger and configured backend, not a new report.
+
 ## Graph use
 
 `GraphNavigationRetrievalManager.get_connected_components()` partitions caller seeds by bounded undirected connectivity over

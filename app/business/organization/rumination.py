@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import typing
 
 import pydantic
@@ -19,6 +18,7 @@ from app.business.info_base.resolver import (
 )
 from app.business.peer import PeerManager
 from app.engine import SessionLocal
+from libs.obsrv.main import get_logger
 from app.schemas.ai import JSONValue, TextContentPart, UserMessage
 from app.schemas.info_base.block import BlockID, BlockModel
 from app.schemas.info_base.relation import RelationModel
@@ -29,6 +29,7 @@ from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
 from ._shared import (
   candidate_seed_ids,
   configured_agent_available,
+  continue_after_seed_failure,
   merge_seed_categories,
   random_block_ids,
   recent_block_ids,
@@ -42,7 +43,7 @@ from .contracts import (
 )
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger().getChild(__name__)
 
 RUMINATION_CONFIG_KEY = "core.organization.rumination"
 RUMINATION_CONFIG_SCHEMA = "core.organization.rumination.config.v1"
@@ -105,19 +106,8 @@ class RuminationBehaviorResolver(
       },
     )
     for seed in seeds:
-      try:
+      with continue_after_seed_failure(LOGGER, cls.__rsotype__, seed):
         await cls.ruminate_local(seed)
-      except OrganizationBlockNotFoundError:
-        LOGGER.info(
-          "organization.seed.considered",
-          extra={
-            "behavior": cls.__rsotype__,
-            "seed_block_ids": (seed,),
-            "outcome": "unresolved",
-            "reason": "seed_missing",
-          },
-        )
-      else:
         LOGGER.info(
           "organization.seed.considered",
           extra={

@@ -14,12 +14,24 @@
 建议仅把环检测改为显式栈或拓扑消减，保持接口、探索上限、方向和环判定含义不变；不提高 Python 递归上限，
 不改变图模型。已向 Sir 请求确认，尚未实施。
 
-另一项历史合同差距仍须明确保留：D-519 要求候选局部失败不丢弃其它 seeds，当前六种探索行为的
+复审发现的另一项历史合同差距：D-519 要求候选局部失败不丢弃其它 seeds，原六种探索行为的
 `run_automatic()` 直接等待 `build_seed_message()` 和 `run_configured_agent()`。一个 seed 在选择后消失，
 或一个 Turn 耗尽预算，会结束整个 Job，后续 seeds 未处理；此前真实验收已观察到后一种情况。
-Rumination 仅单独容忍 seed_missing。当前并没有落实一般的候选局部失败继续策略，本轮没有擅自改变终态。
-这不是要求无限运行：共享配置、数据库、provider 故障和取消仍应传播。需要另外确认最小失败分类及 Job 结果
-语义，不能通过 broad catch 把异常吞成成功。
+Rumination 原先仅单独容忍 seed_missing。Sir 随后在 D-559 同意落实：七种自动行为对候选缺失和单次预算
+耗尽记 recoverable_failure 日志并继续；配置、数据库、provider、其它执行异常和取消仍传播。显式 focal
+rumination 的错误行为不变。已提交的图效果保留，正常遍历结束的 Job 可以 finished，但不说明每个 seed
+成功或图语义正确。实现使用私有异常边界，无 broad catch、重试、新状态或报告。
+本次 format/lint/typecheck、foundation、静态审查、既有测试（14 passed / 53 skipped）及 diff 检查通过；
+七处自动边界与显式调用链已逐项审阅。没有新增测试或重新运行真实模型，不声称该异常路径已有新的远端证据。
+
+### read_lineage 的定位
+
+该读取合同记录在 D-506，具体放置由 D-520 确认为 SupersessionBehaviorResolver.read_lineage，而不是通用
+Resolver base。它从一个 focal Block 沿已有 supersedes 关系取得有界子图，解释仍未被后继替代的前沿，
+并报告环和截断。它没有新的 HTTP endpoint 或专用 Agent Tool，可通过既有 Resolver 方法发现/调用访问。
+例如 C supersedes B、B supersedes A 时，完整无环结果的前沿是 C，A/B 仍在返回历史中；它不判定图上
+替代关系是否语义正确、不按时间戳选择“最新”、不隐藏检索结果，也不是第八种 Organization 行为。
+Sir 本轮要求先理解这个方法，长链算法修复仍未授权。
 
 ## 已核对的设计与实现
 
