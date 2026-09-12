@@ -1,13 +1,11 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **当前工作（D-557）**：Sir 已授权按断言角色与证据贡献修正 evidence stance SOP，工具合同不变。
-  已完成案例核对并替换前两段；准备只复测此行为，使用已部署应用与新 definition，不新增测试。
-- **当前实现（D-556）**：`bf16ebd` 已部署来源忠实性排除项，工具定义与 Resolver 判断合同同步；
-  SOP、工具组合与预算不变，没有新增测试。
-- **当前验收**：仅 evidence stance 复测完成且临时数据清理。三次执行 12/10/6 均结束，28 次模型/32 次
-  工具调用，零工具错误；两条同源 supports 误判仍重现，修复未达到预期。驱动初次 max_seeds=1 错误
-  导致排队而未执行，已按现有至少 3 的合同纠正；实际起点及比较边界见 [stance 评审](acceptance/stance-review.md)。
+- **当前实现（D-557）**：`7bb868c` 的 evidence stance SOP 已先识别目标命题与证据贡献；工具合同、
+  共享提示词、模型、预算与工具组合不变。使用现有 preview 配置新 definition 验证，没有新增测试。
+- **当前验收**：Job 99 三次执行 5/4/4 均结束，13 次模型/15 次工具调用，零错误/耗尽。技术摘要正确
+  no-op，但 rollout 条件仍写同源 supports，修复只有部分改善，未稳定解决误判；数据已清理。见
+  [stance-role 评审](acceptance/stance-role-review.md)。
 - **下一步边界**：本轮不追加修复。结束探索与不存在性证明的区分已沉淀至
   [通用模式](../../common-patterns/agent-tools.md)，新的修复方案仍先经 Sir 复核。
 
@@ -15,6 +13,8 @@
 
 以下记录保留各轮当时状态；当前实现、验收及授权边界以页首和最新 decision 为准。
 
+- **D-556 验收**：工具定义与 Resolver 合同补充来源忠实性排除项后，stance 轮 12/10/6 均结束，但两个
+  同源 supports 误判重现。驱动参数已按既有至少 3 的合同纠正，清理完成，见 [stance 评审](acceptance/stance-review.md)。
 - **D-555 验收**：`ebf220a` 的结束探索指导完成 discovery 轮，6/7 Job、19/20 次执行自然结束；
   refinement 仍无写入耗尽，evidence stance 把来源重述写为支持。清理完成，见 [discovery 评审](acceptance/discovery-review.md)。
 - **D-554 验收**：`5fef0fd` focal 轮 5/7 Job、15/17 次执行结束；evidence stance 无写入耗尽，
