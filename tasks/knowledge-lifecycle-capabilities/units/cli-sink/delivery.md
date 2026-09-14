@@ -43,3 +43,8 @@ PyPI Trusted Publisher 首次配置仍需确认。
   补充 PR 只移除这个错误触发条件，保留已存在的版本检查、main 构建、已发布 Release 跳过逻辑；不新增发布框架。
 - PyPI 首发需要 pending Trusted Publisher：InKCre/core-py、cli-publish.yml、production。已向 Sir 请求确认，
   其余交付并行推进，不把权限前置项写成发布通过。
+- runtime 触发修正 #36 已合并为 `0f05bb2`；首次实际发布 run 34832208751 进一步暴露 package lane 调用
+  Registry 数据库验收、缺少 `REGISTRY_TEST_DATABASE_URL`。#37 保留包的静态/生成合同检查与独立发布构建，
+  不把 Registry 服务数据库变成独立包发布的前置；完整 PR CI 已通过后合并，等待新发布结果。
+- Core 生产自动路径按 Core version 变化选择。#102 合并后的首发将用既有 workflow_dispatch 交付其精确
+  main artifact，确认新 REST 可用后再合入生成的 Release PR，避免 CLI 首发先于 provider；不添加长期依赖 gate。
