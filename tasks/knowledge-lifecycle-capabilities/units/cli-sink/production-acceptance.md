@@ -1,6 +1,6 @@
 # CLI 正式交付与生产验收记录
 
-2026-09-14。下面明确记录的项目已经通过；PyPI 安装复验仍待发布权限，unit 不关闭。
+2026-09-14。正式发行包与生产 REST 的验收证据记录如下。
 
 ## 正式交付
 
@@ -26,16 +26,24 @@ JWT 来自系统 Keychain；connection check（含受保护读取）、peer get/
 脚本与结果位于 ignored `.runtime/cli-production.GlB7a0/`，使用 `candidate-*` 文件名区分来源。
 `accept.py` 不进入 CI，连接文件含本机验收凭据、不提交。共享开发数据库没有 reset 或升级。
 
-## 尚未完成
+## PyPI 正式安装
 
-CLI PyPI run 34834897814 在上传阶段报告 OIDC token 获取失败；选择版本、独立静态检查、wheel/sdist 构建
-已通过，PyPI 查询仍为 404。没有发布 0.0.0，没有改为手工 token 兜底，也没有把候选 wheel 当作正式包。
+CLI PyPI run 34834897814 首次在上传阶段报告 OIDC token 获取失败。Sir 配置 Trusted Publisher 后，
+第二次 attempt 于 2026-09-14 13:19 UTC 成功上传 `inkcre-cli 0.1.0`，没有改为手工 token 兜底。
 
-本地空环境 `/Volumes/WorkSSD/Development/InKCre/.tools/inkcre-cli` 已准备，其中尚未安装 inkcre-cli，
-也未创建全局命令。PyPI 发布成功后，用该环境的 pip 安装 0.1.0，保存安装 report/版本/依赖清单，确认没有
-Core/FastAPI/SQLAlchemy；再执行 `accept.py connect` 和 `accept.py roundtrip`。后者通过 CLI 提交临时真实
-文档 graph、读取与 Resolver、图导航、原地修改、lexical Job/检索、部分结果，最后删除本次图实体。
-原文来自本地旅程已取得的 Python asyncio 官方文章，不增加产品测试分支。
+独立环境 `/Volumes/WorkSSD/Development/InKCre/.tools/inkcre-cli` 使用
+`pip install --index-url https://pypi.org/simple inkcre-cli==0.1.0` 安装正式 wheel；依赖清单没有
+Core/FastAPI/SQLAlchemy。`~/.local/bin/inkcre-cli` 链接到该环境的命令，安装数据保留在 WorkSSD。
+生产连接配置使用默认 `~/.inkcre/cli/connections.json`，凭据来自系统 Keychain。
+
+首次复验记录了一次 readiness 超时与一次 TLS EOF；受保护的 Peer 读取仍成功。保留 `pypi-*` 失败证据，
+后续独立复跑使用 `pypi-recheck-*`，不添加产品重试逻辑。复跑 connection check、wake、peer get/list 全部退出 0。
+
+`accept.py roundtrip` 完整通过：动态 catalog/schema、提交 Python asyncio 官方原文与说明 Block、
+raw/hydrated 读取、Resolver get_text、neighborhood/path/components、Block/Relation 原地更新；
+lexical maintenance Job `3` 创建并经有界 wait 返回 finished，`CancelledError` 检索命中本次 Block `4`。
+批量 get 混合存在与不存在实体时返回部分结果并退出 1，符合合同。最后删除本次 Block `4`、`5`，
+连带 Relation 清理；保留已完成的 Job 记录。脚本退出 0，unit 关闭条件满足。
 
 ## 本轮方法
 

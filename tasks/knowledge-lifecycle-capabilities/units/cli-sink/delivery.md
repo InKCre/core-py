@@ -11,21 +11,16 @@
 | Hub | [#25](https://github.com/InKCre/docs/pull/25) / `5d0d8d7` | 两个 Spoke 分别提交 shared ref，检查通过 |
 | Core | [#102](https://github.com/InKCre/core-py/pull/102) / `10a5384` | CI/Preview、首发 production、stable admission 成功 |
 | client-web | [#106](https://github.com/InKCre/client-web/pull/106) / `47fa3f6` | 新 stable 上的 CI/E2E、Pages production/smoke 成功 |
-| Core Release | [#103](https://github.com/InKCre/core-py/pull/103) / `4143abe` | Core 0.3.0 生产与三个 Extension 补丁发布成功；CLI 0.1.0 上传失败 |
+| Core Release | [#103](https://github.com/InKCre/core-py/pull/103) / `4143abe` | Core 0.3.0 生产、三个 Extension 补丁及 CLI 0.1.0 PyPI 发布成功 |
 
 均采用 protected-main PR/squash，不直接推 main，不从 PR 发布 canonical package，不消费 PR CI 产物作为正式包。
 这些是跨仓库交付依赖，不是 Git ancestry stack。
 
 ## 当前关闭条件
 
-CLI 0.1.0 的 [发布 run 34834897814](https://github.com/InKCre/core-py/actions/runs/34834897814) 已成功选择版本、
-独立检查并构建，但 PDM 未能经 PyPI OIDC 取得上传凭据。公开 PyPI 项目 JSON 仍返回 404。
-正式 pip 安装和随后生产复验尚未发生，unit 不关闭。
-
-需要在 PyPI 核验 pending Trusted Publisher：project `inkcre-cli`、GitHub owner `InKCre`、repository
-`core-py`、workflow `cli-publish.yml`、environment `production`。已向 Sir 请求确认。Computer Use 遇到 Mac
-锁定，未进入账号、未修改权限。恢复后重跑 CLI publisher，再执行 [production-acceptance.md](production-acceptance.md)
-的安装与旅程。已有 [本地四条旅程](local-acceptance.md) 不能替代这一步。
+CLI 0.1.0 的 [发布 run 34834897814](https://github.com/InKCre/core-py/actions/runs/34834897814) 在 Sir 配置
+Trusted Publisher 后第二次 attempt 成功。正式 pip 安装和随后生产复验已通过；见
+[production-acceptance.md](production-acceptance.md)。结合已有[本地四条旅程](local-acceptance.md)，unit 已关闭。
 
 client-web Native Extension release run 34834894118 在创建 Version PR 时被仓库设置拦住；只读查询确认
 `can_approve_pull_request_reviews=false`。Pages 部署已独立成功。本轮未改仓库权限，另行向 Sir 报告。

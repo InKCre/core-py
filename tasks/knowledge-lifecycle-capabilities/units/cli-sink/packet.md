@@ -1,12 +1,12 @@
 # CLI Sink / inkcre-cli
 
-- **阶段**：Delivery / Production Acceptance。实现、本地四条旅程与 Core 候选 Preview 已完成；正在完成正式发行闭环，尚未关闭。
+- **阶段**：Closed。2026-09-14，正式发行与 PyPI 安装后的生产验收通过。
 - **目标**：让 Agent 和命令行用户在工作上下文中，通过独立 CLI 取用信息并操作 Core。
 - **边界**：同仓库 cli/ 独立 Python/PDM project，pip 包 inkcre-cli。仅 Core 普通 REST；不导入 Core、不直接访问数据库、不作为 Peer，不是未来 Rust single-binary Peer。
 - **位置**：实现分支 feat/inkcre-cli 已合并；当前交付记录在 feat/cli-sink-closure。最初 base b3ccb00ca2e235bfcc9b9f4f4cc17948c59ef54a；决策 D-571–D-610。
 - **授权**：2026-09-14 Sir 最新授权按依赖顺序合并相关 PR、发布 CLI、从 PyPI 本地安装并连接生产 Core 验收；通过后关闭 unit。此授权取代此前的禁止合并限制；正式发布仍经过各 owner 的 protected-main 流程。
-- **当前事实**：依赖 PR 与 Release PR #103 均已合并；runtime 0.1.3、Core 0.3.0/client-web 生产及三个 Extension 补丁已交付。正式 Mail 安装/启用/清理已实测。CLI 0.1.0 在 PyPI OIDC 获取上传凭据处受阻，尚未发布；[线上证据](production-acceptance.md) 明确区分候选 wheel 与正式发行。
-- **下一步**：等待 Sir 核验 PyPI pending Trusted Publisher，再重跑发布、从 PyPI 安装并完成生产复验。详见 [delivery.md](delivery.md)。尚未满足关闭条件，不进入 next-unit selection。
+- **当前事实**：依赖 PR 与 Release PR #103 均已合并；runtime 0.1.3、Core 0.3.0/client-web 生产及三个 Extension 补丁已交付。CLI 0.1.0 已发布到 PyPI，本机独立安装后完成生产 Graph、Resolver、Job、lexical recall 和部分结果旅程，临时图数据已删除；见[线上证据](production-acceptance.md)。
+- **下一步**：合并关闭记录；parent task 保持 active，下一 unit 由 Sir 选择。
 - **关闭条件**：[四条旅程](acceptance.md)、相关 runtime/Core/client-web 交付、CLI 正式 PyPI 安装复跑全部通过。preflight 不替代它们。
 
 ## 产品与命令
