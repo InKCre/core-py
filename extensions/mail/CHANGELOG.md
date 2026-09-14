@@ -5,6 +5,12 @@ association. New entries are rendered from project-local fragments by [Towncrier
 
 <!-- towncrier release notes start -->
 
+## 0.2.1 - 2026-09-14
+
+### Fixed
+
+- 取消收集时等待同一次 IMAP 阻塞调用结束后再释放连接，避免取消提前释放锁或并行断连；使用有限的连接和读取超时，保留已恢复的 typed 配置。
+
 
 ## 0.2.0 - 2026-08-26
 ### Added

@@ -5,6 +5,12 @@ association. New entries are rendered from project-local fragments by [Towncrier
 
 <!-- towncrier release notes start -->
 
+## 0.3.1 - 2026-09-14
+
+### Fixed
+
+- 配置与 state 已由 runtime 恢复时直接使用 typed 值，保留真正的输入边界校验。
+
 
 ## 0.3.0 - 2026-08-26
 ### Added
