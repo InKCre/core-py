@@ -13,6 +13,9 @@ The task's Human/Agent roles、Unit gates、write-back discipline and parallel-s
 Agent Tool 的 task-level 设计原则统一维护于 [Agent Tool common patterns](common-patterns/agent-tools.md)。
 涉及工具形态、发现、参数/说明、错误或响应设计时先读该文件；本处不另存一份规则。
 
+涉及 schema 与读写校验位置时，使用 [校验边界指南](common-patterns/validation-boundaries.md)：先定位建立
+输入合同的边界，不因函数分层或 typed 返回而反复验证已经持久化的数据。
+
 The unit of progress is a more coherent、evidence-backed current system model，not another answered question or a longer
 decision register。Sir's preference to ask one question at a time is an upper bound on simultaneous human review，not a
 requirement to manufacture one question after every answer。
@@ -25,13 +28,22 @@ Before turning an unresolved point into a human question：
 3. when behavior is recurring、asynchronous、partial or state-dependent，replay at least two executions in a sequence/state
    model and identify the persisted fact that makes the second execution different；
 4. eliminate choices already dominated by confirmed constraints and marginal utility；
-5. if one coherent answer remains，record/present the derived result without asking。Only surviving credible forks enter human
-   review，one at a time。
+5. 自然推论可记录后继续；新的关键设计仍需复核，即使只剩一个推荐方向。不为形成问题而制造另一个选项。
 
 This workflow is deliberately experimental。Topology and sequence models are tools selected when they expose the relevant
 dependency or time behavior，not compulsory diagram artifacts for every small naming or mechanical decision。
 
 ## Before Escalating a Design Question
+
+讨论某一层接口时，复核对象应是该层新增或改变的合同，而不是重新确认其调用领域的既有规则。既有规则用于
+内部预演与一致性检查；只有接口方案确实会改变业务行为、产生歧义或暴露冲突时，才展开相关规则供 Sir 审查。
+例如 CLI / REST 的评审聚焦命令归属、路径、输入输出和协议语义，不把 Thread 快照等既有生命周期当作新决策。
+这是 task-wide experimental discussion guideline，不免除调查、接口文档或实现时保持业务语义的责任。
+
+设计对外操作时，先确认调用者要提交什么、何时算受理，再选择内部执行入口。已有同步方法或 Peer inbound
+是可复用实现的证据，不自动决定新接口的生命周期；输入属于哪个领域，也不决定行为归属。D-595 的反例是
+从 rumination 接收 Block、已有立即执行门面，推导出 Block 下的同步 CLI 动作。这里应复用任务受理与控制，
+不以更少的包装代码换掉调用者需要的 Job 语义；反过来也不把普通记录编辑机械改成 Job。
 
 Run every candidate through these filters first：
 
@@ -46,9 +58,9 @@ Run every candidate through these filters first：
 5. **Natural consequence**：derive low-risk names、mechanical validation、ordinary error mapping and dominated choices without
    asking Sir to select them。Record the result and expose it at the batch boundary。
 
-A human decision question is justified only when at least two **credible、non-dominated** answers remain after those filters，
-and choosing among them materially changes observable product behavior、authority、public contract、irreversible effects or a
-high-cost failure/recovery path。Missing evidence should trigger exploration，not a speculative choice。
+需要 Sir 复核的是会实质改变产品行为、authority、公开合同或重要代价的方案，不限于存在两个备选答案的情形。
+有真实取舍时提供推荐并解释理由；仅为已确认模型的低风险推论时记录后继续。缺证据先调查，调查后仍需要
+Sir 的信息或方向才能推进时，明确缺口，而不是提出无依据的选项。
 
 ## Operational and safety reasoning discipline
 

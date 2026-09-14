@@ -63,6 +63,10 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-541–D-550](D541-D550.md) | 工具修复验证约束 |
 | [D-551–D-560](D551-D560.md) | 成功回执与逐项类型引用 |
 | [D-561–D-570](D561-D570.md) | lineage 执行位置与验收范围纠正 |
+| [D-571–D-580](D571-D580.md) | CLI sink REST/命令边界、Job 控制、动态发现、Pydantic 输入与内容交付 |
+| [D-581–D-590](D581-D590.md) | CLI 自签 JWT、命名连接、实体/Resolver REST、内容与文件交付、Job / Source / Cron / Agent / Config 管理、AI 与 Tool 发现 |
+| [D-591–D-600](D591-D600.md) | CLI 校验边界修正、Peer / Extension、检索与 Graph REST、整理 Job、实体修改、独立项目与 PyPI 发布、查询续读 |
+| [D-601–D-610](D601-D610.md) | CLI 验收确认、Pydantic 校验边界使用指南 → 实现准备 |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -78,9 +82,10 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision by registered ID: [D-561](D561-D570.md)。MCP sink retains D-381–D-420；Telegram extension retains
-  D-421–D-460；Organization Nowledge study owns D-461–D-570。
-- MCP and Telegram are closed。The active Unit is
-  [organization-nowledge-study](../units/organization-nowledge-study/packet.md) in Verify / Acceptance after implementation。
+- Latest confirmed decision by registered ID: [D-603](D601-D610.md)。MCP sink retains D-381–D-420；Telegram extension retains
+  D-421–D-460；Organization Nowledge study retains D-461–D-570；CLI sink reserves D-571–D-610。
+- MCP、Telegram 和 [organization-nowledge-study](../units/organization-nowledge-study/packet.md) 均已关闭；Organization
+  已完成 PR #100 / #101 合并及 Core 0.2.0 生产交付。当前 [CLI sink](../units/cli-sink/packet.md) 已完成完整预演，等待 Impact Handshake 后实施；
+  Parent task 保留其余候选与 durable-owner reconciliation。
 - Parallel placement and integration surfaces are shared peer control in the [roster](../collaboration/roster.md)；there is no
   coordinator role。

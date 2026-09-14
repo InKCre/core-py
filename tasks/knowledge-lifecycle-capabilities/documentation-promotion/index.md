@@ -8,7 +8,17 @@
 - [Spoke Unit TDD promotion](spoke-unit-tdd.md)
 - [Architecture understanding provenance](../architecture-understanding/index.md)
 - [Agent Tool common patterns](../common-patterns/agent-tools.md)：已确认的 task-level 模式；后续按验证与 owner 进行
-  durable promotion，当前不直接改 shared Hub。
+  durable promotion，当前不直接改 shared Hub。D-597 补充各查询的长输出分页，以及独立批次的成果/完成度分离；
+  通用原则候选归共享技术设计指南，CLI 的 cursor、退出码与文件表示留在 CLI/Core 各自的接口文档。
+- [校验边界指南](../common-patterns/validation-boundaries.md)：D-590/D-598 的 task-level 指南，包含可信 Core REST
+  返回的消费边界；待 CLI 实现验证后归入
+  共享技术设计指导，具体配置实现留在 Spoke，不在此复制另一份规则。
+  D-602/D-603 的 Pydantic 使用指南属于 Python 后端工程指导，不进入 PRD 或语言无关的 Hub 合同；
+  随实现落入 Spoke 的 Python 后端指导，并在 python-backend-code skill 的 validation 指导中引用/应用。
+  内容应具体说明 Form 已校验后的 typed 传递、PATCH 合并后单次校验、GET 不额外重验、复杂模型恢复的允许
+  边界与 model_construct 的局限，不只提升为抽象的“使用成熟库”原则。
+  从“所有读回只转换、零校验”修正为“无类型恢复需求时不重验；需要时接受一次成熟库构造的附带约束”，
+  保持写入 owner、CLI 可信响应和使用时能力判断不变。不因此建立新的文档权威或把整份 skill 提升为 Hub truth。
 
 ## Control
 

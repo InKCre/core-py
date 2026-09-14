@@ -1,6 +1,6 @@
 # Knowledge Lifecycle Capability Map
 
-本文只解释 program 如何拆分、为何按这个顺序讨论，以及 queued work 在哪里。它不维护 active
+本文只解释 program 如何拆分、各能力的价值与压力，以及候选工作在哪里。它不维护 active
 phase、当前问题或具体单元的设计；这些由 [program packet](packet.md) 与 active unit packet
 负责。
 
@@ -14,25 +14,25 @@ phase、当前问题或具体单元的设计；这些由 [program packet](packet
 | Trunk | Goal | Known units |
 | --- | --- | --- |
 | Collection | 把 source-specific information 可靠地持久化到 info-base | 现有 sources、memo-like、CalDAV、Nextcloud Files、Apple Notes |
-| Organization | 打理已经存在的 info-base，以改善 use 效果 | breakdown、merge、linking；允许由真实目标发现其他能力 |
+| Organization | 打理已经存在的 info-base，以改善 use 效果，而非结构美观 | Nowledge study 的整组组织能力；允许由真实目标发现其他能力 |
 | Use / Application | 查询 info-base，并让下游使用被选择的信息 | 特征检索、语义检索、图导航检索；sink vertical；indexing 只是支撑 |
 
 ### Vertical implementable units
 
-讨论与实现以一个具体 source、organization operation、retrieval mode 或 sink vertical 为纵切。每个 unit
-必须能够独立说明：
+讨论与实现以一个有明确目标的产品功能组为纵切，可以是具体 source、retrieval mode、sink，或 Nowledge study
+这样覆盖多个 organization behavior 的同一实现单元。每个 unit 必须能够独立说明：
 
 ```text
-user value / observable failure
-  → native input or use request
+Product goal / value / observable behavior
+  → input, automatic trigger or explicit request
   → owner and cross-boundary contracts
   → graph / projection / delivery behavior
-  → executable acceptance
-  → bounded implementation increments
+  → best-effort acceptance
+  → 整组功能的实现与约定交付
 ```
 
-这样拆分的依据是可观察价值、单一 owner 和可验收的端到端闭环，而不是文件夹、抽象层或
-先造公共框架的便利。
+这样拆分的依据是产品价值、明确的责任边界和端到端闭环，而不是文件夹、抽象层或先造公共框架的便利。
+Unit 内部行为可分别执行，但不因此拆成独立 delivery slices；验收难度不反过来选择产品设计。
 
 ### Cross-cutting pressures
 
@@ -67,27 +67,29 @@ local relations ────────────┘
 
 这些语义约束讨论方向，但不预先规定每个 source 的 graph shape。
 
-## 3. Program Queue
+## 3. Unit 与候选能力地图
 
-| Order | Unit family | State | Why here |
-| --- | --- | --- | --- |
-| 1 | [Memos extension](units/memos-extension/packet.md) | **Complete；backend MVP implemented** | Sir 的直接产品需求；released client E2E 已证明 memo canonical/graph/read contract；durable owner projections committed |
-| 2 | [RSS extension hardening](units/rss-extension-hardening/packet.md) | **Complete；human-accepted 2026-08-03** | 已用 RSS/Atom vertical 建立 source instance → collect job → graph → resolver → state 的可信 collection baseline |
-| 3 | [Mail extension](units/mail-extension/packet.md) | **Complete；implementation/J1–J4/promotion complete** | 高价值真实邮箱 corpus 已证明 protocol → graph → materialization → generic InfoBase browser 纵切，且 durable owner delivery 已关闭 |
-| 4 | [GitHub extension](units/github-extension/packet.md) | Queued correction | 首轮真实账号验收完成；Hub/Spoke 与 core/Extension owner correction 已关闭，仍需修正 implementation boundary 与 re-acceptance |
-| 5 | Remaining collection units | Queued | CalDAV、Nextcloud Files、Apple Notes 各暴露不同 access/identity/storage/runtime 压力，不提前压成一个 source framework |
-| 6 | [Semantic retrieval](units/semantic-retrieval/packet.md) | **Complete** | real-provider、local/delegated Peer、rumination 与 shared-truth projection 均已验收关闭 |
-| 7 | [Feature retrieval](units/feature-retrieval/packet.md) | **Complete** | Lexical increment 的实现、J1–J7、core/client promotion、真实 fork/cold-start 与 exact-main Pages delivery 均已验收；graph facts 与 hybrid composition 仍由相邻能力承担 |
-| 8 | [Graph navigation retrieval](units/graph-navigation-retrieval/packet.md) | **Complete** | bounded neighborhood/path、peer-local topology、Graph View、preview/production acceptance 与 durable closure 已完成 |
-| 9 | [MCP sink](units/mcp-sink/packet.md) | **Active；product discussion** | query primitive 已成立后，下一可用性缺口是 downstream delivery；MCP sink MVP 服务 Agent retrieval of InKCre，不预设 generic sink framework |
-| 10 | Other organization/application units | Queued | breakdown、merge、linking 等仍各自从真实 use/failure evidence 建立合同；hybrid retrieval 等基础 primitive 完成后再组合 |
+| Unit / 候选能力 | 价值与主要压力 |
+| --- | --- |
+| [Memos extension](units/memos-extension/packet.md) | 原生兼容 backend、memo canonical/graph/read 合同；collector 保留为同一 owner 的后续范围 |
+| [RSS extension hardening](units/rss-extension-hardening/packet.md) | source instance → collect job → graph → resolver → state 的 collection 纵切 |
+| [Mail extension](units/mail-extension/packet.md) | 真实邮件的 protocol → graph → materialization → InfoBase browser 纵切 |
+| [GitHub extension](units/github-extension/packet.md) | 真实账号收集与 Core/Extension 边界；后续修正范围由 unit packet 维护 |
+| CalDAV、Nextcloud Files、Apple Notes | 各自暴露不同 access/identity/storage/runtime 压力，不提前压成统一 source framework |
+| [Semantic retrieval](units/semantic-retrieval/packet.md) | real-provider 与 local/delegated Peer 上的意义检索 |
+| [Feature retrieval](units/feature-retrieval/packet.md) | Lexical 检索；graph facts 与 hybrid composition 保持各自责任 |
+| [Graph navigation retrieval](units/graph-navigation-retrieval/packet.md) | bounded neighborhood/path、peer-local topology 与 Graph View |
+| [MCP sink](units/mcp-sink/packet.md) | 将已有查询与 Resolver 能力交给下游 Agent/tool client，不预设 generic sink framework |
+| [Telegram extension](units/telegram-extension/packet.md) | Telegram 原生交互与信息能力的 Extension 纵切 |
+| [Organization Nowledge study](units/organization-nowledge-study/packet.md) | 借鉴思想形成整组功能：rumination 载体迁移、supersession、refinement、evidence stance、synthesis、existing-referent anchoring、duplicate assertion |
+| 后续 organization / application 候选 | 先核对已交付能力，再由真实价值与缺口提出范围；不把 breakdown、merge、linking 等宽泛名称直接当成下一 unit |
 
-这不是永久开发顺序。active unit 结束时，应根据用户价值、已暴露依赖和不确定性重新选择下一个
-unit；不得仅因为表格编号自动启动。
+此表不是排期，也不复制当前阶段。选择与状态以 [parent packet](packet.md) 和对应 unit packet 为准；下一 unit
+由 Sir 的目标与实际依赖确定，不按表格顺序自动启动。
 
 ### Memo-like queue boundary
 
-- active ownership unit 是 `memos-extension`；当前 MVP delivery scope 才是 Memos
+- Memo family 的已确定 ownership unit 是 `memos-extension`；已交付的 MVP scope 是 Memos
   0.29.1-compatible backend，MoeMemos Android 2.0.4 是 acceptance client。
 - Memos collector 是同一 extension 的 future delivery scope；它会重新打开 external identity、
   reconciliation、cursor 与 delete observation 等问题，但不另建 canonical ownership unit。
@@ -120,10 +122,11 @@ unit；不得仅因为表格编号自动启动。
 4. **Implementation Plan + Preflight**：先形成 design-probing draft，再核实版本、代码地址、依赖、
    环境和失败分支；任何新 owner/behavior 都退回 Technical/Acceptance 讨论，不留到 Execute。
    Technical/Acceptance 获批且 preflight questions 关闭后才冻结为 execution baseline。
-6. **Impact Handshake + explicit start**：Sir 审查 state diff 后才修改 durable docs 或代码。
-7. **Execute / Verify / Promote**：实现闭环，再把稳定 truth 投影到唯一 durable owner。
+5. **Impact Handshake + implementation authorization**：Sir 审查并授权范围后才修改 durable docs 或代码。
+6. **Execute / Verify / Promote / Deliver**：实现闭环，核对约定的实际交付终点；稳定 truth 按唯一 durable owner
+   提升，跨 owner 尚未完成的事项明确保留，不能由某次合并隐含关闭。
 
-一次尽量只讨论一个会改变设计的问题。supporting evidence/acceptance/plan 可以提前探索下游
+一次聚焦一个关键设计复核面，不机械地每轮制造一个问题。supporting evidence/acceptance/plan 可以提前探索下游
 gate，但不能把“已经写成草案”误当作“已经获批”或“可以 Execute”。
 
 ## 6. Evidence Boundary
