@@ -48,3 +48,6 @@ PyPI Trusted Publisher 首次配置仍需确认。
   不把 Registry 服务数据库变成独立包发布的前置；完整 PR CI 已通过后合并，等待新发布结果。
 - Core 生产自动路径按 Core version 变化选择。#102 合并后的首发将用既有 workflow_dispatch 交付其精确
   main artifact，确认新 REST 可用后再合入生成的 Release PR，避免 CLI 首发先于 provider；不添加长期依赖 gate。
+- runtime #37 合并为 `006759a`；正式发布 run 34832733241 成功。`runtime-core-py-v0.1.3` 的 wheel/sdist 已可下载，
+  Core 更新到该发布 URL；锁文件除 content hash 外仅改变这个 package，wheel SHA-256 为
+  `613b500183ffd8afa6a6dd560a226a8994e73e24148ad84d37536ec804023075`。
