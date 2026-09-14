@@ -1,7 +1,8 @@
-"""Seven independent automatic Organization Job routes."""
+"""Independent automatic Organization routes and explicit rumination Jobs."""
 
 from app.business.job import JobHandler
 from app.schemas.job import JobModel
+from app.schemas.organization import RuminationRequest
 from app.schemas.organization_behavior import AutomaticOrganizationJobParameters
 
 from .duplicate_assertion import DuplicateAssertionBehaviorResolver
@@ -14,12 +15,32 @@ from .synthesis import SynthesisBehaviorResolver
 
 
 RUMINATION_JOB_TYPE = "core.organization.rumination.automatic.v1"
+EXPLICIT_RUMINATION_JOB_TYPE = "core.organization.rumination.explicit.v1"
 SUPERSESSION_JOB_TYPE = "core.organization.supersession.automatic.v1"
 REFINEMENT_JOB_TYPE = "core.organization.refinement.automatic.v1"
 EVIDENCE_STANCE_JOB_TYPE = "core.organization.evidence-stance.automatic.v1"
 SYNTHESIS_JOB_TYPE = "core.organization.synthesis.automatic.v1"
 REFERENT_ANCHORING_JOB_TYPE = "core.organization.existing-referent-anchoring.automatic.v1"
 DUPLICATE_ASSERTION_JOB_TYPE = "core.organization.duplicate-assertion.automatic.v1"
+
+
+class ExplicitRuminationJobHandler(
+  JobHandler[RuminationRequest],
+  job_type=EXPLICIT_RUMINATION_JOB_TYPE,
+  description="Reconsider one explicitly selected Block through rumination.",
+  parameters_model=RuminationRequest,
+  default_timeout_seconds=1800,
+):
+  @classmethod
+  def can_handle(cls, parameters: RuminationRequest) -> bool:
+    del parameters
+    return RuminationBehaviorResolver.can_run_automatic()
+
+  @classmethod
+  async def handle(cls, job: JobModel, parameters: RuminationRequest) -> None:
+    del job
+    # A claimed Job executes here; it must not delegate another execution.
+    await RuminationBehaviorResolver.ruminate_local(parameters.block)
 
 
 class RuminationJobHandler(

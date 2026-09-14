@@ -96,8 +96,8 @@ class Extension(
     )
 
     def update(config_model, state_model):
-      config = TwitterExtensionConfig.model_validate(config_model)
-      state = TwitterExtensionState.model_validate(state_model)
+      config = typing.cast(TwitterExtensionConfig, config_model)
+      state = typing.cast(TwitterExtensionState, state_model)
       if _fingerprint(validated) != _fingerprint(config):
         state, _ = _invalidate_mismatched_oauth_state(
           validated,

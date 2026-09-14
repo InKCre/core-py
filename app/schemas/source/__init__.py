@@ -4,6 +4,8 @@ __all__ = [
   "SourceTypesModel",
   "SourceCollectParameters",
   "SourceBackfillParameters",
+  "SourceCreateForm",
+  "SourceUpdateForm",
 ]
 
 from .main import (
@@ -12,4 +14,6 @@ from .main import (
   SourceID,
   SourceModel,
   SourceTypesModel,
+  SourceCreateForm,
+  SourceUpdateForm,
 )

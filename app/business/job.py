@@ -2,6 +2,7 @@
 
 import abc
 import asyncio
+import dataclasses
 import typing
 
 import jsonschema  # pyrefly: ignore[untyped-import]
@@ -19,6 +20,23 @@ from libs.obsrv.main import get_logger
 
 LOGGER = get_logger().getChild(__name__)
 ParametersTV = typing.TypeVar("ParametersTV", bound=pydantic.BaseModel)
+
+
+class UnknownJobTypeError(ValueError):
+  """A submitted exact Job type is absent from the deployment catalog."""
+
+
+@dataclasses.dataclass
+class _Execution:
+  task: asyncio.Task
+  cancellation_requested: bool = False
+
+  def cancel(self) -> None:
+    # Do not interrupt cleanup already started by timeout or an earlier abort.
+    if not self.cancellation_requested:
+      self.cancellation_requested = True
+      if not self.task.cancelling():
+        self.task.cancel()
 
 
 class JobHandler(abc.ABC, typing.Generic[ParametersTV]):
@@ -52,6 +70,18 @@ class JobHandler(abc.ABC, typing.Generic[ParametersTV]):
     return typing.cast(ParametersTV, cls.parameters_model.model_validate(parameters))
 
   @classmethod
+  def normalize_parameters(
+    cls, parameters: dict[str, typing.Any], db_session: sqlmodel.Session
+  ) -> dict[str, typing.Any]:
+    """Validate a new Job/Cron input; owners may resolve nested catalog contracts.
+
+    Execution restores the persisted model through validate_parameters instead;
+    it does not repeat submission-only normalization.
+    """
+    del db_session
+    return cls.validate_parameters(parameters).model_dump(mode="json")
+
+  @classmethod
   @abc.abstractmethod
   def can_handle(cls, parameters: ParametersTV) -> bool:
     """Return whether this runtime can execute these parameters now."""
@@ -68,6 +98,8 @@ class JobManager:
   """Own Job Handler registration, typed creation, claim and terminal closure."""
 
   _handlers: dict[JobTypeID, type[JobHandler]] = {}
+  _active: dict[JobID, _Execution] = {}
+  _accepting = True
 
   @classmethod
   def register_handler(cls, handler: type[JobHandler]) -> None:
@@ -113,7 +145,7 @@ class JobManager:
       db_session.commit()
 
   @classmethod
-  def _normalize_parameters(
+  def normalize_parameters(
     cls,
     job_type: JobTypeID,
     parameters: dict[str, typing.Any],
@@ -121,11 +153,11 @@ class JobManager:
   ) -> dict[str, typing.Any]:
     handler = cls._handlers.get(job_type)
     if handler is not None:
-      return handler.validate_parameters(parameters).model_dump(mode="json")
+      return handler.normalize_parameters(parameters, db_session)
 
     persisted_type = db_session.get(JobTypeModel, job_type)
     if persisted_type is None:
-      raise ValueError(f"Unknown Job type: {job_type}")
+      raise UnknownJobTypeError(f"Unknown Job type: {job_type}")
     jsonschema.Draft202012Validator(persisted_type.parameters_schema).validate(parameters)
     return parameters
 
@@ -151,11 +183,13 @@ class JobManager:
         owned_session.refresh(job)
         return job
 
-    normalized = cls._normalize_parameters(job_type, parameters, db_session)
+    normalized = cls.normalize_parameters(job_type, parameters, db_session)
     persisted_type = db_session.get(JobTypeModel, job_type)
     if persisted_type is None:
-      raise ValueError(f"Unknown Job type: {job_type}")
-    effective_timeout = timeout_seconds or persisted_type.default_timeout_seconds
+      raise UnknownJobTypeError(f"Unknown Job type: {job_type}")
+    effective_timeout = (
+      persisted_type.default_timeout_seconds if timeout_seconds is None else timeout_seconds
+    )
     if effective_timeout <= 0:
       raise ValueError("Job timeout_seconds must be positive")
 
@@ -177,12 +211,122 @@ class JobManager:
     handler = cls._handlers.get(job.type)
     if handler is None:
       return None
-    try:
-      parameters = handler.validate_parameters(job.parameters)
-    except pydantic.ValidationError:
-      LOGGER.exception("Persisted Job parameters are invalid", extra={"job_id": job.id})
-      return None
+    parameters = handler.validate_parameters(job.parameters)
     return (handler, parameters) if handler.can_handle(parameters) else None
+
+  @classmethod
+  def get(cls, job_id: JobID) -> JobModel | None:
+    with SessionLocal() as db:
+      return db.get(JobModel, job_id)
+
+  @classmethod
+  def get_type(cls, type_: JobTypeID) -> JobTypeModel | None:
+    with SessionLocal() as db:
+      return db.get(JobTypeModel, type_)
+
+  @classmethod
+  def list_types(
+    cls, *, limit: int | None = None, cursor: str | None = None
+  ) -> tuple[list[JobTypeModel], str | None]:
+    statement = sqlmodel.select(JobTypeModel).order_by(JobTypeModel.id)
+    if cursor is not None:
+      statement = statement.where(JobTypeModel.id > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
+
+  @classmethod
+  def list_jobs(
+    cls,
+    *,
+    limit: int = 20,
+    cursor: JobID | None = None,
+    type_: JobTypeID | None = None,
+    status: JobStatus | None = None,
+  ) -> tuple[list[JobModel], JobID | None]:
+    statement = sqlmodel.select(JobModel).order_by(sqlmodel.col(JobModel.id).desc())
+    if cursor is not None:
+      statement = statement.where(sqlmodel.col(JobModel.id) < cursor)
+    if type_ is not None:
+      statement = statement.where(JobModel.type == type_)
+    if status is not None:
+      statement = statement.where(JobModel.status == status)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement.limit(limit + 1)).all())
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
+
+  @classmethod
+  async def notify_worker(cls) -> None:
+    """Best-effort post-commit hint; scan failure cannot undo accepted work."""
+    try:
+      await cls.check()
+    except Exception:
+      LOGGER.exception("Job discovery hint failed; periodic discovery remains active")
+
+  @classmethod
+  def abort(cls, job_id: JobID) -> JobModel | None:
+    """Close pending work or request running work to stop; retain any terminal result.
+
+    A running record acknowledges intent, not completion. The executing Peer owns
+    cancellation and cleanup; the caller never needs to locate that Peer.
+    """
+    table = typing.cast(typing.Any, getattr(JobModel, "__table__"))
+    with SessionLocal() as db_session:
+      statement = sqlalchemy.update(table)
+      statement = statement.where(
+        table.c.id == job_id,
+        table.c.status.in_((JobStatus.PENDING, JobStatus.RUNNING)),
+      ).values(
+        abort_requested=True,
+        status=sqlalchemy.case(
+          (
+            table.c.status == JobStatus.PENDING,
+            sqlalchemy.cast(JobStatus.ABORTED.value, table.c.status.type),
+          ),
+          else_=table.c.status,
+        ),
+      )
+      db_session.exec(typing.cast(typing.Any, statement))
+      db_session.commit()
+      return db_session.get(JobModel, job_id)
+
+  @classmethod
+  async def check_abort_requests(cls) -> None:
+    """One batch for this Peer's active work; handlers do not poll the database."""
+    if not cls._active:
+      return
+    with SessionLocal() as db_session:
+      ids = db_session.exec(
+        sqlmodel.select(JobModel.id).where(
+          sqlalchemy.column("id").in_(tuple(cls._active)),
+          sqlalchemy.column("abort_requested").is_(True),
+        )
+      ).all()
+    for job_id in ids:
+      if job_id is None:
+        continue
+      execution = cls._active.get(job_id)
+      if execution is not None:
+        execution.cancel()
+
+  @classmethod
+  def start(cls) -> None:
+    cls._accepting = True
+
+  @classmethod
+  async def shutdown(cls) -> None:
+    """Stop admission and drain handlers before their Extension resources close."""
+    cls._accepting = False
+    executions = tuple(cls._active.values())
+    for execution in executions:
+      execution.cancel()
+    await asyncio.gather(*(item.task for item in executions), return_exceptions=True)
 
   @classmethod
   def _claim(cls, job_id: JobID) -> JobModel | None:
@@ -222,11 +366,24 @@ class JobManager:
   @classmethod
   async def run(cls, job_id: JobID) -> bool:
     """Check local eligibility, atomically claim, then execute one Job."""
+    if not cls._accepting:
+      return False
     with SessionLocal() as db_session:
       candidate = db_session.get(JobModel, job_id)
-    if candidate is None:
+    if candidate is None or candidate.status != JobStatus.PENDING:
       return False
-    prepared = cls._prepare(candidate)
+    try:
+      prepared = cls._prepare(candidate)
+    except pydantic.ValidationError as error:
+      # A broken persisted command must be visible as failed, not remain pending
+      # forever. Unknown/unavailable handlers still leave work for another Peer.
+      LOGGER.exception("Persisted Job parameters are invalid", extra={"job_id": job_id})
+      claimed = cls._claim(job_id)
+      if claimed is None:
+        return False
+      claimed.state = {**claimed.state, "error": str(error)}
+      cls._close(claimed, JobStatus.FAILED)
+      return True
     if prepared is None:
       return False
 
@@ -234,9 +391,15 @@ class JobManager:
     if claimed is None:
       return False
     handler, parameters = prepared
+    task = asyncio.current_task()
+    assert task is not None
+    cls._active[job_id] = _Execution(task)
     try:
       async with asyncio.timeout(claimed.timeout_seconds):
         await handler.handle(claimed, parameters)
+    except asyncio.CancelledError:
+      LOGGER.info("Job execution aborted", extra={"job_id": job_id})
+      cls._close(claimed, JobStatus.ABORTED)
     except TimeoutError:
       LOGGER.warning("Job execution timed out", extra={"job_id": job_id})
       cls._close(claimed, JobStatus.TIMED_OUT)
@@ -246,6 +409,8 @@ class JobManager:
       cls._close(claimed, JobStatus.FAILED)
     else:
       cls._close(claimed, JobStatus.FINISHED)
+    finally:
+      cls._active.pop(job_id, None)
     return True
 
   @classmethod
@@ -272,13 +437,15 @@ class JobManager:
   @classmethod
   async def check(cls) -> None:
     """Schedule locally eligible pending Jobs and converge running timeouts."""
+    if not cls._accepting:
+      return
     with SessionLocal() as db_session:
       pending = db_session.exec(
         sqlmodel.select(JobModel).where(JobModel.status == JobStatus.PENDING)
       ).all()
 
     for job in pending:
-      if job.id is None or cls._prepare(job) is None:
+      if job.id is None or job.type not in cls._handlers:
         continue
       scheduler.add_job(
         func=with_trace_id(f"job.{job.id}", cls.run),

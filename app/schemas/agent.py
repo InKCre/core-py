@@ -38,7 +38,7 @@ class AgentToolsType(sqlalchemy.TypeDecorator):
 
   def process_result_value(self, value, dialect):
     del dialect
-    return normalize_agent_tools(value or ())
+    return tuple(value or ())
 
 
 class ToolChoiceType(sqlalchemy.TypeDecorator):
@@ -60,6 +60,37 @@ class ToolChoiceType(sqlalchemy.TypeDecorator):
   def process_result_value(self, value, dialect):
     del dialect
     return _TOOL_CHOICE_ADAPTER.validate_python(value)
+
+
+class AgentForm(pydantic.BaseModel):
+  """Editable Agent definition, without execution or database-managed fields."""
+
+  model_config = pydantic.ConfigDict(extra="forbid")
+
+  name: str
+  system_prompt: str
+  model: AIModelID
+  tools: tuple[str, ...] = ()
+  tool_choice: ToolChoice | None = None
+  max_model_calls_per_turn: int = pydantic.Field(gt=0)
+
+  @pydantic.field_validator("tools")
+  @classmethod
+  def canonical_tools(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+    return normalize_agent_tools(value)
+
+
+class AgentUpdateForm(pydantic.BaseModel):
+  """PATCH omission preserves a field; only tool_choice accepts explicit null."""
+
+  model_config = pydantic.ConfigDict(extra="forbid")
+
+  name: str = pydantic.Field(default=None)  # pyrefly: ignore[bad-assignment]
+  system_prompt: str = pydantic.Field(default=None)  # pyrefly: ignore[bad-assignment]
+  model: AIModelID = pydantic.Field(default=None)  # pyrefly: ignore[bad-assignment]
+  tools: tuple[str, ...] = ()
+  tool_choice: ToolChoice | None = None
+  max_model_calls_per_turn: int = pydantic.Field(default=None, gt=0)  # pyrefly: ignore[bad-assignment]
 
 
 class AgentDefinitionModel(sqlmodel.SQLModel, table=True):

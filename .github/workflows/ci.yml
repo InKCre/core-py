@@ -17,6 +17,18 @@ env:
   PDM_CHECK_UPDATE: "false"
 
 jobs:
+  cli:
+    name: inkcre-cli checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
+        with:
+          python-version: '3.12'
+          version: 2.28.0
+      - name: 检查独立依赖、静态合同和分发构建
+        run: bash scripts/automation/cli_publication.sh check-build
+
   repository:
     name: Hermetic repository contract
     runs-on: ubuntu-latest

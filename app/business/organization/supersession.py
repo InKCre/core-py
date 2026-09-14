@@ -53,6 +53,7 @@ SUPERSESSION_CONFIG_SCHEMA = "core.organization.supersession.config.v1"
 DeploymentConfigManager.register_schema(
   SUPERSESSION_CONFIG_SCHEMA,
   BehaviorAgentConfig,
+  keys=(SUPERSESSION_CONFIG_KEY,),
 )
 
 

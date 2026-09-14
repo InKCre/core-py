@@ -46,6 +46,7 @@ EVIDENCE_STANCE_CONFIG_SCHEMA = "core.organization.evidence_stance.config.v1"
 DeploymentConfigManager.register_schema(
   EVIDENCE_STANCE_CONFIG_SCHEMA,
   BehaviorAgentConfig,
+  keys=(EVIDENCE_STANCE_CONFIG_KEY,),
 )
 
 

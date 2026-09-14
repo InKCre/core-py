@@ -56,7 +56,6 @@ class Source(
   """Collect Mail through one configured public protocol access context."""
 
   async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
-    MailCollectConfig.model_validate(config)
     source, setup = self._load_effective_source()
     state = MailSourceState.model_validate(source.state or {})
     diagnostics: list[dict[str, typing.Any]] = []
@@ -127,7 +126,7 @@ class Source(
           )
 
   async def backfill(self, job: JobModel, config: pydantic.BaseModel) -> None:
-    interval = MailBackfillConfig.model_validate(config)
+    interval = typing.cast(MailBackfillConfig, config)
     _source, setup = self._load_effective_source()
     state = MailSourceState.model_validate(self.get_state())
     diagnostics: list[dict[str, typing.Any]] = []

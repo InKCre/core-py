@@ -45,8 +45,10 @@ silently retried because extension startup can have partial effects.
 
 - `CronManager.check()` evaluates only the current database-time minute，serializes each Cron and materializes at most one
   typed Job for the matching occurrence；it does not catch up missed occurrences。
-- `JobManager.check()` filters pending Jobs through the peer-local Handler registry and `can_handle()` before scheduling an
-  atomic database claim。Only the winning Peer executes；each run closes once to finished、failed、timed-out or aborted。
+- `JobManager.check()` selects pending Jobs with a registered Handler. `run()` restores parameters and checks `can_handle()`
+  before an atomic database claim. Only the winning Peer executes; each run conditionally closes once to a terminal status.
+- `abort_requested` is durable intent, not evidence of completion. A pending Job can close immediately; a running Job
+  remains running until its execution task has exited and released its resources. Repeating abort preserves terminal state.
 - source ordinary collect/backfill、lexical maintain/rebuild、semantic maintain/rebuild and media interpretation are exact Job
   types。Their domain Managers do not acquire Cron semantics merely because a Handler calls them。
 
@@ -55,6 +57,7 @@ Job has no implicit retry。A source may persist checkpoints as useful progress�
 ### 3. Pending work is drained by periodic checks
 
 - Cron occurrence and pending Job checks run every 30 seconds
+- the process checks abort intent for its active Job IDs every 2 seconds; the domain handler does not poll the Job table
 - Peer advertisement/lease refresh uses owner-supplied TTL and renewal interval settings；it republishes config-derived
   inbound URLs before renewing liveness
 - retrieval maintenance is scheduled only through persisted Cron + exact typed Job parameters。There is no separate
@@ -68,10 +71,11 @@ same database-owned config semantics through its runtime owner.
 
 ### 4. Shutdown must close long-lived runtime resources
 
-- the APScheduler instance is shut down in application lifespan shutdown
+- scheduler admission is paused first; JobManager stops admitting work, cancels its active tasks and awaits their cleanup
 - running Sink instances close before Extension teardown, so an external endpoint cannot observe disappearing
   Extension-delivered behavior while it is still published
 - running extensions are closed asynchronously so they can release resources
+- APScheduler shuts down after those resources close, so its cancellation does not interrupt already-running cleanup
 - a runtime that reached ready clears its Peer lease after scheduler/extension shutdown；abrupt loss relies on expiry
 
 Active Agent Turns are ordinary caller-owned asyncio Tasks，not scheduler jobs or deployment work records。The MVP Thread
@@ -97,10 +101,12 @@ module import.
 - health routes do not require JWT credentials and never include connection errors or
   database URLs in their payloads
 
-### 7. Scheduler ownership is intentionally single-replica
+### 7. Each Peer may own a scheduler
 
-The web process still owns APScheduler. Until scheduler work moves to a dedicated process,
-deployments must keep web formation at one replica to avoid duplicate periodic work.
+APScheduler belongs to each web process. Cron row serialization, occurrence identity and the conditional pending-Job
+claim coordinate multiple Peers through PostgreSQL; a single-replica recommendation is not the concurrency mechanism.
+An attempt is not reclaimed or retried when its Peer disappears. Expiry and the next independently scheduled occurrence
+retain their existing meanings.
 
 ## Authoritative Code Anchors
 

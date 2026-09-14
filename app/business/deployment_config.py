@@ -1,6 +1,7 @@
 """Deployment-scoped configuration registry and persistence."""
 
 import typing
+import dataclasses
 
 import pydantic
 import sqlalchemy.dialects.postgresql
@@ -28,31 +29,38 @@ class DeploymentConfigNotFoundError(LookupError):
   """A patch addressed a deployment config that does not exist."""
 
 
-class InvalidPersistedDeploymentConfigError(RuntimeError):
-  """A stored value does not satisfy its stored exact schema contract."""
+@dataclasses.dataclass(frozen=True)
+class _SchemaRegistration:
+  contract: ConfigContract
+  keys: tuple[str, ...]
 
 
 class DeploymentConfigManager:
   """Own exact schema registration and the shared ``configs`` relation."""
 
-  _contracts: dict[DeploymentConfigSchemaID, ConfigContract] = {}
+  _contracts: dict[DeploymentConfigSchemaID, _SchemaRegistration] = {}
 
   @classmethod
   def register_schema(
     cls,
     schema_id: DeploymentConfigSchemaID,
     model: type[pydantic.BaseModel],
+    *,
+    keys: tuple[str, ...] = (),
   ) -> None:
     """Register one exact schema ID idempotently for the same model."""
     existing = cls._contracts.get(schema_id)
     if existing is not None:
-      if existing.model is model:
+      if existing.contract.model is model:
+        cls._contracts[schema_id] = _SchemaRegistration(
+          existing.contract, tuple(sorted(set(existing.keys) | set(keys)))
+        )
         return
       raise DeploymentConfigSchemaCollisionError(
         f"Deployment config schema {schema_id!r} is already registered "
-        f"by {existing.model.__qualname__}"
+        f"by {existing.contract.model.__qualname__}"
       )
-    cls._contracts[schema_id] = ConfigContract(model)
+    cls._contracts[schema_id] = _SchemaRegistration(ConfigContract(model), keys)
 
   @classmethod
   def _contract(
@@ -60,48 +68,41 @@ class DeploymentConfigManager:
     schema_id: DeploymentConfigSchemaID,
   ) -> ConfigContract:
     try:
-      return cls._contracts[schema_id]
+      return cls._contracts[schema_id].contract
     except KeyError as error:
       raise UnknownDeploymentConfigSchemaError(
         f"Unknown deployment config schema: {schema_id}"
       ) from error
 
   @classmethod
-  def _validate_record(
+  def _restore_record(
     cls,
     record: DeploymentConfigModel,
   ) -> pydantic.BaseModel:
-    contract = cls._contract(record.schema_id)
-    try:
-      return contract.validate(record.value)
-    except pydantic.ValidationError as error:
-      raise InvalidPersistedDeploymentConfigError(
-        f"Deployment config {record.key!r} does not satisfy {record.schema_id!r}"
-      ) from error
+    return cls._contract(record.schema_id).validate(record.value)
 
   @classmethod
   def _view(cls, record: DeploymentConfigModel) -> DeploymentConfigView:
-    value = cls._validate_record(record).model_dump(mode="json")
     return DeploymentConfigView(
       key=record.key,
       schema=record.schema_id,
-      value=value,
+      value=record.value,
       created_at=record.created_at,
       updated_at=record.updated_at,
     )
 
   @classmethod
   def get(cls, key: DeploymentConfigKey) -> pydantic.BaseModel | None:
-    """Load and validate one config, returning its owner-defined typed value."""
+    """Restore the owner's Python model once, including nested/union types."""
     with SessionLocal() as db:
       record = db.get(DeploymentConfigModel, key)
       if record is None:
         return None
-      return cls._validate_record(record)
+      return cls._restore_record(record)
 
   @classmethod
   def read(cls, key: DeploymentConfigKey) -> DeploymentConfigView | None:
-    """Read one fully validated config with persistence metadata."""
+    """Read stored data without requiring its schema to be loaded on this Peer."""
     with SessionLocal() as db:
       record = db.get(DeploymentConfigModel, key)
       if record is None:
@@ -115,6 +116,16 @@ class DeploymentConfigManager:
     schema_id: DeploymentConfigSchemaID,
     complete_value: dict[str, typing.Any],
   ) -> DeploymentConfigView:
+    result, _ = cls.replace_with_status(key, schema_id, complete_value)
+    return result
+
+  @classmethod
+  def replace_with_status(
+    cls,
+    key: DeploymentConfigKey,
+    schema_id: DeploymentConfigSchemaID,
+    complete_value: dict[str, typing.Any],
+  ) -> tuple[DeploymentConfigView, bool]:
     """Atomically upsert a complete value and, if needed, its schema."""
     contract = cls._contract(schema_id)
     normalized = contract.normalize(complete_value)
@@ -125,19 +136,75 @@ class DeploymentConfigManager:
         schema_id=schema_id,
         value=normalized,
       )
-      statement = statement.on_conflict_do_update(
-        index_elements=[DeploymentConfigModel.key],
-        set_={
-          DeploymentConfigModel.__table__.c.schema: statement.excluded.schema,  # pyrefly: ignore[missing-attribute]
-          DeploymentConfigModel.__table__.c.value: statement.excluded.value,  # pyrefly: ignore[missing-attribute]
-        },
-      )
-      db.exec(statement)  # type: ignore
+      statement = statement.on_conflict_do_nothing(
+        index_elements=[DeploymentConfigModel.key]
+      ).returning(sqlmodel.col(DeploymentConfigModel.key))
+      created = db.exec(typing.cast(typing.Any, statement)).scalar_one_or_none() is not None
+      # The insert outcome is authoritative even under concurrent PUTs. A
+      # conflicting row is updated in this transaction, not guessed by a prior GET.
+      if not created:
+        db.exec(
+          typing.cast(
+            typing.Any,
+            sqlalchemy.update(DeploymentConfigModel)
+            .where(sqlmodel.col(DeploymentConfigModel.key) == key)
+            .values(schema_id=schema_id, value=normalized),
+          )
+        )
       db.commit()
       record = db.get(DeploymentConfigModel, key)
       if record is None:  # pragma: no cover - database upsert invariant
         raise RuntimeError(f"Deployment config upsert did not return {key!r}")
-      return cls._view(record)
+      return cls._view(record), created
+
+  @classmethod
+  def list_configs(
+    cls, *, limit: int | None = None, cursor: str | None = None
+  ) -> tuple[list[DeploymentConfigView], str | None]:
+    statement = sqlmodel.select(DeploymentConfigModel).order_by(DeploymentConfigModel.key)
+    if cursor is not None:
+      statement = statement.where(DeploymentConfigModel.key > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement).all())
+      more = limit is not None and len(rows) > limit
+      rows = rows[:limit]
+      return [cls._view(row) for row in rows], rows[-1].key if more else None
+
+  @classmethod
+  def delete(cls, key: DeploymentConfigKey) -> bool:
+    with SessionLocal() as db:
+      row = db.get(DeploymentConfigModel, key)
+      if row is None:
+        return False
+      db.delete(row)
+      db.commit()
+      return True
+
+  @classmethod
+  def get_schema(cls, schema_id: str, *, include_schema: bool = True) -> dict:
+    contract = cls._contract(schema_id)
+    entry = cls._contracts[schema_id]
+    result: dict[str, typing.Any] = {
+      "id": schema_id,
+      "keys": entry.keys,
+      "description": contract.model.__doc__ or "",
+    }
+    if include_schema:
+      result["input_schema"] = contract.json_schema()
+    return result
+
+  @classmethod
+  def list_schemas(
+    cls, *, limit: int | None = None, cursor: str | None = None
+  ) -> tuple[list[dict], str | None]:
+    ids = sorted(key for key in cls._contracts if cursor is None or key > cursor)
+    more = limit is not None and len(ids) > limit
+    ids = ids[:limit]
+    return [cls.get_schema(key, include_schema=False) for key in ids], ids[
+      -1
+    ] if more else None
 
   @classmethod
   def patch(
@@ -157,13 +224,7 @@ class DeploymentConfigManager:
         raise DeploymentConfigNotFoundError(f"Deployment config {key!r} does not exist")
 
       contract = cls._contract(record.schema_id)
-      try:
-        validated_current = contract.validate(record.value)
-      except pydantic.ValidationError as error:
-        raise InvalidPersistedDeploymentConfigError(
-          f"Deployment config {key!r} does not satisfy {record.schema_id!r}"
-        ) from error
-      validated = contract.prepare_patch(validated_current, partial_value)
+      validated = contract.prepare_patch(record.value, partial_value)
       record.value = validated.model_dump(mode="json")
       db.add(record)
       db.commit()

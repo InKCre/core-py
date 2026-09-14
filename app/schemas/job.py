@@ -108,6 +108,12 @@ class JobModel(sqlmodel.SQLModel, table=True):
       server_default=sqlalchemy.text("'{}'::jsonb"),
     ),
   )
+  abort_requested: bool = sqlmodel.Field(
+    default=False,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.Boolean, nullable=False, server_default=sqlalchemy.false()
+    ),
+  )
   timeout_seconds: int = sqlmodel.Field(
     gt=0,
     sa_column=sqlalchemy.Column(sqlalchemy.Integer, nullable=False),

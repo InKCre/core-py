@@ -7,11 +7,12 @@ import inspect
 import typing
 
 import pydantic
+import sqlmodel
 
 from app.business.ai import AIExecutionRequirement, AIManager
 from app.engine import SessionLocal
 from app.schemas import AgentDefinitionModel
-from app.schemas.agent import AgentID
+from app.schemas.agent import AgentID, AgentForm, AgentUpdateForm
 from app.schemas.ai import FunctionTool, SystemMessage, UserMessage
 
 from .contracts import (
@@ -69,6 +70,91 @@ class AgentManager:
 
   _TOOLS: dict[str, _ToolRegistration] = {}
   _persistence: ThreadPersistenceBackend = InMemoryThreadPersistenceBackend()
+
+  @classmethod
+  def get_definition(cls, agent_id: AgentID) -> AgentDefinitionModel | None:
+    with SessionLocal() as db:
+      return db.get(AgentDefinitionModel, agent_id)
+
+  @classmethod
+  def list_definitions(
+    cls, *, limit: int | None = None, cursor: int | None = None
+  ) -> tuple[list[AgentDefinitionModel], int | None]:
+    statement = sqlmodel.select(AgentDefinitionModel).order_by(
+      sqlmodel.col(AgentDefinitionModel.id)
+    )
+    if cursor is not None:
+      statement = statement.where(sqlmodel.col(AgentDefinitionModel.id) > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
+
+  @classmethod
+  def create_definition(cls, form: AgentForm) -> AgentDefinitionModel:
+    with SessionLocal() as db:
+      record = AgentDefinitionModel(**form.model_dump())
+      db.add(record)
+      db.commit()
+      db.refresh(record)
+      return record
+
+  @classmethod
+  def update_definition(
+    cls, agent_id: AgentID, form: AgentUpdateForm
+  ) -> AgentDefinitionModel:
+    with SessionLocal() as db:
+      record = db.exec(
+        sqlmodel.select(AgentDefinitionModel)
+        .where(AgentDefinitionModel.id == agent_id)
+        .with_for_update()
+      ).one_or_none()
+      if record is None:
+        raise AgentNotFoundError(f"Agent {agent_id} does not exist")
+      changes = form.model_dump(exclude_unset=True)
+      candidate = AgentForm.model_validate(
+        {
+          **{field: getattr(record, field) for field in AgentForm.model_fields},
+          **changes,
+        }
+      )
+      for field in changes:
+        setattr(record, field, getattr(candidate, field))
+      db.add(record)
+      db.commit()
+      db.refresh(record)
+      return record
+
+  @classmethod
+  def delete_definition(cls, agent_id: AgentID) -> bool:
+    with SessionLocal() as db:
+      record = db.get(AgentDefinitionModel, agent_id)
+      if record is None:
+        return False
+      db.delete(record)
+      db.commit()
+      return True
+
+  @classmethod
+  def list_tools(
+    cls, *, limit: int | None = None, cursor: str | None = None
+  ) -> tuple[list[dict[str, str]], str | None]:
+    ids = sorted(key for key in cls._TOOLS if cursor is None or key > cursor)
+    more = limit is not None and len(ids) > limit
+    ids = ids[:limit]
+    return [{"id": key, "description": cls._TOOLS[key].description} for key in ids], ids[
+      -1
+    ] if more else None
+
+  @classmethod
+  def get_tool(cls, tool_id: str) -> FunctionTool:
+    registration = cls._TOOLS.get(tool_id)
+    if registration is None:
+      raise MissingAgentToolError(f"Agent Tool {tool_id!r} is not registered")
+    return registration.bind(tool_id).definition
 
   @classmethod
   def can_execute(cls, agent_id: AgentID, input_modality: str) -> bool:

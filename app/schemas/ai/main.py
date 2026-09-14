@@ -8,7 +8,7 @@ import sqlalchemy
 import sqlalchemy.dialects.postgresql
 import sqlmodel
 
-from .capability import AIModelCapability, normalize_capabilities
+from .capability import CAPABILITIES_ADAPTER, AIModelCapability, normalize_capabilities
 
 
 AIDialectID: typing.TypeAlias = str
@@ -31,7 +31,7 @@ class AICapabilitiesType(sqlalchemy.TypeDecorator):
 
   def process_result_value(self, value, dialect):
     del dialect
-    return normalize_capabilities(value or ())
+    return CAPABILITIES_ADAPTER.validate_python(value or ())
 
 
 class AIDialectModel(sqlmodel.SQLModel, table=True):

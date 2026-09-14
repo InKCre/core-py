@@ -50,7 +50,9 @@ RUMINATION_CONFIG_SCHEMA = "core.organization.rumination.config.v1"
 RUMINATION_CAPABILITY = "core.organization.rumination.v1"
 RUMINATION_BEHAVIOR = "core.organization.behavior.rumination.v1"
 
-DeploymentConfigManager.register_schema(RUMINATION_CONFIG_SCHEMA, RuminationConfig)
+DeploymentConfigManager.register_schema(
+  RUMINATION_CONFIG_SCHEMA, RuminationConfig, keys=(RUMINATION_CONFIG_KEY,)
+)
 
 
 class RuminationBehaviorResolver(

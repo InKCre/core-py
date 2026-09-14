@@ -141,11 +141,34 @@ class _ReportBuilder:
 DeploymentConfigManager.register_schema(
   SEMANTIC_RETRIEVAL_CONFIG_SCHEMA,
   SemanticRetrievalConfig,
+  keys=(SEMANTIC_RETRIEVAL_CONFIG_KEY,),
 )
 
 
 class SemanticRetrievalManager:
   """Single use-domain owner for projection, records, ranking and defaults."""
+
+  @classmethod
+  def get_profile(cls, profile_id: EmbeddingProfileID) -> EmbeddingProfileModel | None:
+    with SessionLocal() as db:
+      return db.get(EmbeddingProfileModel, profile_id)
+
+  @classmethod
+  def list_profiles(
+    cls, *, limit: int | None = None, cursor: int | None = None
+  ) -> tuple[list[EmbeddingProfileModel], int | None]:
+    statement = sqlmodel.select(EmbeddingProfileModel).order_by(
+      sqlmodel.col(EmbeddingProfileModel.id)
+    )
+    if cursor is not None:
+      statement = statement.where(sqlmodel.col(EmbeddingProfileModel.id) > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
 
   @classmethod
   def _configured_profile_id(cls) -> EmbeddingProfileID:

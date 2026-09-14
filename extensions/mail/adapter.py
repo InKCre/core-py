@@ -16,6 +16,7 @@ import typing
 
 from imapclient import IMAPClient
 from imapclient.exceptions import IMAPClientError
+from imapclient.imapclient import SocketTimeout
 import pydantic
 
 from .schema import (
@@ -281,7 +282,12 @@ class IMAPAdapter:
     self._lock = asyncio.Lock()
 
   async def __aenter__(self) -> "IMAPAdapter":
-    await self._run(self._connect)
+    try:
+      await self._run(self._connect)
+    except BaseException:
+      # Python does not call __aexit__ when entering the context fails/cancels.
+      await self._run(self._disconnect)
+      raise
     return self
 
   async def __aexit__(self, exc_type, exc, traceback) -> None:
@@ -290,10 +296,28 @@ class IMAPAdapter:
 
   async def _run(self, function, *args):
     async with self._lock:
+      operation = asyncio.create_task(asyncio.to_thread(function, *args))
+      cancellation: asyncio.CancelledError | None = None
+      # Cancelling to_thread's await does not stop its thread. Keep the lock and
+      # drain this same call before disconnect or another IMAP command can run.
+      while not operation.done():
+        try:
+          await asyncio.shield(operation)
+        except asyncio.CancelledError as error:
+          cancellation = error
+        except Exception:
+          break  # Retrieve the original exception below, once the call has ended.
       try:
-        return await asyncio.to_thread(function, *args)
-      except (IMAPClientError, OSError) as error:
-        raise MailAdapterError(str(error)) from error
+        result = operation.result()
+      except Exception as error:
+        if cancellation is not None:
+          raise cancellation from error
+        if isinstance(error, (IMAPClientError, OSError)):
+          raise MailAdapterError(str(error)) from error
+        raise
+      if cancellation is not None:
+        raise cancellation
+      return result
 
   def _connect(self) -> None:
     use_tls = self.parameters.security == "tls"
@@ -301,6 +325,8 @@ class IMAPAdapter:
       self.parameters.host,
       port=self.parameters.port,
       ssl=use_tls,
+      # IMAPClient supports its own SocketTimeout despite its narrower annotation.
+      timeout=SocketTimeout(connect=15, read=30),  # pyrefly: ignore[bad-argument-type]
     )
     try:
       if self.parameters.security == "starttls":

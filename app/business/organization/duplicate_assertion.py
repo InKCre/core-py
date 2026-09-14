@@ -43,6 +43,7 @@ DUPLICATE_ASSERTION_CONFIG_SCHEMA = "core.organization.duplicate_assertion.confi
 DeploymentConfigManager.register_schema(
   DUPLICATE_ASSERTION_CONFIG_SCHEMA,
   BehaviorAgentConfig,
+  keys=(DUPLICATE_ASSERTION_CONFIG_KEY,),
 )
 
 

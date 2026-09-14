@@ -151,7 +151,7 @@ class OfficialAPI(TwitterAPI):
     from .setup_flow import TwitterExtensionState, TwitterSetupConflict, _fingerprint
 
     config = Extension.get_config()
-    state = TwitterExtensionState.model_validate(Extension.get_state())
+    state = typing.cast(TwitterExtensionState, Extension.get_state())
     account = state.account
     if (
       account is None
@@ -214,7 +214,7 @@ class OfficialAPI(TwitterAPI):
     """
     from .setup_flow import TwitterExtensionState, TwitterSetupConflict, _fingerprint
 
-    latest = TwitterExtensionState.model_validate(Extension.get_state())
+    latest = typing.cast(TwitterExtensionState, Extension.get_state())
     latest_config = Extension.get_config()
     if (
       latest.account is None
@@ -255,7 +255,7 @@ class OfficialAPI(TwitterAPI):
       from .setup_flow import TwitterExtensionState, TwitterSetupConflict
 
       def update(model: pydantic.BaseModel) -> pydantic.BaseModel:
-        state = TwitterExtensionState.model_validate(model)
+        state = typing.cast(TwitterExtensionState, model)
         if (
           state.account is None or state.account.authorization_id != self.__authorization_id
         ):
@@ -272,7 +272,7 @@ class OfficialAPI(TwitterAPI):
       from .setup_flow import TwitterExtensionState
 
       def update(model: pydantic.BaseModel) -> pydantic.BaseModel:
-        state = TwitterExtensionState.model_validate(model)
+        state = typing.cast(TwitterExtensionState, model)
         if (
           state.account is not None
           and state.account.authorization_id == self.__authorization_id

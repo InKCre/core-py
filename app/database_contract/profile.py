@@ -304,6 +304,19 @@ BUILTIN_JOB_TYPES = (
     1800,
   ),
   JobTypeProfile(
+    "core.organization.rumination.explicit.v1",
+    "Reconsider one explicitly selected Block through rumination.",
+    {
+      "additionalProperties": False,
+      "description": "Explicit request to reconsider one focal Block.",
+      "properties": {"block": {"title": "Block", "type": "integer"}},
+      "required": ["block"],
+      "title": "RuminationRequest",
+      "type": "object",
+    },
+    1800,
+  ),
+  JobTypeProfile(
     "core.organization.rumination.automatic.v1",
     "Automatically reconsider bounded information seeds through rumination.",
     AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,

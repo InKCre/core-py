@@ -169,4 +169,4 @@ class PeerModel(sqlmodel.SQLModel, table=True):
 
   def capability_snapshot(self) -> tuple[PeerCapabilityAdvertisement, ...]:
     """Validate a possibly externally edited persisted snapshot at use time."""
-    return normalize_capability_snapshot(self.capabilities)
+    return _CAPABILITIES_ADAPTER.validate_python(self.capabilities or ())

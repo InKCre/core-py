@@ -58,7 +58,7 @@ class DeploymentConfigReplaceForm(pydantic.BaseModel):
 
 
 class DeploymentConfigView(pydantic.BaseModel):
-  """Validated deployment config projection exposed by the HTTP resource."""
+  """Stored deployment config and metadata; reading does not revalidate value."""
 
   model_config = pydantic.ConfigDict(populate_by_name=True)
 

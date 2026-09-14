@@ -44,7 +44,9 @@ SYNTHESIS_BEHAVIOR = "core.organization.behavior.synthesis.v1"
 SYNTHESIS_CONFIG_KEY = "core.organization.synthesis"
 SYNTHESIS_CONFIG_SCHEMA = "core.organization.synthesis.config.v1"
 
-DeploymentConfigManager.register_schema(SYNTHESIS_CONFIG_SCHEMA, BehaviorAgentConfig)
+DeploymentConfigManager.register_schema(
+  SYNTHESIS_CONFIG_SCHEMA, BehaviorAgentConfig, keys=(SYNTHESIS_CONFIG_KEY,)
+)
 
 
 class SynthesisBehaviorResolver(

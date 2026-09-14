@@ -154,12 +154,19 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
   running instance 的 active resources。Registration 不创建或自动运行实例。
 - Sink 是 application/use 的下游 projection，不取得 Block、Relation、Resolver、Storage 或 retrieval authority。
   一个 Extension 可以交付 Sink type，但 Extension enable 不等于 Sink instance enable。
+- `cli/` 是独立分发的 REST consumer，也属于产品意义上的 sink，但不是 `SinkBase` runtime instance。它不安装
+  Core、不直连数据库、不注册 Peer。普通 REST route 交给对应领域 owner；它不复用 Peer inbound 作为公共 API。
 - `core.mcp.v1` 是首个实现：它把现有 retrieval、graph navigation 与 Resolver read behavior 投影为 MCP actions；
   oversized/binary content 通过 live Resource URI 重新读取当前 authority，不产生 Resource table 或缓存 authority。
 - MCP 的 read-only boundary 排除 Agent-intended mutation command；Resolver `get_*` / `read_*` 仍可按其既有 contract
   lazy materialize missing derivation，因此相关 Tool 不虚假声明绝对无副作用。
 
 ## Cross-Subtree Constraints
+
+配置输入先合并成完整候选并验证，再持久化。普通记录读取不因 schema 未加载而拒绝；需要 SecretStr、嵌套
+模型或 union 的执行路径接受一次原生 Pydantic 类型恢复。已经得到正确类型的内部值直接传递，不反复
+dump/model_validate。不要把 model_construct 当作通用递归 decoder，也不要把内部或输出验证错误伪装成
+HTTP 422。普通 REST 的请求输入、错误位置和内容表示见 [rest-interface.md](rest-interface.md)。
 
 ### Allowed Direction
 

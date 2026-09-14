@@ -7,6 +7,7 @@ import typing
 
 import pydantic
 import sqlalchemy.dialects.postgresql
+import sqlmodel
 
 from app.database_contract.profile import BUILTIN_AI_DIALECTS_BY_ID
 from app.engine import SessionLocal
@@ -72,6 +73,27 @@ class AIManager:
   """Sole domain manager for AI dialects, shared facts and execution."""
 
   _DIALECTS: dict[AIDialectID, _DialectRegistration] = {}
+
+  @classmethod
+  def get_model(cls, model_id: AIModelID) -> AIModelModel | None:
+    """Read a model record without requiring its provider/dialect to execute here."""
+    with SessionLocal() as db:
+      return db.get(AIModelModel, model_id)
+
+  @classmethod
+  def list_models(
+    cls, *, limit: int | None = None, cursor: int | None = None
+  ) -> tuple[list[AIModelModel], int | None]:
+    statement = sqlmodel.select(AIModelModel).order_by(sqlmodel.col(AIModelModel.id))
+    if cursor is not None:
+      statement = statement.where(sqlmodel.col(AIModelModel.id) > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
 
   @classmethod
   def register_dialect(

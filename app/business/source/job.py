@@ -1,5 +1,7 @@
 """Exact Source command handlers hosted by the global Job runtime."""
 
+import sqlmodel
+
 from app.business.job import JobHandler
 from app.engine import SessionLocal
 from app.schemas.job import JobModel
@@ -9,7 +11,9 @@ from app.schemas.source import (
   SourceModel,
 )
 
-from .main import SourceManager
+from app.validation import input_path
+
+from .main import SourceManager, SourceNotFoundError
 
 
 SOURCE_COLLECT_JOB_TYPE = "core.source.collect.v1"
@@ -30,6 +34,18 @@ class SourceCollectJobHandler(
   default_timeout_seconds=300,
 ):
   @classmethod
+  def normalize_parameters(cls, parameters: dict, db_session: sqlmodel.Session) -> dict:
+    normalized = super().normalize_parameters(parameters, db_session)
+    source = db_session.get(SourceModel, normalized["source"])
+    if source is None:
+      raise SourceNotFoundError(f"Source {normalized['source']} does not exist")
+    with input_path("config"):
+      normalized["config"] = SourceManager.normalize_config(
+        source.type, normalized["config"], db_session, command="collect"
+      )
+    return normalized
+
+  @classmethod
   def can_handle(cls, parameters: SourceCollectParameters) -> bool:
     source_type = _source_type(parameters)
     return source_type is not None and SourceManager.has_source_type(source_type)
@@ -48,6 +64,18 @@ class SourceBackfillJobHandler(
   parameters_model=SourceBackfillParameters,
   default_timeout_seconds=1800,
 ):
+  @classmethod
+  def normalize_parameters(cls, parameters: dict, db_session: sqlmodel.Session) -> dict:
+    normalized = super().normalize_parameters(parameters, db_session)
+    source = db_session.get(SourceModel, normalized["source"])
+    if source is None:
+      raise SourceNotFoundError(f"Source {normalized['source']} does not exist")
+    with input_path("config"):
+      normalized["config"] = SourceManager.normalize_config(
+        source.type, normalized["config"], db_session, command="backfill"
+      )
+    return normalized
+
   @classmethod
   def can_handle(cls, parameters: SourceBackfillParameters) -> bool:
     source_type = _source_type(parameters)

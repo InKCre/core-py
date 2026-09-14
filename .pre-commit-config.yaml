@@ -14,6 +14,7 @@ repos:
         entry: ruff format --check .
         language: system
         files: ^(.*\.py|pyproject\.toml|ruff\.toml)$
+        exclude: ^(cli/|\.agents/)
         pass_filenames: false
       - id: typecheck
         name: Check Pyrefly types

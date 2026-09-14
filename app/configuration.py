@@ -23,7 +23,14 @@ class ConfigContract(typing.Generic[ConfigModelT]):
     self,
     value: ConfigModelT | Mapping[str, typing.Any],
   ) -> ConfigModelT:
-    """Validate one complete value against the authoritative model."""
+    """Validate new input; pass an already constructed target model through.
+
+    Passing a model back through Pydantic can rerun its model validators.
+    Typed callers have already crossed that boundary; persistence consumers may
+    still use one native model construction to restore nested Python types.
+    """
+    if isinstance(value, self.model):
+      return value
     return self.model.model_validate(value)
 
   def normalize(
@@ -39,7 +46,11 @@ class ConfigContract(typing.Generic[ConfigModelT]):
     patch: Mapping[str, typing.Any],
   ) -> ConfigModelT:
     """Shallow-merge a patch and validate the resulting complete value."""
-    candidate = self.normalize(current)
+    candidate = (
+      current.model_dump(mode="json")
+      if isinstance(current, pydantic.BaseModel)
+      else dict(current)
+    )
     candidate.update(patch)
     return self.validate(candidate)
 

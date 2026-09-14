@@ -55,12 +55,12 @@ AIModelCapability: typing.TypeAlias = typing.Annotated[
   pydantic.Field(discriminator="type"),
 ]
 
-_CAPABILITIES_ADAPTER = pydantic.TypeAdapter(tuple[AIModelCapability, ...])
+CAPABILITIES_ADAPTER = pydantic.TypeAdapter(tuple[AIModelCapability, ...])
 
 
 def normalize_capabilities(value: typing.Any) -> tuple[AIModelCapability, ...]:
   """Validate and canonically order one declaration per capability type."""
-  capabilities = _CAPABILITIES_ADAPTER.validate_python(value)
+  capabilities = CAPABILITIES_ADAPTER.validate_python(value)
   types = tuple(capability.type for capability in capabilities)
   if len(types) != len(set(types)):
     raise ValueError("duplicate AI capability types are not allowed")

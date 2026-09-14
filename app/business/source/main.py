@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import abc
+import jsonschema  # pyrefly: ignore[untyped-import]
 import pydantic
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
@@ -10,10 +13,19 @@ from app.engine import SessionLocal
 from app.business.info_base.block import BlockManager
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.job import JobModel
-from app.schemas.source import SourceModel, SourceID, SourceTypesModel
+from app.schemas.source import SourceModel, SourceID, SourceTypesModel, SourceUpdateForm
+from app.validation import input_path
 from .resolver import SOURCE_RESOLVER_ID, SourceContent
 
 ConfigTV = typing.TypeVar("ConfigTV", bound=pydantic.BaseModel)
+
+
+class SourceNotFoundError(LookupError):
+  """A Source instance or persisted type does not exist."""
+
+
+class UnsupportedSourceCommandError(ValueError):
+  """The catalog explicitly does not support the requested collection mode."""
 
 
 class EmptySourceCommandConfig(pydantic.BaseModel):
@@ -197,13 +209,9 @@ class SourceManager:
     storage: int | None = None,
   ) -> SourceModel:
     """Add a new source."""
-    source_class = cls._SOURCE_CLASSES.get(type_)
-    if source_class is None:
-      raise ValueError(f"Source class {type_} not registered.")
-    normalized = source_class.__configcls__.model_validate(config or {}).model_dump(  # pyrefly: ignore[missing-attribute]
-      mode="json"
-    )
     with SessionLocal() as db:
+      with input_path("config"):
+        normalized = cls.normalize_config(type_, config or {}, db)
       source = SourceModel(
         type=type_,
         nickname=nickname,
@@ -215,6 +223,111 @@ class SourceManager:
       db.refresh(source)
 
     return source
+
+  @classmethod
+  def normalize_config(
+    cls,
+    type_: str,
+    config: dict,
+    db_session: sqlmodel.Session,
+    *,
+    command: typing.Literal["collect", "backfill"] | None = None,
+  ) -> dict:
+    """Accept catalog-only input without requiring local execution capability."""
+    catalog = db_session.get(SourceTypesModel, type_)
+    if catalog is None:
+      raise SourceNotFoundError(f"Source type {type_!r} does not exist")
+    source_class = cls._SOURCE_CLASSES.get(type_)
+    if command == "backfill":
+      schema = catalog.backfill_config_schema
+      model = source_class.__backfillconfigcls__ if source_class else None
+    elif command == "collect":
+      schema = catalog.collect_config_schema
+      model = source_class.__collectconfigcls__ if source_class else None
+    else:
+      schema = catalog.config_schema
+      model = source_class.__configcls__ if source_class else None  # pyrefly: ignore[missing-attribute]
+    if schema is None:
+      raise UnsupportedSourceCommandError(
+        f"Source type {type_!r} does not support {command}"
+      )
+    if model is not None:
+      return model.model_validate(config).model_dump(mode="json")
+    jsonschema.Draft202012Validator(schema).validate(config)
+    return config
+
+  @classmethod
+  def get(cls, source_id: SourceID) -> SourceModel | None:
+    with SessionLocal() as db:
+      return db.get(SourceModel, source_id)
+
+  @classmethod
+  def get_type(cls, type_: str) -> SourceTypesModel | None:
+    with SessionLocal() as db:
+      return db.get(SourceTypesModel, type_)
+
+  @classmethod
+  def list_sources(
+    cls, *, limit: int | None = None, cursor: SourceID | None = None
+  ) -> tuple[list[SourceModel], SourceID | None]:
+    statement = sqlmodel.select(SourceModel).order_by(sqlmodel.col(SourceModel.id))
+    if cursor is not None:
+      statement = statement.where(sqlmodel.col(SourceModel.id) > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
+
+  @classmethod
+  def list_types(
+    cls, *, limit: int | None = None, cursor: str | None = None
+  ) -> tuple[list[SourceTypesModel], str | None]:
+    statement = sqlmodel.select(SourceTypesModel).order_by(SourceTypesModel.id)
+    if cursor is not None:
+      statement = statement.where(SourceTypesModel.id > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
+
+  @classmethod
+  def update(cls, source_id: SourceID, form: SourceUpdateForm) -> SourceModel:
+    with SessionLocal() as db:
+      source = db.exec(
+        sqlmodel.select(SourceModel).where(SourceModel.id == source_id).with_for_update()
+      ).one_or_none()
+      if source is None:
+        raise SourceNotFoundError(f"Source {source_id} does not exist")
+      changes = form.model_dump(exclude_unset=True)
+      if "config" in changes:
+        with input_path("config"):
+          changes["config"] = cls.normalize_config(source.type, changes["config"], db)
+      for field, value in changes.items():
+        setattr(source, field, value)
+      db.add(source)
+      if "nickname" in changes and source.block is not None:
+        cls.ensure_block(source, db)
+      db.commit()
+      db.refresh(source)
+      return source
+
+  @classmethod
+  def delete(cls, source_id: SourceID) -> bool:
+    """Delete configuration only; collected graph and scheduled commands remain."""
+    with SessionLocal() as db:
+      source = db.get(SourceModel, source_id)
+      if source is None:
+        return False
+      db.delete(source)
+      db.commit()
+    cls.SOURCES.pop(source_id, None)
+    return True
 
   @classmethod
   def resolve_writable_storage(

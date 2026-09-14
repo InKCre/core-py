@@ -21,6 +21,25 @@ from app.schemas.info_base.storage import StorageID
 SourceID: typing.TypeAlias = int
 
 
+class SourceCreateForm(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid")
+
+  type: str
+  nickname: str | None = None
+  config: dict = pydantic.Field(default_factory=dict)
+  storage: StorageID | None = None
+
+
+class SourceUpdateForm(pydantic.BaseModel):
+  """Only submitted fields are written; config is replaced, not deep-merged."""
+
+  model_config = pydantic.ConfigDict(extra="forbid")
+
+  nickname: str | None = None
+  config: dict = pydantic.Field(default_factory=dict)
+  storage: StorageID | None = None
+
+
 class CollectAt(sqlmodel.SQLModel):
   """Historical migration-only value retained for the append-only baseline."""
 

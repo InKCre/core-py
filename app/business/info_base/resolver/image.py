@@ -39,7 +39,9 @@ class ImageResolverConfig(pydantic.BaseModel):
   text_model: int
 
 
-DeploymentConfigManager.register_schema(IMAGE_RESOLVER_CONFIG_SCHEMA, ImageResolverConfig)
+DeploymentConfigManager.register_schema(
+  IMAGE_RESOLVER_CONFIG_SCHEMA, ImageResolverConfig, keys=(IMAGE_RESOLVER_CONFIG_KEY,)
+)
 
 
 @dataclass(frozen=True, slots=True)
