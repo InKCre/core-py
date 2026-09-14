@@ -17,9 +17,13 @@
 
 ## 已推送 PR
 
-- [ext-reg #35](https://github.com/InKCre/ext-reg/pull/35)：`f22641d`，runtime 0.1.3 候选，等待 review/CI。
-- [Hub #25](https://github.com/InKCre/docs/pull/25)：`f84d9ed`，只含两个跨单元合同增量，等待 review/CI。
-- Core 源码提交 `a2d2f93`；client-web 源码提交 `83a60ce`，PR 创建后在此补齐链接。
+- [ext-reg #35](https://github.com/InKCre/ext-reg/pull/35)：源码 `f22641d`，补格式 `82a0b69`；runtime 0.1.3 候选，等待 review。首轮 CI 的 Changie Markdown 格式问题已按 Prettier 修正并推送。
+- [Hub #25](https://github.com/InKCre/docs/pull/25)：`f84d9ed`，只含两个跨单元合同增量；Website contract 已通过，等待 review。
+- [Core #102](https://github.com/InKCre/core-py/pull/102)：源码 `a2d2f93`，实施记录 `a206c99`；保留 draft，等待 runtime/Hub 前置交付。独立 inkcre-cli checks 首轮已通过。
+- [client-web #106](https://github.com/InKCre/client-web/pull/106)：`83a60ce`；保留 draft，等待 Core stable 合同与 Hub ref。
+
+四个 PR 均 base main、未合并、未启用 auto-merge。所有 PR body 已互相链接并写明跨仓库依赖和验收残余。
+CI/Preview 的最新状态以各 PR 的 GitHub checks 为准，不将创建时的 pending 快照当作永久失败或通过。
 
 原有 Organization 收尾、共享 packet 中相应旧 delta 和未跟踪 Python skill 保持本地。只有 CLI 对共享
 control 文件的行级变化进入本 unit；不为清空工作区提交其它任务。
