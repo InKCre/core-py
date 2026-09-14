@@ -18,13 +18,10 @@
   能力划分见 [capability-map.md](capability-map.md)，当前状态见本页下方；details stay in each unit packet and the
   [decision register](decisions/index.md)。GitHub extension 的 collection-side correction remains queued, but no longer
   blocks root-usability selection after ownership corrections merged。
-- **Next Step**: [CLI sink / inkcre-cli](units/cli-sink/packet.md) 已完成完整
-  [preflight](units/cli-sink/preflight.md)，Execution baseline 冻结至 D-603。真实调用链、独立工具链与双
-  Core/IMAP/浏览器/AI 环境已核验；production Extension publisher 漏 finalize 的修正纳入实施计划。
-  Sir 已在 Impact Handshake 后明确授权实施；源码与本地候选旅程已通过，见
-  [implementation](units/cli-sink/implementation.md) 和 [本地验收](units/cli-sink/local-acceptance.md)。
-  Sir 已授权 owner 分离的提交、推送和 PR，明确禁止合并；当前进入 [交付 review](units/cli-sink/delivery.md)。
-  Preview、正式 Extension/PyPI 验收尚未完成，不关闭 unit。
+- **Next Step**: [CLI sink / inkcre-cli](units/cli-sink/packet.md) 已于 2026-09-14 关闭。Sir 授权后按依赖
+  合并并正式发布；PyPI 0.1.0 本地安装连接生产 Core 的完整复验通过，见
+  [交付](units/cli-sink/delivery.md)与[生产验收](units/cli-sink/production-acceptance.md)。
+  Parent task 保持 active，等待 Sir 选择下一 unit，不自动扩展范围。
 
 ## Program Boundary
 
@@ -54,15 +51,15 @@ preflight 已整理为独立提交；前一单元的本地收尾仍未提交。�
 核对并保留或显式转交所需 packet，不能把旧提交里的 active 状态当作现状。环境入口是 `AGENTS.local.md` 与
 `svc.local.json`，不要复制凭据或以本机没有 Docker/PostgreSQL 推断数据库不可用。
 
-当前最新决策为 D-603；CLI 源码与本地候选验收已完成，进入禁止自动合并的 PR review。
+当前最新决策为 D-603；CLI 已获合并授权，正式发布与生产验收完成，unit 关闭。
 Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，不复用历史空号。
 CLI 已在 root worktree 从与 origin/main 一致的 `b3ccb00` 切出 `feat/inkcre-cli`，保留原有未提交 task-control。
 已关闭 session 不再持有源码锁，历史授权和 deferred 项也不自动成为新 unit 的实施范围。
 
 ## Unit 状态与选择
 
-[CLI sink](units/cli-sink/packet.md) 为当前 active unit，公开接口、验收设计和完整 preflight 已完成，
-本地实现/验证已完成，依各 owner PR 推进交付。研究依据包括本任务 Agent Tool 模式、xiaoland/svc 的 CLI 实践及一手公开材料。
+[CLI sink](units/cli-sink/packet.md) 已关闭，公开接口、实现、四条本地旅程、跨 owner 正式交付及 PyPI 安装
+连接生产 Core 的复验均通过。研究依据包括本任务 Agent Tool 模式、xiaoland/svc 的 CLI 实践及一手公开材料。
 
 [MCP sink](units/mcp-sink/packet.md) 已通过 PR #88 合并并关闭。
 
