@@ -1,7 +1,8 @@
 # CLI 按 owner 交付
 
-2026-09-14，Sir 授权自由提交、推送和创建 PR，但明确禁止合并。继续使用 feature → main；不启用 auto-merge，
-不从 PR 发布 canonical package，不借授权改写 shared main。没有跨 session 通信。
+2026-09-14，Sir 最新授权按依赖顺序合并本组 PR、确认 CLI 发布到 PyPI、本地安装连接生产 Core，验收通过后关闭
+unit；这取代此前的禁止合并限制。继续使用 feature → main，不从 PR 发布 canonical package，不直接推 shared main。
+没有跨 session 通信。上一条工具架构审查请求已撤回，没有因此修改源码。
 
 ## 批次
 
@@ -32,4 +33,13 @@ control 文件的行级变化进入本 unit；不为清空工作区提交其它�
 
 四条本地旅程见 [local-acceptance.md](local-acceptance.md)。它们不替代正式 runtime/Registry 安装、
 Core/client-web Preview 与 production、CLI 0.1.0 的 Release PR/PyPI 安装，以及 CLI 消费实际云端冷启动。
-PyPI Trusted Publisher 首次配置仍需确认。当前不合并任何 PR。
+PyPI Trusted Publisher 首次配置仍需确认。
+
+## 正式交付进展
+
+- ext-reg #35 已 squash merge 为 `71cbf6b`；Hub #25 已 squash merge 为 `5d0d8d7`。
+- Core Preview run 34827581213 已成功。Core/client-web 的 Hub ref 分别以独立提交更新到 `5d0d8d7`。
+- runtime release run 34831716076 整体成功，但 publication job 被 commit-title prefix 条件跳过，0.1.3 尚未发布。
+  补充 PR 只移除这个错误触发条件，保留已存在的版本检查、main 构建、已发布 Release 跳过逻辑；不新增发布框架。
+- PyPI 首发需要 pending Trusted Publisher：InKCre/core-py、cli-publish.yml、production。已向 Sir 请求确认，
+  其余交付并行推进，不把权限前置项写成发布通过。
