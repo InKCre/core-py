@@ -1,12 +1,12 @@
 # CLI Sink / inkcre-cli
 
-- **阶段**：完整 preflight 已完成，Execution baseline 冻结至 D-603；等待 [Impact Handshake](impact-handshake.md) 后的“开始”。
+- **阶段**：Implementation。2026-09-14 Sir 已批准 [Impact Handshake](impact-handshake.md) 并明确“开始”；基线为 D-603。
 - **目标**：让 Agent 和命令行用户在工作上下文中，通过独立 CLI 取用信息并操作 Core。
 - **边界**：同仓库 cli/ 独立 Python/PDM project，pip 包 inkcre-cli。仅 Core 普通 REST；不导入 Core、不直接访问数据库、不作为 Peer，不是未来 Rust single-binary Peer。
 - **位置**：core-py feat/inkcre-cli，base b3ccb00ca2e235bfcc9b9f4f4cc17948c59ef54a；决策 D-571–D-610。
-- **授权**：调查/隔离实验/packet 可继续；本轮已按 Sir 的条件授权整理设计/preflight 提交。尚未实施源码，也未授权 push 或发布。
-- **当前事实**：[完整预演](preflight.md) 已核对真实 owner、调用链和验收拓扑。发现 production Extension publisher 漏 finalize，现有 Toolkit 替代路径已实测通过，纳入 P5。共享 DB 未 reset。
-- **下一步**：按 [实现计划](implementation-plan.md) 执行 P1/P2/P3→独立 CLI→交付验收；需先取得本次实施授权。
+- **授权**：获批范围内的源码、文档与验证可以执行；设计/preflight 已提交为 a953676。2026-09-14 Sir 进一步授权自由提交、推送和创建 PR；明确禁止合并。正式发布仍必须经过各 owner 的 protected-main 流程。
+- **当前事实**：P1–P5 源码/本地文档已落地，[本地候选验收](local-acceptance.md) 四条旅程及相关静态构建通过。runtime 0.1.3 本地已准备、未发布，Core pin 未提前改变。共享 DB 未 reset。
+- **下一步**：按 owner 提交、推送并创建 PR，先 runtime 与 Hub，再 Core/client-web。runtime 正式发布后才更新 Core pin；Hub 合并后单独更新 refs。遵守禁止合并的授权边界，交付跟进见 [delivery.md](delivery.md)。
 - **关闭条件**：[四条旅程](acceptance.md)、相关 runtime/Core/client-web 交付、CLI 正式 PyPI 安装复跑全部通过。preflight 不替代它们。
 
 ## 产品与命令

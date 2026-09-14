@@ -19,6 +19,10 @@
   边界与 model_construct 的局限，不只提升为抽象的“使用成熟库”原则。
   从“所有读回只转换、零校验”修正为“无类型恢复需求时不重验；需要时接受一次成熟库构造的附带约束”，
   保持写入 owner、CLI 可信响应和使用时能力判断不变。不因此建立新的文档权威或把整份 skill 提升为 Hub truth。
+  CLI 实施后：Spoke `business-pipeline-and-authority.md`、`rest-interface.md` 与 `app/schemas/AGENTS.md`
+  已落地/引用该边界；CLI 开发文档明确可信 REST 返回只转换。Hub 的跨语言边界和 Job 停止合同候选位于
+  `../.worktrees/cli-sink-docs`，已提交为 `f84d9ed` 并创建 Hub PR #25，尚未合并；不提前改 Spoke shared ref。
+  原有未跟踪 skill 保持独立。
 
 ## Control
 
