@@ -1,0 +1,46 @@
+[project]
+name = "inkcre-cli"
+version = "0.0.0"
+description = "An agent-friendly REST interface to InKCre"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "GPL-3.0-only"
+dependencies = [
+  "click>=8.1,<9",
+  "pydantic>=2.10,<3",
+  "httpx>=0.28.1,<0.29",
+  "PyJWT>=2.10,<3",
+]
+
+[project.scripts]
+inkcre-cli = "inkcre_cli.main:main"
+
+[project.urls]
+Repository = "https://github.com/InKCre/core-py"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[dependency-groups]
+dev = ["ruff>=0.15,<0.16", "pyrefly>=0.56,<0.57"]
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.scripts]
+lint = "ruff check src"
+format = "ruff format src"
+"format:check" = "ruff format --check src"
+typecheck = "pyrefly check"
+check = {composite = ["lint", "format:check", "typecheck"]}
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pyrefly]
+project-includes = ["src"]

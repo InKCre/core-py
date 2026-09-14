@@ -114,6 +114,46 @@ class PeerManager:
       return tuple(db.exec(sqlmodel.select(PeerModel)).all())
 
   @classmethod
+  def get_with_lease(cls, peer: PeerRef) -> dict[str, typing.Any] | None:
+    with SessionLocal() as db:
+      result = db.exec(
+        sqlmodel.select(
+          PeerModel,
+          sqlmodel.func.coalesce(
+            sqlmodel.col(PeerModel.lease_expires_at) > sqlmodel.func.statement_timestamp(),
+            False,
+          ),
+        ).where(PeerModel.id == peer)
+      ).one_or_none()
+      if result is None:
+        return None
+      row, active = result
+      return {**row.model_dump(mode="json"), "lease_active": active}
+
+  @classmethod
+  def list_with_leases(
+    cls, *, limit: int | None = None, cursor: PeerRef | None = None
+  ) -> tuple[list[dict[str, typing.Any]], PeerRef | None]:
+    statement = sqlmodel.select(
+      PeerModel,
+      sqlmodel.func.coalesce(
+        sqlmodel.col(PeerModel.lease_expires_at) > sqlmodel.func.statement_timestamp(),
+        False,
+      ),
+    ).order_by(sqlmodel.col(PeerModel.id))
+    if cursor is not None:
+      statement = statement.where(sqlmodel.col(PeerModel.id) > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    with SessionLocal() as db:
+      rows = list(db.exec(statement).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return [
+      {**row.model_dump(mode="json"), "lease_active": active} for row, active in rows
+    ], rows[-1][0].id if more else None
+
+  @classmethod
   def register_inbound(cls, inbound: PeerInbound) -> bool:
     """Register one inbound and report whether this call added it."""
     existing = cls._INBOUNDS.get(inbound.capability)

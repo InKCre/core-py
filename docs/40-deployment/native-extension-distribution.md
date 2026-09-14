@@ -59,11 +59,16 @@ bytes, bypassing caches, or waiting for edge convergence. Consumer acceptance re
 manual or black-box activity and does not block the Heroku preview from starting.
 
 `.github/workflows/extension-publish.yml` prepares the Python association with source provenance,
+finalizes the newly built wheel using the released Toolkit's `python wheel finalize` command,
 uploads through `/legacy/`, and publishes the exact Release. Automatic runs obtain `before_sha`
 from the protected-main push and select only new projects or changed project versions;
 unchanged matrix entries are explicit no-ops. The matrix and repository wheel checks consume the
 same discovery result rather than separate project lists. An unprovable lineage or immutable
 prepare conflict fails the job.
+
+Preview and production both finalize before delivering the wheel. The installed runtime manifest belongs inside
+`.dist-info/inkcre-extension.json`; Registry association metadata is not a replacement. The raw build output remains separate
+from the finalized upload. Repairing a published wheel requires a new project version, not overwriting an old Release.
 
 A checked commit may be older than current `main` only while it remains an ancestor. Immediately
 before the first Registry mutation, each selected job fetches `main` again and requires its

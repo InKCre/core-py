@@ -104,3 +104,17 @@ class CronForm(pydantic.BaseModel):
   job_type: JobTypeID
   job_parameters: dict[str, typing.Any] = pydantic.Field(default_factory=dict)
   job_timeout_seconds: int | None = pydantic.Field(default=None, gt=0)
+
+
+class CronUpdateForm(pydantic.BaseModel):
+  """Optional submitted fields; null only clears the timeout override."""
+
+  model_config = pydantic.ConfigDict(extra="forbid")
+
+  # Omission is not null input: exclude_unset removes these defaults, whereas
+  # an explicitly submitted null still fails the non-null field type.
+  schedule: str = pydantic.Field(default=None, min_length=1)  # pyrefly: ignore[bad-assignment]
+  enabled: bool = pydantic.Field(default=None)  # pyrefly: ignore[bad-assignment]
+  job_type: JobTypeID = pydantic.Field(default=None)  # pyrefly: ignore[bad-assignment]
+  job_parameters: dict[str, typing.Any] = pydantic.Field(default_factory=dict)
+  job_timeout_seconds: int | None = pydantic.Field(default=None, gt=0)

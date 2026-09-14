@@ -49,7 +49,12 @@ class SinkBase(abc.ABC, typing.Generic[ConfigT]):
   async def on_close(self) -> None:
     """Withdraw active effects for this exact instance."""
 
-  def update_config(self, value: dict[str, typing.Any]) -> ConfigT:
+  def update_config(self, value: ConfigT | dict[str, typing.Any]) -> ConfigT:
     """Replace the live validated config without restarting the instance."""
-    self.config = typing.cast(ConfigT, self.__configcls__.model_validate(value))
+    self.config = typing.cast(
+      ConfigT,
+      value
+      if isinstance(value, self.__configcls__)
+      else self.__configcls__.model_validate(value),
+    )
     return self.config

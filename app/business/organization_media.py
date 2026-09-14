@@ -50,6 +50,7 @@ _RESOLVER_MODALITIES: dict[str, typing.Literal["image", "audio", "video"]] = {
 DeploymentConfigManager.register_schema(
   MEDIA_INTERPRETATION_CONFIG_SCHEMA,
   MediaInterpretationConfig,
+  keys=(MEDIA_INTERPRETATION_CONFIG_KEY,),
 )
 
 

@@ -19,7 +19,7 @@ class FeedSourceMixin:
 
   async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
     source = typing.cast(SourceBase[FeedSourceConfig], self)
-    collect_config = FeedCollectJobConfig.model_validate(config)
+    collect_config = typing.cast(FeedCollectJobConfig, config)
     service = FeedCollectionService(source._id, self.expected_family)
     state = await service.collect(
       source.get_config(),

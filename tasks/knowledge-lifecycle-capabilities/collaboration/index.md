@@ -28,21 +28,26 @@ recover current model
   → preflight / spike / branch simulation
   → frozen Acceptance + Execution baseline
   → Impact Handshake
-  → Sir explicitly says “开始”
+  → explicit implementation authorization
   → Execute
   → Verify / Promote
-  → Close
+  → agreed delivery endpoint / Close
 ```
 
-- Exploration、research、history inspection、experiments、spikes and task-packet maintenance do not require `开始`。
-- `开始` authorizes the reviewed source/durable state diff and its verification，not unresolved investigation。
+- Exploration、research、history inspection、experiments、spikes and task-packet maintenance are autonomous。
+- 明确的实施授权覆盖已复核方案及必要验证，不要求字面口令“开始”，也不重复索取已经给出的授权。
+  新的实质修复方案仍先复核，不能从另一 unit 的历史授权推导当前权限。
 - A preflight finding that changes Product、owner、public contract or Acceptance returns to that gate。
 - Commit、push、merge and cross-owner publication keep their own authorization and governance boundaries。
 - A Unit is an implementation responsibility boundary，not a release、repository or folder boundary。
+- 同一 unit 的整组产品功能共同进入技术设计、验收与实现；内部行为和实现步骤不另切 delivery slices。
+  按阅读目的拆分设计、证据和决策文件，保留一个简洁的 unit 控制入口，不使用 svc grow/growth。
+- 关闭条件以约定的实际交付终点为准。要求生产发布时，PR 合并、镜像上传或绿色但跳过部署的 workflow 都不足以
+  关闭 unit；应核对正常发布路径中的版本、实际部署及健康结果。生产交付也不等于所有语义判断正确。
 
 Parallel Unit sessions are peers rather than coordinator/worker roles。Each session owns one Unit and may minimally maintain
 the shared program packet、roster and navigation for its own registration or returned result。Orthogonal sessions do not need
-routine communication；actual owner overlap、dependency or shared-baseline change triggers direct reconciliation。
+routine communication；actual owner overlap、dependency or shared-baseline change is reported to Sir for reconciliation。
 
 ## Discussion Loop
 
@@ -52,12 +57,14 @@ The unit of progress is a more coherent current system model，not another answe
 2. Reconcile the latest input with authority、scope/cardinality、lifecycle and existing contracts。
 3. Investigate missing factual or feasibility evidence autonomously。
 4. Derive low-risk consequences and remove dominated options。
-5. Present at most one surviving material Human fork，with evidence、recommendation、alternative and consequences。
+5. 一次呈现一个关键设计复核面，解释证据、案例、因果链、建议及取舍；有真实替代方案才比较，不为提问虚构选项。
 6. Write accepted conclusions and still-open pressure back to the unit packet immediately。
 7. Do not reopen accepted decisions merely because context was compacted or implementation has not started。
 
 “一次尽可能只问一个问题” is a ceiling on simultaneous Human review，not an instruction to manufacture one question per
 turn。When one coherent answer follows from accepted constraints，the Agent records it and continues。
+关键的新方案即使只有一个推荐方向，也可能需要 Sir 复核。若自主调查后仍缺少决定方向的信息或思路，应说明
+已知事实和具体缺口再请求帮助；不能把“没有第二个方案”当成跳过确认的依据。
 
 ## Reasoning Instruments
 

@@ -32,7 +32,7 @@ One unit session owns：
 - its declared feature branch、worktree and base commit；
 - only its reserved decision range/shards；
 - its Product-through-Verify loop、PR and acceptance evidence；
-- changes inside the declared implementation surface after the normal `开始` gate。
+- changes inside the declared implementation surface after reviewed scope and explicit implementation authorization。
 
 A unit session records cross-unit/common-pattern candidates in its own packet。It may promote an accepted task-wide control
 consequence itself when no active peer owns an intersecting surface；otherwise it pauses and reports the intersection to Sir。

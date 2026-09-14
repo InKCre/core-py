@@ -10,7 +10,7 @@ from app.business.extension import (
   EXTENSION_MANAGEMENT_CAPABILITY,
   InstalledExtension,
 )
-from app.business.peer import PeerHTTPInbound
+from app.business.peer import PeerHTTPInbound, PeerManager
 from app.business.extension.errors import (
   ExtensionAcquisitionError,
   ExtensionCompatibilityError,
@@ -22,6 +22,10 @@ from app.business.extension.errors import (
   ExtensionStateConflictError,
 )
 from app.schemas.extension import ExtensionManagementCommand
+from app.schemas.extension.main import EnableExtensionCommand, DisableExtensionCommand
+from app.schemas.peer import PeerRef
+
+from .validation import request_input
 
 
 ROUTER = fastapi.APIRouter(tags=["extension"])
@@ -58,8 +62,16 @@ def _raise_http_error(error: ExtensionHostError) -> typing.NoReturn:
 
 
 @ROUTER.get("/extensions")
-def list_extensions() -> tuple[InstalledExtension, ...]:
-  return EXTENSION_HOST.list()
+def list_extensions(
+  limit: int | None = fastapi.Query(None, gt=0), cursor: str | None = None
+) -> dict[str, typing.Any]:
+  rows = sorted(
+    (row for row in EXTENSION_HOST.list() if cursor is None or row.name > cursor),
+    key=lambda row: row.name,
+  )
+  more = limit is not None and len(rows) > limit
+  rows = rows[:limit]
+  return {"extensions": rows, "next_cursor": rows[-1].name if more else None}
 
 
 @ROUTER.get("/extensions/{namespace}/{name}")
@@ -99,28 +111,45 @@ def update_extension_config(
   body: dict[str, typing.Any] = fastapi.Body(...),
 ) -> InstalledExtension:
   try:
-    return EXTENSION_HOST.update_config(_coordinate(namespace, name), body)
-  except pydantic.ValidationError as error:
-    raise fastapi.HTTPException(
-      status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
-      detail=error.errors(include_url=False, include_context=False),
-    ) from error
+    with request_input():
+      return EXTENSION_HOST.update_config(_coordinate(namespace, name), body)
+  except ExtensionHostError as error:
+    _raise_http_error(error)
+
+
+@ROUTER.patch("/extensions/{namespace}/{name}/config")
+def patch_extension_config(
+  namespace: str, name: str, body: dict[str, typing.Any] = fastapi.Body(...)
+) -> InstalledExtension:
+  try:
+    with request_input():
+      return EXTENSION_HOST.patch_config(_coordinate(namespace, name), body)
   except ExtensionHostError as error:
     _raise_http_error(error)
 
 
 @ROUTER.post("/extensions/{namespace}/{name}/enable")
-async def enable_extension(namespace: str, name: str) -> InstalledExtension:
+async def enable_extension(
+  namespace: str, name: str, route_to_peer: PeerRef | None = None
+) -> InstalledExtension:
   try:
-    return await EXTENSION_HOST.enable(_coordinate(namespace, name))
+    return await EXTENSION_HOST.manage(
+      EnableExtensionCommand(action="enable", extension=_coordinate(namespace, name)),
+      route_to_peer=route_to_peer or PeerManager.get_current_peer_ref(),
+    )
   except ExtensionHostError as error:
     _raise_http_error(error)
 
 
 @ROUTER.post("/extensions/{namespace}/{name}/disable")
-async def disable_extension(namespace: str, name: str) -> InstalledExtension:
+async def disable_extension(
+  namespace: str, name: str, route_to_peer: PeerRef | None = None
+) -> InstalledExtension:
   try:
-    return await EXTENSION_HOST.disable(_coordinate(namespace, name))
+    return await EXTENSION_HOST.manage(
+      DisableExtensionCommand(action="disable", extension=_coordinate(namespace, name)),
+      route_to_peer=route_to_peer or PeerManager.get_current_peer_ref(),
+    )
   except ExtensionHostError as error:
     _raise_http_error(error)
 

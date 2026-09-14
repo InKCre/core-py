@@ -48,6 +48,7 @@ REFERENT_ANCHORING_CONFIG_SCHEMA = "core.organization.existing_referent_anchorin
 DeploymentConfigManager.register_schema(
   REFERENT_ANCHORING_CONFIG_SCHEMA,
   BehaviorAgentConfig,
+  keys=(REFERENT_ANCHORING_CONFIG_KEY,),
 )
 
 

@@ -1,6 +1,7 @@
 """Registry-origin authority for Core Extension Host operations."""
 
 from urllib.parse import urlsplit, urlunsplit
+import typing
 
 import pydantic
 
@@ -46,6 +47,7 @@ class ExtensionRegistryDeploymentConfig(pydantic.BaseModel):
 DeploymentConfigManager.register_schema(
   EXTENSION_REGISTRY_CONFIG_SCHEMA,
   ExtensionRegistryDeploymentConfig,
+  keys=(EXTENSION_REGISTRY_CONFIG_KEY,),
 )
 
 
@@ -56,7 +58,7 @@ def resolve_extension_registry_origin() -> str:
     return peer_override
   deployment = DeploymentConfigManager.get(EXTENSION_REGISTRY_CONFIG_KEY)
   if deployment is not None:
-    configured = ExtensionRegistryDeploymentConfig.model_validate(deployment)
+    configured = typing.cast(ExtensionRegistryDeploymentConfig, deployment)
     if configured.extension_registry_url is not None:
       return configured.extension_registry_url
   return normalize_registry_origin(settings.extension_registry_url)

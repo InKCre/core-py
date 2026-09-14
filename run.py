@@ -29,6 +29,15 @@ from app.routes.relation import ROUTER as relation_router
 from app.routes.extension import PEER_INBOUND as extension_peer_inbound
 from app.routes.extension import ROUTER as extension_router
 from app.routes.source import ROUTER as source_router
+from app.routes.job import ROUTER as job_router
+from app.routes.cron import ROUTER as cron_router
+from app.routes.agent import ROUTER as agent_router
+from app.routes.ai import ROUTER as ai_router
+from app.routes.entities import ROUTER as entities_router
+from app.routes.resolver import ROUTER as resolver_router
+from app.routes.graph_navigation import ROUTER as graph_navigation_router
+from app.routes.retrieval import ROUTER as retrieval_router
+from app.routes.peer import ROUTER as peer_router
 from app.routes.deployment_config import ROUTER as deployment_config_router
 from app.routes.info_base import ROUTER as info_base_router
 from app.routes.lexical_retrieval import PEER_INBOUND as lexical_retrieval_peer_inbound
@@ -98,6 +107,7 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   await SinkManager.startup(app, PeerManager.get_current_peer_ref())
 
   JobManager.sync_job_types()
+  JobManager.start()
 
   AIManager.sync_dialects()
 
@@ -121,6 +131,13 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
     "interval",
     seconds=30,
     id="jobs.check",
+    replace_existing=True,
+  )
+  scheduler.add_job(
+    JobManager.check_abort_requests,
+    "interval",
+    seconds=2,
+    id="jobs.check_abort_requests",
     replace_existing=True,
   )
   scheduler.add_job(
@@ -169,9 +186,12 @@ async def lifespan(app: fastapi.FastAPI):
   with contextlib.suppress(asyncio.CancelledError):
     await bootstrap_task
   if scheduler.running:
-    scheduler.shutdown(wait=True)
+    scheduler.pause()
+  await JobManager.shutdown()
   await SinkManager.shutdown()
   await EXTENSION_HOST.close_running()
+  if scheduler.running:
+    scheduler.shutdown(wait=True)
   if runtime_was_ready:
     await asyncio.to_thread(PeerManager.clear_self_lease)
 
@@ -226,6 +246,15 @@ core_router.include_router(block_router)
 core_router.include_router(relation_router)
 core_router.include_router(extension_router)
 core_router.include_router(source_router)
+core_router.include_router(job_router)
+core_router.include_router(cron_router)
+core_router.include_router(agent_router)
+core_router.include_router(ai_router)
+core_router.include_router(entities_router)
+core_router.include_router(resolver_router)
+core_router.include_router(graph_navigation_router)
+core_router.include_router(retrieval_router)
+core_router.include_router(peer_router)
 core_router.include_router(deployment_config_router)
 core_router.include_router(info_base_router)
 core_router.include_router(organization_router)

@@ -1,5 +1,7 @@
 """Deployment-wide policy used by Source-owned content materialization."""
 
+import typing
+
 import pydantic
 
 from app.business.deployment_config import DeploymentConfigManager
@@ -20,7 +22,9 @@ class SourceDeploymentConfig(pydantic.BaseModel):
   default_storage: StorageID = POSTGRESQL_BINARY_STORAGE_ID
 
 
-DeploymentConfigManager.register_schema(SOURCE_CONFIG_SCHEMA_ID, SourceDeploymentConfig)
+DeploymentConfigManager.register_schema(
+  SOURCE_CONFIG_SCHEMA_ID, SourceDeploymentConfig, keys=(SOURCE_CONFIG_KEY,)
+)
 
 
 def resolve_writable_storage(
@@ -34,7 +38,7 @@ def resolve_writable_storage(
     storage_id = (
       POSTGRESQL_BINARY_STORAGE_ID
       if persisted is None
-      else SourceDeploymentConfig.model_validate(persisted).default_storage
+      else typing.cast(SourceDeploymentConfig, persisted).default_storage
     )
   storage = StorageManager.get_storage(storage_id, db_session)
   if not isinstance(storage, WritableStorage):

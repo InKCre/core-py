@@ -43,7 +43,9 @@ REFINEMENT_BEHAVIOR = "core.organization.behavior.refinement.v1"
 REFINEMENT_CONFIG_KEY = "core.organization.refinement"
 REFINEMENT_CONFIG_SCHEMA = "core.organization.refinement.config.v1"
 
-DeploymentConfigManager.register_schema(REFINEMENT_CONFIG_SCHEMA, BehaviorAgentConfig)
+DeploymentConfigManager.register_schema(
+  REFINEMENT_CONFIG_SCHEMA, BehaviorAgentConfig, keys=(REFINEMENT_CONFIG_KEY,)
+)
 
 
 class RefinementBehaviorResolver(

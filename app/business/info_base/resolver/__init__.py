@@ -9,6 +9,8 @@ from .contracts import (
   UnknownDraftResolverError,
   UnknownResolverError,
   UnsupportedResolverCapability,
+  ResolverMethodInputError,
+  UnknownResolverMethodError,
 )
 from .main import (
   Resolver,
@@ -32,6 +34,8 @@ __all__ = [
   "UnsupportedResolverCapability",
   "ResolverDraftCapability",
   "ResolverMethodContract",
+  "ResolverMethodInputError",
+  "UnknownResolverMethodError",
   "AudioResolver",
   "EPUBResolver",
   "FileResolver",

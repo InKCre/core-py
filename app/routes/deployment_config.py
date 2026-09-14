@@ -5,12 +5,10 @@ __all__ = ["ROUTER"]
 import typing
 
 import fastapi
-import pydantic
 
 from app.business.deployment_config import (
   DeploymentConfigManager,
   DeploymentConfigNotFoundError,
-  InvalidPersistedDeploymentConfigError,
   UnknownDeploymentConfigSchemaError,
 )
 from app.schemas.deployment_config import (
@@ -18,9 +16,10 @@ from app.schemas.deployment_config import (
   DeploymentConfigReplaceForm,
   DeploymentConfigView,
 )
+from .validation import request_input
 
 
-ROUTER = fastapi.APIRouter(prefix="/configs", tags=["config"])
+ROUTER = fastapi.APIRouter(tags=["config"])
 
 
 def _unusable_config(error: Exception) -> typing.NoReturn:
@@ -30,15 +29,33 @@ def _unusable_config(error: Exception) -> typing.NoReturn:
   ) from error
 
 
-@ROUTER.get("/{key}", response_model_by_alias=True)
-def get_config(key: DeploymentConfigKey) -> DeploymentConfigView:
+@ROUTER.get("/configs")
+def list_configs(
+  limit: int | None = fastapi.Query(None, gt=0), cursor: str | None = None
+) -> dict[str, typing.Any]:
+  rows, next_cursor = DeploymentConfigManager.list_configs(limit=limit, cursor=cursor)
+  return {"configs": rows, "next_cursor": next_cursor}
+
+
+@ROUTER.get("/config-schemas")
+def list_config_schemas(
+  limit: int | None = fastapi.Query(None, gt=0), cursor: str | None = None
+) -> dict[str, typing.Any]:
+  rows, next_cursor = DeploymentConfigManager.list_schemas(limit=limit, cursor=cursor)
+  return {"schemas": rows, "next_cursor": next_cursor}
+
+
+@ROUTER.get("/config-schemas/{schema_id}")
+def get_config_schema(schema_id: str) -> dict:
   try:
-    config = DeploymentConfigManager.read(key)
-  except (
-    UnknownDeploymentConfigSchemaError,
-    InvalidPersistedDeploymentConfigError,
-  ) as error:
-    _unusable_config(error)
+    return DeploymentConfigManager.get_schema(schema_id)
+  except UnknownDeploymentConfigSchemaError as error:
+    raise fastapi.HTTPException(404, str(error)) from error
+
+
+@ROUTER.get("/configs/{key}", response_model_by_alias=True)
+def get_config(key: DeploymentConfigKey) -> DeploymentConfigView:
+  config = DeploymentConfigManager.read(key)
   if config is None:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_404_NOT_FOUND,
@@ -47,44 +64,44 @@ def get_config(key: DeploymentConfigKey) -> DeploymentConfigView:
   return config
 
 
-@ROUTER.put("/{key}", response_model_by_alias=True)
+@ROUTER.put("/configs/{key}", response_model_by_alias=True)
 def replace_config(
   key: DeploymentConfigKey,
   body: DeploymentConfigReplaceForm,
+  response: fastapi.Response,
 ) -> DeploymentConfigView:
   try:
-    return DeploymentConfigManager.replace(key, body.schema_id, body.value)
+    with request_input("value"):
+      result, created = DeploymentConfigManager.replace_with_status(
+        key, body.schema_id, body.value
+      )
+    response.status_code = 201 if created else 200
+    return result
   except UnknownDeploymentConfigSchemaError as error:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
       detail=str(error),
     ) from error
-  except pydantic.ValidationError as error:
-    raise fastapi.HTTPException(
-      status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
-      detail=error.errors(),
-    ) from error
 
 
-@ROUTER.patch("/{key}", response_model_by_alias=True)
+@ROUTER.patch("/configs/{key}", response_model_by_alias=True)
 def patch_config(
   key: DeploymentConfigKey,
   body: dict[str, typing.Any] = fastapi.Body(...),
 ) -> DeploymentConfigView:
   try:
-    return DeploymentConfigManager.patch(key, body)
+    with request_input():
+      return DeploymentConfigManager.patch(key, body)
   except DeploymentConfigNotFoundError as error:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_404_NOT_FOUND,
       detail=str(error),
     ) from error
-  except (
-    UnknownDeploymentConfigSchemaError,
-    InvalidPersistedDeploymentConfigError,
-  ) as error:
+  except UnknownDeploymentConfigSchemaError as error:
     _unusable_config(error)
-  except pydantic.ValidationError as error:
-    raise fastapi.HTTPException(
-      status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
-      detail=error.errors(),
-    ) from error
+
+
+@ROUTER.delete("/configs/{key}", status_code=204)
+def delete_config(key: str) -> None:
+  if not DeploymentConfigManager.delete(key):
+    raise fastapi.HTTPException(404, f"Deployment config {key!r} not found")

@@ -37,7 +37,9 @@ class AudioResolverConfig(pydantic.BaseModel):
   transcript_model: int
 
 
-DeploymentConfigManager.register_schema(AUDIO_RESOLVER_CONFIG_SCHEMA, AudioResolverConfig)
+DeploymentConfigManager.register_schema(
+  AUDIO_RESOLVER_CONFIG_SCHEMA, AudioResolverConfig, keys=(AUDIO_RESOLVER_CONFIG_KEY,)
+)
 
 
 @dataclass(frozen=True, slots=True)

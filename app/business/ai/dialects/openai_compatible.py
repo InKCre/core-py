@@ -70,7 +70,7 @@ class OpenAICompatibleDialect(AIDialectAdapter):
 
   @staticmethod
   def _config(config: pydantic.BaseModel) -> OpenAICompatibleConfig:
-    return OpenAICompatibleConfig.model_validate(config)
+    return typing.cast(OpenAICompatibleConfig, config)
 
   async def embed(
     self,

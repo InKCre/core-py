@@ -5,7 +5,7 @@
 - **Guardrails**: 收集、整理、应用是能力动作而非信息状态；block / relation graph 是
   info-base 的持久 authority；Extension contribution 不创建第二套 graph authority，也不因 first-party status 自动
   成为 Core；横切机制只由具体单元的真实压力推动；durable docs 与业务代码
-  各自只有在完成对应 Impact Handshake 且 Sir 明确“开始”后才修改，并按 owner 分离操作。
+  各自只有在完成对应 Impact Handshake 且 Sir 明确授权实施后才修改，并按 owner 分离操作。
 - **Verification**: 每个 active unit 必须拥有自己的可执行验收合同、阶段 gate、Impact
   Handshake 与验证结果；D-049 要求结构性验证优先交给 static mechanisms，runtime acceptance
   black-box-first。Program 完成还要求所有获批 durable truth 回到唯一 owner。
@@ -15,13 +15,16 @@
   InKCre 的长期产品事实是不建立 terminal-user、tenant
   或 per-user ownership/ACL domain；deployment 是单一 owner context，runtime nodes 称为 peers（D-033/D-109）。
   Memos、RSS、Mail、semantic retrieval、feature/lexical retrieval 与 graph-navigation retrieval 均已关闭；
-  current summaries live in [capability-map.md](capability-map.md)，details stay in each unit packet and the
+  能力划分见 [capability-map.md](capability-map.md)，当前状态见本页下方；details stay in each unit packet and the
   [decision register](decisions/index.md)。GitHub extension 的 collection-side correction remains queued, but no longer
   blocks root-usability selection after ownership corrections merged。
-- **Next Step**: closed MCP and Telegram fronts remain integrated；the
-  [organization Nowledge vertical](units/organization-nowledge-study/packet.md) completed its Product mechanism review and anti-
-  overlearning audit under D-493 and its whole implementation under D-527。It is now in Verify / Acceptance；its results do not
-  authorize a generic organization framework。
+- **Next Step**: [CLI sink / inkcre-cli](units/cli-sink/packet.md) 已完成完整
+  [preflight](units/cli-sink/preflight.md)，Execution baseline 冻结至 D-603。真实调用链、独立工具链与双
+  Core/IMAP/浏览器/AI 环境已核验；production Extension publisher 漏 finalize 的修正纳入实施计划。
+  Sir 已在 Impact Handshake 后明确授权实施；源码与本地候选旅程已通过，见
+  [implementation](units/cli-sink/implementation.md) 和 [本地验收](units/cli-sink/local-acceptance.md)。
+  Sir 已授权 owner 分离的提交、推送和 PR，明确禁止合并；当前进入 [交付 review](units/cli-sink/delivery.md)。
+  Preview、正式 Extension/PyPI 验收尚未完成，不关闭 unit。
 
 ## Program Boundary
 
@@ -41,7 +44,25 @@
 - deployment-scoped single-owner 是长期产品边界；外部 source account 或协议中的 `user` 不自动成为 InKCre core
   domain user，也不引入 tenant 或 per-user ownership/AC。
 
-## Active Units
+## 当前 Unit 的入场
+
+2026-09-13，Sir 选择 `cli-sink`：Python 独立子项目 `inkcre-cli`，通过 pip 分发，作为操作 Core 的命令行界面。
+本轮只支持 Core REST API；它不直接访问数据库，也不参与 Peer delegation。见 [D-571](decisions/D571-D580.md)。
+
+本次交接的已发布基线是 Core 0.2.0 / main `b3ccb00`；新 session 仍需检查当时的最新 main。CLI 的设计与完整
+preflight 已整理为独立提交；前一单元的本地收尾仍未提交。新 worktree 不会自动带上未提交记录，应在建分支前
+核对并保留或显式转交所需 packet，不能把旧提交里的 active 状态当作现状。环境入口是 `AGENTS.local.md` 与
+`svc.local.json`，不要复制凭据或以本机没有 Docker/PostgreSQL 推断数据库不可用。
+
+当前最新决策为 D-603；CLI 源码与本地候选验收已完成，进入禁止自动合并的 PR review。
+Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，不复用历史空号。
+CLI 已在 root worktree 从与 origin/main 一致的 `b3ccb00` 切出 `feat/inkcre-cli`，保留原有未提交 task-control。
+已关闭 session 不再持有源码锁，历史授权和 deferred 项也不自动成为新 unit 的实施范围。
+
+## Unit 状态与选择
+
+[CLI sink](units/cli-sink/packet.md) 为当前 active unit，公开接口、验收设计和完整 preflight 已完成，
+本地实现/验证已完成，依各 owner PR 推进交付。研究依据包括本任务 Agent Tool 模式、xiaoland/svc 的 CLI 实践及一手公开材料。
 
 [MCP sink](units/mcp-sink/packet.md) 已通过 PR #88 合并并关闭。
 
@@ -49,10 +70,12 @@ MCP sink MVP 复用现有 retrieval primitives，让外部 Agent/tool client 检
 block/relation/solved-content context；最终用于写作、设计、编码还是 chat，由 caller 拥有。它不授权 generic sink
 framework。
 
-[Organization Nowledge vertical](units/organization-nowledge-study/packet.md) 是处于 Verify / Acceptance 的 active
-implementation Unit。逐项 Nowledge study 与 D-493 transfer audit 是它已完成的 Product phase；D-495 修正了将其误判
+[Organization Nowledge vertical](units/organization-nowledge-study/packet.md) 已完成并关闭。逐项 Nowledge study 与
+D-493 transfer audit 是它已完成的 Product phase；D-495 修正了将其误判
 为 research-only Unit 的错误，D-496 修正了继续拆 delivery slices 的错误。整组实现及多轮真实 preview/provider
-验收已执行；PR #100 当前范围的合并准备已完成，不执行合并。递归环检测已修复；D-561 的 lineage 同步读取
+验收已执行；PR #100 已随 `915be5a` 合入 main，Release PR #101 的 `b3ccb00` 已完成 Core 0.2.0 生产发布、
+探针及 stable 接纳，unit 已关闭。Parent task 保持 active，Hub promotion 未被隐含标记为完成。
+递归环检测已修复；D-561 的 lineage 同步读取
 线程修正已推送，小图实际读取与并行健康响应通过，临时资源已清理。已知 SQL 性能问题延期，不增加大图验收门槛。
 整组 Job 均结束不等于所有 seeds 或图语义正确；保留语义误判、预算耗尽
 未观测项与未覆盖输入的残余，不能写成
@@ -60,7 +83,7 @@ implementation Unit。逐项 Nowledge study 与 D-493 transfer audit 是它已�
 
 [GitHub extension](units/github-extension/packet.md) 的首轮实现和真实账号 acceptance 已随 PR #80 合并；durable
 owner 与 core/Extension catalog 错误已由独立 correction 关闭，但 batch graph interface、PyGithub integration、
-Extension-local Unit TDD 与 re-acceptance 尚未落地。该 unit 当前是下一轮 selection 的优先候选，不视为完成。
+Extension-local Unit TDD 与 re-acceptance 尚未落地。它保留为候选，不代表已选为下一 unit，也不视为完成。
 
 [Graph navigation retrieval](units/graph-navigation-retrieval/packet.md) 已完成 core-py PR #78、client-web PR #85、
 `@inkcre/ui-web@1.4.0`、preview/production acceptance 与 durable closure。

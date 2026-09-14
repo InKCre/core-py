@@ -2,6 +2,8 @@
 
 from typing import Literal, TypeAlias
 
+import pydantic
+
 
 TextProjectionContext: TypeAlias = Literal["default", "lexical"]
 
@@ -33,6 +35,14 @@ CORE_RESOLVER_IDS: tuple[CoreResolverID, ...] = (
 
 class ResolverContractError(RuntimeError):
   """Base failure for resolver selection and capability contracts."""
+
+
+class ResolverMethodInputError(pydantic.ValidationError):
+  """Native input details, distinguishable from errors inside a content method."""
+
+
+class UnknownResolverMethodError(ResolverContractError, ValueError):
+  """An exact Resolver has no projected read method with this name."""
 
 
 class UnknownResolverError(ResolverContractError):

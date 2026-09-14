@@ -40,7 +40,7 @@ authorize new unit, schema, helper, mocked-manager, or route tests by analogy.
 
 ## Release intent
 
-Core and each first-party Extension are independent release projects. A feature pull request that
+Core, `cli/`, and each first-party Extension are independent release projects. A feature pull request that
 changes delivered project behavior adds at least one non-empty project-local Towncrier fragment;
 it does not change a version or generated changelog:
 
@@ -49,7 +49,7 @@ pdm run towncrier create --config towncrier.toml --dir extensions/<extension-id>
 pdm run check:releases --base origin/main
 ```
 
-Core fragments live in `.changes/`; Extension fragments live in
+Core fragments live in `.changes/`; CLI fragments live in `cli/.changes/`; Extension fragments live in
 `extensions/<extension-id>/.changes/`. Valid types are `added`, `changed`, `deprecated`, `removed`,
 `fixed`, and `security`. Pure release-tooling or contributor-documentation changes do not invent
 project news.

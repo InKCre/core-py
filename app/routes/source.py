@@ -1,40 +1,125 @@
-"""Source Module's API Endpoints"""
+"""Source configuration resources and Job admission conveniences."""
 
-__all__ = ["ROUTER"]
+import typing
 
 import fastapi
-from typing import Optional as Opt
+
 from app.business.job import JobManager
 from app.business.source import SOURCE_BACKFILL_JOB_TYPE, SOURCE_COLLECT_JOB_TYPE
+from app.business.source.main import (
+  SourceManager,
+  SourceNotFoundError,
+  UnsupportedSourceCommandError,
+)
 from app.schemas.job import JobModel
-from app.schemas.source import SourceID
-
-ROUTER = fastapi.APIRouter(
-  prefix="/sources",
-  tags=["source"],
+from app.schemas.source import (
+  SourceCreateForm,
+  SourceModel,
+  SourceTypesModel,
+  SourceUpdateForm,
 )
 
+from .validation import database_write, request_input
 
-@ROUTER.post("/{source_id}/collect")
-async def run_source_collect(source_id: SourceID, body: Opt[dict] = None) -> JobModel:
-  """Run source collect (by creating a source collect job.)"""
-  job = JobManager.create(
-    SOURCE_COLLECT_JOB_TYPE,
-    {"source": source_id, "config": body or {}},
-  )
-  await JobManager.check()
+
+ROUTER = fastapi.APIRouter(tags=["source"])
+
+
+@ROUTER.get("/source-types")
+def list_source_types(
+  limit: int | None = fastapi.Query(None, gt=0), cursor: str | None = None
+) -> dict[str, typing.Any]:
+  rows, next_cursor = SourceManager.list_types(limit=limit, cursor=cursor)
+  return {"source_types": rows, "next_cursor": next_cursor}
+
+
+@ROUTER.get("/source-types/{type_}")
+def get_source_type(type_: str) -> SourceTypesModel:
+  result = SourceManager.get_type(type_)
+  if result is None:
+    raise fastapi.HTTPException(404, f"Source type {type_!r} not found")
+  return result
+
+
+@ROUTER.get("/sources")
+def list_sources(
+  limit: int | None = fastapi.Query(None, gt=0), cursor: int | None = None
+) -> dict[str, typing.Any]:
+  rows, next_cursor = SourceManager.list_sources(limit=limit, cursor=cursor)
+  return {"sources": rows, "next_cursor": next_cursor}
+
+
+@ROUTER.get("/sources/{source_id}")
+def get_source(source_id: int) -> SourceModel:
+  result = SourceManager.get(source_id)
+  if result is None:
+    raise fastapi.HTTPException(404, f"Source {source_id} not found")
+  return result
+
+
+@ROUTER.post("/sources", status_code=201)
+def create_source(
+  body: SourceCreateForm, request: fastapi.Request, response: fastapi.Response
+) -> SourceModel:
+  try:
+    with database_write(), request_input():
+      source = SourceManager.create(body.type, body.nickname, body.config, body.storage)
+  except SourceNotFoundError as error:
+    raise fastapi.HTTPException(404, str(error)) from error
+  response.headers["Location"] = str(request.url_for("get_source", source_id=source.id))
+  return source
+
+
+@ROUTER.patch("/sources/{source_id}")
+def update_source(source_id: int, body: SourceUpdateForm) -> SourceModel:
+  try:
+    with database_write(), request_input():
+      return SourceManager.update(source_id, body)
+  except SourceNotFoundError as error:
+    raise fastapi.HTTPException(404, str(error)) from error
+
+
+@ROUTER.delete("/sources/{source_id}", status_code=204)
+def delete_source(source_id: int) -> None:
+  if not SourceManager.delete(source_id):
+    raise fastapi.HTTPException(404, f"Source {source_id} not found")
+
+
+def _collect_job(source_id: int, type_: str, config: dict, timeout: int | None) -> JobModel:
+  try:
+    with request_input(strip=("config",)):
+      return JobManager.create(type_, {"source": source_id, "config": config}, timeout)
+  except SourceNotFoundError as error:
+    raise fastapi.HTTPException(404, str(error)) from error
+  except UnsupportedSourceCommandError as error:
+    raise fastapi.HTTPException(422, str(error)) from error
+
+
+@ROUTER.post("/sources/{source_id}/collect", status_code=201)
+def run_source_collect(  # noqa: PLR0913 - includes FastAPI request/response injection
+  source_id: int,
+  request: fastapi.Request,
+  response: fastapi.Response,
+  background: fastapi.BackgroundTasks,
+  body: dict = fastapi.Body(default_factory=dict),
+  timeout_seconds: int | None = fastapi.Query(None, gt=0),
+) -> JobModel:
+  job = _collect_job(source_id, SOURCE_COLLECT_JOB_TYPE, body, timeout_seconds)
+  response.headers["Location"] = str(request.url_for("get_job", job_id=job.id))
+  background.add_task(JobManager.notify_worker)
   return job
 
 
-@ROUTER.post("/{source_id}/backfill")
-async def run_source_backfill(
-  source_id: SourceID, body: dict, timeout_seconds: int | None = None
+@ROUTER.post("/sources/{source_id}/backfill", status_code=201)
+def run_source_backfill(  # noqa: PLR0913 - includes FastAPI request/response injection
+  source_id: int,
+  body: dict,
+  request: fastapi.Request,
+  response: fastapi.Response,
+  background: fastapi.BackgroundTasks,
+  timeout_seconds: int | None = fastapi.Query(None, gt=0),
 ) -> JobModel:
-  """Create one explicit historical Source Job."""
-  job = JobManager.create(
-    SOURCE_BACKFILL_JOB_TYPE,
-    {"source": source_id, "config": body},
-    timeout_seconds,
-  )
-  await JobManager.check()
+  job = _collect_job(source_id, SOURCE_BACKFILL_JOB_TYPE, body, timeout_seconds)
+  response.headers["Location"] = str(request.url_for("get_job", job_id=job.id))
+  background.add_task(JobManager.notify_worker)
   return job

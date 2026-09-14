@@ -2,6 +2,7 @@
 
 import pydantic
 import sqlmodel
+import typing
 from app.business.info_base.main import InfoBaseManager
 from app.business.info_base.resolver import ImageResolver, VideoResolver, HTMLResolver
 from app.business.source import SourceBase
@@ -97,7 +98,7 @@ class Source(
 
     Docs https://docs.x.com/x-api/bookmarks/get-bookmarks
     """
-    collect_config = CollectConfig.model_validate(config)
+    collect_config = typing.cast(CollectConfig, config)
     full = collect_config.full
     result_limit = collect_config.result_limit
 

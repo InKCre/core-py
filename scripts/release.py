@@ -1,4 +1,4 @@
-"""Core and first-party Extension release intent and preparation."""
+"""Core, CLI and first-party Extension release intent and preparation."""
 
 from __future__ import annotations
 
@@ -78,7 +78,9 @@ class ReleaseProject:
     return self.directory / FRAGMENTS_NAME
 
 
-def _project_from_pyproject(directory: Path, *, extension: bool) -> ReleaseProject:
+def _project_from_pyproject(
+  directory: Path, *, extension: bool, key: str | None = None
+) -> ReleaseProject:
   value = tomllib.loads((directory / "pyproject.toml").read_text(encoding="utf-8"))
   project = value.get("project")
   if not isinstance(project, dict):
@@ -93,7 +95,8 @@ def _project_from_pyproject(directory: Path, *, extension: bool) -> ReleaseProje
     key = directory.name
     coordinate = producer["name"]
   else:
-    key = "core"
+    if key is None:
+      raise ReleaseContractError("a non-Extension project requires an explicit key")
     coordinate = project.get("name", "inkcre-core")
   return ReleaseProject(
     key, directory, coordinate, SemanticVersion.parse(version), extension
@@ -103,7 +106,10 @@ def _project_from_pyproject(directory: Path, *, extension: bool) -> ReleaseProje
 def discover_projects(*, extensions_only: bool = False) -> tuple[ReleaseProject, ...]:
   projects: list[ReleaseProject] = []
   if not extensions_only:
-    projects.append(_project_from_pyproject(PROJECT_ROOT, extension=False))
+    projects.append(_project_from_pyproject(PROJECT_ROOT, extension=False, key="core"))
+    projects.append(
+      _project_from_pyproject(PROJECT_ROOT / "cli", extension=False, key="cli")
+    )
   for directory in sorted(EXTENSIONS_DIRECTORY.iterdir()):
     pyproject = directory / "pyproject.toml"
     if not pyproject.is_file():
@@ -197,6 +203,19 @@ def _production_dependencies_at(revision: str) -> tuple[str, ...] | None:
   return tuple(value) if isinstance(value, list) else None
 
 
+def _cli_packaging_at(revision: str) -> dict | None:
+  content = _show(revision, PROJECT_ROOT / "cli/pyproject.toml")
+  if content is None:
+    return None
+  value = tomllib.loads(content)
+  project = value.get("project", {})
+  return {
+    "project": {key: item for key, item in project.items() if key not in {"version"}},
+    "build-system": value.get("build-system"),
+    "build": value.get("tool", {}).get("pdm", {}).get("build"),
+  }
+
+
 def affected_projects(base: str) -> set[str]:
   paths = _changed_paths(base)
   affected: set[str] = set()
@@ -222,10 +241,14 @@ def affected_projects(base: str) -> set[str]:
         affected.add(parts[1])
     elif path.startswith(core_prefixes) or path in core_files:
       affected.add("core")
+    elif path.startswith("cli/src/") or path in {"cli/README.md", "cli/LICENSE"}:
+      affected.add("cli")
   if "pyproject.toml" in paths and (
     _production_dependencies_at(base) != _production_dependencies_at("HEAD")
   ):
     affected.add("core")
+  if "cli/pyproject.toml" in paths and _cli_packaging_at(base) != _cli_packaging_at("HEAD"):
+    affected.add("cli")
   return affected
 
 
@@ -268,32 +291,26 @@ def check_release_contract(
     )
     if release_pr:
       allowed = {
-        "pyproject.toml",
-        CHANGELOG_NAME,
-        *(
-          path
-          for project in projects
-          for path in (
-            f"extensions/{project.key}/pyproject.toml",
-            f"extensions/{project.key}/{CHANGELOG_NAME}",
-          )
-          if project.extension
-        ),
+        (project.directory / name).relative_to(PROJECT_ROOT).as_posix()
+        for project in projects
+        for name in ("pyproject.toml", CHANGELOG_NAME)
       }
+      fragment_prefixes = tuple(
+        project.fragments.relative_to(PROJECT_ROOT).as_posix() + "/" for project in projects
+      )
       unexpected = [
         path
         for path in changed_paths
-        if path not in allowed
-        and not path.startswith(f"{FRAGMENTS_NAME}/")
-        and not (path.startswith("extensions/") and f"/{FRAGMENTS_NAME}/" in path)
+        if path not in allowed and not path.startswith(fragment_prefixes)
       ]
       if unexpected:
         problems.append(
           "Release PR contains non-preparation paths: " + ", ".join(unexpected)
         )
     for project in projects:
-      version_changed = _version_at(project, base) not in {None, project.version}
-      changelog_changed = _file_changed(project.changelog, base)
+      previous = _version_at(project, base)
+      version_changed = previous not in {None, project.version}
+      changelog_changed = previous is not None and _file_changed(project.changelog, base)
       fragment_changed = _fragment_changed(project, changed_paths)
       if not release_pr and project.key in affected and not fragment_changed:
         problems.append(f"{project.key}: delivered behavior changed without a fragment")
@@ -391,7 +408,7 @@ def prepare(project_keys: tuple[str, ...] = ()) -> tuple[str, ...]:
 
 
 def version_changed(project: ReleaseProject, base: str) -> bool:
-  return _version_at(project, base) != project.version
+  return _version_at(project, base) not in {None, project.version}
 
 
 def verify_artifact_unchanged(

@@ -1,0 +1,84 @@
+"""Ordinary deployment-wide Cron resources."""
+
+import contextlib
+import typing
+
+import fastapi
+
+from app.business.cron import CronManager, CronNotFoundError, InvalidCronScheduleError
+from app.business.job import JobManager, UnknownJobTypeError
+from app.business.source.main import SourceNotFoundError, UnsupportedSourceCommandError
+from app.schemas.cron import CronForm, CronModel, CronUpdateForm
+from app.schemas.job import JobModel
+
+from .validation import request_input
+
+
+ROUTER = fastapi.APIRouter(prefix="/crons", tags=["cron"])
+
+
+@contextlib.contextmanager
+def _template_input():
+  try:
+    with request_input():
+      yield
+  except (CronNotFoundError, SourceNotFoundError) as error:
+    raise fastapi.HTTPException(404, str(error)) from error
+  except (
+    InvalidCronScheduleError,
+    UnknownJobTypeError,
+    UnsupportedSourceCommandError,
+  ) as error:
+    raise fastapi.HTTPException(422, str(error)) from error
+
+
+@ROUTER.get("")
+def list_crons(
+  limit: int | None = fastapi.Query(None, gt=0), cursor: int | None = None
+) -> dict[str, typing.Any]:
+  rows, next_cursor = CronManager.list_crons(limit=limit, cursor=cursor)
+  return {"crons": rows, "next_cursor": next_cursor}
+
+
+@ROUTER.get("/{cron_id}")
+def get_cron(cron_id: int) -> CronModel:
+  result = CronManager.get(cron_id)
+  if result is None:
+    raise fastapi.HTTPException(404, f"Cron {cron_id} not found")
+  return result
+
+
+@ROUTER.post("", status_code=201)
+def create_cron(
+  body: CronForm, request: fastapi.Request, response: fastapi.Response
+) -> CronModel:
+  with _template_input():
+    result = CronManager.create(body)
+  response.headers["Location"] = str(request.url_for("get_cron", cron_id=result.id))
+  return result
+
+
+@ROUTER.patch("/{cron_id}")
+def update_cron(cron_id: int, body: CronUpdateForm) -> CronModel:
+  with _template_input():
+    return CronManager.patch(cron_id, body)
+
+
+@ROUTER.delete("/{cron_id}", status_code=204)
+def delete_cron(cron_id: int) -> None:
+  if not CronManager.delete(cron_id):
+    raise fastapi.HTTPException(404, f"Cron {cron_id} not found")
+
+
+@ROUTER.post("/{cron_id}/run", status_code=201)
+def run_cron(
+  cron_id: int,
+  request: fastapi.Request,
+  response: fastapi.Response,
+  background: fastapi.BackgroundTasks,
+) -> JobModel:
+  with _template_input():
+    job = CronManager.run_now(cron_id)
+  response.headers["Location"] = str(request.url_for("get_job", job_id=job.id))
+  background.add_task(JobManager.notify_worker)
+  return job

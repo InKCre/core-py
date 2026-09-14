@@ -63,13 +63,20 @@ PY
     for name in EXTENSION GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_SERVER_URL; do
       require_env "$name"
     done
-    output="${RUNNER_TEMP:-/tmp}/$EXTENSION"
-    mkdir --parents "$output"
-    pdm run python -m build --wheel --no-isolation --outdir "$output" \
+    output="$(mktemp -d "${RUNNER_TEMP:-/tmp}/$EXTENSION.XXXXXX")"
+    mkdir --parents "$output/raw" "$output/finalized"
+    pdm run python -m build --wheel --no-isolation --outdir "$output/raw" \
       "extensions/$EXTENSION"
-    wheel="$(find "$output" -maxdepth 1 -type f -name '*.whl')"
+    wheel="$(find "$output/raw" -maxdepth 1 -type f -name '*.whl')"
     test -n "$wheel"
-    test "$(find "$output" -maxdepth 1 -type f -name '*.whl' | wc -l)" = 1
+    test "$(find "$output/raw" -maxdepth 1 -type f -name '*.whl' | wc -l)" = 1
+    # The runtime reads the Toolkit manifest inside .dist-info, not registry metadata.
+    # Match the preview path before verification and upload; never publish the raw wheel.
+    pdm run inkcre-ext python wheel finalize \
+      --project "extensions/$EXTENSION/pyproject.toml" --wheel "$wheel" \
+      --output-dir "$output/finalized"
+    wheel="$(find "$output/finalized" -maxdepth 1 -type f -name '*.whl')"
+    test "$(find "$output/finalized" -maxdepth 1 -type f -name '*.whl' | wc -l)" = 1
     metadata="${RUNNER_TEMP:-/tmp}/$EXTENSION-metadata.json"
     pdm run python scripts/extension_distribution.py verify-wheel \
       --project "extensions/$EXTENSION" --wheel "$wheel"

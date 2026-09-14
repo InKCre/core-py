@@ -11,6 +11,7 @@ import fastapi
 from inkcre_extension_runtime_core_py import EmptyConfig
 from inkcre_extension_runtime_core_py import ExtensionBase as RuntimeExtensionBase
 import pydantic
+import jsonschema  # pyrefly: ignore[untyped-import]
 import sqlmodel
 
 from app.business.peer import PeerManager
@@ -274,6 +275,8 @@ class ExtensionHost:
     state = self.get(name)
     running = self.running.get(name)
     if running is None:
+      if state.config_schema is not None:
+        jsonschema.Draft202012Validator(state.config_schema).validate(config)
       return self.store.update_config(name, config)
     config_class = typing.cast(
       type[sqlmodel.SQLModel],

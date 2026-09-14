@@ -131,7 +131,7 @@ def _extension():
 
 
 def _state() -> TwitterExtensionState:
-  return TwitterExtensionState.model_validate(_extension().get_state())
+  return typing.cast(TwitterExtensionState, _extension().get_state())
 
 
 def _config() -> TwitterExtensionConfig:
@@ -237,8 +237,8 @@ def _reconcile_oauth_state() -> TwitterExtensionState:
   def reconcile(config_model, state_model):
     from . import TwitterExtensionConfig
 
-    current_config = TwitterExtensionConfig.model_validate(config_model)
-    current_state = TwitterExtensionState.model_validate(state_model)
+    current_config = typing.cast(TwitterExtensionConfig, config_model)
+    current_state = typing.cast(TwitterExtensionState, state_model)
     reconciled, _ = _invalidate_mismatched_oauth_state(
       current_config,
       current_state,
@@ -247,7 +247,7 @@ def _reconcile_oauth_state() -> TwitterExtensionState:
     return current_config, reconciled
 
   _, reconciled = _extension().mutate_config_and_state(reconcile)
-  return TwitterExtensionState.model_validate(reconciled)
+  return typing.cast(TwitterExtensionState, reconciled)
 
 
 def get_setup_status() -> TwitterSetupStatus:
@@ -294,8 +294,8 @@ def save_oauth_app(body: SaveOAuthAppRequest) -> TwitterSetupStatus:
   def update(config_model, state_model):
     from . import TwitterExtensionConfig
 
-    config = TwitterExtensionConfig.model_validate(config_model)
-    state = TwitterExtensionState.model_validate(state_model)
+    config = typing.cast(TwitterExtensionConfig, config_model)
+    state = typing.cast(TwitterExtensionState, state_model)
     next_config = config.model_copy(
       update={
         "backend": "official",
@@ -344,7 +344,7 @@ def begin_oauth() -> OAuthTransactionView:
   )
 
   def update(model: pydantic.BaseModel) -> pydantic.BaseModel:
-    state = TwitterExtensionState.model_validate(model)
+    state = typing.cast(TwitterExtensionState, model)
     current_time = _now()
     transactions = {
       key: _terminal(value, "expired", error="Superseded by a newer setup")
@@ -389,7 +389,7 @@ def get_oauth_transaction(transaction_id: str) -> OAuthTransactionView:
   if transaction.status in {"pending", "exchanging"} and transaction.expires_at <= _now():
 
     def expire(model: pydantic.BaseModel) -> pydantic.BaseModel:
-      state = TwitterExtensionState.model_validate(model)
+      state = typing.cast(TwitterExtensionState, model)
       current = state.oauth_transactions.get(transaction_id)
       if current is not None and current.status in {"pending", "exchanging"}:
         state.oauth_transactions[transaction_id] = _terminal(
@@ -397,7 +397,7 @@ def get_oauth_transaction(transaction_id: str) -> OAuthTransactionView:
         )
       return state
 
-    state = TwitterExtensionState.model_validate(_extension().mutate_state(expire))
+    state = typing.cast(TwitterExtensionState, _extension().mutate_state(expire))
     transaction = state.oauth_transactions[transaction_id]
   return _transaction_view(transaction_id, transaction)
 
@@ -475,7 +475,7 @@ def _claim_callback(provider_state: str) -> tuple[str, OAuthTransaction]:
   box: dict[str, typing.Any] = {}
 
   def claim(model: pydantic.BaseModel) -> pydantic.BaseModel:
-    state = TwitterExtensionState.model_validate(model)
+    state = typing.cast(TwitterExtensionState, model)
     matched = next(
       (
         (key, value)
@@ -508,7 +508,7 @@ def _finish_callback(
   error: str | None = None,
 ) -> None:
   def finish(model: pydantic.BaseModel) -> pydantic.BaseModel:
-    state = TwitterExtensionState.model_validate(model)
+    state = typing.cast(TwitterExtensionState, model)
     current = state.oauth_transactions.get(transaction_id)
     if (
       current is None
@@ -600,7 +600,7 @@ async def oauth_callback(
 
 def disconnect_account() -> TwitterSetupStatus:
   def disconnect(model: pydantic.BaseModel) -> pydantic.BaseModel:
-    state = TwitterExtensionState.model_validate(model)
+    state = typing.cast(TwitterExtensionState, model)
     state.account = None
     state.oauth_transactions = {
       key: _terminal(value, "expired", error="Account disconnected")

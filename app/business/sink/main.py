@@ -108,7 +108,8 @@ class SinkManager:
   ) -> SinkModel:
     current = cls.get(sink_id)
     sink_cls = cls._require_type(current.type)
-    normalized = sink_cls.__configcls__.model_validate(value).model_dump(mode="json")
+    validated = sink_cls.__configcls__.model_validate(value)
+    normalized = validated.model_dump(mode="json")
     with SessionLocal() as db:
       sink = db.get(SinkModel, sink_id)
       if sink is None:
@@ -119,7 +120,7 @@ class SinkManager:
       db.refresh(sink)
     running = cls._running.get(sink_id)
     if running is not None:
-      running.update_config(normalized)
+      running.update_config(validated)
     return sink
 
   @classmethod

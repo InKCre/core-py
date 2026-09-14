@@ -41,7 +41,9 @@ class VideoResolverConfig(pydantic.BaseModel):
   transcript_model: int
 
 
-DeploymentConfigManager.register_schema(VIDEO_RESOLVER_CONFIG_SCHEMA, VideoResolverConfig)
+DeploymentConfigManager.register_schema(
+  VIDEO_RESOLVER_CONFIG_SCHEMA, VideoResolverConfig, keys=(VIDEO_RESOLVER_CONFIG_KEY,)
+)
 
 
 @dataclass(frozen=True, slots=True)

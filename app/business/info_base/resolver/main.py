@@ -19,6 +19,8 @@ from .contracts import (
   TextProjectionContext,
   UnknownDraftResolverError,
   UnknownResolverError,
+  UnknownResolverMethodError,
+  ResolverMethodInputError,
 )
 
 
@@ -34,7 +36,7 @@ class ResolverDraftCapability:
 
 @dataclass(frozen=True)
 class ResolverMethodContract:
-  """One Agent-projectable public read method on a registered Resolver."""
+  """One typed public read method on a registered Resolver."""
 
   name: str
   description: str
@@ -181,11 +183,23 @@ class ResolverManager:
     arguments: dict[str, typing.Any],
   ) -> typing.Any:
     """Validate and invoke one projected read method on an exact Block Resolver."""
+    resolver = cls.get(block)
     contract = cls.get_method_contract(block.resolver, name)
     if contract is None:
-      raise ValueError("Resolver method is not available")
-    validated = contract.input_model.model_validate(arguments)
-    value = getattr(cls.get(block), name)(**validated.model_dump())
+      raise UnknownResolverMethodError(
+        f"Resolver {block.resolver!r} has no method {name!r}"
+      )
+    try:
+      validated = contract.input_model.model_validate(arguments)
+    except pydantic.ValidationError as error:
+      raise ResolverMethodInputError.from_exception_data(
+        error.title, typing.cast(typing.Any, error.errors(include_url=False))
+      ) from error
+    # Keep nested Python values typed when calling the annotated domain method;
+    # model_dump would convert nested input models back into dictionaries.
+    value = getattr(resolver, name)(
+      **{field: getattr(validated, field) for field in contract.input_model.model_fields}
+    )
     return await value if inspect.isawaitable(value) else value
 
   @classmethod

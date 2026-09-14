@@ -56,7 +56,9 @@ def test_deployment_registry_default_precedes_process_fallback(monkeypatch):
     DeploymentConfigManager,
     "get",
     lambda key: (
-      {"extension_registry_url": "https://deployment.registry.test/"}
+      ExtensionRegistryDeploymentConfig(
+        extension_registry_url="https://deployment.registry.test/"
+      )
       if key == EXTENSION_REGISTRY_CONFIG_KEY
       else None
     ),
