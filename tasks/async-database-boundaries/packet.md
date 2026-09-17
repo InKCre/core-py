@@ -45,3 +45,12 @@ Sir 要求避免过度验证：全面性能测量不作为迁移前置条件或�
 - OpenAPI 重新生成后无 diff；仅原有 dict default schema warning。`git diff --check` 通过。
 - Config 的旧测试断言与 main 现有合同不一致（PUT 新建 201、DELETE 204、raw read 不依赖已加载 schema）；本轮按原 route 实现修正断言，没有据此改变 HTTP 合同。
 - 本阶段未做性能 benchmark、preview 部署或 SDK/wheel 发布。默认 suite 的 skips 和以上局部集成通过都不代表剩余 runtime 已迁移。
+
+## PR 检查反馈
+
+SDK PR #38 在 `887232a` 的完整 Registry CI 与 dependency review 已通过。Core PR 的 release-intent
+检查指出 Core/GitHub fragments 缺失，已在 `830ea06` 补齐并本地通过 base-aware release check。
+
+Portable runtime 验收暴露异步启动竞态：/livez 已 200、/readyz 暂为 503，随后日志显示 bootstrap
+完成。旧脚本只等待 liveness 后立即断言 readiness；现改为对 readiness 使用 30 秒的有界 retry，
+保持原有 readyz 响应和应用启动合同，不改成 liveness 即 ready。CI 使用真实镜像与 PostgreSQL 验证。
