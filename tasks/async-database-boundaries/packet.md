@@ -24,11 +24,11 @@ Sir 已确认“短数据库工作作用域 + 用例事务 + session-bound repos
 
 步骤 01–04 的当前范围已实现并验证：Graph async 基础、配置／AI／Agent／Peer，以及 info_base HTTP／Resolver／Storage 的新路径。旧同步 CRUD、Stars 和 Storage caller-session API 仍供后续 Source／扩展／检索／organization 消费；它们不是完成状态，整体任务不得关闭或发布。
 
-当前步骤 05 已获跨仓授权，在 ext-reg 的 `feat/runtime-async-persistence` worktree 实现 Runtime SDK 0.1.4 additive async capability。发现 publication 内 Source catalog 同样需要 async capability；已纳入 SDK 改动，Core 采用时先提供对应 catalog adapter，不等待步骤 06 才修补调用链。
+上游 SDK PR 为 https://github.com/InKCre/ext-reg/pull/38（实现提交 `5fc4ad7`）。当前步骤 05 已获跨仓授权，在 ext-reg 的 `feat/runtime-async-persistence` worktree 实现 Runtime SDK 0.1.4 additive async capability。发现 publication 内 Source catalog 同样需要 async capability；已纳入 SDK 改动，Core 采用时先提供对应 catalog adapter，不等待步骤 06 才修补调用链。
 
 当前阻塞是实际 artifact 交付，而非提交／跨仓权限：ext-reg `.github/workflows/packages-release.yml` 只从 main 发布；Sir 禁止本 Agent 合并，所以完成上游 PR 后等待外部合并及正式 artifact。Core 仍锁定 0.1.3，不采用本地 wheel URL，不跳到 06。SDK 的独立 packet 仅拥有此上游 slice 的实现证据，父任务顺序仍由本计划拥有。
 
-Core 步骤 01–04 将提交并创建 draft PR，清楚标注整体未完成。后续长期治理与旧 API 删除属于步骤 10，目前 import lint 只约束已迁移范围。
+Core 步骤 01–04 已提交为 `282f110` 并推送，draft PR 为 https://github.com/InKCre/core-py/pull/105，清楚标注整体未完成。后续长期治理与旧 API 删除属于步骤 10，目前 import lint 只约束已迁移范围。
 
 ## 验证与环境状态
 
