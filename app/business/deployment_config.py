@@ -7,6 +7,7 @@ import pydantic
 import sqlalchemy.dialects.postgresql
 import sqlmodel
 
+from .deployment_config_uow import configuration_transaction
 from app.configuration import ConfigContract
 from app.engine import SessionLocal
 from app.schemas.deployment_config import (
@@ -230,3 +231,64 @@ class DeploymentConfigManager:
       db.commit()
       db.refresh(record)
       return cls._view(record)
+
+
+class DeploymentConfigService:
+  """Async use cases; share the exact schema registry with remaining legacy callers."""
+
+  @staticmethod
+  async def get(key: DeploymentConfigKey) -> pydantic.BaseModel | None:
+    async with configuration_transaction() as configs:
+      record = await configs.get(key)
+      return None if record is None else DeploymentConfigManager._restore_record(record)
+
+  @staticmethod
+  async def read(key: DeploymentConfigKey) -> DeploymentConfigView | None:
+    async with configuration_transaction() as configs:
+      record = await configs.get(key)
+      return None if record is None else DeploymentConfigManager._view(record)
+
+  @staticmethod
+  async def replace_with_status(
+    key: DeploymentConfigKey,
+    schema_id: DeploymentConfigSchemaID,
+    complete_value: dict[str, typing.Any],
+  ) -> tuple[DeploymentConfigView, bool]:
+    normalized = DeploymentConfigManager._contract(schema_id).normalize(complete_value)
+    async with configuration_transaction() as configs:
+      record, created = await configs.replace(key, schema_id, normalized)
+      result = DeploymentConfigManager._view(record)
+    return result, created
+
+  @staticmethod
+  async def list_configs(
+    *, limit: int | None = None, cursor: str | None = None
+  ) -> tuple[list[DeploymentConfigView], str | None]:
+    async with configuration_transaction() as configs:
+      rows, next_cursor = await configs.list(limit=limit, cursor=cursor)
+      return [DeploymentConfigManager._view(row) for row in rows], next_cursor
+
+  @staticmethod
+  async def delete(key: DeploymentConfigKey) -> bool:
+    async with configuration_transaction() as configs:
+      record = await configs.get(key)
+      if record is None:
+        return False
+      await configs.delete(record)
+    return True
+
+  @staticmethod
+  async def patch(
+    key: DeploymentConfigKey, partial_value: dict[str, typing.Any]
+  ) -> DeploymentConfigView:
+    async with configuration_transaction() as configs:
+      record = await configs.get(key, for_update=True)
+      if record is None:
+        raise DeploymentConfigNotFoundError(f"Deployment config {key!r} does not exist")
+      contract = DeploymentConfigManager._contract(record.schema_id)
+      record.value = contract.prepare_patch(record.value, partial_value).model_dump(
+        mode="json"
+      )
+      await configs.save(record)
+      result = DeploymentConfigManager._view(record)
+    return result

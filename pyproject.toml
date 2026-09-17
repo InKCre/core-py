@@ -14,7 +14,7 @@ dependencies = [
     "packaging (>=25.0,<26.0)",
     "pip (>=25.2,<26.0)",
     "semantic-version (>=2.10.0,<3.0.0)",
-    "sqlalchemy (>=2.0.41,<3.0.0)",
+    "sqlalchemy[asyncio]<3.0.0,>=2.0.41",
     "aiohttp (>=3.14.1,<4.0.0)",
     "tencentcloud-sdk-python-lke (>=3.0.1427,<4.0.0)",
     "psycopg[binary] (>=3.2.0,<4.0.0)",
@@ -102,7 +102,8 @@ test = "python -m pytest -q"
 "build:extension-preview" = "python scripts/build_extension_preview.py {args}"
 "release:prepare" = "python scripts/release.py prepare {args}"
 "check:foundation" = { composite = ["doctor", "check:lock", "check:migrations", "check:automation"] }
-"check" = { composite = ["check:foundation", "format:check", "lint", "typecheck", "test"] }
+"lint:database-boundaries" = "ruff check --select TID251 app/business/info_base/commands.py app/business/info_base/repository.py app/business/ai/repository.py app/business/agent/repository.py app/business/peer/repository.py app/business/info_base/services.py app/business/info_base/storage/repository.py app/business/deployment_config_persistence.py"
+"check" = { composite = ["check:foundation", "format:check", "lint", "lint:database-boundaries", "typecheck", "test"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"
 "db:record" = "python scripts/check_migration_history.py --record-new"

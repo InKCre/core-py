@@ -9,7 +9,7 @@ import typing
 import av
 import pydantic
 
-from app.business.deployment_config import DeploymentConfigManager
+from app.business.deployment_config import DeploymentConfigManager, DeploymentConfigService
 from app.schemas.ai import VideoContentPart
 from app.schemas.info_base.block import BlockForm
 from app.schemas.info_base.main import StarsGraphForm
@@ -145,10 +145,12 @@ class VideoResolver(
     solved = await self.get_solved_content(refresh=refresh, materialize_missing=False)
     if materialize_missing:
       if solved.subtitles:
-        materialize_text_child(self.block_id, "subtitle", "\n\n".join(solved.subtitles))
+        await materialize_text_child(
+          self.block_id, "subtitle", "\n\n".join(solved.subtitles)
+        )
       config = typing.cast(
         VideoResolverConfig | None,
-        DeploymentConfigManager.get(VIDEO_RESOLVER_CONFIG_KEY),
+        await DeploymentConfigService.get(VIDEO_RESOLVER_CONFIG_KEY),
       )
       if config is not None:
         media_type = solved.detected_media_type or (
@@ -158,7 +160,7 @@ class VideoResolver(
           media = VideoContentPart(
             data=solved.content,
             mime_type=media_type,
-            transfer_url=self.get_transfer_url(),
+            transfer_url=await self.get_transfer_url(),
           )
           await try_materialize_model_text(
             block_id=self.block_id,

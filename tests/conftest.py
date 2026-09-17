@@ -1,5 +1,6 @@
 """Hermetic process environment for the repository test suite."""
 
+import asyncio
 import os
 from pathlib import Path
 import runpy
@@ -36,3 +37,15 @@ def semantic_content_assets() -> Path:
     raise RuntimeError("semantic-content asset generator has no callable main")
   generate()
   return asset_directory
+
+
+@pytest.fixture
+def async_runner():
+  from app.engine import ASYNC_DB_ENGINE
+
+  # Keep the pooled connections on their owning loop, including disposal.
+  with asyncio.Runner() as runner:
+    try:
+      yield runner
+    finally:
+      runner.run(ASYNC_DB_ENGINE.dispose())

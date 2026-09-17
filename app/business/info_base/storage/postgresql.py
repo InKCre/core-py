@@ -7,6 +7,7 @@ import sqlmodel
 
 from app.schemas.info_base.storage import StorageBlobModel
 from .main import WritableStorage
+from .repository import StorageRepository
 
 
 class PostgreSQLBinaryStorageConfig(sqlmodel.SQLModel):
@@ -85,3 +86,23 @@ class PostgreSQLBinaryStorage(
     db_session.delete(blob)
     db_session.flush()
     return True
+
+  async def read_content(self, block_content: str, storage: StorageRepository) -> bytes:
+    pointer = PostgreSQLBlobPointer.model_validate_json(block_content)
+    content = await storage.read_blob(pointer.blob_id)
+    if content is None:
+      raise StorageBlobNotFoundError(f"Storage blob {pointer.blob_id} not found")
+    return content
+
+  async def write_content(self, content: bytes, storage: StorageRepository) -> uuid.UUID:
+    return await storage.create_blob(content)
+
+  async def update_content(
+    self, block_content: str, content: bytes, storage: StorageRepository
+  ) -> bool:
+    pointer = PostgreSQLBlobPointer.model_validate_json(block_content)
+    return await storage.update_blob(pointer.blob_id, content)
+
+  async def delete_content(self, block_content: str, storage: StorageRepository) -> bool:
+    pointer = PostgreSQLBlobPointer.model_validate_json(block_content)
+    return await storage.delete_blob(pointer.blob_id)

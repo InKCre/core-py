@@ -11,6 +11,7 @@ import sqlmodel
 import typing
 from typing import Optional as Opt
 from app.engine import SessionLocal
+from .repository import StorageRepository
 from app.database_contract.profile import BUILTIN_STORAGES, BUILTIN_STORAGE_TYPES_BY_ID
 from app.schemas.info_base.storage import (
   StorageID,
@@ -161,6 +162,50 @@ class StorageManager:
         db.exec(stmt)  # type: ignore
       db.commit()
 
+  @classmethod
+  async def get_storage_async(cls, storage_id: StorageID) -> "Storage":
+    from ..uow import graph_uow
+
+    async with graph_uow() as uow:
+      record = await uow.storage.get(storage_id)
+    return cls.from_record(record)
+
+  @classmethod
+  def from_record(cls, record: StorageModel) -> "Storage":
+    storage_class = cls._STORAGE_CLASSES.get(record.type)
+    if storage_class is None:
+      module_path, class_name = record.type.rsplit(".", 1)
+      storage_class = getattr(importlib.import_module(module_path), class_name)
+    return storage_class(record)
+
+  @classmethod
+  async def setup_builtin_storages_async(cls) -> None:
+    from ..uow import graph_uow
+
+    records = []
+    for storage_cls in cls._STORAGE_CLASSES.values():
+      builtin = BUILTIN_STORAGE_TYPES_BY_ID.get(storage_cls.__stgtype__)
+      records.append(
+        {
+          "id": storage_cls.__stgtype__,
+          "description": builtin.description
+          if builtin
+          else storage_cls.__doc__ or "No description.",
+          "config_schema": builtin.config_schema
+          if builtin
+          else storage_cls.__configschema__,
+          "writable": issubclass(storage_cls, WritableStorage),
+        }
+      )
+    async with graph_uow() as uow:
+      await uow.storage.sync_types(records)
+      await uow.storage.sync_builtins(
+        [
+          {"id": row.id, "type": row.type, "nickname": row.nickname, "config": row.config}
+          for row in BUILTIN_STORAGES
+        ]
+      )
+
 
 class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
   """Storage base.
@@ -233,8 +278,33 @@ class WritableStorage(Storage[ConfigTV, ContentTV], abc.ABC):
   """Storage capability for raw content owned by the current deployment."""
 
   async def get_raw_content(self, block_content: str) -> ContentTV:
-    with SessionLocal() as db_session:
-      return self.read_raw_content(block_content, db_session)
+    from ..uow import graph_uow
+
+    async with graph_uow() as uow:
+      return await self.read_content(block_content, uow.storage)
+
+  async def create_content(self, content: ContentTV, storage: StorageRepository) -> str:
+    return self.serialize_pointer(await self.write_content(content, storage))
+
+  @abc.abstractmethod
+  async def read_content(
+    self, block_content: str, storage: StorageRepository
+  ) -> ContentTV: ...
+
+  @abc.abstractmethod
+  async def write_content(
+    self, content: ContentTV, storage: StorageRepository
+  ) -> typing.Any: ...
+
+  @abc.abstractmethod
+  async def update_content(
+    self, block_content: str, content: ContentTV, storage: StorageRepository
+  ) -> bool: ...
+
+  @abc.abstractmethod
+  async def delete_content(
+    self, block_content: str, storage: StorageRepository
+  ) -> bool: ...
 
   def create_raw_content(
     self,

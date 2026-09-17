@@ -2,10 +2,13 @@ __all__ = [
   "SQLDB_ENGINE",
   "get_db_session",
   "SessionLocal",
+  "ASYNC_DB_ENGINE",
+  "AsyncSessionFactory",
 ]
 
 import typing
 import sqlmodel
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.settings import settings
 
 
@@ -16,6 +19,11 @@ DATABASE_URL = settings.database_url
 SQLDB_ENGINE = sqlmodel.create_engine(
   url=DATABASE_URL, pool_pre_ping=settings.database_scale_0
 )
+
+# The synchronous factory remains only for callers awaiting migration.
+# Engine construction does not connect; lifespan owns asynchronous pool disposal.
+ASYNC_DB_ENGINE = create_async_engine(DATABASE_URL, pool_pre_ping=settings.database_scale_0)
+AsyncSessionFactory = async_sessionmaker(ASYNC_DB_ENGINE, expire_on_commit=False)
 
 
 def SessionLocal():

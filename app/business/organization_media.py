@@ -139,7 +139,7 @@ async def _relation_context(block_id: int) -> list[dict[str, typing.Any]]:
 async def _message(block: BlockModel) -> UserMessage | None:
   resolver = ResolverManager.get(block)
   solved = await resolver.get_solved_content(materialize_missing=False)
-  transfer_url = resolver.get_transfer_url()
+  transfer_url = await resolver.get_transfer_url()
   media: UserContentPart
   facts: dict[str, typing.Any]
   if isinstance(solved, ImageSolvedContent):

@@ -47,8 +47,8 @@ def _cleanup(provider_id: int | None) -> None:
     db.commit()
 
 
-def test_ai_facts_round_trip_typed_capabilities_and_database_invariants():
-  AIManager.sync_dialects()
+def test_ai_facts_round_trip_typed_capabilities_and_database_invariants(async_runner):
+  async_runner.run(AIManager.sync_dialects_async())
   provider_id: int | None = None
   try:
     with SessionLocal() as db:
@@ -95,6 +95,12 @@ def test_ai_facts_round_trip_typed_capabilities_and_database_invariants():
       db.refresh(profile)
       assert isinstance(profile.updated_at, datetime.datetime)
       assert profile.updated_at > prior
+
+      loaded = async_runner.run(AIManager.get_model(model.id))
+      assert loaded is not None
+      assert loaded.native_model_id == "integration-model"
+      target = async_runner.run(AIManager._load_target_async(model.id))
+      assert target.model.id == model.id
 
       model.native_model_id = "forbidden-change"
       db.add(model)

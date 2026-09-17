@@ -5,7 +5,7 @@ import typing
 import fastapi
 from fastapi.exceptions import RequestValidationError
 
-from app.business.info_base import BlockManager
+from app.business.info_base.services import BlockService
 from app.business.info_base.resolver import (
   ResolverManager,
   ResolverMethodInputError,
@@ -75,12 +75,12 @@ def resolver_methods(
 
 
 @ROUTER.get("/blocks/{block_id}/resolver/methods")
-def block_resolver_methods(
+async def block_resolver_methods(
   block_id: int,
   limit: int | None = fastapi.Query(None, gt=0),
   cursor: str | None = None,
 ) -> dict:
-  block = BlockManager.get(block_id)
+  block = await BlockService.get(block_id)
   if block is None:
     raise fastapi.HTTPException(404, f"Block {block_id} not found")
   return _methods(block.resolver, limit, cursor)
@@ -90,7 +90,7 @@ def block_resolver_methods(
 async def invoke_resolver_method(
   block_id: int, method: str, body: dict = fastapi.Body(default_factory=dict)
 ) -> fastapi.Response:
-  block = BlockManager.get(block_id)
+  block = await BlockService.get(block_id)
   if block is None:
     raise fastapi.HTTPException(404, f"Block {block_id} not found")
   try:

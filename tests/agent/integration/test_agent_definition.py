@@ -1,6 +1,5 @@
 """Real PostgreSQL proof for Agent definitions and AgentManager snapshots."""
 
-import asyncio
 import datetime
 import os
 import time
@@ -76,7 +75,7 @@ def _cleanup(provider_id: int | None) -> None:
     db.commit()
 
 
-def test_agent_definition_round_trip_and_active_thread_snapshot(monkeypatch):
+def test_agent_definition_round_trip_and_active_thread_snapshot(monkeypatch, async_runner):
   AIManager.sync_dialects()
   provider_id: int | None = None
   try:
@@ -153,7 +152,7 @@ def test_agent_definition_round_trip_and_active_thread_snapshot(monkeypatch):
         "assistant",
       ]
 
-    asyncio.run(scenario())
+    async_runner.run(scenario())
 
     with SessionLocal() as db:
       stored_agent = db.get(AgentDefinitionModel, agent_id)

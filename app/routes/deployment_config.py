@@ -8,6 +8,7 @@ import fastapi
 
 from app.business.deployment_config import (
   DeploymentConfigManager,
+  DeploymentConfigService,
   DeploymentConfigNotFoundError,
   UnknownDeploymentConfigSchemaError,
 )
@@ -30,10 +31,10 @@ def _unusable_config(error: Exception) -> typing.NoReturn:
 
 
 @ROUTER.get("/configs")
-def list_configs(
+async def list_configs(
   limit: int | None = fastapi.Query(None, gt=0), cursor: str | None = None
 ) -> dict[str, typing.Any]:
-  rows, next_cursor = DeploymentConfigManager.list_configs(limit=limit, cursor=cursor)
+  rows, next_cursor = await DeploymentConfigService.list_configs(limit=limit, cursor=cursor)
   return {"configs": rows, "next_cursor": next_cursor}
 
 
@@ -54,8 +55,8 @@ def get_config_schema(schema_id: str) -> dict:
 
 
 @ROUTER.get("/configs/{key}", response_model_by_alias=True)
-def get_config(key: DeploymentConfigKey) -> DeploymentConfigView:
-  config = DeploymentConfigManager.read(key)
+async def get_config(key: DeploymentConfigKey) -> DeploymentConfigView:
+  config = await DeploymentConfigService.read(key)
   if config is None:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_404_NOT_FOUND,
@@ -65,14 +66,14 @@ def get_config(key: DeploymentConfigKey) -> DeploymentConfigView:
 
 
 @ROUTER.put("/configs/{key}", response_model_by_alias=True)
-def replace_config(
+async def replace_config(
   key: DeploymentConfigKey,
   body: DeploymentConfigReplaceForm,
   response: fastapi.Response,
 ) -> DeploymentConfigView:
   try:
     with request_input("value"):
-      result, created = DeploymentConfigManager.replace_with_status(
+      result, created = await DeploymentConfigService.replace_with_status(
         key, body.schema_id, body.value
       )
     response.status_code = 201 if created else 200
@@ -85,13 +86,13 @@ def replace_config(
 
 
 @ROUTER.patch("/configs/{key}", response_model_by_alias=True)
-def patch_config(
+async def patch_config(
   key: DeploymentConfigKey,
   body: dict[str, typing.Any] = fastapi.Body(...),
 ) -> DeploymentConfigView:
   try:
     with request_input():
-      return DeploymentConfigManager.patch(key, body)
+      return await DeploymentConfigService.patch(key, body)
   except DeploymentConfigNotFoundError as error:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_404_NOT_FOUND,
@@ -102,6 +103,6 @@ def patch_config(
 
 
 @ROUTER.delete("/configs/{key}", status_code=204)
-def delete_config(key: str) -> None:
-  if not DeploymentConfigManager.delete(key):
+async def delete_config(key: str) -> None:
+  if not await DeploymentConfigService.delete(key):
     raise fastapi.HTTPException(404, f"Deployment config {key!r} not found")

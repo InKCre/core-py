@@ -7,6 +7,7 @@ import typing
 import sqlmodel
 
 from app.business.info_base.resolver import Resolver, TextProjectionContext
+from app.business.info_base.repository import BlockRepository
 from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.main import InArcForm, OutArcForm, StarsGraphForm
@@ -80,6 +81,18 @@ class _GitHubResolverMixin:
     resolver = typing.cast(Resolver[typing.Any, str], self)
     content = self.content_model.model_validate_json(resolver._block.content)
     return self.find_existing(content.node_id, db_session)
+
+  async def get_existing_async(self, blocks: BlockRepository) -> BlockModel | None:
+    resolver = typing.cast(Resolver[typing.Any, str], self)
+    content = self.content_model.model_validate_json(resolver._block.content)
+    matches = await blocks.find_json_field(
+      resolver._block.resolver, "node_id", content.node_id
+    )
+    if len(matches) > 1:
+      raise GitHubGraphIntegrityError(
+        f"GitHub node {content.node_id!r} resolves to multiple Blocks"
+      )
+    return matches[0] if matches else None
 
 
 class GitHubAccountResolver(

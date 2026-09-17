@@ -2,7 +2,7 @@
 
 ## 状态与执行规则
 
-Sir 已要求关闭设计阶段，转入实现计划及预演。本文件是唯一实现顺序；`design.md` 拥有已确认原则和设计理由，`packet.md` 只投影当前状态。本轮不修改产品源码、不运行部署、不创建提交。设计关闭不等于已获立即实施、跨仓修改或发布授权。
+Sir 已要求关闭设计阶段，转入实现计划及预演。本文件是唯一实现顺序；`design.md` 拥有已确认原则和设计理由，`packet.md` 只投影当前状态。Sir 已批准实现，设计与计划已提交为 `b379894`。Sir 随后明确允许提交、推送、创建 PR 和修改 ext-reg，禁止本 Agent 合并。正式 artifact 由已有 main 发布流程交付。
 
 按 01 → 11 顺序执行，一次只有一个当前步骤；不另开并行 track 或重复计划。每步完成其当前范围的代码、调用方适配、必要文档和针对性验证后再推进。一个接口变为 async 时，在同一步适配它实际影响的所有调用点；文件目录不能切断调用链。后续步骤拥有业务内部迁移，前序步骤允许对这些文件做必要的接口适配。
 
@@ -55,6 +55,32 @@ Peer 的内存 capability 注册与数据库持久化分开辨认，不把所有
 上游 artifact 未可用、跨仓修改或发布未获授权时，本步骤明确等待，不把依赖替换成私有 fork、临时 sys.path 或未发布链接。若 async lifecycle 涉及共享合同，按 Hub 工作流先交付真实 owner，再单独 bump Spoke ref。
 
 **返回条件：** Core 在声明支持的 SDK/wheel 组合下可安装、启用、读取／修改状态并关闭；事务、锁行和 enabled RPC 原义不变。依赖 delivery owner、Core 采用、扩展兼容分别有证据，不能凭单一源码检查跨越发布屏障。
+
+### 步骤 05 的具体变更（已获跨仓授权）
+
+对象为 ext-reg 的 `runtimes/core-py/src/inkcre_extension_runtime_core_py/base.py`、所属 SDK 验证与
+`docs/30-unit-tdd/core-python-runtime.md`。从仅同步持久化接口，改为新增
+`update_config_async/get_state_async/mutate_state_async/mutate_config_and_state_async` 及
+`on_start_async`；Host model 提供对应 awaitable persistence capability。旧同步 API 保留供旧 Core，
+不能让新 Core async Store 被旧入口调用。transform 本身保持同步，在 Host 持锁事务内执行；SDK
+不持有 SQLAlchemy session。`get_config` 的普通模型读取不机械改成 async。
+
+on_start 的 public effects 继续由原 publication 机制拥有。异步 schema 写入失败或取消必须撤销
+已经发布的 routes/inbounds/claims；不复制一套 publication engine。Core facade 迁移后仍维护其
+config 投影，新 Host 只调用 async lifecycle。验证聚焦 typed state/config 变更、awaited Host
+调用和失败／取消后的 publication 清理，并构建 wheel 验证标准安装与导入。
+
+影响范围为 Runtime SDK、Core Host adapter 和七个受支持的 first-party wheel；不扩展 Registry
+服务或其他产品。SDK 的 additive artifact 可采用下一个可用补丁版本（目前候选 0.1.4，提交前复核
+上游）；Core 删除旧同步公开接口则以新的 Host minor window 隔离（候选 0.2.x），相应 wheels
+必须发布新 immutable version 并声明新 Host 约束，不能放宽旧 wheel 范围伪造兼容。
+
+已在独立 origin/main worktree 实现 SDK 0.1.4，提交和 PR 已获授权。publication 的 Source catalog
+同步也被确认是数据库 I/O；async startup 改用 SourceManager.sync_source_types_async，Core 采用时
+必须先交付对应 catalog 能力，再迁移 Host，其余 Source 内部工作仍按 06 执行。
+
+SDK 发布工作流只在 main 执行；Agent 不得合并 PR。完成上游 PR 后等待外部合并及正式 artifact，
+Core 的正式依赖只采用已交付 artifact，不改成临时本地 wheel URL，不跳过本步骤继续 06。
 
 ## 06 迁移 Source／Sink 与 Job／Cron 事务组合
 

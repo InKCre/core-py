@@ -85,3 +85,9 @@ octet-stream。Protocol/source extension 自己拥有 declared MIME、HTTP MIME�
 
 默认 `get_existing()` 仍按 `resolver + content` 查重。改变它会改变 block identity，不是 resolver-local cleanup；
 必须回到 owning source/unit 的 exact identity contract，禁止用 fuzzy content/time match 偷换。
+
+## 异步迁移边界
+
+`get_transfer_url()` 需要读取 storage catalog，因此现在必须 await。具体 Storage 的 URL 格式化仍是
+普通函数。`get_existing_async(blocks)` 通过绑定事务的 BlockRepository 查询精确身份，不接受 raw
+session，也不自行提交；旧 get_existing(session) 仅供未迁移的 Stars 消费者，最终删除。

@@ -16,43 +16,43 @@ ROUTER = fastapi.APIRouter(tags=["agent"])
 
 
 @ROUTER.get("/agents")
-def list_agents(
+async def list_agents(
   limit: int | None = fastapi.Query(None, gt=0), cursor: int | None = None
 ) -> dict[str, typing.Any]:
-  rows, next_cursor = AgentManager.list_definitions(limit=limit, cursor=cursor)
+  rows, next_cursor = await AgentManager.list_definitions(limit=limit, cursor=cursor)
   return {"agents": rows, "next_cursor": next_cursor}
 
 
 @ROUTER.get("/agents/{agent_id}")
-def get_agent(agent_id: int) -> AgentDefinitionModel:
-  result = AgentManager.get_definition(agent_id)
+async def get_agent(agent_id: int) -> AgentDefinitionModel:
+  result = await AgentManager.get_definition(agent_id)
   if result is None:
     raise fastapi.HTTPException(404, f"Agent {agent_id} not found")
   return result
 
 
 @ROUTER.post("/agents", status_code=201)
-def create_agent(
+async def create_agent(
   body: AgentForm, request: fastapi.Request, response: fastapi.Response
 ) -> AgentDefinitionModel:
   with database_write():
-    result = AgentManager.create_definition(body)
+    result = await AgentManager.create_definition(body)
   response.headers["Location"] = str(request.url_for("get_agent", agent_id=result.id))
   return result
 
 
 @ROUTER.patch("/agents/{agent_id}")
-def update_agent(agent_id: int, body: AgentUpdateForm) -> AgentDefinitionModel:
+async def update_agent(agent_id: int, body: AgentUpdateForm) -> AgentDefinitionModel:
   try:
     with database_write(), request_input():
-      return AgentManager.update_definition(agent_id, body)
+      return await AgentManager.update_definition(agent_id, body)
   except AgentNotFoundError as error:
     raise fastapi.HTTPException(404, str(error)) from error
 
 
 @ROUTER.delete("/agents/{agent_id}", status_code=204)
-def delete_agent(agent_id: int) -> None:
-  if not AgentManager.delete_definition(agent_id):
+async def delete_agent(agent_id: int) -> None:
+  if not await AgentManager.delete_definition(agent_id):
     raise fastapi.HTTPException(404, f"Agent {agent_id} not found")
 
 

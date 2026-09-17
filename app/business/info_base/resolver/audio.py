@@ -9,7 +9,7 @@ import av
 from av.stream import Disposition
 import pydantic
 
-from app.business.deployment_config import DeploymentConfigManager
+from app.business.deployment_config import DeploymentConfigManager, DeploymentConfigService
 from app.schemas.ai import AudioContentPart
 
 from .contracts import (
@@ -131,7 +131,7 @@ class AudioResolver(
     if materialize_missing:
       config = typing.cast(
         AudioResolverConfig | None,
-        DeploymentConfigManager.get(AUDIO_RESOLVER_CONFIG_KEY),
+        await DeploymentConfigService.get(AUDIO_RESOLVER_CONFIG_KEY),
       )
       if config is not None:
         media_type = solved.detected_media_type or (
@@ -149,7 +149,7 @@ class AudioResolver(
             media=AudioContentPart(
               data=solved.content,
               mime_type=media_type,
-              transfer_url=self.get_transfer_url(),
+              transfer_url=await self.get_transfer_url(),
             ),
           )
     return format_lexical_facts(

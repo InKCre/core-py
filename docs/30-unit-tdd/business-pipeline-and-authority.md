@@ -57,6 +57,35 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
 - persistence helper 的 transaction 边界不自动成为产品级 graph-completeness guarantee；具体 command
   的 primary effect、partial result 与 cleanup 语义由 owning unit 声明。
 
+### 数据库事务边界（迁移中）
+
+`/graph` 使用 `info_base.commands.submit_graph`：应用用例打开 `graph_uow()`，原生 SQLAlchemy
+作用域在成功退出时提交、失败时回滚并关闭 session。`persist_graph(graph, uow)` 和
+`persist_stars(graph, uow)` 是供组合用例调用的事务内操作，不结束事务。GraphUnitOfWork 中的
+BlockRepository、RelationRepository 和 StorageRepository 绑定同一个 session，因此图和 blob 可以
+共同提交或回滚。repository 只执行 SQL 及必要的 flush，不创建 session，不提交或回滚。
+
+Graph 的负 local ID 只用于结果映射，不能作为数据库 ID 写入。flat graph 批量 flush 不承诺固定的
+数据库网络往返次数；Stars 则保留每个 Resolver 的精确身份协调。`get_existing_async(blocks)` 接收
+绑定事务的 BlockRepository，默认匹配 resolver/content；GitHub 按 node_id 匹配并拒绝歧义。
+
+BlockService 和 RelationService 提供独立异步 CRUD；HTTP 批量实体查询在一个短 scope 中完成，随后
+才加载内容。Resolver 的 storage catalog、relation、配置读取和派生写入已异步化。materialization 在
+AI 调用前释放读取 scope，返回后重新检查已有派生，再在一个 scope 中插入图。该检查保持原有 best-effort
+语义，不构成跨并发调用的唯一性承诺。
+
+配置 HTTP 使用 DeploymentConfigService，AI、Agent 定义和 Peer 的已迁移入口各自使用所属 UoW。
+AI provider 调用和 Peer outbound 执行前结束数据库作用域；Peer 的内存 capability 注册仍是同步函数。
+`app/engine.py` 是异步 factory 的 authority，lifespan 在业务运行资源退出后 dispose 异步 engine。
+UoW 不跨并发任务共享。新应用操作不接受可选 session；共同原子提交必须组合事务内操作，而不调用
+独立提交入口。`expire_on_commit=False` 允许已提交的已加载字段在 scope 外读取，不授权隐式延迟查询。
+
+迁移尚未完成。旧 InfoBaseManager、BlockManager、RelationManager、Storage 的 caller-session API
+仍供 Source、扩展采集、检索及 organization 的旧用例使用；旧配置和 eligibility 查询也保留到其消费者
+迁移。新路径不得调用这些入口，不得把同步 session 传进异步 UoW。迁移清单拥有临时消费者与删除步骤；
+最终删除旧 API，不把双轨当作长期接口。`pdm run lint:database-boundaries` 已约束新 persistence 模块
+和 Graph 应用层的同步 factory/import 使用；事务方法与全 runtime 的结构治理在后续收敛阶段完成。
+
 ### 4. Resolver And Storage Form The Interpretation Boundary
 
 - block hydration 负责隐藏 inline content / opaque storage pointer 分支。

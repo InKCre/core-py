@@ -90,11 +90,15 @@ class RelationManager:
     """Project one directed dynamic property through Block-local endpoint labels."""
     if not relation.content.strip():
       return None
-    from app.schemas.info_base.block import BlockModel
+    from .uow import graph_uow
 
-    with SessionLocal() as db_session:
-      from_block = db_session.get(BlockModel, relation.from_)
-      to_block = db_session.get(BlockModel, relation.to_)
+    async with graph_uow() as uow:
+      endpoints = {
+        block.id: block
+        for block in await uow.blocks.get_many((relation.from_, relation.to_))
+      }
+    from_block = endpoints.get(relation.from_)
+    to_block = endpoints.get(relation.to_)
     if from_block is None or to_block is None:
       return None
 

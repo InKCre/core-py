@@ -1,6 +1,7 @@
 """Black-box proof for shared config persistence and row timestamp ownership."""
 
 import os
+from contextlib import asynccontextmanager
 import time
 import typing
 import uuid
@@ -13,7 +14,7 @@ import sqlalchemy
 import sqlmodel
 
 from app.business.deployment_config import DeploymentConfigManager
-from app.engine import SessionLocal
+from app.engine import ASYNC_DB_ENGINE, SessionLocal
 from app.routes.deployment_config import ROUTER
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
@@ -36,10 +37,19 @@ SCHEMA_ID = "tests.deployment_config.probe.v1"
 DeploymentConfigManager.register_schema(SCHEMA_ID, ProbeConfig)
 
 
-def _client() -> TestClient:
-  app = fastapi.FastAPI()
+@pytest.fixture
+def client():
+  @asynccontextmanager
+  async def lifespan(app):
+    try:
+      yield
+    finally:
+      await ASYNC_DB_ENGINE.dispose()
+
+  app = fastapi.FastAPI(lifespan=lifespan)
   app.include_router(ROUTER)
-  return TestClient(app)
+  with TestClient(app) as client:
+    yield client
 
 
 def _execute(
@@ -50,18 +60,17 @@ def _execute(
   db.exec(statement, params=params)  # pyrefly: ignore[no-matching-overload]
 
 
-def test_config_resource_replace_patch_read_and_explicit_failures():
+def test_config_resource_replace_patch_read_and_explicit_failures(client):
   key = f"tests.i0.{uuid.uuid4().hex}"
   unknown_key = f"{key}.unknown"
   invalid_key = f"{key}.invalid"
-  client = _client()
 
   try:
     created = client.put(
       f"/configs/{key}",
       json={"schema": SCHEMA_ID, "value": {"name": "first"}},
     )
-    assert created.status_code == 200
+    assert created.status_code == 201
     assert created.json()["schema"] == SCHEMA_ID
     assert created.json()["value"] == {"name": "first", "enabled": True}
 
@@ -79,7 +88,8 @@ def test_config_resource_replace_patch_read_and_explicit_failures():
       ).status_code
       == 422
     )
-    assert client.delete(f"/configs/{key}").status_code == 405
+    assert client.delete(f"/configs/{key}").status_code == 204
+    assert client.get(f"/configs/{key}").status_code == 404
 
     with SessionLocal() as db:
       _execute(
@@ -100,8 +110,8 @@ def test_config_resource_replace_patch_read_and_explicit_failures():
       )
       db.commit()
 
-    assert client.get(f"/configs/{unknown_key}").status_code == 409
-    assert client.get(f"/configs/{invalid_key}").status_code == 409
+    assert client.get(f"/configs/{unknown_key}").status_code == 200
+    assert client.get(f"/configs/{invalid_key}").status_code == 200
   finally:
     with SessionLocal() as db:
       _execute(

@@ -452,7 +452,7 @@ class ExtensionHost:
         raise
       if persisted.version == running.version:
         if running.extension_class.peer_inbounds():
-          PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+          await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
         return persisted
 
       conflict = ExtensionStateConflictError(
@@ -487,7 +487,7 @@ class ExtensionHost:
       try:
         persisted = self.store.set_peer_enabled(name, peer_id, False)
         if published_peer_inbounds:
-          PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+          await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
         return persisted
       except Exception as persistence_error:
         if running is None:

@@ -24,6 +24,7 @@ SKIP_EXTENSION_START: bool = os.getenv("SKIP_EXTENSION_START", "").lower() in (
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.settings import settings
+from app.engine import ASYNC_DB_ENGINE
 from app.routes.block import ROUTER as block_router
 from app.routes.relation import ROUTER as relation_router
 from app.routes.extension import PEER_INBOUND as extension_peer_inbound
@@ -85,7 +86,7 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   from app.business.info_base.storage import StorageManager
 
   # Register this Peer first so extension enablement can resolve its identity.
-  PeerManager.register_self()
+  await PeerManager.register_self()
   PeerManager.setup_builtin_outbounds()
   PeerManager.register_inbound(semantic_retrieval_peer_inbound)
   PeerManager.register_inbound(lexical_retrieval_peer_inbound)
@@ -97,7 +98,7 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   register_core_organization_behaviors()
 
   # Setup built-in storage instances
-  StorageManager.setup_builtin_storages()
+  await StorageManager.setup_builtin_storages_async()
 
   if not SKIP_EXTENSION_START:
     await EXTENSION_HOST.start_enabled(app)
@@ -109,10 +110,10 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   JobManager.sync_job_types()
   JobManager.start()
 
-  AIManager.sync_dialects()
+  await AIManager.sync_dialects_async()
 
   # Publish only after every provider route and runtime-owned capability is ready.
-  PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+  await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
 
   if not scheduler.running:
     scheduler.start()
@@ -177,23 +178,27 @@ async def lifespan(app: fastapi.FastAPI):
   RUNTIME_STATUS.set(RuntimePhase.STARTING, "runtime_bootstrap_pending")
   bootstrap_task = asyncio.create_task(bootstrap_when_database_is_ready(app))
 
-  yield
-
-  logger.info("Application shutdown")
-  runtime_was_ready = RUNTIME_STATUS.ready
-  RUNTIME_STATUS.set(RuntimePhase.STOPPING, "application_shutdown")
-  bootstrap_task.cancel()
-  with contextlib.suppress(asyncio.CancelledError):
-    await bootstrap_task
-  if scheduler.running:
-    scheduler.pause()
-  await JobManager.shutdown()
-  await SinkManager.shutdown()
-  await EXTENSION_HOST.close_running()
-  if scheduler.running:
-    scheduler.shutdown(wait=True)
-  if runtime_was_ready:
-    await asyncio.to_thread(PeerManager.clear_self_lease)
+  try:
+    yield
+  finally:
+    try:
+      logger.info("Application shutdown")
+      runtime_was_ready = RUNTIME_STATUS.ready
+      RUNTIME_STATUS.set(RuntimePhase.STOPPING, "application_shutdown")
+      bootstrap_task.cancel()
+      with contextlib.suppress(asyncio.CancelledError):
+        await bootstrap_task
+      if scheduler.running:
+        scheduler.pause()
+      await JobManager.shutdown()
+      await SinkManager.shutdown()
+      await EXTENSION_HOST.close_running()
+      if scheduler.running:
+        scheduler.shutdown(wait=True)
+      if runtime_was_ready:
+        await PeerManager.clear_self_lease()
+    finally:
+      await ASYNC_DB_ENGINE.dispose()
 
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)

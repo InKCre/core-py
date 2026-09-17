@@ -91,7 +91,7 @@ class BlockModel(BlockForm, table=True):
     else:
       from app.business.info_base.storage import StorageManager
 
-      storage = StorageManager.get_storage(self.storage)
+      storage = await StorageManager.get_storage_async(self.storage)
       stored_content = await storage.get_raw_content(self.content)
       if not isinstance(stored_content, bytes):
         raise TypeError(

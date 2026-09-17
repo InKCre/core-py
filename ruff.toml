@@ -35,3 +35,16 @@ select = [
 
 [lint.pycodestyle]
 max-line-length = 92
+
+# Scope is selected by lint:database-boundaries during the runtime migration.
+[lint.flake8-tidy-imports.banned-api]
+"app.engine".msg = "应用操作和 repository 不能创建 session；通过 UoW 组合。"
+"sqlmodel.Session".msg = "已迁移数据库路径不能使用同步 session。"
+"sqlalchemy.orm.Session".msg = "已迁移数据库路径不能使用同步 session。"
+"sqlmodel.create_engine".msg = "Engine 只能由数据库基础设施创建。"
+"sqlalchemy.create_engine".msg = "Engine 只能由数据库基础设施创建。"
+"sqlalchemy.ext.asyncio.create_async_engine".msg = "Engine 只能由数据库基础设施创建。"
+"sqlalchemy.ext.asyncio.async_sessionmaker".msg = "Session factory 只能由数据库基础设施创建。"
+"app.business.info_base.block".msg = "已迁移路径使用 session-bound repository，不能调用旧同步 Manager。"
+"app.business.info_base.relation".msg = "已迁移路径使用 session-bound repository，不能调用旧同步 Manager。"
+"app.business.info_base.main".msg = "已迁移路径不能调用旧同步持久化入口。"

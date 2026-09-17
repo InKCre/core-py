@@ -65,3 +65,10 @@ Retired `-2/-3` catalog rows可能存在于历史数据库，但当前 code/prof
 - 新 storage 优先回答 pointer grammar、byte limit、read/write capability 和 deletion ownership；不要从 media kind
   派生 storage family。
 - S3/Nextcloud 等 future storage 复用同一 byte contract；source/application 只依赖 common create seam。
+
+## 异步迁移边界
+
+新路径通过 `StorageManager.get_storage_async()` 读取 catalog，读取 scope 结束后才执行外部下载。
+PostgreSQL bytes 使用 `read_content/create_content/update_content/delete_content` 和必填的
+StorageRepository；GraphUnitOfWork 使 bytes 与图处于同一事务。旧 `*_raw_content(..., session)`
+仅供尚未迁移的 Source／扩展消费者，禁止新增调用；待消费者迁移后删除。Pointer grammar 不变。
