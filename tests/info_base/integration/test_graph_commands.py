@@ -11,7 +11,7 @@ import psycopg.errors
 import sqlmodel
 
 from app.business.info_base.commands import persist_graph, submit_graph, submit_stars
-from app.business.info_base.uow import graph_uow
+from app.persistence.info_base.uow import graph_uow
 from app.business.info_base.resolver import register_core_resolvers
 from app.engine import SessionLocal
 from app.schemas.info_base.block import BlockForm, BlockModel

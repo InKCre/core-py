@@ -10,7 +10,7 @@ from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.relation import RelationCreateForm
 
-from .uow import GraphUnitOfWork, graph_uow
+from app.persistence.info_base.uow import GraphUnitOfWork, graph_uow
 
 
 async def persist_graph(graph: GraphForm, uow: GraphUnitOfWork) -> SubmitGraphResult:

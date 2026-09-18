@@ -2,7 +2,7 @@
 
 ## 目标与授权
 
-Sir 已授权全量数据库迁移及长期治理，并允许本任务自由提交、推送、创建 PR 和修改 ext-reg；明确禁止合并 PR。正式 SDK release 依赖上游 main 的既有自动流程，不能通过从任务分支发布绕过该边界。
+Sir 已授权全量数据库迁移及长期治理，并允许本任务自由提交、推送、创建 PR 和修改 ext-reg；此前禁止合并 PR；2026-09-18 单独批准合并 ext-reg #38，Core #105 仍不得合并。正式 SDK release 依赖上游 main 的既有自动流程，不能通过从任务分支发布绕过该边界。
 
 分支 `refactor/async-database-boundaries` 从 fetch 后 `origin/main`（`66ce59f`）建立，目录 `/Volumes/WorkSSD/Development/InKCre/.worktrees/core-py-async-database`。原 checkout 的其他任务修改未动。
 
@@ -26,7 +26,17 @@ Sir 已确认“短数据库工作作用域 + 用例事务 + session-bound repos
 
 上游 SDK PR 为 https://github.com/InKCre/ext-reg/pull/38（实现提交 `5fc4ad7`）。当前步骤 05 已获跨仓授权，在 ext-reg 的 `feat/runtime-async-persistence` worktree 实现 Runtime SDK 0.1.4 additive async capability。发现 publication 内 Source catalog 同样需要 async capability；已纳入 SDK 改动，Core 采用时先提供对应 catalog adapter，不等待步骤 06 才修补调用链。
 
-当前阻塞是实际 artifact 交付，而非提交／跨仓权限：ext-reg `.github/workflows/packages-release.yml` 只从 main 发布；Sir 禁止本 Agent 合并，所以完成上游 PR 后等待外部合并及正式 artifact。Core 仍锁定 0.1.3，不采用本地 wheel URL，不跳到 06。SDK 的独立 packet 仅拥有此上游 slice 的实现证据，父任务顺序仍由本计划拥有。
+ext-reg #38 已按新授权 squash 合并为 `09b6c84cc197bd7b92c959887d9b546ebec49eda`，
+正式发布 run 为 https://github.com/InKCre/ext-reg/actions/runs/35357534102。
+发布已成功，正式 runtime-core-py-v0.1.4 wheel/sdist 均指向上述 main SHA，
+artifact 阻塞已解除；下一步仍是步骤 05 的 Core 采用和 Host 迁移。
+SDK 的独立 packet 仅拥有此上游 slice 的实现证据，父任务顺序仍由本计划拥有。
+
+Sir 对已迁移切片的复核发现两项实际结构问题：repository 混入 business，entities route
+直接访问 UoW 内的 repository。已迁移到 app/persistence，并由 business 的
+get_entity_records 拥有批量查询作用域。Ruff 根配置目前不属于实际 monolith，但提前将
+数据库规则和迁移覆盖清单移入 ruff.database.toml，避免继续扩大逐文件命令和根配置。
+这些是步骤 05 前对 02–04 的纠偏，不是新的并行计划或全量迁移完成声明。
 
 Core 步骤 01–04 已提交为 `282f110` 并推送，draft PR 为 https://github.com/InKCre/core-py/pull/105，清楚标注整体未完成。后续长期治理与旧 API 删除属于步骤 10，目前 import lint 只约束已迁移范围。
 
@@ -54,3 +64,11 @@ SDK PR #38 在 `887232a` 的完整 Registry CI 与 dependency review 已通过�
 Portable runtime 验收暴露异步启动竞态：/livez 已 200、/readyz 暂为 503，随后日志显示 bootstrap
 完成。旧脚本只等待 liveness 后立即断言 readiness；现改为对 readiness 使用 30 秒的有界 retry，
 保持原有 readyz 响应和应用启动合同，不改成 liveness 即 ready。CI 使用真实镜像与 PostgreSQL 验证。
+
+
+## 2026-09-18 复核修正验证
+
+`pdm run check` 通过（14 passed、58 skipped）；本任务隔离 PostgreSQL 上五个既有集成文件
+13 passed；OpenAPI 无差异。Ruff 的 `--show-files` 确认独立配置仍覆盖全部八个原有目标，
+没有因目录迁移丢失检查范围。repository/UoW 为迁移文件和 import 更新，SQL 与事务 framing
+没有改写；entities 的两类批量查询仍在一个 scope 内完成，hydration 在其外。

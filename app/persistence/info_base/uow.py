@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from app.engine import AsyncSessionFactory
 
 from .repository import BlockRepository, RelationRepository
-from .storage.repository import StorageRepository
+from .storage import StorageRepository
 
 
 @dataclass(frozen=True)

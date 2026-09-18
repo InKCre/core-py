@@ -14,7 +14,7 @@ from app.schemas import AgentDefinitionModel
 from app.schemas.agent import AgentID, AgentForm, AgentUpdateForm
 from app.schemas.ai import FunctionTool, SystemMessage, UserMessage
 
-from .uow import agent_uow
+from app.persistence.agent.uow import agent_uow
 
 from .contracts import (
   AgentNotFoundError,

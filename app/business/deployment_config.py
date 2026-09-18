@@ -7,7 +7,7 @@ import pydantic
 import sqlalchemy.dialects.postgresql
 import sqlmodel
 
-from .deployment_config_uow import configuration_transaction
+from app.persistence.deployment_config.uow import configuration_transaction
 from app.configuration import ConfigContract
 from app.engine import SessionLocal
 from app.schemas.deployment_config import (

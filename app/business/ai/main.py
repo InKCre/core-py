@@ -31,7 +31,7 @@ from app.schemas.ai import (
 )
 from app.schemas.info_base.main import Vector
 
-from .uow import ai_uow
+from app.persistence.ai.uow import ai_uow
 
 from .contracts import (
   AICapabilityUnavailableError,

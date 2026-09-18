@@ -59,6 +59,13 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
 
 ### 数据库事务边界（迁移中）
 
+`app/business` 拥有应用用例、业务规则及事务组合；`app/persistence` 按业务责任分组，拥有
+session-bound repository 和 UoW 的数据库工厂实现。用例决定何时进入、退出作用域，UoW 工厂负责
+实际创建 session 和原生事务 framing。repository 不反向依赖 business。
+HTTP route 只解析请求并调用 business 入口，不直接查询 repository；例如 `get_entity_records`
+统一读取两类实体，route 在作用域结束后完成内容表示与 HTTP 响应映射。
+
+
 `/graph` 使用 `info_base.commands.submit_graph`：应用用例打开 `graph_uow()`，原生 SQLAlchemy
 作用域在成功退出时提交、失败时回滚并关闭 session。`persist_graph(graph, uow)` 和
 `persist_stars(graph, uow)` 是供组合用例调用的事务内操作，不结束事务。GraphUnitOfWork 中的
@@ -84,7 +91,8 @@ UoW 不跨并发任务共享。新应用操作不接受可选 session；共同�
 仍供 Source、扩展采集、检索及 organization 的旧用例使用；旧配置和 eligibility 查询也保留到其消费者
 迁移。新路径不得调用这些入口，不得把同步 session 传进异步 UoW。迁移清单拥有临时消费者与删除步骤；
 最终删除旧 API，不把双轨当作长期接口。`pdm run lint:database-boundaries` 已约束新 persistence 模块
-和 Graph 应用层的同步 factory/import 使用；事务方法与全 runtime 的结构治理在后续收敛阶段完成。
+和 Graph 应用层的同步 factory/import 使用，配置及暂时覆盖清单集中在
+`ruff.database.toml`，根 Ruff 配置只保留通用规则；事务方法与全 runtime 的结构治理在后续收敛阶段完成。
 
 ### 4. Resolver And Storage Form The Interpretation Boundary
 

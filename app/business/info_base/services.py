@@ -6,7 +6,7 @@ from app.schemas.info_base.block import BlockForm, BlockModel, BlockID, Resolver
 from app.schemas.info_base.relation import RelationModel, RelationID
 from app.schemas.info_base.storage import StorageID
 from utils.types_ import Undefined, _undefined
-from .uow import graph_uow
+from app.persistence.info_base.uow import graph_uow
 
 
 class BlockService:
@@ -139,3 +139,17 @@ class RelationService:
     async with graph_uow() as uow:
       result = await uow.relations.create(from_, to_, content)
     return result
+
+
+async def get_entity_records(
+  block_ids: typing.Collection[BlockID], relation_ids: typing.Collection[RelationID]
+) -> tuple[dict[BlockID, BlockModel], dict[RelationID, RelationModel]]:
+  """Read both entity kinds in one short scope before any content hydration."""
+  async with graph_uow() as uow:
+    blocks = await uow.blocks.get_many(block_ids)
+    relations = await uow.relations.get_many(relation_ids)
+  # Persisted rows always have primary keys; the shared model also permits new rows.
+  return (
+    {typing.cast(BlockID, block.id): block for block in blocks},
+    {typing.cast(RelationID, row.id): row for row in relations},
+  )

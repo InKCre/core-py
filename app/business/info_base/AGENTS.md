@@ -90,6 +90,6 @@
 ## 异步数据库边界（迁移中）
 
 - 新 Graph 应用入口位于 `commands.py`，事务内组合使用必填 `GraphUnitOfWork`，不能传 raw session。
-- `repository.py` 只接收 session 并执行查询／写入／flush，不允许创建 session 或 commit/rollback。
-- `uow.py` 拥有工厂组合，使用 SQLAlchemy 原生 framing，不跨 task 共享。
+- `app/persistence/info_base/repository.py` 只接收 session 并执行查询／写入／flush，不允许创建 session 或 commit/rollback。
+- `app/persistence/info_base/uow.py` 拥有工厂组合，使用 SQLAlchemy 原生 framing，不跨 task 共享。
 - 旧同步 API 仅用于尚未迁移消费者；新增 async 路径不得调用它们。完整职责见 Unit TDD 的数据库事务边界。

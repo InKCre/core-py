@@ -7,7 +7,7 @@ import typing
 import sqlmodel
 
 from app.business.info_base.resolver import Resolver, TextProjectionContext
-from app.business.info_base.repository import BlockRepository
+from app.persistence.info_base.repository import BlockRepository
 from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.main import InArcForm, OutArcForm, StarsGraphForm

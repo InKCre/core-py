@@ -3,7 +3,7 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from app.engine import AsyncSessionFactory
-from .deployment_config_persistence import DeploymentConfigRepository
+from .repository import DeploymentConfigRepository
 
 
 @asynccontextmanager

@@ -135,3 +135,12 @@ Benchmark 按需运行，保留使用说明和机器可读结果格式，不默�
 ## 已核对的原生能力
 
 SQLAlchemy 原生 async_sessionmaker.begin 已提供提交／回滚／关闭 framing，不自研事务管理器。psycopg dialect 支持同一 URL 的 async engine，无需新增 asyncpg；async session 不能跨 concurrent task 共享。参考 [Async ORM](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html) 与 [psycopg dialect](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#module-sqlalchemy.dialects.postgresql.psycopg)。`run_sync` 只适用于受支持的同步 SQLAlchemy 调用桥接，不会使任意同步 SDK／网络调用自动非阻塞，不作为最终边界替代品。
+
+
+## 2026-09-18 实现复核修正
+
+business 保持 service/应用用例定位，repository 及 UoW 工厂实现归 app/persistence，
+按领域分组。用例决定事务的业务范围，factory 负责 session 生命周期机制；
+route 不直接访问 UoW 中的 repository。此修正不改变已确认的事务语义。
+数据库 Ruff 规则和阶段性覆盖清单独立维护，最终治理仍在步骤 10 收敛，
+不把庞大逐文件命令或根配置例外表作为长期方案。

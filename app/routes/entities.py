@@ -4,7 +4,7 @@ import typing
 
 import fastapi
 
-from app.business.info_base.uow import graph_uow
+from app.business.info_base import get_entity_records
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.rest import EntitiesGetForm
 from libs.obsrv.main import get_logger
@@ -25,19 +25,10 @@ def relation_record(relation: RelationModel) -> dict[str, typing.Any]:
 async def get_entities(body: EntitiesGetForm) -> fastapi.Response:
   # Shared database faults remain request failures. Only a requested entity's
   # content read can fail independently after these batch record queries.
-  async with graph_uow() as uow:
-    blocks = {
-      block.id: block
-      for block in await uow.blocks.get_many(
-        [ref.id for ref in body.entities if ref.type == "block"]
-      )
-    }
-    relations = {
-      relation.id: relation
-      for relation in await uow.relations.get_many(
-        [ref.id for ref in body.entities if ref.type == "relation"]
-      )
-    }
+  blocks, relations = await get_entity_records(
+    [ref.id for ref in body.entities if ref.type == "block"],
+    [ref.id for ref in body.entities if ref.type == "relation"],
+  )
   results: list[dict[str, typing.Any]] = []
   for ref in body.entities:
     record = blocks.get(ref.id) if ref.type == "block" else relations.get(ref.id)

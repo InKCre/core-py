@@ -11,7 +11,7 @@ import sqlmodel
 import typing
 from typing import Optional as Opt
 from app.engine import SessionLocal
-from .repository import StorageRepository
+from app.persistence.info_base.storage import StorageRepository
 from app.database_contract.profile import BUILTIN_STORAGES, BUILTIN_STORAGE_TYPES_BY_ID
 from app.schemas.info_base.storage import (
   StorageID,
@@ -164,7 +164,7 @@ class StorageManager:
 
   @classmethod
   async def get_storage_async(cls, storage_id: StorageID) -> "Storage":
-    from ..uow import graph_uow
+    from app.persistence.info_base.uow import graph_uow
 
     async with graph_uow() as uow:
       record = await uow.storage.get(storage_id)
@@ -180,7 +180,7 @@ class StorageManager:
 
   @classmethod
   async def setup_builtin_storages_async(cls) -> None:
-    from ..uow import graph_uow
+    from app.persistence.info_base.uow import graph_uow
 
     records = []
     for storage_cls in cls._STORAGE_CLASSES.values():
@@ -278,7 +278,7 @@ class WritableStorage(Storage[ConfigTV, ContentTV], abc.ABC):
   """Storage capability for raw content owned by the current deployment."""
 
   async def get_raw_content(self, block_content: str) -> ContentTV:
-    from ..uow import graph_uow
+    from app.persistence.info_base.uow import graph_uow
 
     async with graph_uow() as uow:
       return await self.read_content(block_content, uow.storage)

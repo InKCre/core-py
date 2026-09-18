@@ -102,7 +102,7 @@ test = "python -m pytest -q"
 "build:extension-preview" = "python scripts/build_extension_preview.py {args}"
 "release:prepare" = "python scripts/release.py prepare {args}"
 "check:foundation" = { composite = ["doctor", "check:lock", "check:migrations", "check:automation"] }
-"lint:database-boundaries" = "ruff check --select TID251 app/business/info_base/commands.py app/business/info_base/repository.py app/business/ai/repository.py app/business/agent/repository.py app/business/peer/repository.py app/business/info_base/services.py app/business/info_base/storage/repository.py app/business/deployment_config_persistence.py"
+"lint:database-boundaries" = "ruff check --config ruff.database.toml ."
 "check" = { composite = ["check:foundation", "format:check", "lint", "lint:database-boundaries", "typecheck", "test"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"

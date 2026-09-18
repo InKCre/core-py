@@ -2,7 +2,7 @@
 
 ## 状态与执行规则
 
-Sir 已要求关闭设计阶段，转入实现计划及预演。本文件是唯一实现顺序；`design.md` 拥有已确认原则和设计理由，`packet.md` 只投影当前状态。Sir 已批准实现，设计与计划已提交为 `b379894`。Sir 随后明确允许提交、推送、创建 PR 和修改 ext-reg，禁止本 Agent 合并。正式 artifact 由已有 main 发布流程交付。
+Sir 已要求关闭设计阶段，转入实现计划及预演。本文件是唯一实现顺序；`design.md` 拥有已确认原则和设计理由，`packet.md` 只投影当前状态。Sir 已批准实现，设计与计划已提交为 `b379894`。Sir 随后明确允许提交、推送、创建 PR 和修改 ext-reg，仅批准本 Agent 合并 ext-reg #38，其他 PR 仍禁止合并。正式 artifact 由已有 main 发布流程交付。
 
 按 01 → 11 顺序执行，一次只有一个当前步骤；不另开并行 track 或重复计划。每步完成其当前范围的代码、调用方适配、必要文档和针对性验证后再推进。一个接口变为 async 时，在同一步适配它实际影响的所有调用点；文件目录不能切断调用链。后续步骤拥有业务内部迁移，前序步骤允许对这些文件做必要的接口适配。
 
@@ -79,7 +79,7 @@ config 投影，新 Host 只调用 async lifecycle。验证聚焦 typed state/co
 同步也被确认是数据库 I/O；async startup 改用 SourceManager.sync_source_types_async，Core 采用时
 必须先交付对应 catalog 能力，再迁移 Host，其余 Source 内部工作仍按 06 执行。
 
-SDK 发布工作流只在 main 执行；Agent 不得合并 PR。完成上游 PR 后等待外部合并及正式 artifact，
+SDK 发布工作流只在 main 执行；Sir 于 2026-09-18 单独批准合并 #38，现已合并为 09b6c84。等待正式 artifact，
 Core 的正式依赖只采用已交付 artifact，不改成临时本地 wheel URL，不跳过本步骤继续 06。
 
 ## 06 迁移 Source／Sink 与 Job／Cron 事务组合

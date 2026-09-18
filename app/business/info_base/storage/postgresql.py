@@ -7,7 +7,7 @@ import sqlmodel
 
 from app.schemas.info_base.storage import StorageBlobModel
 from .main import WritableStorage
-from .repository import StorageRepository
+from app.persistence.info_base.storage import StorageRepository
 
 
 class PostgreSQLBinaryStorageConfig(sqlmodel.SQLModel):

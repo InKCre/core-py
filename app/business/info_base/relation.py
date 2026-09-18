@@ -90,7 +90,7 @@ class RelationManager:
     """Project one directed dynamic property through Block-local endpoint labels."""
     if not relation.content.strip():
       return None
-    from .uow import graph_uow
+    from app.persistence.info_base.uow import graph_uow
 
     async with graph_uow() as uow:
       endpoints = {

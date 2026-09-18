@@ -14,7 +14,7 @@ from app.schemas.info_base.block import BlockForm, BlockID, ResolverType, BlockM
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageID
 
-from app.business.info_base.repository import BlockRepository
+from app.persistence.info_base.repository import BlockRepository
 
 from .contracts import (
   DuplicateResolverRegistrationError,

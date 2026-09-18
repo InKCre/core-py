@@ -34,7 +34,7 @@ from .contracts import (
   PeerRequestNotExecuted,
 )
 from .http import PeerHTTPOutbound
-from .uow import peer_uow
+from app.persistence.peer.uow import peer_uow
 
 
 logger = logging.getLogger(__name__)

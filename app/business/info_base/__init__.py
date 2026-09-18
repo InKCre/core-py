@@ -2,7 +2,7 @@ from .block import BlockManager
 from .relation import RelationManager
 from .main import InfoBaseManager
 from .commands import persist_graph, submit_graph, persist_stars, submit_stars
-from .services import BlockService, RelationService
+from .services import BlockService, RelationService, get_entity_records
 
 __all__ = [
   "BlockManager",
@@ -12,6 +12,7 @@ __all__ = [
   "submit_graph",
   "persist_stars",
   "submit_stars",
+  "get_entity_records",
   "BlockService",
   "RelationService",
 ]
