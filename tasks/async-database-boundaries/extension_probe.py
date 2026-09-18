@@ -8,7 +8,7 @@ import uuid
 import fastapi
 import httpx
 
-from app.business.extension import ExtensionBase, ExtensionHost
+from app.business.extension import ExtensionBase, ExtensionHost, PublicHTTPRoute
 from app.business.extension.state import ExtensionStateService
 from app.business.extension.runtime import ExtensionRuntimeClaim
 from app.business.peer import PeerManager
@@ -28,6 +28,10 @@ async def exercise():
     @classmethod
     def api_dependencies(cls):
       return []
+
+    @classmethod
+    def public_http_routes(cls):
+      return (PublicHTTPRoute(method="GET", path="/alive"),)
 
     @classmethod
     def _register_apis(cls, router):

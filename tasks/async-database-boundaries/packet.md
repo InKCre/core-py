@@ -100,3 +100,13 @@ Sir 已被请求单独授权合并 #39；此前授权仅限 #38。Core 仍采用
 
 本地完整 pdm check 通过（14 passed / 58 skipped），既有五个 PostgreSQL 文件 13 passed，
 OpenAPI 无差异，release intent 检查通过。本轮没有宣称 #105 可合并。
+
+
+## 步骤 05 完成与当前步骤（2026-09-18）
+
+Sir 已授权合并 ext-reg PR，不再限于 #38；Core #105 仍只推进到可合并状态。
+#39 已合并为 c7b529839e86cc3168c6c26ca991e4b476aa94a0，正式发布 run
+35361700563 成功。Core 锁定 SDK 0.1.5，wheel hash
+12d73c2757cc97a4137b6f326ee66ea6b289478f9d49e7a8244f736de124c71e 与 release 一致。
+Host PostgreSQL probe 已加入真实公开 route 声明并通过启停、取消、重启。
+步骤 05 的 artifact 阻塞解除，当前步骤为 06：Source → Sink → Job → Cron/scheduler。
