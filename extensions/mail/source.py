@@ -33,7 +33,7 @@ class MailSourceBindingError(RuntimeError):
   """A configured Source no longer points at its accepted access context."""
 
 
-def _mail_extension_default_exclusions() -> MailboxExclusionPolicy:
+async def _mail_extension_default_exclusions() -> MailboxExclusionPolicy:
   """Read current extension defaults without requiring a running API mount."""
   from app.business.extension import EXTENSION_HOST
   from . import Extension
@@ -42,7 +42,7 @@ def _mail_extension_default_exclusions() -> MailboxExclusionPolicy:
   if running is not None:
     extension_class = typing.cast(type[Extension], running.extension_class)
     return extension_class.config.default_excluded_mailboxes
-  persisted = EXTENSION_HOST.store.get("inkcre/mail")
+  persisted = await EXTENSION_HOST.store.get("inkcre/mail")
   config = Extension.validate_config({} if persisted is None else persisted.config)
   return config.default_excluded_mailboxes
 
@@ -56,7 +56,7 @@ class Source(
   """Collect Mail through one configured public protocol access context."""
 
   async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
-    source, setup = self._load_effective_source()
+    source, setup = await self._load_effective_source()
     state = MailSourceState.model_validate(source.state or {})
     diagnostics: list[dict[str, typing.Any]] = []
     counts = {"messages": 0, "flag_changes": 0, "removals": 0, "mailboxes": 0}
@@ -127,7 +127,7 @@ class Source(
 
   async def backfill(self, job: JobModel, config: pydantic.BaseModel) -> None:
     interval = typing.cast(MailBackfillConfig, config)
-    _source, setup = self._load_effective_source()
+    _source, setup = await self._load_effective_source()
     state = MailSourceState.model_validate(self.get_state())
     diagnostics: list[dict[str, typing.Any]] = []
     count = 0
@@ -176,21 +176,27 @@ class Source(
           )
     job.state["messages"] = count
 
-  def _load_effective_source(self) -> tuple[SourceModel, MailSourceConfig]:
-    """Materialize extension exclusions once when the Source still inherits them."""
-    with SessionLocal() as db:
-      source = db.exec(
-        sqlmodel.select(SourceModel).where(SourceModel.id == self._id).with_for_update()
-      ).one()
+  async def _load_effective_source(self) -> tuple[SourceModel, MailSourceConfig]:
+    """Materialize inherited exclusions without retaining a DB scope across lookup."""
+    from app.persistence.source.uow import source_uow
+
+    async with source_uow() as repository:
+      source = await repository.get(self._id)
+      if source is None:
+        raise MailSourceBindingError("Mail Source no longer exists")
+      config = MailSourceConfig.model_validate(source.config)
+    if config.excluded_mailboxes is not None:
+      return source, config
+    defaults = await _mail_extension_default_exclusions()
+    async with source_uow() as repository:
+      source = await repository.get(self._id, lock=True)
+      if source is None:
+        raise MailSourceBindingError("Mail Source no longer exists")
       config = MailSourceConfig.model_validate(source.config)
       if config.excluded_mailboxes is None:
-        config = config.model_copy(
-          update={"excluded_mailboxes": _mail_extension_default_exclusions()}
-        )
+        config = config.model_copy(update={"excluded_mailboxes": defaults})
         source.config = config.model_dump(mode="json")
-        db.add(source)
-        db.commit()
-        db.refresh(source)
+        await repository.save(source)
       return source, config
 
   @staticmethod

@@ -167,6 +167,30 @@ class SourceManager:
       db.commit()
 
   @classmethod
+  async def sync_source_types_async(
+    cls, source_classes: dict[str, type[SourceBase]] | None = None
+  ) -> None:
+    from app.persistence.source.uow import source_uow
+
+    registered = cls._SOURCE_CLASSES if source_classes is None else source_classes
+    rows = [
+      dict(
+        id=source_type,
+        description=source_cls.__doc__ or "No description.",
+        config_schema=source_cls.__configschema__,
+        collect_config_schema=source_cls.__collectconfigcls__.model_json_schema(),
+        backfill_config_schema=(
+          None
+          if source_cls.__backfillconfigcls__ is None
+          else source_cls.__backfillconfigcls__.model_json_schema()
+        ),
+      )
+      for source_type, source_cls in registered.items()
+    ]
+    async with source_uow() as repository:
+      await repository.sync_types(rows)
+
+  @classmethod
   def has_source_type(cls, source_type: str) -> bool:
     return source_type in cls._SOURCE_CLASSES
 

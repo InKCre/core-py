@@ -26,7 +26,7 @@ import app.business.source.job as source_job_module
 import app.business.source.main as source_module
 from app.business.cron import CronManager
 from app.business.extension.errors import ExtensionStateConflictError
-from app.business.extension.state import SQLExtensionStore
+from app.business.extension.state import ExtensionStateService
 from app.business.job import JobManager
 from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
 from app.schemas.cron import CronForm
@@ -385,17 +385,19 @@ def test_internal_guard_is_not_in_the_postgrest_protocol_schema(rpc_database):
   ]
 
 
-def test_concurrent_first_install_returns_semantic_conflict(rpc_database):
+def test_concurrent_first_install_returns_semantic_conflict(rpc_database, monkeypatch):
   name = "inkcre/concurrent"
   database_url = (
     f"postgresql+psycopg://127.0.0.1:{rpc_database['port']}/{rpc_database['dbname']}"
   )
-  engine = sqlalchemy.create_engine(database_url)
+  import asyncio
+  from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+  from app.persistence.extension import uow
 
-  def make_session() -> sqlmodel.Session:
-    return sqlmodel.Session(engine)
-
-  store = SQLExtensionStore(make_session)
+  engine = create_async_engine(database_url)
+  monkeypatch.setattr(uow, "AsyncSessionFactory", async_sessionmaker(engine))
+  store = ExtensionStateService()
+  runner = asyncio.Runner()
   with psycopg.connect(**rpc_database) as first:
     first.execute(
       "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
@@ -407,12 +409,13 @@ def test_concurrent_first_install_returns_semantic_conflict(rpc_database):
       (name,),
     )
     with pytest.raises(ExtensionStateConflictError, match="already in progress"):
-      store.install(name, "2.0.0", "Second")
+      runner.run(store.install(name, "2.0.0", "Second"))
     first.commit()
 
-  state = store.install(name, "1.0.0", "First")
+  state = runner.run(store.install(name, "1.0.0", "First"))
   assert state.version == "1.0.0"
-  engine.dispose()
+  runner.run(engine.dispose())
+  runner.close()
 
 
 def test_setup_source_and_cron_use_simple_core_owned_operations(

@@ -130,8 +130,8 @@ def _extension():
   return Extension
 
 
-def _state() -> TwitterExtensionState:
-  return typing.cast(TwitterExtensionState, _extension().get_state())
+async def _state() -> TwitterExtensionState:
+  return typing.cast(TwitterExtensionState, await _extension().get_state_async())
 
 
 def _config() -> TwitterExtensionConfig:
@@ -145,9 +145,9 @@ def _fingerprint(config: TwitterExtensionConfig) -> str:
   return hashlib.sha256(material).hexdigest()
 
 
-def _redirect_uri() -> str:
+async def _redirect_uri() -> str:
   try:
-    base = PeerManager.get_current_config().http_public_base_url
+    base = (await PeerManager.get_current_config_async()).http_public_base_url
   except (RuntimeError, ValueError) as error:
     raise TwitterSetupError("Core Peer public HTTP URL is unavailable") from error
   if base is None:
@@ -222,10 +222,10 @@ def _invalidate_mismatched_oauth_state(
   return state, changed
 
 
-def _reconcile_oauth_state() -> TwitterExtensionState:
+async def _reconcile_oauth_state() -> TwitterExtensionState:
   """Reconcile direct deployment config writes before setup becomes reachable."""
   config = _config()
-  state = _state()
+  state = await _state()
   _, changed = _invalidate_mismatched_oauth_state(
     config,
     state.model_copy(deep=True),
@@ -246,13 +246,13 @@ def _reconcile_oauth_state() -> TwitterExtensionState:
     )
     return current_config, reconciled
 
-  _, reconciled = _extension().mutate_config_and_state(reconcile)
+  _, reconciled = await _extension().mutate_config_and_state_async(reconcile)
   return typing.cast(TwitterExtensionState, reconciled)
 
 
-def get_setup_status() -> TwitterSetupStatus:
+async def get_setup_status() -> TwitterSetupStatus:
   config = _config()
-  state = _reconcile_oauth_state()
+  state = await _reconcile_oauth_state()
   configured = bool(config.client_id and config.client_secret)
   account = state.account
   connected = (
@@ -262,7 +262,7 @@ def get_setup_status() -> TwitterSetupStatus:
     and account.app_fingerprint == _fingerprint(config)
   )
   return TwitterSetupStatus(
-    callback_url=_redirect_uri(),
+    callback_url=await _redirect_uri(),
     connected=connected,
     user_id=account.user_id if connected and account is not None else None,
     handle=account.handle if connected and account is not None else None,
@@ -271,9 +271,9 @@ def get_setup_status() -> TwitterSetupStatus:
   )
 
 
-def save_oauth_app(body: SaveOAuthAppRequest) -> TwitterSetupStatus:
+async def save_oauth_app(body: SaveOAuthAppRequest) -> TwitterSetupStatus:
   current_config = _config()
-  current_state = _state()
+  current_state = await _state()
   next_config = current_config.model_copy(
     update={
       "backend": "official",
@@ -320,18 +320,18 @@ def save_oauth_app(body: SaveOAuthAppRequest) -> TwitterSetupStatus:
       )
     return next_config, state
 
-  _extension().mutate_config_and_state(update)
-  return get_setup_status()
+  await _extension().mutate_config_and_state_async(update)
+  return await get_setup_status()
 
 
-def begin_oauth() -> OAuthTransactionView:
+async def begin_oauth() -> OAuthTransactionView:
   config = _config()
   if config.backend != "official" or not config.client_id or not config.client_secret:
     raise TwitterSetupConflict("Configure the Twitter OAuth App first")
   transaction_id = str(uuid.uuid4())
   provider_state = secrets.token_urlsafe(32)
   verifier, challenge = _pkce_pair()
-  redirect_uri = _redirect_uri()
+  redirect_uri = await _redirect_uri()
   now = _now()
   transaction = OAuthTransaction(
     status="pending",
@@ -360,7 +360,7 @@ def begin_oauth() -> OAuthTransactionView:
     state.oauth_transactions = dict(ordered)
     return state
 
-  _extension().mutate_state(update)
+  await _extension().mutate_state_async(update)
   client = OAuth2Client(
     client_id=config.client_id,
     client_secret=config.client_secret,
@@ -382,8 +382,8 @@ def begin_oauth() -> OAuthTransactionView:
   return _transaction_view(transaction_id, transaction, authorize_url=authorize_url)
 
 
-def get_oauth_transaction(transaction_id: str) -> OAuthTransactionView:
-  transaction = _state().oauth_transactions.get(transaction_id)
+async def get_oauth_transaction(transaction_id: str) -> OAuthTransactionView:
+  transaction = (await _state()).oauth_transactions.get(transaction_id)
   if transaction is None:
     raise TwitterSetupError("OAuth transaction not found")
   if transaction.status in {"pending", "exchanging"} and transaction.expires_at <= _now():
@@ -397,7 +397,9 @@ def get_oauth_transaction(transaction_id: str) -> OAuthTransactionView:
         )
       return state
 
-    state = typing.cast(TwitterExtensionState, _extension().mutate_state(expire))
+    state = typing.cast(
+      TwitterExtensionState, await _extension().mutate_state_async(expire)
+    )
     transaction = state.oauth_transactions[transaction_id]
   return _transaction_view(transaction_id, transaction)
 
@@ -471,7 +473,7 @@ async def _exchange_code(
     await typing.cast(httpx.AsyncClient, client).aclose()
 
 
-def _claim_callback(provider_state: str) -> tuple[str, OAuthTransaction]:
+async def _claim_callback(provider_state: str) -> tuple[str, OAuthTransaction]:
   box: dict[str, typing.Any] = {}
 
   def claim(model: pydantic.BaseModel) -> pydantic.BaseModel:
@@ -496,11 +498,11 @@ def _claim_callback(provider_state: str) -> tuple[str, OAuthTransaction]:
     )
     return state
 
-  _extension().mutate_state(claim)
+  await _extension().mutate_state_async(claim)
   return typing.cast(str, box["id"]), typing.cast(OAuthTransaction, box["transaction"])
 
 
-def _finish_callback(
+async def _finish_callback(
   transaction_id: str,
   transaction: OAuthTransaction,
   *,
@@ -526,7 +528,7 @@ def _finish_callback(
       state.oauth_transactions[transaction_id] = _terminal(current, "succeeded")
     return state
 
-  _extension().mutate_state(finish)
+  await _extension().mutate_state_async(finish)
 
 
 def _callback_html(status_code: int, title: str, message: str) -> HTMLResponse:
@@ -552,14 +554,14 @@ async def oauth_callback(
   if not state:
     return _callback_html(400, "Twitter setup failed", "Missing OAuth state.")
   try:
-    transaction_id, transaction = _claim_callback(state)
+    transaction_id, transaction = await _claim_callback(state)
     if error:
       message = (
         "Twitter authorization was declined"
         if error == "access_denied"
         else "Twitter returned an authorization error"
       )
-      _finish_callback(transaction_id, transaction, error=message)
+      await _finish_callback(transaction_id, transaction, error=message)
       return _callback_html(400, "Twitter setup declined", message)
     if not code:
       raise TwitterSetupConflict("Missing authorization code")
@@ -578,12 +580,12 @@ async def oauth_callback(
       authorization_id=str(uuid.uuid4()),
       connected_at=_now(),
     )
-    _finish_callback(transaction_id, transaction, account=account)
+    await _finish_callback(transaction_id, transaction, account=account)
   except TwitterSetupConflict as failure:
     message = _bounded_provider_error(failure)
     try:
       if transaction_id is not None and transaction is not None:
-        _finish_callback(transaction_id, transaction, error=message)
+        await _finish_callback(transaction_id, transaction, error=message)
     except TwitterSetupError:
       pass
     return _callback_html(400, "Twitter setup failed", message)
@@ -591,14 +593,14 @@ async def oauth_callback(
     message = _bounded_provider_error(failure)
     try:
       if transaction_id is not None and transaction is not None:
-        _finish_callback(transaction_id, transaction, error=message)
+        await _finish_callback(transaction_id, transaction, error=message)
     except TwitterSetupError:
       pass
     return _callback_html(502, "Twitter is unavailable", message)
   return _callback_html(200, "Twitter connected", "Authorization completed successfully.")
 
 
-def disconnect_account() -> TwitterSetupStatus:
+async def disconnect_account() -> TwitterSetupStatus:
   def disconnect(model: pydantic.BaseModel) -> pydantic.BaseModel:
     state = typing.cast(TwitterExtensionState, model)
     state.account = None
@@ -610,8 +612,8 @@ def disconnect_account() -> TwitterSetupStatus:
     }
     return state
 
-  _extension().mutate_state(disconnect)
-  return get_setup_status()
+  await _extension().mutate_state_async(disconnect)
+  return await get_setup_status()
 
 
 def _http_error(error: TwitterSetupError) -> typing.NoReturn:
@@ -630,35 +632,35 @@ def register_setup_routes(router: fastapi.APIRouter) -> None:
   @protected.get("/setup", response_model=TwitterSetupStatus)
   async def setup_status():
     try:
-      return get_setup_status()
+      return await get_setup_status()
     except TwitterSetupError as failure:
       _http_error(failure)
 
   @protected.put("/setup/oauth-app", response_model=TwitterSetupStatus)
   async def configure_oauth_app(body: SaveOAuthAppRequest):
     try:
-      return save_oauth_app(body)
+      return await save_oauth_app(body)
     except TwitterSetupError as failure:
       _http_error(failure)
 
   @protected.post("/setup/oauth-transactions", response_model=OAuthTransactionView)
   async def create_oauth_transaction():
     try:
-      return begin_oauth()
+      return await begin_oauth()
     except TwitterSetupError as failure:
       _http_error(failure)
 
   @protected.post("/setup/oauth-transaction", response_model=OAuthTransactionView)
   async def read_oauth_transaction(body: OAuthTransactionRequest):
     try:
-      return get_oauth_transaction(body.transaction_id)
+      return await get_oauth_transaction(body.transaction_id)
     except TwitterSetupError as failure:
       _http_error(failure)
 
   @protected.delete("/setup/account", response_model=TwitterSetupStatus)
   async def delete_account():
     try:
-      return disconnect_account()
+      return await disconnect_account()
     except TwitterSetupError as failure:
       _http_error(failure)
 

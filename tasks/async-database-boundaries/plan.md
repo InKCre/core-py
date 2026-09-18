@@ -82,6 +82,9 @@ config 投影，新 Host 只调用 async lifecycle。验证聚焦 typed state/co
 SDK 发布工作流只在 main 执行；Sir 于 2026-09-18 单独批准合并 #38，现已合并为 09b6c84。等待正式 artifact，
 Core 的正式依赖只采用已交付 artifact，不改成临时本地 wheel URL，不跳过本步骤继续 06。
 
+采用 0.1.4 时，public callback 验收被既有 FastAPI 嵌套路由识别缺陷阻挡；
+ext-reg #39 已准备 0.1.5 修复并通过完整 CI，待单独合并授权及正式发布后完成步骤 05。
+
 ## 06 迁移 Source／Sink 与 Job／Cron 事务组合
 
 顺序为 Source 配置和持久化能力 → Sink 持久化能力 → Job 创建／校验／claim／close → Source JobHandler → Cron occurrence → scheduler 注册。Handler 及其他 Job 类型涉及 DB 的 normalize/can_handle 接口与调用方同一步适配；无数据库 I/O 的校验仍保持同步。

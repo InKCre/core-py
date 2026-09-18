@@ -87,6 +87,11 @@ AI provider 调用和 Peer outbound 执行前结束数据库作用域；Peer 的
 UoW 不跨并发任务共享。新应用操作不接受可选 session；共同原子提交必须组合事务内操作，而不调用
 独立提交入口。`expire_on_commit=False` 允许已提交的已加载字段在 scope 外读取，不授权隐式延迟查询。
 
+ExtensionStateService 与 Host 的数据库操作已异步化，state/config transform 在行锁内同步执行，
+SQL 位于 app/persistence/extension；Source catalog 批量同步提供 SDK async startup 所需能力。
+启用／停用的持久化失败补偿和启动取消清理属于 Host；Peer 广播失败不撤销已提交的 disabled 状态。
+Registry origin 查询结束后才执行网络／wheel 获取。旧同步 Host 合同通过 Host 0.2 窗口隔离。
+
 迁移尚未完成。旧 InfoBaseManager、BlockManager、RelationManager、Storage 的 caller-session API
 仍供 Source、扩展采集、检索及 organization 的旧用例使用；旧配置和 eligibility 查询也保留到其消费者
 迁移。新路径不得调用这些入口，不得把同步 session 传进异步 UoW。迁移清单拥有临时消费者与删除步骤；

@@ -29,7 +29,7 @@ Sir 已确认“短数据库工作作用域 + 用例事务 + session-bound repos
 ext-reg #38 已按新授权 squash 合并为 `09b6c84cc197bd7b92c959887d9b546ebec49eda`，
 正式发布 run 为 https://github.com/InKCre/ext-reg/actions/runs/35357534102。
 发布已成功，正式 runtime-core-py-v0.1.4 wheel/sdist 均指向上述 main SHA，
-artifact 阻塞已解除；下一步仍是步骤 05 的 Core 采用和 Host 迁移。
+artifact 阻塞已解除；Core 已采用正式 0.1.4，并实现步骤 05 的 Host/Store/active model 异步调用链。
 SDK 的独立 packet 仅拥有此上游 slice 的实现证据，父任务顺序仍由本计划拥有。
 
 Sir 对已迁移切片的复核发现两项实际结构问题：repository 混入 business，entities route
@@ -72,3 +72,31 @@ Portable runtime 验收暴露异步启动竞态：/livez 已 200、/readyz 暂�
 13 passed；OpenAPI 无差异。Ruff 的 `--show-files` 确认独立配置仍覆盖全部八个原有目标，
 没有因目录迁移丢失检查范围。repository/UoW 为迁移文件和 import 更新，SQL 与事务 framing
 没有改写；entities 的两类批量查询仍在一个 scope 内完成，hydration 在其外。
+
+
+## 步骤 05 的采用与验收（2026-09-18）
+
+Core 锁定正式 SDK 0.1.4 wheel，hash 与 main release asset 一致。ExtensionStateService 拥有短事务
+和配置／状态规则，app/persistence/extension 拥有 session-bound SQL 与工厂。Host/route 全部 await，
+Registry origin 的数据库读取结束后才进入 worker 执行既有 Registry HTTP 和 artifact 获取。
+Source catalog 先提供 async batch upsert；完整 Source 用例仍属步骤 06。Twitter 的 state/config
+消费者、启动前 reconciliation 和 Mail 默认配置读取已随接口适配，其他采集 SQL 仍属步骤 07。
+
+已提前落实约定的 Host 0.2 窗口：app/version.py 为 0.2.0，七个 first-party producer 约束
+>=0.2.0 <0.3.0，各自提供 breaking release intent；不直接修改 immutable release version。
+旧 wheel 不会以放宽旧 metadata 的方式进入新 Host。正式 Core/Extension 发布仍须全量任务完成。
+
+真实隔离 PostgreSQL 的 extension_probe.py 验证八个并发 state mutation 无丢失更新、
+config/state transform 失败回滚、enabled RPC、启停路由、disable 持久化失败后的重启、
+startup schema await 取消后 claim/route 清理和重新启用。另发现并修正 disable 的补偿范围：
+RPC 已提交后的 Peer refresh 失败保持 disabled，不重启成与 durable intent 冲突的 runtime。
+
+既有 SDK public callback 缺陷在实际采用阶段成为阻塞。ext-reg #39
+https://github.com/InKCre/ext-reg/pull/39 已提交最小修复，完整 CI 通过，并用独立标准安装的
+SDK 0.1.5 wheel 在 FastAPI 0.139.2 验证；源码 FastAPI 0.141.1 也通过。修复使用官方
+iter_route_contexts，不遍历私有结构，维持 exact method/path 和 withdraw 语义。
+Sir 已被请求单独授权合并 #39；此前授权仅限 #38。Core 仍采用正式 0.1.4，不用本地 wheel。
+按唯一线性计划，必须待 0.1.5 正式交付、完成 callback 启用验收，才进入步骤 06。
+
+本地完整 pdm check 通过（14 passed / 58 skipped），既有五个 PostgreSQL 文件 13 passed，
+OpenAPI 无差异，release intent 检查通过。本轮没有宣称 #105 可合并。

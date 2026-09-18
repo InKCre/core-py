@@ -3,6 +3,9 @@ extend = "ruff.toml"
 include = [
   "app/persistence/**/repository.py",
   "app/persistence/info_base/storage.py",
+  "app/business/extension/state.py",
+  "app/business/extension/main.py",
+  "app/business/extension/config.py",
   "app/business/info_base/commands.py",
   "app/business/info_base/services.py",
 ]

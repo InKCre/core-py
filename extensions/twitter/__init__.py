@@ -62,10 +62,16 @@ class Extension(
       raise ExceptionGroup("Twitter Extension close failed", failures)
 
   @classmethod
-  def _register_apis(cls, router: APIRouter):
-    from .setup_flow import _reconcile_oauth_state, register_setup_routes
+  async def on_start_async(cls, app):
+    from .setup_flow import _reconcile_oauth_state
 
-    _reconcile_oauth_state()
+    await _reconcile_oauth_state()
+    await super().on_start_async(app)
+
+  @classmethod
+  def _register_apis(cls, router: APIRouter):
+    from .setup_flow import register_setup_routes
+
     register_setup_routes(router)
 
   @classmethod
@@ -84,7 +90,7 @@ class Extension(
     return (PublicHTTPRoute(method="GET", path="/auth/callback"),)
 
   @classmethod
-  def update_config(
+  async def update_config_async(
     cls,
     value: dict[str, typing.Any] | TwitterExtensionConfig,
   ) -> TwitterExtensionConfig:
@@ -106,5 +112,5 @@ class Extension(
         )
       return validated, state
 
-    config, _ = cls.mutate_config_and_state(update)
+    config, _ = await cls.mutate_config_and_state_async(update)
     return config

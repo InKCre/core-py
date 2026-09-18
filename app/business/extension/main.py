@@ -53,7 +53,7 @@ from .runtime import (
   ExtensionRuntimeClaim,
   ExtensionRuntimeClaimConflictError,
 )
-from .state import ExtensionStore, InstalledExtension, SQLExtensionStore
+from .state import ExtensionStore, InstalledExtension, ExtensionStateService
 
 
 LOGGER = get_logger().getChild(__name__)
@@ -74,19 +74,21 @@ class ExtensionBase(RuntimeExtensionBase, ext_id="_facade"):
     return cls
 
   @classmethod
-  def on_start(cls, app: typing.Any) -> None:
-    super().on_start(app)
+  async def on_start_async(cls, app: typing.Any) -> None:
+    await super().on_start_async(app)
     cls.config = cls.get_config()
 
   @classmethod
-  def update_config(cls, value: typing.Any) -> typing.Any:
-    config = super().update_config(value)
+  async def update_config_async(cls, value: typing.Any) -> typing.Any:
+    config = await super().update_config_async(value)
     cls.config = config
     return config
 
   @classmethod
-  def mutate_config_and_state(cls, transform: typing.Any) -> tuple[typing.Any, typing.Any]:
-    config, state = super().mutate_config_and_state(transform)
+  async def mutate_config_and_state_async(
+    cls, transform: typing.Any
+  ) -> tuple[typing.Any, typing.Any]:
+    config, state = await super().mutate_config_and_state_async(transform)
     cls.config = config
     return config, state
 
@@ -104,37 +106,44 @@ class _ActiveExtensionModel:
   store: ExtensionStore
   persist_schema: bool = True
 
-  def _refresh(self) -> _ActiveExtensionModel:
-    self.config = self.store.read_config(self.name)
+  async def _refresh_async(self) -> _ActiveExtensionModel:
+    self.config = await self.store.read_config(self.name)
     return self
 
-  def update_config(self, config: dict[str, typing.Any]) -> _ActiveExtensionModel:
-    self.store.update_config(self.name, config)
-    return self._refresh()
+  async def update_config_async(
+    self, config: dict[str, typing.Any]
+  ) -> _ActiveExtensionModel:
+    persisted = await self.store.update_config(self.name, config)
+    self.config = dict(persisted.config)
+    return self
 
-  def update_config_schema(self, schema: dict[str, typing.Any]) -> _ActiveExtensionModel:
-    if self.persist_schema:
-      self.store.update_config_schema(self.name, schema)
-    return self._refresh()
+  async def update_config_schema_async(
+    self, schema: dict[str, typing.Any]
+  ) -> _ActiveExtensionModel:
+    if not self.persist_schema:
+      return await self._refresh_async()
+    persisted = await self.store.update_config_schema(self.name, schema)
+    self.config = dict(persisted.config)
+    return self
 
-  def read_state(self) -> dict[str, typing.Any]:
-    return self.store.read_state(self.name)
+  async def read_state_async(self) -> dict[str, typing.Any]:
+    return await self.store.read_state(self.name)
 
-  def mutate_state(
+  async def mutate_state_async(
     self,
     transform: typing.Callable[[dict[str, typing.Any]], dict[str, typing.Any]],
   ) -> dict[str, typing.Any]:
-    return self.store.mutate_state(self.name, transform)
+    return await self.store.mutate_state(self.name, transform)
 
-  def mutate_config_and_state(
+  async def mutate_config_and_state_async(
     self,
     transform: typing.Callable[
       [dict[str, typing.Any], dict[str, typing.Any]],
       tuple[dict[str, typing.Any], dict[str, typing.Any]],
     ],
   ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
-    result = self.store.mutate_config_and_state(self.name, transform)
-    self._refresh()
+    result = await self.store.mutate_config_and_state(self.name, transform)
+    self.config = dict(result[0])
     return result
 
 
@@ -157,9 +166,9 @@ class ExtensionHost:
     store: ExtensionStore | None = None,
     release_client: ReleaseResolver | None = None,
     distribution_consumer: DistributionConsumer | None = None,
-    registry_origin_resolver: typing.Callable[[], str] | None = None,
+    registry_origin_resolver: typing.Callable[[], typing.Awaitable[str]] | None = None,
   ) -> None:
-    self.store = store or SQLExtensionStore()
+    self.store = store or ExtensionStateService()
     self.release_client = release_client
     self.distribution_consumer = distribution_consumer
     self.registry_origin_resolver = (
@@ -170,8 +179,8 @@ class ExtensionHost:
     self._loaded_versions: dict[str, str] = {}
     self._runtime_lock = asyncio.Lock()
 
-  def list(self) -> tuple[InstalledExtension, ...]:
-    return self.store.list()
+  async def list(self) -> tuple[InstalledExtension, ...]:
+    return await self.store.list()
 
   async def manage(
     self,
@@ -214,12 +223,12 @@ class ExtensionHost:
     if isinstance(command, DisableExtensionCommand):
       return await self.disable(command.extension)
     if isinstance(command, PatchExtensionConfigCommand):
-      return self.patch_config(command.extension, command.patch)
+      return await self.patch_config(command.extension, command.patch)
     typing.assert_never(command)
 
-  def get(self, name: str) -> InstalledExtension:
+  async def get(self, name: str) -> InstalledExtension:
     validate_coordinate(name)
-    state = self.store.get(name)
+    state = await self.store.get(name)
     if state is None:
       raise ExtensionNotInstalledError(f"{name} is not installed")
     return state
@@ -242,9 +251,9 @@ class ExtensionHost:
     association = require_python_association(release)
     return release, association
 
-  def install(self, name: str, version: str) -> InstalledExtension:
+  async def install(self, name: str, version: str) -> InstalledExtension:
     validate_coordinate(name, version)
-    existing = self.store.get(name)
+    existing = await self.store.get(name)
     if existing is not None and existing.version == version:
       return existing
     loaded_version = self._loaded_versions.get(name)
@@ -252,55 +261,56 @@ class ExtensionHost:
       raise ExtensionRestartRequiredError(
         f"{name} {loaded_version} was already imported; restart before installing {version}"
       )
-    release_client, _ = self._operation_consumers()
-    release, _ = self._resolve(
+    release_client, _ = await self._operation_consumers()
+    release, _ = await asyncio.to_thread(
+      self._resolve,
       name,
       version,
       allow_yanked=False,
       release_client=release_client,
     )
-    return self.store.install(name, version, release.nickname)
+    return await self.store.install(name, version, release.nickname)
 
-  def uninstall(self, name: str) -> None:
+  async def uninstall(self, name: str) -> None:
     validate_coordinate(name)
     if name in self.running:
       raise ExtensionStateConflictError(f"Cannot uninstall running Extension {name}")
-    self.store.uninstall(name)
+    await self.store.uninstall(name)
 
-  def update_config(
+  async def update_config(
     self,
     name: str,
     config: dict[str, typing.Any],
   ) -> InstalledExtension:
-    state = self.get(name)
+    state = await self.get(name)
     running = self.running.get(name)
     if running is None:
       if state.config_schema is not None:
         jsonschema.Draft202012Validator(state.config_schema).validate(config)
-      return self.store.update_config(name, config)
+      return await self.store.update_config(name, config)
     config_class = typing.cast(
       type[sqlmodel.SQLModel],
       getattr(running.extension_class, "__configcls__"),
     )
     validated = config_class(**config)
-    running.extension_class.update_config(validated)
-    return self.get(name)
+    await running.extension_class.update_config_async(validated)
+    return await self.get(name)
 
-  def patch_config(
+  async def patch_config(
     self,
     name: str,
     patch: dict[str, typing.Any],
   ) -> InstalledExtension:
     """Apply one shallow config patch through the canonical update path."""
-    current = self.get(name)
-    return self.update_config(name, {**current.config, **patch})
+    current = await self.get(name)
+    return await self.update_config(name, {**current.config, **patch})
 
-  def _operation_consumers(
+  async def _operation_consumers(
     self,
   ) -> tuple[ReleaseResolver, DistributionConsumer]:
     if self.release_client is not None and self.distribution_consumer is not None:
       return self.release_client, self.distribution_consumer
-    origin = self.registry_origin_resolver()
+    origin = await self.registry_origin_resolver()
     release_client = self.release_client or RegistryReleaseClient(
       origin,
       settings.extension_registry_timeout_seconds,
@@ -308,15 +318,16 @@ class ExtensionHost:
     distribution_consumer = self.distribution_consumer or PipDistributionConsumer(origin)
     return release_client, distribution_consumer
 
-  def _acquire(self, state: InstalledExtension):
-    release_client, distribution_consumer = self._operation_consumers()
-    release, association = self._resolve(
+  async def _acquire(self, state: InstalledExtension):
+    release_client, distribution_consumer = await self._operation_consumers()
+    release, association = await asyncio.to_thread(
+      self._resolve,
       state.name,
       state.version,
       allow_yanked=True,
       release_client=release_client,
     )
-    acquired = distribution_consumer.acquire(release, association)
+    acquired = await asyncio.to_thread(distribution_consumer.acquire, release, association)
     return association, acquired
 
   async def _start(
@@ -332,7 +343,7 @@ class ExtensionHost:
         )
       return existing
 
-    association, acquired = await asyncio.to_thread(self._acquire, state)
+    association, acquired = await self._acquire(state)
     return await self._start_acquired(app, state, association, acquired)
 
   async def _start_acquired(
@@ -369,9 +380,9 @@ class ExtensionHost:
           persist_schema=persist_schema,
         )
       )
-      extension_class.on_start(app)
+      await extension_class.on_start_async(app)
       modules.assert_origins()
-    except Exception:
+    except BaseException:
       if extension_class is not None:
         with contextlib.suppress(Exception):
           await extension_class.on_close()
@@ -436,16 +447,16 @@ class ExtensionHost:
     self.fastapi_app = runtime_app
     peer_id = PeerManager.get_current_peer_ref()
     async with self._runtime_lock:
-      state = self.get(name)
+      state = await self.get(name)
       running = await self._start(runtime_app, state)
       if peer_id in state.enabled:
         return state
       try:
-        persisted = self.store.set_peer_enabled(name, peer_id, True)
-      except Exception as persistence_error:
+        persisted = await self.store.set_peer_enabled(name, peer_id, True)
+      except BaseException as persistence_error:
         failures = await self._force_stop(running)
         if failures:
-          raise ExceptionGroup(
+          raise BaseExceptionGroup(
             "Enable persistence and runtime compensation failed",
             [persistence_error, *failures],
           ) from persistence_error
@@ -460,7 +471,7 @@ class ExtensionHost:
       )
       compensation_failures: list[Exception] = []
       try:
-        self.store.set_peer_enabled(name, peer_id, False)
+        await self.store.set_peer_enabled(name, peer_id, False)
       except Exception as error:
         compensation_failures.append(error)
       compensation_failures.extend(await self._force_stop(running))
@@ -475,7 +486,7 @@ class ExtensionHost:
     validate_coordinate(name)
     peer_id = PeerManager.get_current_peer_ref()
     async with self._runtime_lock:
-      state = self.get(name)
+      state = await self.get(name)
       if peer_id not in state.enabled:
         return state
       running = self.running.get(name)
@@ -485,11 +496,8 @@ class ExtensionHost:
       if running is not None:
         await self._stop(running)
       try:
-        persisted = self.store.set_peer_enabled(name, peer_id, False)
-        if published_peer_inbounds:
-          await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
-        return persisted
-      except Exception as persistence_error:
+        persisted = await self.store.set_peer_enabled(name, peer_id, False)
+      except BaseException as persistence_error:
         if running is None:
           raise
         runtime_app = self.fastapi_app
@@ -506,18 +514,21 @@ class ExtensionHost:
             persist_schema=False,
           )
         except Exception as restart_error:
-          raise ExceptionGroup(
+          raise BaseExceptionGroup(
             "Disable persistence and runtime restart failed",
             [persistence_error, restart_error],
           ) from persistence_error
         raise
+      if published_peer_inbounds:
+        await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+      return persisted
 
   async def start_enabled(self, app: fastapi.FastAPI) -> None:
     """Cold-restore exact enabled intent; failures never rewrite enabled[]."""
     self.fastapi_app = app
     peer_id = PeerManager.get_current_peer_ref()
     async with self._runtime_lock:
-      for state in self.store.list():
+      for state in await self.store.list():
         if peer_id not in state.enabled:
           continue
         try:

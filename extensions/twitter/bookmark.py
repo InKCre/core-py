@@ -104,7 +104,7 @@ class Source(
 
     page = job.state.get("page") if job.state else None
 
-    api_client = TwitterAPI.new()
+    api_client = await TwitterAPI.new()
     bookmarks_res = await api_client.get_bookmarks(page=page, max_results=result_limit)
 
     # find new tweets start point
