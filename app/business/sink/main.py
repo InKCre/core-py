@@ -4,11 +4,8 @@ import logging
 import typing
 
 import fastapi
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
-import sqlmodel
 
-from app.engine import SessionLocal
+from app.persistence.sink.uow import sink_uow
 from app.schemas.peer import PeerRef
 from app.schemas.sink import SinkID, SinkModel, SinkTypeID, SinkTypeModel
 
@@ -45,46 +42,38 @@ class SinkManager:
     cls._SINK_CLASSES[sink_cls.__sinktype__] = sink_cls
 
   @classmethod
-  def sync_sink_types(cls) -> None:
-    with SessionLocal() as db:
-      for sink_cls in cls._SINK_CLASSES.values():
-        statement = sqlalchemy.dialects.postgresql.insert(SinkTypeModel).values(
-          id=sink_cls.__sinktype__,
-          description=sink_cls.__doc__ or "No description.",
-          config_schema=sink_cls.__configschema__,
-        )
-        statement = statement.on_conflict_do_update(
-          index_elements=["id"],
-          set_={
-            "description": statement.excluded.description,
-            "config_schema": statement.excluded.config_schema,
-          },
-        )
-        db.exec(statement)  # type: ignore
-      db.commit()
-
-  @classmethod
-  def list_types(cls) -> tuple[SinkTypeModel, ...]:
-    with SessionLocal() as db:
-      return tuple(db.exec(sqlmodel.select(SinkTypeModel).order_by(SinkTypeModel.id)).all())
-
-  @classmethod
-  def list(cls) -> tuple[SinkModel, ...]:
-    with SessionLocal() as db:
-      return tuple(
-        db.exec(sqlmodel.select(SinkModel).order_by(sqlmodel.col(SinkModel.id))).all()
+  async def sync_sink_types(cls) -> None:
+    rows = [
+      dict(
+        id=sink_cls.__sinktype__,
+        description=sink_cls.__doc__ or "No description.",
+        config_schema=sink_cls.__configschema__,
       )
+      for sink_cls in cls._SINK_CLASSES.values()
+    ]
+    async with sink_uow() as repository:
+      await repository.sync_types(rows)
 
   @classmethod
-  def get(cls, sink_id: SinkID) -> SinkModel:
-    with SessionLocal() as db:
-      sink = db.get(SinkModel, sink_id)
+  async def list_types(cls) -> tuple[SinkTypeModel, ...]:
+    async with sink_uow() as repository:
+      return await repository.list_types()
+
+  @classmethod
+  async def list(cls) -> tuple[SinkModel, ...]:
+    async with sink_uow() as repository:
+      return await repository.list()
+
+  @classmethod
+  async def get(cls, sink_id: SinkID) -> SinkModel:
+    async with sink_uow() as repository:
+      sink = await repository.get(sink_id)
     if sink is None:
       raise SinkNotFoundError(f"Sink {sink_id} does not exist")
     return sink
 
   @classmethod
-  def create(
+  async def create(
     cls,
     sink_type: SinkTypeID,
     *,
@@ -93,50 +82,45 @@ class SinkManager:
   ) -> SinkModel:
     sink_cls = cls._require_type(sink_type)
     normalized = sink_cls.__configcls__.model_validate(config or {}).model_dump(mode="json")
-    with SessionLocal() as db:
+    async with sink_uow() as repository:
       sink = SinkModel(type=sink_type, nickname=nickname, config=normalized)
-      db.add(sink)
-      db.commit()
-      db.refresh(sink)
+      await repository.save(sink)
       return sink
 
   @classmethod
-  def update_config(
+  async def update_config(
     cls,
     sink_id: SinkID,
     value: dict[str, typing.Any],
   ) -> SinkModel:
-    current = cls.get(sink_id)
+    current = await cls.get(sink_id)
     sink_cls = cls._require_type(current.type)
     validated = sink_cls.__configcls__.model_validate(value)
     normalized = validated.model_dump(mode="json")
-    with SessionLocal() as db:
-      sink = db.get(SinkModel, sink_id)
+    async with sink_uow() as repository:
+      sink = await repository.get(sink_id)
       if sink is None:
         raise SinkNotFoundError(f"Sink {sink_id} does not exist")
       sink.config = normalized
-      db.add(sink)
-      db.commit()
-      db.refresh(sink)
+      await repository.save(sink)
     running = cls._running.get(sink_id)
     if running is not None:
       running.update_config(validated)
     return sink
 
   @classmethod
-  def delete(cls, sink_id: SinkID) -> None:
-    with SessionLocal() as db:
-      sink = db.get(SinkModel, sink_id)
+  async def delete(cls, sink_id: SinkID) -> None:
+    async with sink_uow() as repository:
+      sink = await repository.get(sink_id)
       if sink is None:
         raise SinkNotFoundError(f"Sink {sink_id} does not exist")
       if sink.enabled or sink_id in cls._running:
         raise SinkStateConflictError("Disable the Sink before deleting it")
-      db.delete(sink)
-      db.commit()
+      await repository.delete(sink)
 
   @classmethod
   async def enable(cls, sink_id: SinkID, peer: PeerRef) -> SinkModel:
-    sink = cls._set_peer_enabled(sink_id, peer, True)
+    sink = await cls._set_peer_enabled(sink_id, peer, True)
     if sink_id in cls._running:
       return sink
     if cls._app is None:
@@ -149,7 +133,7 @@ class SinkManager:
 
   @classmethod
   async def disable(cls, sink_id: SinkID, peer: PeerRef) -> SinkModel:
-    sink = cls._set_peer_enabled(sink_id, peer, False)
+    sink = await cls._set_peer_enabled(sink_id, peer, False)
     running = cls._running.get(sink_id)
     if running is not None:
       await running.on_close()
@@ -159,8 +143,8 @@ class SinkManager:
   @classmethod
   async def startup(cls, app: fastapi.FastAPI, peer: PeerRef) -> None:
     cls._app = app
-    cls.sync_sink_types()
-    for sink in cls.list():
+    await cls.sync_sink_types()
+    for sink in await cls.list():
       if sink.id is None or peer not in sink.enabled:
         continue
       try:
@@ -187,16 +171,14 @@ class SinkManager:
     return sink_cls
 
   @classmethod
-  def _set_peer_enabled(
+  async def _set_peer_enabled(
     cls,
     sink_id: SinkID,
     peer: PeerRef,
     enabled: bool,
   ) -> SinkModel:
-    with SessionLocal() as db:
-      sink = db.exec(
-        sqlmodel.select(SinkModel).where(SinkModel.id == sink_id).with_for_update()
-      ).one_or_none()
+    async with sink_uow() as repository:
+      sink = await repository.get(sink_id, lock=True)
       if sink is None:
         raise SinkNotFoundError(f"Sink {sink_id} does not exist")
       peers = list(sink.enabled)
@@ -205,7 +187,5 @@ class SinkManager:
       elif not enabled and peer in peers:
         peers.remove(peer)
       sink.enabled = peers
-      db.add(sink)
-      db.commit()
-      db.refresh(sink)
+      await repository.save(sink)
       return sink

@@ -102,12 +102,12 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
 
   if not SKIP_EXTENSION_START:
     await EXTENSION_HOST.start_enabled(app)
-  SourceManager.sync_source_types()
+  await SourceManager.sync_source_types_async()
 
   # Extensions may register Sink types, but persisted instances run only by intent.
   await SinkManager.startup(app, PeerManager.get_current_peer_ref())
 
-  JobManager.sync_job_types()
+  await JobManager.sync_job_types()
   JobManager.start()
 
   await AIManager.sync_dialects_async()

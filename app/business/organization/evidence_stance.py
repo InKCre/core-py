@@ -130,8 +130,8 @@ class EvidenceStanceBehaviorResolver(
     return relation_result(relation, created)
 
   @classmethod
-  def can_run_automatic(cls) -> bool:
-    return configured_agent_available(EVIDENCE_STANCE_CONFIG_KEY, BehaviorAgentConfig)
+  async def can_run_automatic(cls) -> bool:
+    return await configured_agent_available(EVIDENCE_STANCE_CONFIG_KEY, BehaviorAgentConfig)
 
   @classmethod
   async def run_automatic(cls, max_seeds: int) -> None:

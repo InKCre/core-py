@@ -20,7 +20,7 @@ class LexicalMaintainJobHandler(
   default_timeout_seconds=900,
 ):
   @classmethod
-  def can_handle(cls, parameters: LexicalMaintenanceJobParameters) -> bool:
+  async def can_handle(cls, parameters: LexicalMaintenanceJobParameters) -> bool:
     del parameters
     return bool(ResolverManager.RESOLVER_CLS)
 
@@ -42,7 +42,7 @@ class LexicalRebuildJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: LexicalMaintenanceJobParameters) -> bool:
+  async def can_handle(cls, parameters: LexicalMaintenanceJobParameters) -> bool:
     del parameters
     return bool(ResolverManager.RESOLVER_CLS)
 

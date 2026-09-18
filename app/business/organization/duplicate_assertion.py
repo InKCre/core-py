@@ -115,8 +115,8 @@ class DuplicateAssertionBehaviorResolver(
     return relation_result(relation, created)
 
   @classmethod
-  def can_run_automatic(cls) -> bool:
-    return configured_agent_available(
+  async def can_run_automatic(cls) -> bool:
+    return await configured_agent_available(
       DUPLICATE_ASSERTION_CONFIG_KEY,
       BehaviorAgentConfig,
     )

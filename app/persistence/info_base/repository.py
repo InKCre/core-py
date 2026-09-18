@@ -80,6 +80,10 @@ class BlockRepository:
       )
     ).one_or_none()
 
+  async def save(self, block: BlockModel) -> None:
+    self._session.add(block)
+    await self._session.flush()
+
   async def edit_block(
     self,
     block_id: BlockID,

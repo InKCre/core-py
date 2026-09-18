@@ -3,13 +3,11 @@ from __future__ import annotations
 import abc
 import jsonschema  # pyrefly: ignore[untyped-import]
 import pydantic
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
 import sqlmodel
 import typing
 from typing import Optional as Opt
 
-from app.engine import SessionLocal
+from app.persistence.source.uow import SourceUnitOfWork, source_uow
 from app.business.info_base.block import BlockManager
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.job import JobModel
@@ -88,10 +86,12 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
     """
     raise NotImplementedError(f"{self.__class__.__name__} does not support passive record")
 
-  def get_config(self) -> ConfigTV:
-    """Get the configuration of the source."""
-    with SessionLocal() as db:
-      source = db.exec(sqlmodel.select(SourceModel).where(SourceModel.id == self._id)).one()
+  async def get_config(self) -> ConfigTV:
+    """Read and validate current Source configuration in a short scope."""
+    async with source_uow() as uow:
+      source = await uow.sources.get(self._id)
+      if source is None:
+        raise SourceNotFoundError(f"Source {self._id} does not exist")
       return self.__configcls__.model_validate(source.config)
 
   def validate_collect_config(self, config: dict) -> pydantic.BaseModel:
@@ -102,19 +102,20 @@ class SourceBase(abc.ABC, typing.Generic[ConfigTV]):
       raise NotImplementedError(f"{self.__class__.__name__} does not support backfill")
     return self.__backfillconfigcls__.model_validate(config)
 
-  def get_state(self) -> dict:
-    """Get the source state from database."""
-    with SessionLocal() as db:
-      source = db.exec(sqlmodel.select(SourceModel).where(SourceModel.id == self._id)).one()
+  async def get_state(self) -> dict:
+    async with source_uow() as uow:
+      source = await uow.sources.get(self._id)
+      if source is None:
+        raise SourceNotFoundError(f"Source {self._id} does not exist")
       return source.state or {}
 
-  def set_state(self, state: dict) -> None:
-    """Save the source state to database."""
-    with SessionLocal() as db:
-      source = db.exec(sqlmodel.select(SourceModel).where(SourceModel.id == self._id)).one()
+  async def set_state(self, state: dict) -> None:
+    async with source_uow() as uow:
+      source = await uow.sources.get(self._id, lock=True)
+      if source is None:
+        raise SourceNotFoundError(f"Source {self._id} does not exist")
       source.state = state
-      db.add(source)
-      db.commit()
+      await uow.sources.save(source)
 
 
 class SourceManager:
@@ -135,43 +136,9 @@ class SourceManager:
     cls._SOURCE_CLASSES[source_type] = source_cls
 
   @classmethod
-  def sync_source_types(
-    cls,
-    source_classes: dict[str, type[SourceBase]] | None = None,
-  ) -> None:
-    """Persist registered source types during explicit runtime bootstrap."""
-    registered = cls._SOURCE_CLASSES if source_classes is None else source_classes
-    with SessionLocal() as db:
-      for source_type, source_cls in registered.items():
-        stmt = sqlalchemy.dialects.postgresql.insert(SourceTypesModel).values(
-          id=source_type,
-          description=source_cls.__doc__ or "No description.",
-          config_schema=source_cls.__configschema__,
-          collect_config_schema=source_cls.__collectconfigcls__.model_json_schema(),
-          backfill_config_schema=(
-            None
-            if source_cls.__backfillconfigcls__ is None
-            else source_cls.__backfillconfigcls__.model_json_schema()
-          ),
-        )
-        stmt = stmt.on_conflict_do_update(
-          index_elements=[SourceTypesModel.id],
-          set_=dict(
-            description=stmt.excluded.description,
-            config_schema=stmt.excluded.config_schema,
-            collect_config_schema=stmt.excluded.collect_config_schema,
-            backfill_config_schema=stmt.excluded.backfill_config_schema,
-          ),
-        )
-        db.exec(stmt)  # type: ignore
-      db.commit()
-
-  @classmethod
   async def sync_source_types_async(
     cls, source_classes: dict[str, type[SourceBase]] | None = None
   ) -> None:
-    from app.persistence.source.uow import source_uow
-
     registered = cls._SOURCE_CLASSES if source_classes is None else source_classes
     rows = [
       dict(
@@ -187,8 +154,8 @@ class SourceManager:
       )
       for source_type, source_cls in registered.items()
     ]
-    async with source_uow() as repository:
-      await repository.sync_types(rows)
+    async with source_uow() as uow:
+      await uow.sources.sync_types(rows)
 
   @classmethod
   def has_source_type(cls, source_type: str) -> bool:
@@ -200,65 +167,49 @@ class SourceManager:
     return source_cls is not None and source_cls.__backfillconfigcls__ is not None
 
   @classmethod
-  def _get_source_ins(cls, source_id: SourceID, source_type: Opt[str] = None) -> SourceBase:
-    ins = cls.SOURCES.get(source_id, None)
-    if ins is None:
-      if source_type is None:
-        with SessionLocal() as db:
-          source_type = db.exec(
-            sqlmodel.select(SourceModel.type).where(SourceModel.id == source_id)
-          ).one()
-      source_class = cls._SOURCE_CLASSES.get(source_type, None)
-      if source_class is None:
-        raise ValueError(f"Source class {source_type} not registered.")
-      ins = source_class(_id=source_id)
-      cls.SOURCES[source_id] = ins
+  async def get_source_ins(cls, source_id: SourceID) -> SourceBase:
+    ins = cls.SOURCES.get(source_id)
+    if ins is not None:
+      return ins
+    source = await cls.get(source_id)
+    if source is None:
+      raise SourceNotFoundError(f"Source {source_id} does not exist")
+    source_class = cls._SOURCE_CLASSES.get(source.type)
+    if source_class is None:
+      raise ValueError(f"Source class {source.type} not registered.")
+    ins = source_class(_id=source_id)
+    cls.SOURCES[source_id] = ins
     return ins
 
   @classmethod
-  def get_source_ins(cls, source_id: SourceID) -> SourceBase:
-    """Get source instance by ID.
-
-    :param source_id: The source ID
-    :return: Source instance
-    """
-    return cls._get_source_ins(source_id)
-
-  @classmethod
-  def create(
+  async def create(
     cls,
     type_: str,
     nickname: Opt[str] = None,
     config: dict | None = None,
     storage: int | None = None,
   ) -> SourceModel:
-    """Add a new source."""
-    with SessionLocal() as db:
+    async with source_uow() as uow:
       with input_path("config"):
-        normalized = cls.normalize_config(type_, config or {}, db)
+        normalized = cls.normalize_config(
+          type_, config or {}, await uow.sources.get_type(type_)
+        )
       source = SourceModel(
-        type=type_,
-        nickname=nickname,
-        config=normalized,
-        storage=storage,
+        type=type_, nickname=nickname, config=normalized, storage=storage
       )
-      db.add(source)
-      db.commit()
-      db.refresh(source)
-
-    return source
+      await uow.sources.save(source)
+      return source
 
   @classmethod
   def normalize_config(
     cls,
     type_: str,
     config: dict,
-    db_session: sqlmodel.Session,
+    catalog: SourceTypesModel | None,
     *,
     command: typing.Literal["collect", "backfill"] | None = None,
   ) -> dict:
     """Accept catalog-only input without requiring local execution capability."""
-    catalog = db_session.get(SourceTypesModel, type_)
     if catalog is None:
       raise SourceNotFoundError(f"Source type {type_!r} does not exist")
     source_class = cls._SOURCE_CLASSES.get(type_)
@@ -281,77 +232,88 @@ class SourceManager:
     return config
 
   @classmethod
-  def get(cls, source_id: SourceID) -> SourceModel | None:
-    with SessionLocal() as db:
-      return db.get(SourceModel, source_id)
+  async def get(cls, source_id: SourceID) -> SourceModel | None:
+    async with source_uow() as uow:
+      return await uow.sources.get(source_id)
 
   @classmethod
-  def get_type(cls, type_: str) -> SourceTypesModel | None:
-    with SessionLocal() as db:
-      return db.get(SourceTypesModel, type_)
+  async def get_type(cls, type_: str) -> SourceTypesModel | None:
+    async with source_uow() as uow:
+      return await uow.sources.get_type(type_)
 
   @classmethod
-  def list_sources(
+  async def list_sources(
     cls, *, limit: int | None = None, cursor: SourceID | None = None
   ) -> tuple[list[SourceModel], SourceID | None]:
-    statement = sqlmodel.select(SourceModel).order_by(sqlmodel.col(SourceModel.id))
-    if cursor is not None:
-      statement = statement.where(sqlmodel.col(SourceModel.id) > cursor)
-    if limit is not None:
-      statement = statement.limit(limit + 1)
-    with SessionLocal() as db:
-      rows = list(db.exec(statement).all())
-    more = limit is not None and len(rows) > limit
-    rows = rows[:limit]
-    return rows, rows[-1].id if more else None
+    async with source_uow() as uow:
+      return await uow.sources.list_sources(limit=limit, cursor=cursor)
 
   @classmethod
-  def list_types(
+  async def list_types(
     cls, *, limit: int | None = None, cursor: str | None = None
   ) -> tuple[list[SourceTypesModel], str | None]:
-    statement = sqlmodel.select(SourceTypesModel).order_by(SourceTypesModel.id)
-    if cursor is not None:
-      statement = statement.where(SourceTypesModel.id > cursor)
-    if limit is not None:
-      statement = statement.limit(limit + 1)
-    with SessionLocal() as db:
-      rows = list(db.exec(statement).all())
-    more = limit is not None and len(rows) > limit
-    rows = rows[:limit]
-    return rows, rows[-1].id if more else None
+    async with source_uow() as uow:
+      return await uow.sources.list_types(limit=limit, cursor=cursor)
 
   @classmethod
-  def update(cls, source_id: SourceID, form: SourceUpdateForm) -> SourceModel:
-    with SessionLocal() as db:
-      source = db.exec(
-        sqlmodel.select(SourceModel).where(SourceModel.id == source_id).with_for_update()
-      ).one_or_none()
+  async def update(cls, source_id: SourceID, form: SourceUpdateForm) -> SourceModel:
+    async with source_uow() as uow:
+      source = await uow.sources.get(source_id, lock=True)
       if source is None:
         raise SourceNotFoundError(f"Source {source_id} does not exist")
       changes = form.model_dump(exclude_unset=True)
       if "config" in changes:
         with input_path("config"):
-          changes["config"] = cls.normalize_config(source.type, changes["config"], db)
+          changes["config"] = cls.normalize_config(
+            source.type, changes["config"], await uow.sources.get_type(source.type)
+          )
       for field, value in changes.items():
         setattr(source, field, value)
-      db.add(source)
+      await uow.sources.save(source)
       if "nickname" in changes and source.block is not None:
-        cls.ensure_block(source, db)
-      db.commit()
-      db.refresh(source)
+        await cls.ensure_block_async(source, uow)
       return source
 
   @classmethod
-  def delete(cls, source_id: SourceID) -> bool:
+  async def delete(cls, source_id: SourceID) -> bool:
     """Delete configuration only; collected graph and scheduled commands remain."""
-    with SessionLocal() as db:
-      source = db.get(SourceModel, source_id)
+    async with source_uow() as uow:
+      source = await uow.sources.get(source_id)
       if source is None:
         return False
-      db.delete(source)
-      db.commit()
+      await uow.sources.delete(source)
     cls.SOURCES.pop(source_id, None)
     return True
+
+  @classmethod
+  async def ensure_block_async(
+    cls, source: SourceModel, uow: SourceUnitOfWork
+  ) -> BlockModel:
+    """Create/reuse a Source anchor in the caller's graph/state transaction."""
+    if source.id is None:
+      raise ValueError("Source must be persisted before creating its anchor")
+    locked = await uow.sources.get(source.id, lock=True)
+    if locked is None:
+      raise SourceNotFoundError(f"Source {source.id} does not exist")
+    content = SourceContent(
+      id=source.id, type=locked.type, nickname=locked.nickname
+    ).model_dump_json()
+    if locked.block is None:
+      block = await uow.graph.blocks.create(
+        BlockForm(resolver=SOURCE_RESOLVER_ID, content=content)
+      )
+      locked.block = block.id
+      await uow.sources.save(locked)
+      return block
+    block = await uow.graph.blocks.get(locked.block)
+    if block is None:
+      raise RuntimeError("Source anchor reference does not resolve")
+    if block.resolver != SOURCE_RESOLVER_ID or block.content != content:
+      block.resolver = SOURCE_RESOLVER_ID
+      block.storage = None
+      block.content = content
+      await uow.graph.blocks.save(block)
+    return block
 
   @classmethod
   def resolve_writable_storage(

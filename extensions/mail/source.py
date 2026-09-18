@@ -65,7 +65,7 @@ class Source(
     adapter = create_mail_adapter(setup.protocol, setup.parameters)
     async with adapter:
       state = self._accept_binding(state, adapter.binding)
-      self._persist_state(state)
+      await self._persist_state(state)
       exclusions = setup.excluded_mailboxes
       if exclusions is None:  # pragma: no cover - materialization postcondition
         raise RuntimeError("Mail Source exclusions were not materialized")
@@ -128,7 +128,7 @@ class Source(
   async def backfill(self, job: JobModel, config: pydantic.BaseModel) -> None:
     interval = typing.cast(MailBackfillConfig, config)
     _source, setup = await self._load_effective_source()
-    state = MailSourceState.model_validate(self.get_state())
+    state = MailSourceState.model_validate(await self.get_state())
     diagnostics: list[dict[str, typing.Any]] = []
     count = 0
     job.state = {"diagnostics": diagnostics, "messages": count}
@@ -136,7 +136,7 @@ class Source(
     adapter = create_mail_adapter(setup.protocol, setup.parameters)
     async with adapter:
       state = self._accept_binding(state, adapter.binding)
-      self._persist_state(state)
+      await self._persist_state(state)
       exclusions = setup.excluded_mailboxes
       if exclusions is None:  # pragma: no cover - materialization postcondition
         raise RuntimeError("Mail Source exclusions were not materialized")
@@ -180,23 +180,23 @@ class Source(
     """Materialize inherited exclusions without retaining a DB scope across lookup."""
     from app.persistence.source.uow import source_uow
 
-    async with source_uow() as repository:
-      source = await repository.get(self._id)
+    async with source_uow() as uow:
+      source = await uow.sources.get(self._id)
       if source is None:
         raise MailSourceBindingError("Mail Source no longer exists")
       config = MailSourceConfig.model_validate(source.config)
     if config.excluded_mailboxes is not None:
       return source, config
     defaults = await _mail_extension_default_exclusions()
-    async with source_uow() as repository:
-      source = await repository.get(self._id, lock=True)
+    async with source_uow() as uow:
+      source = await uow.sources.get(self._id, lock=True)
       if source is None:
         raise MailSourceBindingError("Mail Source no longer exists")
       config = MailSourceConfig.model_validate(source.config)
       if config.excluded_mailboxes is None:
         config = config.model_copy(update={"excluded_mailboxes": defaults})
         source.config = config.model_dump(mode="json")
-        await repository.save(source)
+        await uow.sources.save(source)
       return source, config
 
   @staticmethod
@@ -207,8 +207,8 @@ class Source(
       )
     return state.model_copy(update={"binding": binding})
 
-  def _persist_state(self, state: MailSourceState) -> None:
-    self.set_state(state.model_dump(mode="json"))
+  async def _persist_state(self, state: MailSourceState) -> None:
+    await self.set_state(state.model_dump(mode="json"))
 
   def _ensure_mailbox(self, fact, state: MailSourceState) -> int:
     with SessionLocal() as db:

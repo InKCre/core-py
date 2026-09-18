@@ -11,6 +11,7 @@ from aiohttp import web
 import fastapi
 import httpx
 import pytest
+import pydantic
 import sqlmodel
 
 from app.business.info_base.block import BlockManager
@@ -225,7 +226,7 @@ def _reload_job(job_id: int) -> JobModel:
 
 
 async def _run_job(source_id: int, config: dict | None = None) -> JobModel:
-  job = JobManager.create(
+  job = await JobManager.create(
     SOURCE_COLLECT_JOB_TYPE,
     {"source": source_id, "config": config or {}},
   )
@@ -336,7 +337,7 @@ async def _exercise_rss() -> None:
     )
     source_ids.add(source_id)
 
-    first_job = JobManager.create(
+    first_job = await JobManager.create(
       SOURCE_COLLECT_JOB_TYPE,
       {"source": source_id, "config": {}},
     )
@@ -642,29 +643,33 @@ async def _exercise_atom_and_failures() -> None:
     assert await semantic.get_hydrated_content() == (ASSETS / "image.png").read_bytes()
 
     requests_before_invalid_job = server.feed_requests
-    rejected_job = await _run_job(source_id, {"full": True})
-    assert rejected_job.status == JobStatus.FAILED
+    with pytest.raises(pydantic.ValidationError, match="config.full"):
+      await _run_job(source_id, {"full": True})
     assert server.feed_requests == requests_before_invalid_job
   finally:
     _cleanup(source_ids)
     await server.close()
 
 
-def test_rss_collection_reconciliation_watermark_conditional_and_manual_enclosure():
+def test_rss_collection_reconciliation_watermark_conditional_and_manual_enclosure(
+  async_runner,
+):
   register_core_resolvers()
   Extension._init_resolvers()
   Extension._init_sources()
-  SourceManager.sync_source_types()
-  JobManager.sync_job_types()
+  async_runner.run(SourceManager.sync_source_types_async())
+  async_runner.run(JobManager.sync_job_types())
   StorageManager.setup_builtin_storages()
-  asyncio.run(_exercise_rss())
+  async_runner.run(_exercise_rss())
 
 
-def test_atom_family_failure_and_automatic_enclosure_materialization():
+def test_atom_family_failure_and_automatic_enclosure_materialization(
+  async_runner,
+):
   register_core_resolvers()
   Extension._init_resolvers()
   Extension._init_sources()
-  SourceManager.sync_source_types()
-  JobManager.sync_job_types()
+  async_runner.run(SourceManager.sync_source_types_async())
+  async_runner.run(JobManager.sync_job_types())
   StorageManager.setup_builtin_storages()
-  asyncio.run(_exercise_atom_and_failures())
+  async_runner.run(_exercise_atom_and_failures())

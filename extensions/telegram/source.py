@@ -199,8 +199,8 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
 
   async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
     del config
-    setup = self.get_config()
-    state = TelegramSourceState.model_validate(self.get_state())
+    setup = await self.get_config()
+    state = TelegramSourceState.model_validate(await self.get_state())
     counts = {
       "saved": 0,
       "partial": 0,
@@ -233,7 +233,7 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
             outcome = self._persist_update(update.update_id)
             if outcome.status != "duplicate":
               counts["unauthorized" if message is not None else "unsupported"] += 1
-            state = TelegramSourceState.model_validate(self.get_state())
+            state = TelegramSourceState.model_validate(await self.get_state())
             continue
 
           try:
@@ -241,7 +241,7 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
               outcome = self._persist_update(update.update_id)
               if outcome.status != "duplicate":
                 await self._notify(bot, message, "start", diagnostics, update.update_id)
-              state = TelegramSourceState.model_validate(self.get_state())
+              state = TelegramSourceState.model_validate(await self.get_state())
               continue
 
             attachment = _attachment(message)
@@ -277,7 +277,7 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
               else:
                 counts["saved"] += 1
               await self._notify(bot, message, notification, diagnostics, update.update_id)
-            state = TelegramSourceState.model_validate(self.get_state())
+            state = TelegramSourceState.model_validate(await self.get_state())
           except Exception as error:
             counts["failed"] += 1
             self._diagnostic(diagnostics, update.update_id, "primary", str(error))

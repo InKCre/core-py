@@ -1,6 +1,5 @@
 """Real PostgreSQL proof for lexical projection, freshness, and ranking."""
 
-import asyncio
 import os
 
 import pytest
@@ -33,7 +32,7 @@ def _reset() -> None:
     db.connection().execute(
       sqlalchemy.text(
         "TRUNCATE TABLE inkcre.block_lexical_records, inkcre.relations, "
-        "inkcre.blocks RESTART IDENTITY CASCADE"
+        "inkcre.blocks CASCADE"
       )
     )
     db.commit()
@@ -45,7 +44,9 @@ def _text(content: str) -> int:
   return block.id
 
 
-def test_literal_chinese_ranking_freshness_and_cascade():
+def test_literal_chinese_ranking_freshness_and_cascade(
+  async_runner,
+):
   _reset()
   register_core_resolvers()
   phrase = _text("alpha beta is one continuous technical identifier")
@@ -53,7 +54,7 @@ def test_literal_chinese_ranking_freshness_and_cascade():
   chinese = _text("这段材料记录了星间链路故障注入的完整过程")
   deleted = _text("ephemeral deletion clue")
 
-  report = asyncio.run(
+  report = async_runner.run(
     LexicalRetrievalManager.maintain(
       LexicalMaintenanceOptions(max_records=20, scan_page_size=2)
     )
@@ -72,7 +73,7 @@ def test_literal_chinese_ranking_freshness_and_cascade():
 
   BlockManager.edit_block(phrase, content="replacement clue after authoritative edit")
   assert not LexicalRetrievalManager.retrieve_local("continuous technical").matches
-  update = asyncio.run(LexicalRetrievalManager.maintain())
+  update = async_runner.run(LexicalRetrievalManager.maintain())
   assert update.indexed == 1
   updated_result = LexicalRetrievalManager.retrieve_local("replacement clue")
   assert updated_result.matches[0].block.id == phrase
@@ -92,12 +93,14 @@ def test_literal_chinese_ranking_freshness_and_cascade():
   assert remaining == 0
 
 
-def test_unknown_resolver_is_bounded_unavailable_diagnostic():
+def test_unknown_resolver_is_bounded_unavailable_diagnostic(
+  async_runner,
+):
   _reset()
   block = BlockManager.create(BlockForm(resolver="unknown.lexical.v1", content="opaque"))
   assert block.id is not None
 
-  report = asyncio.run(
+  report = async_runner.run(
     LexicalRetrievalManager.maintain(
       LexicalMaintenanceOptions(max_records=1, diagnostic_limit=1)
     )
@@ -109,18 +112,22 @@ def test_unknown_resolver_is_bounded_unavailable_diagnostic():
   assert report.diagnostics[0].reason == "unknown_resolver"
 
 
-def test_direct_and_cron_created_jobs_share_exact_handler_path():
+def test_direct_and_cron_created_jobs_share_exact_handler_path(
+  async_runner,
+):
   _reset()
   register_core_resolvers()
   _text("scheduled lexical maintenance clue")
-  JobManager.sync_job_types()
+  async_runner.run(JobManager.sync_job_types())
 
-  direct = JobManager.create(
-    LEXICAL_MAINTAIN_JOB_TYPE,
-    {"options": {"max_records": 10, "scan_page_size": 10}},
+  direct = async_runner.run(
+    JobManager.create(
+      LEXICAL_MAINTAIN_JOB_TYPE,
+      {"options": {"max_records": 10, "scan_page_size": 10}},
+    )
   )
   assert direct.id is not None
-  assert asyncio.run(JobManager.run(direct.id))
+  assert async_runner.run(JobManager.run(direct.id))
   with SessionLocal() as db:
     persisted = db.get(JobModel, direct.id)
     assert persisted is not None
@@ -138,10 +145,10 @@ def test_direct_and_cron_created_jobs_share_exact_handler_path():
     assert cron.id is not None
     cron_id = cron.id
 
-  scheduled = CronManager.run_now(cron_id)
+  scheduled = async_runner.run(CronManager.run_now(cron_id))
   assert scheduled.type == LEXICAL_REBUILD_JOB_TYPE
   assert scheduled.id is not None
-  assert asyncio.run(JobManager.run(scheduled.id))
+  assert async_runner.run(JobManager.run(scheduled.id))
   with SessionLocal() as db:
     persisted = db.get(JobModel, scheduled.id)
     assert persisted is not None

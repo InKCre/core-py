@@ -110,3 +110,16 @@ Sir 已授权合并 ext-reg PR，不再限于 #38；Core #105 仍只推进到可
 12d73c2757cc97a4137b6f326ee66ea6b289478f9d49e7a8244f736de124c71e 与 release 一致。
 Host PostgreSQL probe 已加入真实公开 route 声明并通过启停、取消、重启。
 步骤 05 的 artifact 阻塞解除，当前步骤为 06：Source → Sink → Job → Cron/scheduler。
+
+### 步骤 06 验收进展
+
+Source／Sink／Job／Cron 已采用异步 persistence。CronUnitOfWork 同时拥有 Job、Source 与 Cron repositories；
+Job 创建和 occurrence 推进同事务。Job Handler 的 eligibility 接口及 Source／AI／Agent／Organization／
+Semantic 的实际读取链一并 await；provider、handler、Sink lifecycle 均在短事务外执行。
+隔离 PostgreSQL 的 job_probe.py 已通过并发 claim、取消收尾、八个并发 Cron occurrence 仅创建一个 Job、
+Cron flush 后注入失败时 Job/occurrence 一起回滚。类型检查和数据库边界 lint 通过。
+
+现有 RSS 测试的非法参数预期与当前 admission contract 不一致，改为验证提交拒绝；lexical 清理移除
+并无必要的 RESTART IDENTITY，以现有 core runtime 权限执行，不扩大数据库权限。
+
+步骤 06 已完成：完整 pdm run check 为 14 passed／58 skipped；隔离 PostgreSQL 的 lexical/RSS 五项验收全部通过，Job/Cron probe 通过。当前进入步骤 07，按 GitHub → RSS → Mail → Telegram → Twitter → Memos 迁移。

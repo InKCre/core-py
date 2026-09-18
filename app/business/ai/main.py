@@ -246,14 +246,14 @@ class AIManager:
       )
 
   @classmethod
-  def can_execute(
+  async def can_execute(
     cls,
     model: AIModelID,
     requirement: AIExecutionRequirement,
   ) -> bool:
     """Return static peer-local eligibility without probing a remote provider."""
     try:
-      target = cls._load_target(model)
+      target = await cls._load_target_async(model)
       capability = cls._capability(target.model, requirement.capability)
     except (
       AIModelNotFoundError,

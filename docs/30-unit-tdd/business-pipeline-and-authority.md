@@ -92,9 +92,13 @@ SQL 位于 app/persistence/extension；Source catalog 批量同步提供 SDK asy
 启用／停用的持久化失败补偿和启动取消清理属于 Host；Peer 广播失败不撤销已提交的 disabled 状态。
 Registry origin 查询结束后才执行网络／wheel 获取。旧同步 Host 合同通过 Host 0.2 窗口隔离。
 
+Source 配置／状态、Sink catalog／intent、Job admission／claim／close、Cron occurrence 都使用异步
+persistence。Job handler 和外部 Sink lifecycle 在提交后的作用域外运行。Cron 创建 Job 与推进 occurrence
+共享 CronUnitOfWork，任一步失败回滚完整用例；不同 Cron 独立处理。Job 的取消／超时收尾另开短事务，
+只更新仍为 RUNNING 的记录，并限制清理等待时间。执行资格检查的 Source、Agent、AI 与配置读取也可 await。
+
 迁移尚未完成。旧 InfoBaseManager、BlockManager、RelationManager、Storage 的 caller-session API
-仍供 Source、扩展采集、检索及 organization 的旧用例使用；旧配置和 eligibility 查询也保留到其消费者
-迁移。新路径不得调用这些入口，不得把同步 session 传进异步 UoW。迁移清单拥有临时消费者与删除步骤；
+仍供 Source、扩展采集、检索及 organization 的旧用例使用；旧配置查询保留到其消费者迁移。新路径不得调用这些入口，不得把同步 session 传进异步 UoW。迁移清单拥有临时消费者与删除步骤；
 最终删除旧 API，不把双轨当作长期接口。`pdm run lint:database-boundaries` 已约束新 persistence 模块
 和 Graph 应用层的同步 factory/import 使用，配置及暂时覆盖清单集中在
 `ruff.database.toml`，根 Ruff 配置只保留通用规则；事务方法与全 runtime 的结构治理在后续收敛阶段完成。

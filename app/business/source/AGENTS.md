@@ -21,7 +21,7 @@
 ## Registration
 
 - `SourceBase.__init_subclass__()` 只登记内存 class；import 不连接数据库。
-- `SourceManager.sync_source_types()` 在显式 bootstrap reconcile catalog。
+- `await SourceManager.sync_source_types_async()` 在显式 bootstrap reconcile catalog。
 - Extension source 必须在 extension startup import；否则 source type 不存在于当前 runtime registry。
 - Extension runtime disable 不撤销已 import 的 Source class registration。Registration 在进程内单调保留；
   source instance 只有被 command 调用时才运行，active Extension route/resource 则由 Extension lifecycle 单独撤销。
@@ -31,7 +31,7 @@
 - `SourceModel.config` 是 validated source-instance config；`SourceModel.state` 是 long-lived conditional/cursor
   state；`JobModel.parameters/state` 只属于一次 execution。
 - Cursor、ETag、Last-Modified、watermark 必须同时声明 authority scope；config/native identity 改变时不可盲目复用。
-- `SourceBase.get_config/get_state/set_state` 每次从 database读取/写入，不缓存另一份 authority。
+- `SourceBase.get_config/get_state/set_state` 以 async 方法每次从 database 读取／写入，不缓存另一份 authority。
 
 ## Job-Only Execution Path
 
@@ -48,7 +48,8 @@ manual path 一致。
 ## Collection And Persistence
 
 - Source 负责 native fetch/adapter/policy，可以产生 graph form 或调用 owning repository/application service。
-- Block/relation persistence 仍通过 info-base managers/caller-owned session；source 不复制通用 persistence。
+- 新采集用例组合 SourceUnitOfWork 的 graph、sources、configuration；source 不复制通用 persistence。
+- 迁移期间旧扩展仍使用 ensure_block/resolve_writable_storage 的 caller-session API；这些入口随扩展迁移删除。
 - `collect()` 不吞异常或假装成功。Unit 自己定义 per-item transaction、accepted partial effects 与 state advance。
 - Collection 不调用 organization hook。Organization 是独立 lifecycle，不得重新塞回 Source command。
 

@@ -18,7 +18,7 @@ class Source(SourceBase[GitHubSourceConfig], config_cls=GitHubSourceConfig):
 
   async def collect(self, job: JobModel, config: pydantic.BaseModel) -> None:
     del config
-    source_config = self.get_config()
+    source_config = await self.get_config()
     async with GitHubGraphQLAdapter(source_config.github_token) as adapter:
       snapshot = await adapter.fetch_snapshot()
 

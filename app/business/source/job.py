@@ -1,14 +1,11 @@
 """Exact Source command handlers hosted by the global Job runtime."""
 
-import sqlmodel
-
 from app.business.job import JobHandler
-from app.engine import SessionLocal
+from app.persistence.job.uow import JobUnitOfWork
 from app.schemas.job import JobModel
 from app.schemas.source import (
   SourceBackfillParameters,
   SourceCollectParameters,
-  SourceModel,
 )
 
 from app.validation import input_path
@@ -20,10 +17,9 @@ SOURCE_COLLECT_JOB_TYPE = "core.source.collect.v1"
 SOURCE_BACKFILL_JOB_TYPE = "core.source.backfill.v1"
 
 
-def _source_type(parameters: SourceCollectParameters) -> str | None:
-  with SessionLocal() as db_session:
-    source = db_session.get(SourceModel, parameters.source)
-    return None if source is None else source.type
+async def _source_type(parameters: SourceCollectParameters) -> str | None:
+  source = await SourceManager.get(parameters.source)
+  return None if source is None else source.type
 
 
 class SourceCollectJobHandler(
@@ -34,25 +30,28 @@ class SourceCollectJobHandler(
   default_timeout_seconds=300,
 ):
   @classmethod
-  def normalize_parameters(cls, parameters: dict, db_session: sqlmodel.Session) -> dict:
-    normalized = super().normalize_parameters(parameters, db_session)
-    source = db_session.get(SourceModel, normalized["source"])
+  async def normalize_parameters(cls, parameters: dict, uow: JobUnitOfWork) -> dict:
+    normalized = await super().normalize_parameters(parameters, uow)
+    source = await uow.sources.get(normalized["source"])
     if source is None:
       raise SourceNotFoundError(f"Source {normalized['source']} does not exist")
     with input_path("config"):
       normalized["config"] = SourceManager.normalize_config(
-        source.type, normalized["config"], db_session, command="collect"
+        source.type,
+        normalized["config"],
+        await uow.sources.get_type(source.type),
+        command="collect",
       )
     return normalized
 
   @classmethod
-  def can_handle(cls, parameters: SourceCollectParameters) -> bool:
-    source_type = _source_type(parameters)
+  async def can_handle(cls, parameters: SourceCollectParameters) -> bool:
+    source_type = await _source_type(parameters)
     return source_type is not None and SourceManager.has_source_type(source_type)
 
   @classmethod
   async def handle(cls, job: JobModel, parameters: SourceCollectParameters) -> None:
-    source = SourceManager.get_source_ins(parameters.source)
+    source = await SourceManager.get_source_ins(parameters.source)
     config = source.validate_collect_config(parameters.config)
     await source.collect(job, config)
 
@@ -65,24 +64,27 @@ class SourceBackfillJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def normalize_parameters(cls, parameters: dict, db_session: sqlmodel.Session) -> dict:
-    normalized = super().normalize_parameters(parameters, db_session)
-    source = db_session.get(SourceModel, normalized["source"])
+  async def normalize_parameters(cls, parameters: dict, uow: JobUnitOfWork) -> dict:
+    normalized = await super().normalize_parameters(parameters, uow)
+    source = await uow.sources.get(normalized["source"])
     if source is None:
       raise SourceNotFoundError(f"Source {normalized['source']} does not exist")
     with input_path("config"):
       normalized["config"] = SourceManager.normalize_config(
-        source.type, normalized["config"], db_session, command="backfill"
+        source.type,
+        normalized["config"],
+        await uow.sources.get_type(source.type),
+        command="backfill",
       )
     return normalized
 
   @classmethod
-  def can_handle(cls, parameters: SourceBackfillParameters) -> bool:
-    source_type = _source_type(parameters)
+  async def can_handle(cls, parameters: SourceBackfillParameters) -> bool:
+    source_type = await _source_type(parameters)
     return source_type is not None and SourceManager.supports_backfill(source_type)
 
   @classmethod
   async def handle(cls, job: JobModel, parameters: SourceBackfillParameters) -> None:
-    source = SourceManager.get_source_ins(parameters.source)
+    source = await SourceManager.get_source_ins(parameters.source)
     config = source.validate_backfill_config(parameters.config)
     await source.backfill(job, config)

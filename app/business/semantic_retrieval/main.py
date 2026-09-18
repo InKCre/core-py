@@ -15,7 +15,7 @@ import sqlalchemy.orm
 import sqlmodel
 
 from app.business.ai import AIExecutionRequirement, AIManager
-from app.business.deployment_config import DeploymentConfigManager
+from app.business.deployment_config import DeploymentConfigManager, DeploymentConfigService
 from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import (
   ResolverManager,
@@ -24,6 +24,7 @@ from app.business.info_base.resolver import (
 )
 from app.business.peer import PeerManager
 from app.engine import SessionLocal
+from app.persistence.semantic_retrieval.uow import semantic_retrieval_uow
 from app.schemas.ai import (
   BlockEmbeddingModel,
   EmbeddingProfileID,
@@ -171,8 +172,8 @@ class SemanticRetrievalManager:
     return rows, rows[-1].id if more else None
 
   @classmethod
-  def _configured_profile_id(cls) -> EmbeddingProfileID:
-    value = DeploymentConfigManager.get(SEMANTIC_RETRIEVAL_CONFIG_KEY)
+  async def _configured_profile_id(cls) -> EmbeddingProfileID:
+    value = await DeploymentConfigService.get(SEMANTIC_RETRIEVAL_CONFIG_KEY)
     if value is None:
       raise SemanticRetrievalNotConfiguredError(
         "Semantic retrieval default Profile is not configured"
@@ -186,25 +187,25 @@ class SemanticRetrievalManager:
     return value.default_profile
 
   @classmethod
-  def _load_profile(
+  async def _load_profile(
     cls,
     profile: EmbeddingProfileID | None,
   ) -> EmbeddingProfileModel:
-    profile_id = cls._configured_profile_id() if profile is None else profile
-    with SessionLocal() as db:
-      result = db.get(EmbeddingProfileModel, profile_id)
+    profile_id = await cls._configured_profile_id() if profile is None else profile
+    async with semantic_retrieval_uow() as repository:
+      result = await repository.get_profile(profile_id)
     if result is None:
       raise EmbeddingProfileNotFoundError(f"Embedding Profile {profile_id} does not exist")
     return result
 
   @classmethod
-  def can_maintain(cls, profile: EmbeddingProfileID | None = None) -> bool:
+  async def can_maintain(cls, profile: EmbeddingProfileID | None = None) -> bool:
     """Return static local Job eligibility without probing the provider."""
     try:
-      selected = cls._load_profile(profile)
+      selected = await cls._load_profile(profile)
     except (SemanticRetrievalNotConfiguredError, EmbeddingProfileNotFoundError):
       return False
-    return AIManager.can_execute(
+    return await AIManager.can_execute(
       selected.ai_model,
       AIExecutionRequirement(
         capability="embedding",
@@ -269,7 +270,7 @@ class SemanticRetrievalManager:
     if not query.strip():
       raise ValueError("query must not be empty")
     retrieval_options = options or VectorRetrievalOptions()
-    selected = cls._load_profile(profile)
+    selected = await cls._load_profile(profile)
     profile_id = cls._profile_id(selected)
     query_vector = (
       await AIManager.embed(
@@ -320,7 +321,7 @@ class SemanticRetrievalManager:
     options: EmbeddingMaintenanceOptions | None = None,
   ) -> EmbeddingMaintenanceReport:
     """Embed only missing/stale records and resume through durable successes."""
-    selected = cls._load_profile(profile)
+    selected = await cls._load_profile(profile)
     return await cls._maintain(
       selected,
       options or EmbeddingMaintenanceOptions(),
@@ -334,7 +335,7 @@ class SemanticRetrievalManager:
     options: EmbeddingMaintenanceOptions | None = None,
   ) -> EmbeddingMaintenanceReport:
     """Re-embed records that were present before this invocation began."""
-    selected = cls._load_profile(profile)
+    selected = await cls._load_profile(profile)
     with SessionLocal() as db:
       cutoff = db.exec(sqlmodel.select(sqlalchemy.func.current_timestamp())).one()
     return await cls._maintain(

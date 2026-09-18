@@ -1,6 +1,5 @@
 """Real-storage vertical proof for media textualization and interpretation Jobs."""
 
-import asyncio
 import json
 import os
 from pathlib import Path
@@ -134,6 +133,7 @@ def _related(block: int, role: str) -> tuple[BlockModel, ...]:
 
 
 def test_media_textualization_interpretation_and_lexical_recall(
+  async_runner,
   monkeypatch: pytest.MonkeyPatch,
   semantic_content_assets: Path,
 ) -> None:
@@ -287,7 +287,7 @@ def test_media_textualization_interpretation_and_lexical_recall(
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
 
-    first_maintenance = asyncio.run(
+    first_maintenance = async_runner.run(
       LexicalRetrievalManager.maintain(
         LexicalMaintenanceOptions(max_records=30, scan_page_size=3)
       )
@@ -317,7 +317,7 @@ def test_media_textualization_interpretation_and_lexical_recall(
     assert pdf_body.matches[0].block.id == pdf.id
 
     faithful_call_count = len(faithful_calls)
-    rebuild = asyncio.run(
+    rebuild = async_runner.run(
       LexicalRetrievalManager.rebuild(
         LexicalMaintenanceOptions(max_records=30, scan_page_size=3)
       )
@@ -328,7 +328,7 @@ def test_media_textualization_interpretation_and_lexical_recall(
       for role in roles:
         assert len(_related(parent, role)) == 1
 
-    JobManager.sync_job_types()
+    async_runner.run(JobManager.sync_job_types())
     with SessionLocal() as db:
       cron = CronModel(
         schedule="* * * * *",
@@ -341,9 +341,9 @@ def test_media_textualization_interpretation_and_lexical_recall(
       assert cron.id is not None
       cron_id = cron.id
 
-    job = CronManager.run_now(cron_id)
+    job = async_runner.run(CronManager.run_now(cron_id))
     assert job.id is not None
-    assert asyncio.run(JobManager.run(job.id))
+    assert async_runner.run(JobManager.run(job.id))
     with SessionLocal() as db:
       persisted = db.get(JobModel, job.id)
       assert persisted is not None
@@ -368,7 +368,7 @@ def test_media_textualization_interpretation_and_lexical_recall(
     assert not _related(audio.id, "interpretation")
     assert len(_related(video.id, "interpretation")) == 1
 
-    interpretation_maintenance = asyncio.run(LexicalRetrievalManager.maintain())
+    interpretation_maintenance = async_runner.run(LexicalRetrievalManager.maintain())
     assert interpretation_maintenance.failed == 0
     interpretation = LexicalRetrievalManager.retrieve_local("orbital integration strategy")
     assert len(interpretation.matches) == 2
@@ -377,9 +377,9 @@ def test_media_textualization_interpretation_and_lexical_recall(
       _related(video.id, "interpretation")[0].id,
     }
 
-    second = JobManager.create(MEDIA_INTERPRETATION_JOB_TYPE, {})
+    second = async_runner.run(JobManager.create(MEDIA_INTERPRETATION_JOB_TYPE, {}))
     assert second.id is not None
-    assert asyncio.run(JobManager.run(second.id))
+    assert async_runner.run(JobManager.run(second.id))
     with SessionLocal() as db:
       persisted = db.get(JobModel, second.id)
       assert persisted is not None

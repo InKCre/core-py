@@ -39,3 +39,31 @@ class SourceRepository:
     self._session.add(source)
     await self._session.flush()
     await self._session.refresh(source)
+
+  async def get_type(self, type_: str) -> SourceTypesModel | None:
+    return await self._session.get(SourceTypesModel, type_)
+
+  async def list_sources(self, *, limit: int | None, cursor: int | None):
+    statement = sqlmodel.select(SourceModel).order_by(sqlmodel.col(SourceModel.id))
+    if cursor is not None:
+      statement = statement.where(sqlmodel.col(SourceModel.id) > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    rows = list((await self._session.scalars(statement)).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
+
+  async def list_types(self, *, limit: int | None, cursor: str | None):
+    statement = sqlmodel.select(SourceTypesModel).order_by(SourceTypesModel.id)
+    if cursor is not None:
+      statement = statement.where(SourceTypesModel.id > cursor)
+    if limit is not None:
+      statement = statement.limit(limit + 1)
+    rows = list((await self._session.scalars(statement)).all())
+    more = limit is not None and len(rows) > limit
+    rows = rows[:limit]
+    return rows, rows[-1].id if more else None
+
+  async def delete(self, source: SourceModel) -> None:
+    await self._session.delete(source)

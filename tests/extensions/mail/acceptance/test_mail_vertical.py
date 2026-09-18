@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import collections.abc
 import datetime
 import json
@@ -108,12 +107,12 @@ def _reset_acceptance_database() -> None:
   SourceManager.SOURCES.clear()
 
 
-def _bootstrap_runtime_catalogs() -> None:
+async def _bootstrap_runtime_catalogs() -> None:
   register_core_resolvers()
   Extension.load_decoders()
   StorageManager.setup_builtin_storages()
-  SourceManager.sync_source_types()
-  JobManager.sync_job_types()
+  await SourceManager.sync_source_types_async()
+  await JobManager.sync_job_types()
 
 
 async def _run_job(
@@ -121,7 +120,7 @@ async def _run_job(
   source_id: int,
   config: dict | None = None,
 ) -> JobModel:
-  job = JobManager.create(
+  job = await JobManager.create(
     job_type,
     {"source": source_id, "config": config or {}},
   )
@@ -241,9 +240,11 @@ def _set_extension_exclusion(name: str) -> None:
     db.commit()
 
 
-def test_mail_collection_backfill_and_materialization(dovecot: DovecotHarness) -> None:
+def test_mail_collection_backfill_and_materialization(
+  async_runner, dovecot: DovecotHarness
+) -> None:
   _reset_acceptance_database()
-  _bootstrap_runtime_catalogs()
+  async_runner.run(_bootstrap_runtime_catalogs())
   dovecot.create_mailbox("Excluded")
 
   historical_uid = dovecot.append(
@@ -251,23 +252,25 @@ def test_mail_collection_backfill_and_materialization(dovecot: DovecotHarness) -
     CORPUS / "historical-parent.eml",
     internal_date=datetime.datetime(2026, 8, 1, 9, tzinfo=UTC),
   )
-  source = SourceManager.create(
-    MAIL_SOURCE_TYPE,
-    nickname="Real Dovecot acceptance",
-    config={
-      "protocol": "imap",
-      "parameters": {
-        "host": "127.0.0.1",
-        "port": dovecot.port,
-        "security": "plain",
-        "username": dovecot.username,
-        "password": dovecot.password,
+  source = async_runner.run(
+    SourceManager.create(
+      MAIL_SOURCE_TYPE,
+      nickname="Real Dovecot acceptance",
+      config={
+        "protocol": "imap",
+        "parameters": {
+          "host": "127.0.0.1",
+          "port": dovecot.port,
+          "security": "plain",
+          "username": dovecot.username,
+          "password": dovecot.password,
+        },
+        "excluded_mailboxes": None,
+        "ordinary_mark_as_seen": True,
+        "backfill_mark_as_seen": False,
+        "synchronize_deletions": False,
       },
-      "excluded_mailboxes": None,
-      "ordinary_mark_as_seen": True,
-      "backfill_mark_as_seen": False,
-      "synchronize_deletions": False,
-    },
+    )
   )
   assert source.id is not None
   current_date = source.created_at + datetime.timedelta(seconds=5)
@@ -472,4 +475,4 @@ def test_mail_collection_backfill_and_materialization(dovecot: DovecotHarness) -
     assert _email("deep-module-parent@inkcre.acceptance") is not None
     assert _email("ownership-before-mechanism@inkcre.acceptance") is not None
 
-  asyncio.run(journeys())
+  async_runner.run(journeys())

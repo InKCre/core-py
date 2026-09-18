@@ -110,7 +110,7 @@ class Source(
     # find new tweets start point
     old_start_at = len(bookmarks_res.tweets)
     if not full:
-      state = self.get_state()
+      state = await self.get_state()
       latest_tweet_id = state.get("latest_tweet_id")
       if latest_tweet_id:
         old_start_at = next(
@@ -127,9 +127,9 @@ class Source(
       collected.append(tweet_to_graph(tweet))
 
     if not full and bookmarks_res.tweets:
-      state = self.get_state()
+      state = await self.get_state()
       state["latest_tweet_id"] = bookmarks_res.tweets[0].id
-      self.set_state(state)
+      await self.set_state(state)
 
     with SessionLocal() as db:
       for graph in reversed(collected) if full else collected:

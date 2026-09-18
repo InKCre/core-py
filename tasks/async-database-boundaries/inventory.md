@@ -93,3 +93,10 @@ Block/Relation HTTP CRUD、entities batch read、Resolver invocation 与 relatio
 Core 的 Extension Host 兼容版本由 `app/version.py` 的 CORE_VERSION=0.1.1 决定，不是 pyproject 中的 distribution 0.3.0。现有 producer metadata 全部限制 `<0.2.0`：GitHub 0.2.0、RSS 0.1.1、Mail 0.2.1、Telegram 0.2.0、Twitter 0.3.1、Memos 0.1.1、Learn English 0.1.0。前六者属于数据库采集迁移；Learn English 仍需纳入新的 Host 兼容与导入验证，不能因为没有直接 SQL 就漏掉。
 
 SDK additive async API 与最终 Core async-only 导入接口的版本影响不同：前者可保留 SDK 旧方法供旧 Host，后者必须拒绝仍依赖旧同步 Core API 的 wheels。步骤 05 的具体接口、版本窗口和授权边界见唯一计划。
+
+## 步骤 06 的迁移状态
+
+Source catalog/config/state、Sink catalog/intent、Job admission/claim/close 与 Cron occurrence 已异步化。
+AI/Agent can_execute、Organization configured_agent_available、Semantic profile eligibility 的读取链同步
+迁移；旧 Source ensure_block 和 resolve_writable_storage 只留给步骤 07 的扩展 caller-session 路径。
+SDK 0.1.5 已正式发布并采用，前述 artifact 屏障为历史记录，不再阻塞后续迁移。

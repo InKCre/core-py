@@ -32,9 +32,9 @@ class ExplicitRuminationJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: RuminationRequest) -> bool:
+  async def can_handle(cls, parameters: RuminationRequest) -> bool:
     del parameters
-    return RuminationBehaviorResolver.can_run_automatic()
+    return await RuminationBehaviorResolver.can_run_automatic()
 
   @classmethod
   async def handle(cls, job: JobModel, parameters: RuminationRequest) -> None:
@@ -51,9 +51,9 @@ class RuminationJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
+  async def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
     del parameters
-    return RuminationBehaviorResolver.can_run_automatic()
+    return await RuminationBehaviorResolver.can_run_automatic()
 
   @classmethod
   async def handle(
@@ -73,9 +73,9 @@ class SupersessionJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
+  async def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
     del parameters
-    return SupersessionBehaviorResolver.can_run_automatic()
+    return await SupersessionBehaviorResolver.can_run_automatic()
 
   @classmethod
   async def handle(
@@ -95,9 +95,9 @@ class RefinementJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
+  async def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
     del parameters
-    return RefinementBehaviorResolver.can_run_automatic()
+    return await RefinementBehaviorResolver.can_run_automatic()
 
   @classmethod
   async def handle(
@@ -117,9 +117,9 @@ class EvidenceStanceJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
+  async def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
     del parameters
-    return EvidenceStanceBehaviorResolver.can_run_automatic()
+    return await EvidenceStanceBehaviorResolver.can_run_automatic()
 
   @classmethod
   async def handle(
@@ -139,9 +139,9 @@ class SynthesisJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
+  async def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
     del parameters
-    return SynthesisBehaviorResolver.can_run_automatic()
+    return await SynthesisBehaviorResolver.can_run_automatic()
 
   @classmethod
   async def handle(
@@ -161,9 +161,9 @@ class ExistingReferentAnchoringJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
+  async def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
     del parameters
-    return ExistingReferentAnchoringBehaviorResolver.can_run_automatic()
+    return await ExistingReferentAnchoringBehaviorResolver.can_run_automatic()
 
   @classmethod
   async def handle(
@@ -183,9 +183,9 @@ class DuplicateAssertionJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
+  async def can_handle(cls, parameters: AutomaticOrganizationJobParameters) -> bool:
     del parameters
-    return DuplicateAssertionBehaviorResolver.can_run_automatic()
+    return await DuplicateAssertionBehaviorResolver.can_run_automatic()
 
   @classmethod
   async def handle(

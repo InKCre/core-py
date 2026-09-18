@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import typing
@@ -273,7 +272,7 @@ def _configure_agents(agent_ids: dict[str, int]) -> None:
 async def _run_round(round_number: int) -> list[dict[str, typing.Any]]:
   results: list[dict[str, typing.Any]] = []
   for behavior in _BEHAVIORS:
-    job = JobManager.create(behavior.job_type, {"max_seeds": 100})
+    job = await JobManager.create(behavior.job_type, {"max_seeds": 100})
     job_id = _required_id(job.id)
     claimed = await JobManager.run(job_id)
     with SessionLocal() as db_session:
@@ -457,11 +456,13 @@ def _cleanup(  # noqa: PLR0913
     "requires a migrated PostgreSQL database and Organization acceptance chat provider"
   ),
 )
-def test_two_information_worlds_are_organized_for_human_review() -> None:
+def test_two_information_worlds_are_organized_for_human_review(
+  async_runner,
+) -> None:
   manifest = load_manifest()
   register_core_resolvers()
   register_core_organization_behaviors()
-  JobManager.sync_job_types()
+  async_runner.run(JobManager.sync_job_types())
   with SessionLocal() as db_session:
     block_ids_before = {
       _required_id(block_id)
@@ -479,7 +480,7 @@ def test_two_information_worlds_are_organized_for_human_review() -> None:
   job_results: list[dict[str, typing.Any]] = []
   try:
     aliases = _ingest(manifest)
-    asyncio.run(_maintain_lexical_projection())
+    async_runner.run(_maintain_lexical_projection())
     provider_id, model_id = _create_provider_and_model()
     agent_ids = _create_agents(model_id)
     config_backups = {
@@ -487,16 +488,16 @@ def test_two_information_worlds_are_organized_for_human_review() -> None:
       for behavior in _BEHAVIORS
     }
     _configure_agents(agent_ids)
-    job_results.extend(asyncio.run(_run_round(1)))
+    job_results.extend(async_runner.run(_run_round(1)))
     _apply_upstream_change(manifest, aliases)
-    asyncio.run(_maintain_lexical_projection())
-    job_results.extend(asyncio.run(_run_round(2)))
+    async_runner.run(_maintain_lexical_projection())
+    job_results.extend(async_runner.run(_run_round(2)))
 
     evidence = {
       "aliases": aliases,
       "jobs": job_results,
       "graph": _snapshot_graph(block_ids_before),
-      "later_use": asyncio.run(_use_readback()),
+      "later_use": async_runner.run(_use_readback()),
     }
     print("ORGANIZATION_ACCEPTANCE_EVIDENCE=" + json.dumps(evidence, ensure_ascii=False))
   finally:

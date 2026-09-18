@@ -87,8 +87,8 @@ class RuminationBehaviorResolver(
     return await record_candidate(cls, block_id, db_session=db_session)
 
   @classmethod
-  def can_run_automatic(cls) -> bool:
-    return configured_agent_available(RUMINATION_CONFIG_KEY, RuminationConfig)
+  async def can_run_automatic(cls) -> bool:
+    return await configured_agent_available(RUMINATION_CONFIG_KEY, RuminationConfig)
 
   @classmethod
   async def run_automatic(cls, max_seeds: int) -> None:

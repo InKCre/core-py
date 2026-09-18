@@ -9,7 +9,6 @@ import typing
 import pydantic
 
 from app.business.ai import AIExecutionRequirement, AIManager
-from app.engine import SessionLocal
 from app.schemas import AgentDefinitionModel
 from app.schemas.agent import AgentID, AgentForm, AgentUpdateForm
 from app.schemas.ai import FunctionTool, SystemMessage, UserMessage
@@ -135,10 +134,9 @@ class AgentManager:
     return registration.bind(tool_id).definition
 
   @classmethod
-  def can_execute(cls, agent_id: AgentID, input_modality: str) -> bool:
+  async def can_execute(cls, agent_id: AgentID, input_modality: str) -> bool:
     """Return static local eligibility for one Agent and canonical input modality."""
-    with SessionLocal() as db:
-      definition = db.get(AgentDefinitionModel, agent_id)
+    definition = await cls.get_definition(agent_id)
     if definition is None:
       return False
     try:
@@ -146,7 +144,7 @@ class AgentManager:
     except MissingAgentToolError:
       return False
     requires_tools = bool(definition.tools) or definition.tool_choice is not None
-    return AIManager.can_execute(
+    return await AIManager.can_execute(
       definition.model,
       AIExecutionRequirement(
         capability="chat",

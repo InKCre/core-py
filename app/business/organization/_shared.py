@@ -12,7 +12,7 @@ import sqlalchemy
 import sqlmodel
 
 from app.business.agent import AgentManager, AgentNotFoundError, TurnTermination
-from app.business.deployment_config import DeploymentConfigManager
+from app.business.deployment_config import DeploymentConfigService
 from app.business.info_base.block import BlockManager
 from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import (
@@ -205,16 +205,16 @@ def merge_seed_categories(
   return tuple(result)
 
 
-def configured_agent_available(
+async def configured_agent_available(
   config_key: str,
   config_type: type[pydantic.BaseModel],
 ) -> bool:
-  config = DeploymentConfigManager.get(config_key)
+  config = await DeploymentConfigService.get(config_key)
   if config is None:
     return False
   if not isinstance(config, config_type):
     raise TypeError(f"Organization config {config_key!r} returned the wrong model")
-  return AgentManager.can_execute(typing.cast(typing.Any, config).agent, "text")
+  return await AgentManager.can_execute(typing.cast(typing.Any, config).agent, "text")
 
 
 @contextmanager
@@ -247,7 +247,7 @@ async def run_configured_agent(
   config_type: type[pydantic.BaseModel],
   message: UserMessage,
 ) -> None:
-  config = DeploymentConfigManager.get(config_key)
+  config = await DeploymentConfigService.get(config_key)
   if config is None:
     raise OrganizationNotConfiguredError(
       f"Organization behavior {config_key!r} is not configured"

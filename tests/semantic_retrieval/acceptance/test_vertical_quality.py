@@ -278,7 +278,7 @@ def _create_source(source_type: str, config: FeedSourceConfig) -> int:
 
 
 async def _collect_source(source_id: int) -> None:
-  job = JobManager.create(
+  job = await JobManager.create(
     SOURCE_COLLECT_JOB_TYPE,
     {"source": source_id, "config": {}},
   )
@@ -326,8 +326,8 @@ async def _ingest_corpus(manifest: CorpusManifest) -> CorpusRun:
   MemosExtension._init_resolvers()
   RSSExtension._init_resolvers()
   RSSExtension._init_sources()
-  SourceManager.sync_source_types()
-  JobManager.sync_job_types()
+  await SourceManager.sync_source_types_async()
+  await JobManager.sync_job_types()
 
   server = CorpusHTTPDouble(manifest)
   run = CorpusRun(manifest=manifest, server=server)
@@ -500,7 +500,9 @@ def _assert_ingested_graph(run: CorpusRun) -> None:
   not os.getenv("INKCRE_TEST_DATABASE_URL"),
   reason="requires an explicitly selected migrated PostgreSQL runtime",
 )
-def test_real_producers_create_the_authoritative_corpus_graph():
+def test_real_producers_create_the_authoritative_corpus_graph(
+  async_runner,
+):
   manifest = load_manifest()
   verify_document_digests(manifest)
 
@@ -511,14 +513,16 @@ def test_real_producers_create_the_authoritative_corpus_graph():
     finally:
       await _close_corpus(run)
 
-  asyncio.run(journey())
+  async_runner.run(journey())
 
 
 @pytest.mark.skipif(
   not os.getenv("INKCRE_TEST_DATABASE_URL"),
   reason="requires an explicitly selected migrated PostgreSQL runtime",
 )
-def test_real_producer_corpus_supports_exact_and_chinese_lexical_recall():
+def test_real_producer_corpus_supports_exact_and_chinese_lexical_recall(
+  async_runner,
+):
   manifest = load_manifest()
   verify_document_digests(manifest)
 
@@ -550,7 +554,7 @@ def test_real_producer_corpus_supports_exact_and_chinese_lexical_recall():
     finally:
       await _close_corpus(run)
 
-  asyncio.run(journey())
+  async_runner.run(journey())
 
 
 def _provider_environment_available() -> bool:
@@ -779,7 +783,7 @@ def _deterministic_vector(text: str) -> tuple[float, float, float, float, float]
   not os.getenv("INKCRE_TEST_DATABASE_URL"),
   reason="requires an explicitly selected migrated PostgreSQL runtime",
 )
-def test_vertical_quality_control_flow_with_deterministic_ai(monkeypatch):
+def test_vertical_quality_control_flow_with_deterministic_ai(async_runner, monkeypatch):
   manifest = load_manifest()
   provider_id: int | None = None
   model_ids: tuple[int, ...] = ()
@@ -894,7 +898,7 @@ def test_vertical_quality_control_flow_with_deterministic_ai(monkeypatch):
       await _close_corpus(run)
 
   try:
-    asyncio.run(journey())
+    async_runner.run(journey())
   finally:
     _restore_config(RUMINATION_CONFIG_KEY, rumination_backup)
     _cleanup_ai(
@@ -912,7 +916,9 @@ def test_vertical_quality_control_flow_with_deterministic_ai(monkeypatch):
     "to run real-provider semantic quality"
   ),
 )
-def test_real_provider_quality_and_rumination_gain():
+def test_real_provider_quality_and_rumination_gain(
+  async_runner,
+):
   manifest = load_manifest()
   provider_id: int | None = None
   model_ids: tuple[int, ...] = ()
@@ -949,7 +955,7 @@ def test_real_provider_quality_and_rumination_gain():
       await _close_corpus(run)
 
   try:
-    asyncio.run(journey())
+    async_runner.run(journey())
   finally:
     _restore_config(RUMINATION_CONFIG_KEY, rumination_backup)
     _cleanup_ai(

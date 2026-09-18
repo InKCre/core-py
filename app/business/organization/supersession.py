@@ -267,8 +267,8 @@ class SupersessionBehaviorResolver(
     return False
 
   @classmethod
-  def can_run_automatic(cls) -> bool:
-    return configured_agent_available(SUPERSESSION_CONFIG_KEY, BehaviorAgentConfig)
+  async def can_run_automatic(cls) -> bool:
+    return await configured_agent_available(SUPERSESSION_CONFIG_KEY, BehaviorAgentConfig)
 
   @classmethod
   async def run_automatic(cls, max_seeds: int) -> None:

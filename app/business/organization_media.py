@@ -8,7 +8,7 @@ import sqlalchemy
 import sqlmodel
 
 from app.business.agent import AgentManager, TurnTermination
-from app.business.deployment_config import DeploymentConfigManager
+from app.business.deployment_config import DeploymentConfigManager, DeploymentConfigService
 from app.business.info_base.main import InfoBaseManager
 from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import ResolverManager
@@ -54,8 +54,8 @@ DeploymentConfigManager.register_schema(
 )
 
 
-def _config() -> MediaInterpretationConfig | None:
-  value = DeploymentConfigManager.get(MEDIA_INTERPRETATION_CONFIG_KEY)
+async def _config() -> MediaInterpretationConfig | None:
+  value = await DeploymentConfigService.get(MEDIA_INTERPRETATION_CONFIG_KEY)
   if value is None:
     return None
   if not isinstance(value, MediaInterpretationConfig):
@@ -74,15 +74,17 @@ def _agent(
   }[modality]
 
 
-def can_handle_media_interpretation() -> bool:
-  config = _config()
-  return config is not None and any(
-    AgentManager.can_execute(_agent(config, modality), modality)
-    for modality in typing.cast(
-      tuple[typing.Literal["image", "audio", "video"], ...],
-      ("image", "audio", "video"),
-    )
-  )
+async def can_handle_media_interpretation() -> bool:
+  config = await _config()
+  if config is None:
+    return False
+  for modality in typing.cast(
+    tuple[typing.Literal["image", "audio", "video"], ...],
+    ("image", "audio", "video"),
+  ):
+    if await AgentManager.can_execute(_agent(config, modality), modality):
+      return True
+  return False
 
 
 def _candidates() -> tuple[BlockModel, ...]:
@@ -216,7 +218,7 @@ async def _message(block: BlockModel) -> UserMessage | None:
 
 
 async def interpret_missing_media() -> MediaInterpretationReport:
-  config = _config()
+  config = await _config()
   if config is None:
     return MediaInterpretationReport()
   selected = interpreted = unavailable = failed = no_output = 0
@@ -243,7 +245,7 @@ async def interpret_missing_media() -> MediaInterpretationReport:
     block_id = typing.cast(int, block.id)
     modality = _RESOLVER_MODALITIES[block.resolver]
     agent = _agent(config, modality)
-    if not AgentManager.can_execute(agent, modality):
+    if not await AgentManager.can_execute(agent, modality):
       unavailable += 1
       diagnostic(block_id, modality, "unavailable", "agent_not_locally_executable")
       continue
