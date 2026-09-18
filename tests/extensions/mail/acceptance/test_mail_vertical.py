@@ -30,7 +30,7 @@ from app.schemas.job import JobModel, JobStatus
 from app.schemas.lexical_retrieval import LexicalMaintenanceOptions
 from app.schemas.source import SourceModel
 from extensions.mail import Extension
-from extensions.mail.repository import (
+from extensions.mail.reconcile import (
   EMAIL_ADDRESS_RESOLVER,
   EMAIL_RESOLVER,
   MAILBOX_RESOLVER,

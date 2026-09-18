@@ -5,10 +5,9 @@ from __future__ import annotations
 import json
 import typing
 
-import sqlmodel
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.main import InfoBaseManager
+from app.business.info_base.services import BlockService
+from app.business.info_base.commands import get_related_block
 from app.business.info_base.resolver import (
   Resolver,
   ResolverManager,
@@ -17,14 +16,13 @@ from app.business.info_base.resolver import (
 from app.business.info_base.resolver.inspection import detect_media_type
 from app.business.info_base.resolver.label import format_label
 from app.business.info_base.storage import WritableStorage
-from app.business.source import SourceManager
-from app.engine import SessionLocal
+from app.business.source.config import resolve_writable_storage_async
+from app.persistence.source.uow import source_uow
 from app.schemas.info_base.block import BlockForm, BlockModel
-from app.schemas.info_base.relation import RelationModel
 from app.schemas.source import SourceModel
 
 from .adapter import MailAdapterError, create_mail_adapter, decode_transfer
-from .repository import (
+from .reconcile import (
   EMAIL_ADDRESS_RESOLVER,
   EMAIL_RESOLVER,
   HTML_RESOLVER,
@@ -91,12 +89,7 @@ class EmailResolver(
       relation.to_ if relation.from_ == self.block_id else relation.from_
       for relation in relations
     }
-    with SessionLocal() as db:
-      blocks = {
-        block.id: block
-        for block_id in block_ids
-        if (block := db.get(BlockModel, block_id)) is not None
-      }
+    blocks = {block.id: block for block in await BlockService.get_many(block_ids)}
 
     bodies: list[SolvedBlock] = []
     mime_parts: list[SolvedBlock] = []
@@ -310,7 +303,7 @@ class MailMimePartResolver(
     root = CanonicalMimePart.model_validate_json(
       await self.get_raw_content(refresh=refresh)
     )
-    existing = InfoBaseManager.get_related_block(self.block_id, content="content")
+    existing = await get_related_block(self.block_id, content="content")
     if existing is not None:
       return SolvedMimePart(
         root=root,
@@ -322,7 +315,7 @@ class MailMimePartResolver(
     return SolvedMimePart(root=root, content=await _solve_block(child, refresh=refresh))
 
   async def _materialize(self, root: CanonicalMimePart) -> BlockModel:
-    context = self._resolve_remote_context()
+    context = await self._resolve_remote_context()
     source, mailbox_name, uid, part_id = context
     setup = MailSourceConfig.model_validate(source.config)
     state = MailSourceState.model_validate(source.state or {})
@@ -345,55 +338,49 @@ class MailMimePartResolver(
         rendered = content.decode("utf-8", errors="replace")
       content = rendered.encode("utf-8")
 
-    with SessionLocal() as db:
-      metadata = db.exec(
-        sqlmodel.select(BlockModel).where(BlockModel.id == self.block_id).with_for_update()
-      ).one()
-      existing = InfoBaseManager.get_related_block(
-        self.block_id,
-        content="content",
-        db_session=db,
-      )
+    async with source_uow() as uow:
+      metadata = await uow.graph.blocks.get(self.block_id, lock=True)
+      if metadata is None:
+        raise MailMaterializationUnavailable("MIME part no longer exists")
+      existing = await uow.graph.blocks.get_related(self.block_id, content="content")
       if existing is not None:
-        db.commit()
         return existing
-      live_source = db.get(SourceModel, source.id)
+      if source.id is None:
+        raise MailMaterializationUnavailable("Mail Source has no identity")
+      live_source = await uow.sources.get(source.id)
       if live_source is None:
         raise MailMaterializationUnavailable("Mail Source no longer exists")
-      storage = SourceManager.resolve_writable_storage(live_source, db)
+      storage = await resolve_writable_storage_async(live_source, uow)
       if not isinstance(storage, WritableStorage):  # registry/catalog invariant
         raise TypeError("Resolved target Storage is not writable")
-      pointer = storage.create_raw_content(content, db)
-      child = BlockManager.create(
+      pointer = await storage.create_content(content, uow.graph.storage)
+      child = await uow.graph.blocks.create(
         BlockForm(
           storage=storage.storage_id,
           resolver=resolver_id,
           content=pointer,
         ),
-        db,
       )
-      from app.business.info_base.relation import RelationManager
 
-      RelationManager.create(
+      await uow.graph.relations.create(
         _persisted_id(metadata),
         _persisted_id(child),
         "content",
-        db,
       )
-      db.commit()
-      db.refresh(child)
       return child
 
-  def _resolve_remote_context(self) -> tuple[SourceModel, str, int, str]:
+  async def _resolve_remote_context(self) -> tuple[SourceModel, str, int, str]:
     """Derive one exact live locator through MIME part -> Email -> Mailbox -> Source."""
-    with SessionLocal() as db:
-      owner_relations = db.exec(
-        sqlmodel.select(RelationModel).where(RelationModel.to_ == self.block_id)
-      ).all()
+    async with source_uow() as uow:
+      owner_relations = await uow.graph.relations.get(self.block_id, include_out=False)
+      owner_blocks = {
+        b.id: b
+        for b in await uow.graph.blocks.get_many(tuple(r.from_ for r in owner_relations))
+      }
       owners: list[tuple[int, str]] = []
       for relation in owner_relations:
         value = _json(relation.content)
-        owner = db.get(BlockModel, relation.from_)
+        owner = owner_blocks.get(relation.from_)
         if (
           value
           and value.get("role") in {"attachment", "inline"}
@@ -405,12 +392,14 @@ class MailMimePartResolver(
       if len(owners) != 1:
         raise MailMaterializationUnavailable("MIME part has no unique owning Email")
       email_id, part_id = owners[0]
-      occurrences = db.exec(
-        sqlmodel.select(RelationModel).where(RelationModel.to_ == email_id)
-      ).all()
+      occurrences = await uow.graph.relations.get(email_id, include_out=False)
+      mailboxes = {
+        b.id: b
+        for b in await uow.graph.blocks.get_many(tuple(r.from_ for r in occurrences))
+      }
       for occurrence in occurrences:
         locator = _json(occurrence.content)
-        mailbox = db.get(BlockModel, occurrence.from_)
+        mailbox = mailboxes.get(occurrence.from_)
         if (
           not locator
           or locator.get("type") != "contains"
@@ -419,16 +408,11 @@ class MailMimePartResolver(
           or mailbox.resolver != MAILBOX_RESOLVER
         ):
           continue
-        manages = db.exec(
-          sqlmodel.select(RelationModel).where(
-            RelationModel.to_ == mailbox.id,
-            RelationModel.content == "manages",
-          )
-        ).all()
+        manages = await uow.graph.relations.get(
+          _persisted_id(mailbox), include_out=False, content="manages"
+        )
         for manages_relation in manages:
-          source = db.exec(
-            sqlmodel.select(SourceModel).where(SourceModel.block == manages_relation.from_)
-          ).one_or_none()
+          source = await uow.sources.get_by_block(manages_relation.from_)
           if source is None or source.type != "extensions.mail.source.Source":
             continue
           mailbox_content = CanonicalMailbox.model_validate_json(mailbox.content)

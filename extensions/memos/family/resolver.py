@@ -46,10 +46,10 @@ class MemoResolver(Resolver[SolvedMemo, str], rso_type=MEMO_RESOLVER):
     attachments: list[SolvedAttachment] = []
     for attachment_id in links.attachment_ids:
       # Lazy imports preserve the core block/resolver registration boundary.
-      from app.business.info_base.block import BlockManager
+      from app.business.info_base.services import BlockService
       from app.business.info_base.resolver import ResolverManager
 
-      block = BlockManager.get(attachment_id)
+      block = await BlockService.get(attachment_id)
       if block is None:
         raise ValueError(f"Attachment block {attachment_id} does not exist")
       solved = await ResolverManager.get(block).get_solved_content(

@@ -97,8 +97,12 @@ persistence。Job handler 和外部 Sink lifecycle 在提交后的作用域外�
 共享 CronUnitOfWork，任一步失败回滚完整用例；不同 Cron 独立处理。Job 的取消／超时收尾另开短事务，
 只更新仍为 RUNNING 的记录，并限制清理等待时间。执行资格检查的 Source、Agent、AI 与配置读取也可 await。
 
+GitHub、RSS、Mail、Telegram、Twitter 和 Memos 的采集与物化已异步化。扩展的协调代码通过必需的
+Graph/Source UoW 组合 Core persistence，不创建 session。Twitter page graph 与 Source cursor 同事务；
+RSS/Mail 保持逐 item/occurrence 的既有 partial effects，Memos 主删除后的 best-effort cleanup 仍独立提交。
+
 迁移尚未完成。旧 InfoBaseManager、BlockManager、RelationManager、Storage 的 caller-session API
-仍供 Source、扩展采集、检索及 organization 的旧用例使用；旧配置查询保留到其消费者迁移。新路径不得调用这些入口，不得把同步 session 传进异步 UoW。迁移清单拥有临时消费者与删除步骤；
+仍供检索、organization 的旧用例及测试准备使用；旧配置查询保留到其消费者迁移。新路径不得调用这些入口，不得把同步 session 传进异步 UoW。迁移清单拥有临时消费者与删除步骤；
 最终删除旧 API，不把双轨当作长期接口。`pdm run lint:database-boundaries` 已约束新 persistence 模块
 和 Graph 应用层的同步 factory/import 使用，配置及暂时覆盖清单集中在
 `ruff.database.toml`，根 Ruff 配置只保留通用规则；事务方法与全 runtime 的结构治理在后续收敛阶段完成。

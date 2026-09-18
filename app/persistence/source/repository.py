@@ -35,6 +35,13 @@ class SourceRepository:
       statement = statement.with_for_update()
     return (await self._session.scalars(statement)).one_or_none()
 
+  async def get_by_block(self, block_id: int) -> SourceModel | None:
+    return (
+      await self._session.scalars(
+        sqlmodel.select(SourceModel).where(SourceModel.block == block_id)
+      )
+    ).one_or_none()
+
   async def save(self, source: SourceModel) -> None:
     self._session.add(source)
     await self._session.flush()

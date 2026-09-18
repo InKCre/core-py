@@ -7,14 +7,14 @@ import dataclasses
 
 import pydantic
 
-from app.business.info_base.block import BlockManager
+from app.business.info_base.services import BlockService
 from app.business.info_base.resolver import ResolverManager
 from app.schemas.job import JobModel
 from utils.datetime_ import get_datetimez
 
 from .adapter import FeedParserContext, parse_feed_snapshot
 from .http import HTTPFetchOptions, fetch_http_bytes
-from .repository import FeedGraphRepository, ReconcileResult
+from .reconcile import FeedGraphReconciler, ReconcileResult
 from .schema import (
   FeedCollectJobConfig,
   FeedFamily,
@@ -136,7 +136,7 @@ class FeedCollectionService:
       ),
     )
     diagnostics.extend(snapshot.diagnostics)
-    feed_result = FeedGraphRepository.reconcile_feed(snapshot.feed)
+    feed_result = await FeedGraphReconciler.reconcile_feed(snapshot.feed)
     admission_state = (
       previous_state
       if previous_state.snapshot_feed_block_id == feed_result.block_id
@@ -163,7 +163,7 @@ class FeedCollectionService:
         )
         continue
       try:
-        result = FeedGraphRepository.reconcile_item(
+        result = await FeedGraphReconciler.reconcile_item(
           feed_result.block_id,
           parsed_item.item,
           parsed_item.enclosures,
@@ -221,7 +221,7 @@ class FeedCollectionService:
 
     if effective.download_enclosures:
       for index, (_, result) in enumerate(reconciled_items):
-        block = BlockManager.get(result.block_id)
+        block = await BlockService.get(result.block_id)
         if block is None:
           continue
         solved = await ResolverManager.get(block).get_solved_content(
@@ -230,7 +230,7 @@ class FeedCollectionService:
         if not isinstance(solved, SolvedFeedItem):
           raise TypeError("feed item resolver returned an unexpected solved value")
         for enclosure_block_id in solved.enclosure_block_ids:
-          enclosure_block = BlockManager.get(enclosure_block_id)
+          enclosure_block = await BlockService.get(enclosure_block_id)
           if enclosure_block is None:
             continue
           resolver = ResolverManager.get(enclosure_block)

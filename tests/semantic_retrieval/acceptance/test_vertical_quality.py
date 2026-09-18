@@ -62,7 +62,7 @@ from app.schemas.lexical_retrieval import LexicalMaintenanceOptions
 from app.schemas.source import SourceModel
 from extensions.memos import Extension as MemosExtension
 from extensions.rss import Extension as RSSExtension
-from extensions.rss.repository import (
+from extensions.rss.reconcile import (
   CONTENT_RELATION,
   ENCLOSURE_RELATION,
   FEED_ITEM_RESOLVER_ID,

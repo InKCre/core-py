@@ -123,3 +123,20 @@ Cron flush 后注入失败时 Job/occurrence 一起回滚。类型检查和数�
 并无必要的 RESTART IDENTITY，以现有 core runtime 权限执行，不扩大数据库权限。
 
 步骤 06 已完成：完整 pdm run check 为 14 passed／58 skipped；隔离 PostgreSQL 的 lexical/RSS 五项验收全部通过，Job/Cron probe 通过。当前进入步骤 07，按 GitHub → RSS → Mail → Telegram → Twitter → Memos 迁移。
+
+### 步骤 07 验收进展
+
+GitHub、RSS、Mail 的 graph coordination 更名为 Reconciler，通过已绑定的 Core repositories 工作，
+不再直接持有 Session；扩展应用入口决定 scope。Telegram 的 graph/update cursor 同事务，Twitter
+修复先写 cursor 再提交 graph 的顺序，改为同一 SourceUnitOfWork，Job state 交回统一 close 持久化。
+Memos 的 MemoGraph/AttachmentGraph 保留 graph grammar，用例通过必需的 GraphUnitOfWork 组合，
+维持 primary delete 后独占资源 best-effort cleanup；异步并发归属检查使用有序附件行锁。
+
+RSS 两项真实 PostgreSQL 验收、Mail graph/checkpoint probe、Telegram/Twitter checkpoint probe 已通过。
+Memos 原有 13 项真实 PostgreSQL 验收通过，并补充单附件并发 owner 验证。本地缺 Dovecot distribution，
+未把 Mail graph 验证冒充 IMAP 端到端验证；后续采用现有 Linux/preview 环境验证实际协议。
+
+步骤 07 完成：全仓 gate 14 passed／59 skipped；Memos 13 项原有 PostgreSQL 验收与新增并发
+附件归属案例通过，RSS 两项通过；GitHub snapshot/replay/list-removal/account-binding probe 通过，
+Mail、Telegram/Twitter probes 通过。扩展 lint 覆盖除 GitHub legacy identity override 之外的全部
+已迁移 producer，该 override 仅由旧 Stars 消费，随步骤 10 清零。当前进入步骤 08。

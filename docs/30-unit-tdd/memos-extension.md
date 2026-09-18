@@ -25,7 +25,7 @@ extensions/memos/
   auth.py + config.py             deployment-scoped PAT contract
   family/
     schema.py                     CanonicalMemo / CanonicalAttachment / solved values
-    graph.py + attachment.py      graph grammar and persistence repositories
+    graph.py + attachment.py      graph grammar and operations within a required graph UoW
     resolver.py                   CanonicalMemo v1 + relations -> SolvedMemo
     attachment_resolver.py        attachment block -> SolvedAttachment
     service.py                    memo-family commands and queries
@@ -138,7 +138,11 @@ Memos request
 HTTP success 表示 command 的 primary mutation 已持久，并且 response 来自实际 committed resolver state；
 它不承诺完整 graph transaction 或 residue-free cleanup。
 
-Delete 在 primary transaction 前构造有限、cycle-safe ownership plan：只沿 exclusive comment `parent`
+Memo/Attachment application service 使用异步 graph UoW。MemoGraph 与 AttachmentGraph 只组合
+同一 UoW 的 repositories；SQL 与 session 生命周期归 Core persistence。更新附件时先锁 memo，
+再按 ID 顺序锁待关联附件，随后核对 owner，避免并发请求同时取得同一附件的归属。
+
+Delete 在 primary transaction 内构造有限、cycle-safe ownership plan：只沿 exclusive comment `parent`
 和 exclusive attachment ownership，不沿 `reference`。Primary root 先删除并 commit；owned comment、attachment
 block 与 raw bytes 随后 best-effort cleanup。Shared/multiple-owner component 不删除；cleanup failure 被记录并
 允许留下 residue，不回滚 primary success。

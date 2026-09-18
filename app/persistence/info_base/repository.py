@@ -46,6 +46,23 @@ class BlockRepository:
       ).all()
     )
 
+  async def get_by_resolvers(
+    self, resolvers: typing.Collection[str]
+  ) -> tuple[BlockModel, ...]:
+    if not resolvers:
+      return ()
+    return tuple(
+      await self._session.scalars(
+        sqlmodel.select(BlockModel).where(
+          sqlmodel.col(BlockModel.resolver).in_(tuple(resolvers))
+        )
+      )
+    )
+
+  async def save_many(self, blocks: Iterable[BlockModel]) -> None:
+    self._session.add_all(blocks)
+    await self._session.flush()
+
   async def get_random_many(self, count: int) -> tuple[BlockModel, ...]:
     """Return up to count distinct random Blocks."""
     if count <= 0:
@@ -73,12 +90,11 @@ class BlockRepository:
       )
     ).one()
 
-  async def get(self, block_id: BlockID) -> Opt[BlockModel]:
-    return (
-      await self._session.scalars(
-        sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
-      )
-    ).one_or_none()
+  async def get(self, block_id: BlockID, *, lock: bool = False) -> Opt[BlockModel]:
+    statement = sqlmodel.select(BlockModel).where(BlockModel.id == block_id)
+    if lock:
+      statement = statement.with_for_update()
+    return (await self._session.scalars(statement)).one_or_none()
 
   async def save(self, block: BlockModel) -> None:
     self._session.add(block)
@@ -139,20 +155,22 @@ class BlockRepository:
     ).one_or_none()
 
   async def find_json_field(
-    self, resolver: str, field: str, value: str
+    self,
+    resolver: str,
+    field: str,
+    value: str,
+    *,
+    block_ids: typing.Collection[BlockID] | None = None,
   ) -> tuple[BlockModel, ...]:
     from utils.sql import find_by_json_field
 
-    return tuple(
-      (
-        await self._session.scalars(
-          sqlmodel.select(BlockModel).where(
-            BlockModel.resolver == resolver,
-            find_by_json_field(BlockModel.content, field, value),
-          )
-        )
-      ).all()
+    statement = sqlmodel.select(BlockModel).where(
+      BlockModel.resolver == resolver,
+      find_by_json_field(BlockModel.content, field, value),
     )
+    if block_ids is not None:
+      statement = statement.where(sqlmodel.col(BlockModel.id).in_(tuple(block_ids)))
+    return tuple(await self._session.scalars(statement))
 
   async def get_related(
     self, block_id: BlockID, *, content: str, outgoing: bool = True
@@ -200,6 +218,56 @@ class RelationRepository:
         )
       ).all()
     )
+
+  async def get_for_endpoints(
+    self, block_ids: typing.Collection[BlockID], *, contents: typing.Collection[str]
+  ) -> tuple[RelationModel, ...]:
+    if not block_ids:
+      return ()
+    return tuple(
+      await self._session.scalars(
+        sqlmodel.select(RelationModel).where(
+          sqlmodel.col(RelationModel.content).in_(tuple(contents)),
+          sqlalchemy.or_(
+            sqlmodel.col(RelationModel.from_).in_(tuple(block_ids)),
+            sqlmodel.col(RelationModel.to_).in_(tuple(block_ids)),
+          ),
+        )
+      )
+    )
+
+  async def delete_many(self, relation_ids: typing.Collection[RelationID]) -> None:
+    if relation_ids:
+      await self._session.execute(
+        sqlalchemy.delete(RelationModel).where(
+          sqlmodel.col(RelationModel.id).in_(tuple(relation_ids))
+        )
+      )
+
+  async def get_outgoing_many(
+    self,
+    block_ids: typing.Collection[BlockID],
+    *,
+    to_ids: typing.Collection[BlockID] | None = None,
+    content: str | None = None,
+  ) -> tuple[RelationModel, ...]:
+    if not block_ids:
+      return ()
+    statement = sqlmodel.select(RelationModel).where(
+      sqlmodel.col(RelationModel.from_).in_(tuple(block_ids))
+    )
+    if to_ids is not None:
+      statement = statement.where(sqlmodel.col(RelationModel.to_).in_(tuple(to_ids)))
+    if content is not None:
+      statement = statement.where(RelationModel.content == content)
+    return tuple(await self._session.scalars(statement))
+
+  async def save(self, relation: RelationModel) -> None:
+    self._session.add(relation)
+    await self._session.flush()
+
+  async def remove(self, relation: RelationModel) -> None:
+    await self._session.delete(relation)
 
   async def get_by_id(self, relation_id: RelationID) -> RelationModel | None:
     return await self._session.get(RelationModel, relation_id)

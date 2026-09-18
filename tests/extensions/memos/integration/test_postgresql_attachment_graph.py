@@ -1,11 +1,9 @@
 """Opt-in proof against the declared PostgreSQL development contract."""
 
-import asyncio
 import datetime
 import os
 from pathlib import Path
 
-from fastapi.testclient import TestClient
 import pytest
 import sqlalchemy
 import sqlmodel
@@ -26,7 +24,7 @@ from extensions.memos.family import (
   MemoApplicationService,
   MemoVisibility,
 )
-from extensions.memos.family.attachment import AttachmentGraphRepository
+from extensions.memos.family.attachment import AttachmentGraph
 from tests.extensions.runtime_support import publish_extension
 
 
@@ -87,12 +85,22 @@ def _track_attachment(solved, tracked_block_ids: set[int], tracked_blob_ids: set
   return pointer.blob_id
 
 
-def _client(*, raise_server_exceptions: bool = True) -> TestClient:
-  return publish_extension(
+@pytest.fixture
+def memo_client():
+  from app.engine import ASYNC_DB_ENGINE
+
+  published = publish_extension(
     Extension,
     {"personal_access_token": "memos_pat_" + "A" * 32},
-    raise_server_exceptions=raise_server_exceptions,
-  ).client
+    raise_server_exceptions=False,
+  )
+  with published.client as client:
+    try:
+      yield client
+    finally:
+      assert client.portal is not None
+      client.portal.call(ASYNC_DB_ENGINE.dispose)
+      published.unpublish()
 
 
 @pytest.mark.parametrize(
@@ -108,6 +116,7 @@ def _client(*, raise_server_exceptions: bool = True) -> TestClient:
   ),
 )
 def test_memos_declared_media_type_selects_exact_semantic_content(
+  async_runner,
   filename,
   media_type,
   resolver_id,
@@ -118,7 +127,7 @@ def test_memos_declared_media_type_selects_exact_semantic_content(
   tracked_blob_ids = set()
 
   try:
-    solved = asyncio.run(
+    solved = async_runner.run(
       AttachmentApplicationService.create(
         filename=filename,
         media_type=media_type,
@@ -143,28 +152,30 @@ def test_memos_declared_media_type_selects_exact_semantic_content(
         )[0].to_
         == solved.content_block_id
       )
-    assert asyncio.run(
+    assert async_runner.run(
       AttachmentApplicationService.download(solved.block_id, filename)
     ) == (media_type, (SEMANTIC_ASSETS / filename).read_bytes())
   finally:
     _cleanup(tracked_block_ids, tracked_blob_ids)
 
 
-def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
+def test_orphan_attach_reorder_download_and_owned_removal_round_trip(
+  async_runner,
+):
   Extension._init_resolvers()
   StorageManager.setup_builtin_storages()
   tracked_block_ids: set[int] = set()
   tracked_blob_ids = set()
 
   try:
-    first = asyncio.run(
+    first = async_runner.run(
       AttachmentApplicationService.create(
         filename="first.png",
         media_type="image/png",
         content=b"first",
       )
     )
-    second = asyncio.run(
+    second = async_runner.run(
       AttachmentApplicationService.create(
         filename="second.png",
         media_type="image/png",
@@ -174,7 +185,7 @@ def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
     first_blob_id = _track_attachment(first, tracked_block_ids, tracked_blob_ids)
     second_blob_id = _track_attachment(second, tracked_block_ids, tracked_blob_ids)
 
-    memo = asyncio.run(
+    memo = async_runner.run(
       MemoApplicationService.create(
         CanonicalMemo(
           body="attachment proof",
@@ -186,11 +197,11 @@ def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
     )
     tracked_block_ids.add(memo.block_id)
     assert memo.attachment_ids == (first.block_id, second.block_id)
-    assert asyncio.run(
+    assert async_runner.run(
       AttachmentApplicationService.download(first.block_id, "first.png")
     ) == ("image/png", b"first")
 
-    reordered = asyncio.run(
+    reordered = async_runner.run(
       MemoApplicationService.update(
         memo.block_id,
         CanonicalMemoPatch(body="attachment proof updated"),
@@ -199,7 +210,7 @@ def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
     )
     assert reordered.attachment_ids == (second.block_id, first.block_id)
 
-    reduced = asyncio.run(
+    reduced = async_runner.run(
       MemoApplicationService.update(
         memo.block_id,
         None,
@@ -225,7 +236,7 @@ def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
         ("attachment:0", second.block_id)
       ]
 
-    AttachmentApplicationService.delete(second.block_id)
+    async_runner.run(AttachmentApplicationService.delete(second.block_id))
     with SessionLocal() as db_session:
       assert BlockManager.get(second.block_id, db_session) is None
       assert db_session.get(StorageBlobModel, second_blob_id) is None
@@ -233,7 +244,9 @@ def test_orphan_attach_reorder_download_and_owned_removal_round_trip():
     _cleanup(tracked_block_ids, tracked_blob_ids)
 
 
-def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets():
+def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets(
+  async_runner,
+):
   Extension._init_resolvers()
   StorageManager.setup_builtin_storages()
   tracked_block_ids: set[int] = set()
@@ -257,9 +270,9 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
     )
 
   try:
-    exclusive = asyncio.run(attachment("exclusive.png", b"exclusive"))
-    shared = asyncio.run(attachment("shared.png", b"shared"))
-    comment_owned = asyncio.run(attachment("comment.png", b"comment"))
+    exclusive = async_runner.run(attachment("exclusive.png", b"exclusive"))
+    shared = async_runner.run(attachment("shared.png", b"shared"))
+    comment_owned = async_runner.run(attachment("comment.png", b"comment"))
     exclusive_blob_id = PostgreSQLBlobPointer.model_validate_json(
       BlockManager.get(exclusive.content_block_id).content  # type: ignore[union-attr]
     ).blob_id
@@ -270,9 +283,9 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
       BlockManager.get(comment_owned.content_block_id).content  # type: ignore[union-attr]
     ).blob_id
 
-    target = asyncio.run(MemoApplicationService.create(canonical("target")))
+    target = async_runner.run(MemoApplicationService.create(canonical("target")))
     tracked_block_ids.add(target.block_id)
-    parent = asyncio.run(
+    parent = async_runner.run(
       MemoApplicationService.create(
         canonical("parent", MemoVisibility.PROTECTED),
         attachment_ids=(exclusive.block_id, shared.block_id),
@@ -280,7 +293,7 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
     )
     tracked_block_ids.add(parent.block_id)
 
-    comment = asyncio.run(
+    comment = async_runner.run(
       MemoApplicationService.create_comment(
         parent.block_id,
         canonical("comment", MemoVisibility.PUBLIC),
@@ -291,14 +304,14 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
     assert comment.parent_id == parent.block_id
     assert comment.canonical.visibility is MemoVisibility.PROTECTED
 
-    nested = asyncio.run(
+    nested = async_runner.run(
       MemoApplicationService.create_comment(
         comment.block_id,
         canonical("nested"),
       )
     )
     tracked_block_ids.add(nested.block_id)
-    sibling = asyncio.run(
+    sibling = async_runner.run(
       MemoApplicationService.create_comment(
         parent.block_id,
         canonical("sibling"),
@@ -306,7 +319,7 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
     )
     tracked_block_ids.add(sibling.block_id)
 
-    updated = asyncio.run(
+    updated = async_runner.run(
       MemoApplicationService.update(
         comment.block_id,
         CanonicalMemoPatch(
@@ -318,7 +331,7 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
     assert updated.canonical.body == "comment updated"
     assert updated.canonical.visibility is MemoVisibility.PROTECTED
 
-    page = asyncio.run(MemoApplicationService.list_comments(parent.block_id, limit=10))
+    page = async_runner.run(MemoApplicationService.list_comments(parent.block_id, limit=10))
     assert page.total_size == 2
     assert {item.block_id for item in page.comments} == {
       comment.block_id,
@@ -326,7 +339,7 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
     }
     assert all(item.parent_id == parent.block_id for item in page.comments)
 
-    MemoApplicationService.delete(sibling.block_id)
+    async_runner.run(MemoApplicationService.delete(sibling.block_id))
     with SessionLocal() as db_session:
       assert BlockManager.get(sibling.block_id, db_session) is None
       assert BlockManager.get(parent.block_id, db_session) is not None
@@ -346,7 +359,7 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
       )
       db_session.commit()
 
-    MemoApplicationService.delete(parent.block_id)
+    async_runner.run(MemoApplicationService.delete(parent.block_id))
     with SessionLocal() as db_session:
       assert BlockManager.get(parent.block_id, db_session) is None
       assert BlockManager.get(comment.block_id, db_session) is None
@@ -373,10 +386,12 @@ def test_comment_visibility_and_owned_delete_preserve_shared_reference_targets()
     _cleanup(tracked_block_ids, tracked_blob_ids)
 
 
-def test_comment_http_round_trip_reads_committed_resolver_graph():
+def test_comment_http_round_trip_reads_committed_resolver_graph(
+  memo_client,
+):
   Extension._init_resolvers()
   StorageManager.setup_builtin_storages()
-  client = _client()
+  client = memo_client
   headers = {"Authorization": "Bearer " + "memos_pat_" + "A" * 32}
   tracked_block_ids: set[int] = set()
 
@@ -446,6 +461,7 @@ def test_comment_http_round_trip_reads_committed_resolver_graph():
 
 
 def test_primary_delete_succeeds_when_best_effort_attachment_cleanup_fails(
+  async_runner,
   monkeypatch,
 ):
   Extension._init_resolvers()
@@ -454,7 +470,7 @@ def test_primary_delete_succeeds_when_best_effort_attachment_cleanup_fails(
   tracked_blob_ids = set()
 
   try:
-    attachment = asyncio.run(
+    attachment = async_runner.run(
       AttachmentApplicationService.create(
         filename="residue.png",
         media_type="image/png",
@@ -466,7 +482,7 @@ def test_primary_delete_succeeds_when_best_effort_attachment_cleanup_fails(
       tracked_block_ids,
       tracked_blob_ids,
     )
-    memo = asyncio.run(
+    memo = async_runner.run(
       MemoApplicationService.create(
         CanonicalMemo(
           body="primary delete proof",
@@ -478,15 +494,15 @@ def test_primary_delete_succeeds_when_best_effort_attachment_cleanup_fails(
     )
     tracked_block_ids.add(memo.block_id)
 
-    def fail_cleanup(_cls, _attachment_id, _db_session):
+    async def fail_cleanup(_cls, _attachment_id, _db_session):
       raise RuntimeError("injected cleanup failure")
 
     monkeypatch.setattr(
-      AttachmentGraphRepository,
+      AttachmentGraph,
       "delete_component",
       classmethod(fail_cleanup),
     )
-    MemoApplicationService.delete(memo.block_id)
+    async_runner.run(MemoApplicationService.delete(memo.block_id))
 
     with SessionLocal() as db_session:
       assert BlockManager.get(memo.block_id, db_session) is None
@@ -496,10 +512,12 @@ def test_primary_delete_succeeds_when_best_effort_attachment_cleanup_fails(
     _cleanup(tracked_block_ids, tracked_blob_ids)
 
 
-def test_missing_raw_bytes_are_404_without_fabricating_attachment_success():
+def test_missing_raw_bytes_are_404_without_fabricating_attachment_success(
+  memo_client,
+):
   Extension._init_resolvers()
   StorageManager.setup_builtin_storages()
-  client = _client()
+  client = memo_client
   headers = {"Authorization": "Bearer " + "memos_pat_" + "A" * 32}
   tracked_block_ids: set[int] = set()
   tracked_blob_ids = set()
@@ -521,7 +539,12 @@ def test_missing_raw_bytes_are_404_without_fabricating_attachment_success():
     with SessionLocal() as db_session:
       metadata_block = BlockManager.get(attachment_id, db_session)
       assert metadata_block is not None
-      content_block = AttachmentGraphRepository.content_block(attachment_id, db_session)
+      content_relations = RelationManager.get(
+        attachment_id, include_in=False, content="content", db_session=db_session
+      )
+      assert len(content_relations) == 1
+      content_block = BlockManager.get(content_relations[0].to_, db_session)
+      assert content_block is not None
       assert content_block.id is not None
       tracked_block_ids.add(content_block.id)
       pointer = PostgreSQLBlobPointer.model_validate_json(content_block.content)
@@ -542,22 +565,24 @@ def test_missing_raw_bytes_are_404_without_fabricating_attachment_success():
     _cleanup(tracked_block_ids, tracked_blob_ids)
 
 
-def test_unknown_component_resolver_returns_500_instead_of_partial_memo_success():
+def test_unknown_component_resolver_returns_500_instead_of_partial_memo_success(
+  memo_client,
+):
   Extension._init_resolvers()
   StorageManager.setup_builtin_storages()
-  client = _client(raise_server_exceptions=False)
+  client = memo_client
   headers = {"Authorization": "Bearer " + "memos_pat_" + "A" * 32}
   tracked_block_ids: set[int] = set()
 
   try:
-    memo = asyncio.run(
-      MemoApplicationService.create(
-        CanonicalMemo(
-          body="unknown resolver proof",
-          created_at=datetime.datetime(2026, 8, 1, 8, tzinfo=datetime.UTC),
-          updated_at=datetime.datetime(2026, 8, 1, 8, tzinfo=datetime.UTC),
-        )
-      )
+    assert client.portal is not None
+    memo = client.portal.call(
+      MemoApplicationService.create,
+      CanonicalMemo(
+        body="unknown resolver proof",
+        created_at=datetime.datetime(2026, 8, 1, 8, tzinfo=datetime.UTC),
+        updated_at=datetime.datetime(2026, 8, 1, 8, tzinfo=datetime.UTC),
+      ),
     )
     tracked_block_ids.add(memo.block_id)
     with SessionLocal() as db_session:
@@ -586,3 +611,43 @@ def test_unknown_component_resolver_returns_500_instead_of_partial_memo_success(
     assert response.status_code == 500
   finally:
     _cleanup(tracked_block_ids, set())
+
+
+def test_concurrent_memos_cannot_claim_the_same_attachment(async_runner):
+  import asyncio
+  from extensions.memos.family.attachment import AttachmentOwnershipError
+
+  Extension._init_resolvers()
+  StorageManager.setup_builtin_storages()
+  tracked_block_ids: set[int] = set()
+  tracked_blob_ids = set()
+
+  async def scenario():
+    attachment = await AttachmentApplicationService.create(
+      filename="ownership.txt", media_type="text/plain", content=b"exclusive"
+    )
+    _track_attachment(attachment, tracked_block_ids, tracked_blob_ids)
+    results = await asyncio.gather(
+      *(
+        MemoApplicationService.create(
+          CanonicalMemo(body=f"concurrent owner {index}", created_at=None, updated_at=None),
+          attachment_ids=(attachment.block_id,),
+        )
+        for index in range(2)
+      ),
+      return_exceptions=True,
+    )
+    winners = [result for result in results if not isinstance(result, BaseException)]
+    assert len(winners) == 1
+    tracked_block_ids.add(winners[0].block_id)
+    assert sum(isinstance(result, AttachmentOwnershipError) for result in results) == 1
+    with SessionLocal() as db:
+      owners = RelationManager.get(
+        attachment.block_id, include_out=False, content="attachment:0", db_session=db
+      )
+      assert len(owners) == 1 and owners[0].from_ == winners[0].block_id
+
+  try:
+    async_runner.run(scenario())
+  finally:
+    _cleanup(tracked_block_ids, tracked_blob_ids)

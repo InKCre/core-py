@@ -3,10 +3,10 @@
 import pydantic
 import sqlmodel
 import typing
-from app.business.info_base.main import InfoBaseManager
+from app.business.info_base.commands import persist_stars
 from app.business.info_base.resolver import ImageResolver, VideoResolver, HTMLResolver
 from app.business.source import SourceBase
-from app.engine import SessionLocal
+from app.persistence.source.uow import source_uow
 from app.schemas.info_base.main import OutArcForm, StarsGraphForm
 from app.schemas.info_base.relation import RelationForm
 from app.schemas.job import JobModel
@@ -126,20 +126,20 @@ class Source(
     ):
       collected.append(tweet_to_graph(tweet))
 
-    if not full and bookmarks_res.tweets:
-      state = await self.get_state()
-      state["latest_tweet_id"] = bookmarks_res.tweets[0].id
-      await self.set_state(state)
-
-    with SessionLocal() as db:
+    async with source_uow() as uow:
+      source = await uow.sources.get(self._id, lock=True)
+      if source is None:
+        raise ValueError("Twitter Source no longer exists")
       for graph in reversed(collected) if full else collected:
-        await InfoBaseManager.add_stars_graph_to_session(graph, db)
-      db.commit()
+        await persist_stars(graph, uow.graph)
+      if not full and bookmarks_res.tweets:
+        source.state = {
+          **(source.state or {}),
+          "latest_tweet_id": bookmarks_res.tweets[0].id,
+        }
+        await uow.sources.save(source)
 
     # Update job state for next page if full and has next_page
     if full and bookmarks_res.next_page and bookmarks_res.next_page != page:
       job.state = job.state or {}
       job.state["page"] = bookmarks_res.next_page
-      with SessionLocal() as db:
-        db.add(job)
-        db.commit()

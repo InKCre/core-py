@@ -7,16 +7,13 @@ import datetime
 import typing
 
 import pydantic
-import sqlmodel
 import telegram
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
+from app.business.info_base.services import BlockService
 from app.business.source import SourceBase, SourceManager
-from app.engine import SessionLocal
+from app.persistence.source.uow import source_uow
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.job import JobModel
-from app.schemas.source import SourceModel
 from libs.obsrv.main import get_logger
 
 from .resolver import SOURCE_RELATION, TelegramAttachmentResolver
@@ -100,22 +97,21 @@ def _semantic_text(message: telegram.Message, *, caption: bool = False) -> Block
 class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
   """Collect useful content sent privately by one configured Telegram identity."""
 
-  def _pin_bot(self, bot_id: int) -> TelegramSourceState:
-    with SessionLocal() as db:
-      source = db.exec(
-        sqlmodel.select(SourceModel).where(SourceModel.id == self._id).with_for_update()
-      ).one()
+  async def _pin_bot(self, bot_id: int) -> TelegramSourceState:
+    async with source_uow() as uow:
+      source = await uow.sources.get(self._id, lock=True)
+      if source is None:
+        raise ValueError("Telegram Source no longer exists")
       state = TelegramSourceState.model_validate(source.state or {})
       if state.bot_id is not None and state.bot_id != bot_id:
         raise ValueError("Telegram Source token resolves to a different bot")
       if state.bot_id is None:
         state = state.model_copy(update={"bot_id": bot_id})
         source.state = state.model_dump(mode="json", exclude_none=True)
-        db.add(source)
-        db.commit()
+        await uow.sources.save(source)
       return state
 
-  def _persist_update(
+  async def _persist_update(
     self,
     update_id: int,
     *,
@@ -123,32 +119,35 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
     attachment: TelegramAttachment | None = None,
     caption: BlockForm | None = None,
   ) -> PersistedUpdate:
-    with SessionLocal() as db:
-      source = db.exec(
-        sqlmodel.select(SourceModel).where(SourceModel.id == self._id).with_for_update()
-      ).one()
+    async with source_uow() as uow:
+      source = await uow.sources.get(self._id, lock=True)
+      if source is None:
+        raise ValueError("Telegram Source no longer exists")
       state = TelegramSourceState.model_validate(source.state or {})
       if state.last_update_id is not None and state.last_update_id >= update_id:
         return PersistedUpdate("duplicate")
 
       if text is not None:
-        BlockManager.create(text, db)
+        await uow.graph.blocks.create(text)
       attachment_id = None
       if attachment is not None:
-        source_anchor = SourceManager.ensure_block(source, db)
-        metadata = BlockManager.create(
-          TelegramAttachmentResolver.create_block(attachment), db
+        source_anchor = await SourceManager.ensure_block_async(source, uow)
+        metadata = await uow.graph.blocks.create(
+          TelegramAttachmentResolver.create_block(attachment)
         )
         attachment_id = _block_id(metadata)
-        RelationManager.create(_block_id(source_anchor), attachment_id, SOURCE_RELATION, db)
+        await uow.graph.relations.create(
+          _block_id(source_anchor), attachment_id, SOURCE_RELATION
+        )
         if caption is not None:
-          caption_block = BlockManager.create(caption, db)
-          RelationManager.create(attachment_id, _block_id(caption_block), "caption", db)
+          caption_block = await uow.graph.blocks.create(caption)
+          await uow.graph.relations.create(
+            attachment_id, _block_id(caption_block), "caption"
+          )
 
       state = state.model_copy(update={"last_update_id": update_id})
       source.state = state.model_dump(mode="json", exclude_none=True)
-      db.add(source)
-      db.commit()
+      await uow.sources.save(source)
       status = "saved" if text is not None or attachment is not None else "unsupported"
       return PersistedUpdate(status, attachment_id)
 
@@ -214,7 +213,7 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
 
     async with telegram.Bot(setup.bot_token) as bot:
       identity = await bot.get_me()
-      state = self._pin_bot(identity.id)
+      state = await self._pin_bot(identity.id)
       while True:
         updates = await bot.get_updates(
           offset=None if state.last_update_id is None else state.last_update_id + 1,
@@ -230,7 +229,7 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
             or message.from_user is None
             or message.from_user.id != setup.bound_user_id
           ):
-            outcome = self._persist_update(update.update_id)
+            outcome = await self._persist_update(update.update_id)
             if outcome.status != "duplicate":
               counts["unauthorized" if message is not None else "unsupported"] += 1
             state = TelegramSourceState.model_validate(await self.get_state())
@@ -238,7 +237,7 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
 
           try:
             if message.text == "/start":
-              outcome = self._persist_update(update.update_id)
+              outcome = await self._persist_update(update.update_id)
               if outcome.status != "duplicate":
                 await self._notify(bot, message, "start", diagnostics, update.update_id)
               state = TelegramSourceState.model_validate(await self.get_state())
@@ -249,7 +248,7 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
             caption = (
               _semantic_text(message, caption=True) if attachment is not None else None
             )
-            outcome = self._persist_update(
+            outcome = await self._persist_update(
               update.update_id, text=text, attachment=attachment, caption=caption
             )
             if outcome.status == "duplicate":
@@ -260,7 +259,7 @@ class Source(SourceBase[TelegramSourceConfig], config_cls=TelegramSourceConfig):
             else:
               notification = "saved"
               if setup.download_attachments and outcome.attachment_id is not None:
-                block = BlockManager.get(outcome.attachment_id)
+                block = await BlockService.get(outcome.attachment_id)
                 if block is None:
                   raise RuntimeError("persisted Telegram attachment disappeared")
                 try:

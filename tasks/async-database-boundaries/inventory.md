@@ -100,3 +100,11 @@ Source catalog/config/state、Sink catalog/intent、Job admission/claim/close �
 AI/Agent can_execute、Organization configured_agent_available、Semantic profile eligibility 的读取链同步
 迁移；旧 Source ensure_block 和 resolve_writable_storage 只留给步骤 07 的扩展 caller-session 路径。
 SDK 0.1.5 已正式发布并采用，前述 artifact 屏障为历史记录，不再阻塞后续迁移。
+
+## 步骤 07 的迁移状态
+
+六个数据库 producer 的采集、Resolver、附件物化与对应 route 已使用异步用例/repositories。
+GitHub/RSS/Mail 的 reconcile.py 拥有协调政策，SQL 仍归 Core persistence，不让业务持 raw session。
+Source ensure_block/resolve_writable_storage 的 legacy 方法已无扩展消费者；GitHub Resolver 同步
+get_existing override 仅为尚未清零的旧 Stars 路径保留。Memos 的同步测试准备仍通过旧 Manager，
+随步骤 10 统一替换。

@@ -1,6 +1,6 @@
 """Versioned attachment metadata and owner resolver."""
 
-from app.business.info_base.block import BlockManager
+from app.business.info_base.services import BlockService
 from app.business.info_base.resolver import Resolver, ResolverManager, TextProjectionContext
 from app.business.info_base.resolver.label import format_label
 
@@ -42,7 +42,7 @@ class AttachmentResolver(
       raise ValueError(
         f"Attachment attachments/{self.block_id} must have exactly one content relation"
       )
-    content_block = BlockManager.get(content_relations[0].to_)
+    content_block = await BlockService.get(content_relations[0].to_)
     if content_block is None:
       raise ValueError(
         f"Attachment content block {content_relations[0].to_} does not exist"

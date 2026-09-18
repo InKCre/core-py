@@ -7,21 +7,17 @@ import dataclasses
 import mimetypes
 from urllib.parse import urlparse
 
-import sqlmodel
 import trafilatura
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import ResolverManager
 from app.business.info_base.resolver.inspection import detect_media_type
 from app.business.info_base.storage import StorageManager, WritableStorage
-from app.engine import SessionLocal
+from app.persistence.source.uow import SourceUnitOfWork, source_uow
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.source import SourceModel
 
 from .http import HTTPFetchOptions, fetch_http_bytes
-from .repository import (
+from .reconcile import (
   CONTENT_RELATION,
   ENCLOSURE_RELATION,
   ENCLOSURE_RESOLVER_ID,
@@ -56,19 +52,18 @@ def _required_id(block: BlockModel) -> int:
   return block.id
 
 
-def _one_outgoing_relation(
+async def _one_outgoing_relation(
   block_id: int,
   content: str,
-  db_session: sqlmodel.Session,
+  uow: SourceUnitOfWork,
 ) -> RelationModel | None:
   relations = tuple(
     relation
-    for relation in RelationManager.get(
+    for relation in await uow.graph.relations.get(
       block_id,
       include_in=False,
       include_out=True,
       content=content,
-      db_session=db_session,
     )
     if relation.from_ == block_id
   )
@@ -79,20 +74,20 @@ def _one_outgoing_relation(
   return relations[0] if relations else None
 
 
-def _source_config_for_item(
+async def _source_config_for_item(
   item_block_id: int,
-  db_session: sqlmodel.Session,
+  uow: SourceUnitOfWork,
 ) -> FeedSourceConfig:
-  feed_relation = _one_outgoing_relation(item_block_id, FEED_RELATION, db_session)
+  feed_relation = await _one_outgoing_relation(item_block_id, FEED_RELATION, uow)
   if feed_relation is None:
     raise FeedGraphIntegrityError(f"feed item {item_block_id} has no feed relation")
-  feed_block = db_session.get(BlockModel, feed_relation.to_)
+  feed_block = await uow.graph.blocks.get(feed_relation.to_)
   if feed_block is None or feed_block.resolver != FEED_RESOLVER_ID:
     raise FeedGraphIntegrityError(
       f"feed item {item_block_id} references an invalid feed root"
     )
   feed = CanonicalFeed.model_validate_json(feed_block.content)
-  source = db_session.get(SourceModel, feed.source_instance_id)
+  source = await uow.sources.get(feed.source_instance_id)
   if source is None:
     raise FeedGraphIntegrityError(
       f"feed root {feed_block.id} references a missing source instance"
@@ -100,18 +95,17 @@ def _source_config_for_item(
   return FeedSourceConfig.model_validate(source.config)
 
 
-def _source_config_for_enclosure(
+async def _source_config_for_enclosure(
   enclosure_block_id: int,
-  db_session: sqlmodel.Session,
+  uow: SourceUnitOfWork,
 ) -> FeedSourceConfig:
   owner_relations = tuple(
     relation
-    for relation in RelationManager.get(
+    for relation in await uow.graph.relations.get(
       enclosure_block_id,
       include_in=True,
       include_out=False,
       content=ENCLOSURE_RELATION,
-      db_session=db_session,
     )
     if relation.to_ == enclosure_block_id
   )
@@ -119,7 +113,7 @@ def _source_config_for_enclosure(
     raise FeedGraphIntegrityError(
       f"enclosure {enclosure_block_id} must have exactly one feed item owner"
     )
-  return _source_config_for_item(owner_relations[0].from_, db_session)
+  return await _source_config_for_item(owner_relations[0].from_, uow)
 
 
 def _extract_main_text(body: bytes, url: str) -> str | None:
@@ -147,19 +141,19 @@ class FullTextEnrichmentService:
     refresh: bool = False,
     require_enabled: bool = False,
   ) -> FullTextResult:
-    with SessionLocal() as db_session:
-      item_block = db_session.get(BlockModel, item_block_id)
+    async with source_uow() as uow:
+      item_block = await uow.graph.blocks.get(item_block_id)
       if item_block is None or item_block.resolver != FEED_ITEM_RESOLVER_ID:
         raise LookupError(f"feed item block {item_block_id} not found")
       item = CanonicalFeedItem.model_validate_json(item_block.content)
-      existing_relation = _one_outgoing_relation(
+      existing_relation = await _one_outgoing_relation(
         item_block_id,
         FULL_TEXT_RELATION,
-        db_session,
+        uow,
       )
       if existing_relation is not None and not refresh:
         return FullTextResult(item_block_id, existing_relation.to_, "existing")
-      source_config = _source_config_for_item(item_block_id, db_session)
+      source_config = await _source_config_for_item(item_block_id, uow)
 
     if require_enabled and not source_config.fetch_full_text:
       return FullTextResult(item_block_id, None, "unavailable")
@@ -177,46 +171,39 @@ class FullTextEnrichmentService:
     if text is None:
       return FullTextResult(item_block_id, None, "unavailable")
 
-    with SessionLocal() as db_session:
-      db_session.exec(
-        sqlmodel.select(BlockModel)
-        .where(
-          BlockModel.id == item_block_id,
-          BlockModel.resolver == FEED_ITEM_RESOLVER_ID,
+    async with source_uow() as uow:
+      locked = await uow.graph.blocks.get(item_block_id, lock=True)
+      if locked is None or locked.resolver != FEED_ITEM_RESOLVER_ID:
+        raise FeedGraphIntegrityError(
+          f"block {item_block_id} no longer has its expected resolver"
         )
-        .with_for_update()
-      ).one()
-      relation = _one_outgoing_relation(
+      relation = await _one_outgoing_relation(
         item_block_id,
         FULL_TEXT_RELATION,
-        db_session,
+        uow,
       )
       if relation is not None:
-        content_block = db_session.get(BlockModel, relation.to_)
+        content_block = await uow.graph.blocks.get(relation.to_)
         if content_block is None or content_block.resolver != "core.text.v1":
           raise FeedGraphIntegrityError(
             f"full_text relation from item {item_block_id} targets invalid content"
           )
         if refresh and content_block.content != text:
           content_block.content = text
-          db_session.add(content_block)
-          db_session.flush()
+          await uow.graph.blocks.save(content_block)
           status = "updated"
         else:
           status = "existing"
       else:
-        content_block = BlockManager.create(
+        content_block = await uow.graph.blocks.create(
           BlockForm(resolver="core.text.v1", content=text),
-          db_session,
         )
-        RelationManager.create(
+        await uow.graph.relations.create(
           item_block_id,
           _required_id(content_block),
           FULL_TEXT_RELATION,
-          db_session,
         )
         status = "created"
-      db_session.commit()
       return FullTextResult(item_block_id, _required_id(content_block), status)
 
 
@@ -269,18 +256,18 @@ class EnclosureMaterializationService:
     *,
     target_storage_id: int,
   ) -> MaterializationResult:
-    with SessionLocal() as db_session:
-      enclosure_block = db_session.get(BlockModel, enclosure_block_id)
+    async with source_uow() as uow:
+      enclosure_block = await uow.graph.blocks.get(enclosure_block_id)
       if enclosure_block is None or enclosure_block.resolver != ENCLOSURE_RESOLVER_ID:
         raise LookupError(f"enclosure block {enclosure_block_id} not found")
       enclosure = CanonicalEnclosure.model_validate_json(enclosure_block.content)
-      existing = _one_outgoing_relation(
+      existing = await _one_outgoing_relation(
         enclosure_block_id,
         CONTENT_RELATION,
-        db_session,
+        uow,
       )
       if existing is not None:
-        child = db_session.get(BlockModel, existing.to_)
+        child = await uow.graph.blocks.get(existing.to_)
         if child is None:
           raise FeedGraphIntegrityError(
             f"enclosure {enclosure_block_id} content child is missing"
@@ -291,7 +278,7 @@ class EnclosureMaterializationService:
           "existing",
           child.resolver,
         )
-      source_config = _source_config_for_enclosure(enclosure_block_id, db_session)
+      source_config = await _source_config_for_enclosure(enclosure_block_id, uow)
 
     response = await fetch_http_bytes(
       enclosure.url,
@@ -307,22 +294,19 @@ class EnclosureMaterializationService:
       body=response.body,
     )
 
-    with SessionLocal() as db_session:
-      db_session.exec(
-        sqlmodel.select(BlockModel)
-        .where(
-          BlockModel.id == enclosure_block_id,
-          BlockModel.resolver == ENCLOSURE_RESOLVER_ID,
+    async with source_uow() as uow:
+      locked = await uow.graph.blocks.get(enclosure_block_id, lock=True)
+      if locked is None or locked.resolver != ENCLOSURE_RESOLVER_ID:
+        raise FeedGraphIntegrityError(
+          f"block {enclosure_block_id} no longer has its expected resolver"
         )
-        .with_for_update()
-      ).one()
-      existing = _one_outgoing_relation(
+      existing = await _one_outgoing_relation(
         enclosure_block_id,
         CONTENT_RELATION,
-        db_session,
+        uow,
       )
       if existing is not None:
-        child = db_session.get(BlockModel, existing.to_)
+        child = await uow.graph.blocks.get(existing.to_)
         if child is None:
           raise FeedGraphIntegrityError(
             f"enclosure {enclosure_block_id} content child is missing"
@@ -334,25 +318,25 @@ class EnclosureMaterializationService:
           child.resolver,
         )
 
-      storage = StorageManager.get_storage(target_storage_id, db_session)
+      record = await uow.graph.storage.get(target_storage_id)
+      if record is None:
+        raise LookupError(f"storage {target_storage_id} does not exist")
+      storage = StorageManager.from_record(record)
       if not isinstance(storage, WritableStorage):
         raise TypeError(f"storage {target_storage_id} is not writable")
-      pointer = storage.create_raw_content(response.body, db_session)
-      content_block = BlockManager.create(
+      pointer = await storage.create_content(response.body, uow.graph.storage)
+      content_block = await uow.graph.blocks.create(
         BlockForm(
           resolver=resolver_id,
           storage=target_storage_id,
           content=pointer,
         ),
-        db_session,
       )
-      RelationManager.create(
+      await uow.graph.relations.create(
         enclosure_block_id,
         _required_id(content_block),
         CONTENT_RELATION,
-        db_session,
       )
-      db_session.commit()
       return MaterializationResult(
         enclosure_block_id,
         _required_id(content_block),

@@ -29,14 +29,14 @@ from app.schemas.job import JobModel, JobStatus
 from app.schemas.source import SourceModel
 from extensions.rss import Extension
 from extensions.rss.api import register_api
-from extensions.rss.repository import (
+from extensions.rss.reconcile import (
   CONTENT_RELATION,
   ENCLOSURE_RELATION,
   FEED_RELATION,
   FEED_RESOLVER_ID,
   FULL_TEXT_RELATION,
 )
-from extensions.rss.repository import FeedGraphRepository
+from extensions.rss.reconcile import FeedGraphReconciler
 from extensions.rss.schema import (
   CanonicalEnclosure,
   CanonicalFeed,
@@ -550,18 +550,18 @@ async def _exercise_rss() -> None:
       ),
     )
     source_ids.add(retry_source_id)
-    original_reconcile_item = FeedGraphRepository.reconcile_item
+    original_reconcile_item = FeedGraphReconciler.reconcile_item
     reconcile_calls = 0
 
-    def fail_second_primary(*args, **kwargs):
+    async def fail_second_primary(*args, **kwargs):
       nonlocal reconcile_calls
       reconcile_calls += 1
       if reconcile_calls == 2:
         raise RuntimeError("injected second-primary failure")
-      return original_reconcile_item(*args, **kwargs)
+      return await original_reconcile_item(*args, **kwargs)
 
     with mock.patch.object(
-      FeedGraphRepository,
+      FeedGraphReconciler,
       "reconcile_item",
       side_effect=fail_second_primary,
     ):

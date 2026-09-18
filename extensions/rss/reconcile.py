@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import dataclasses
 
-import sqlmodel
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import GraphUnitOfWork, graph_uow
+from app.persistence.source.uow import source_uow
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.relation import RelationModel
-from app.schemas.source import SourceModel
 
 from .schema import CanonicalEnclosure, CanonicalFeed, CanonicalFeedItem
 
@@ -43,35 +40,30 @@ def _block_id(block: BlockModel) -> int:
   return block.id
 
 
-def _replace_content(
+async def _replace_content(
   block: BlockModel,
   content: str,
-  db_session: sqlmodel.Session,
+  uow: GraphUnitOfWork,
 ) -> bool:
   if block.content == content:
     return False
   block.content = content
-  db_session.add(block)
-  db_session.flush()
-  db_session.refresh(block)
+  await uow.blocks.save(block)
   return True
 
 
-class FeedGraphRepository:
+class FeedGraphReconciler:
   """Own graph reconciliation mechanics without owning source policy."""
 
   @classmethod
-  def reconcile_feed(cls, canonical: CanonicalFeed) -> ReconcileResult:
-    with SessionLocal() as db_session:
-      db_session.exec(
-        sqlmodel.select(SourceModel)
-        .where(SourceModel.id == canonical.source_instance_id)
-        .with_for_update()
-      ).one()
+  async def reconcile_feed(cls, canonical: CanonicalFeed) -> ReconcileResult:
+    async with source_uow() as source_work:
+      source = await source_work.sources.get(canonical.source_instance_id, lock=True)
+      if source is None:
+        raise FeedGraphIntegrityError("feed Source does not exist")
+      uow = source_work.graph
       matches: list[BlockModel] = []
-      for block in db_session.exec(
-        sqlmodel.select(BlockModel).where(BlockModel.resolver == FEED_RESOLVER_ID)
-      ).all():
+      for block in await uow.blocks.get_by_resolvers((FEED_RESOLVER_ID,)):
         try:
           candidate = CanonicalFeed.model_validate_json(block.content)
         except ValueError as error:
@@ -88,32 +80,31 @@ class FeedGraphRepository:
       content = canonical.model_dump_json()
       if matches:
         feed = matches[0]
-        changed = _replace_content(feed, content, db_session)
+        changed = await _replace_content(feed, content, uow)
         result = ReconcileResult(_block_id(feed), "updated" if changed else "unchanged")
       else:
-        feed = BlockManager.create(
+        feed = await uow.blocks.create(
           BlockForm(resolver=FEED_RESOLVER_ID, content=content),
-          db_session,
         )
         result = ReconcileResult(_block_id(feed), "created")
-      db_session.commit()
       return result
 
   @classmethod
-  def _item_roots(
+  async def _item_roots(
     cls,
     feed_block_id: int,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> tuple[tuple[BlockModel, CanonicalFeedItem], ...]:
-    relations = db_session.exec(
-      sqlmodel.select(RelationModel).where(
-        RelationModel.to_ == feed_block_id,
-        RelationModel.content == FEED_RELATION,
-      )
-    ).all()
+    relations = await uow.relations.get(
+      feed_block_id, include_out=False, content=FEED_RELATION
+    )
+    blocks = {
+      block.id: block
+      for block in await uow.blocks.get_many(tuple(r.from_ for r in relations))
+    }
     roots: list[tuple[BlockModel, CanonicalFeedItem]] = []
     for relation in relations:
-      block = db_session.get(BlockModel, relation.from_)
+      block = blocks.get(relation.from_)
       if block is None or block.resolver != FEED_ITEM_RESOLVER_ID:
         raise FeedGraphIntegrityError(
           f"feed relation {relation.id} does not originate at an exact item root"
@@ -128,18 +119,18 @@ class FeedGraphRepository:
     return tuple(roots)
 
   @classmethod
-  def _find_item(
+  async def _find_item(
     cls,
     feed_block_id: int,
     canonical: CanonicalFeedItem,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> BlockModel | None:
     identity = canonical.identity()
     if identity is None:
       return None
     matches = [
       block
-      for block, persisted in cls._item_roots(feed_block_id, db_session)
+      for block, persisted in await cls._item_roots(feed_block_id, uow)
       if persisted.identity() == identity
     ]
     if len(matches) > 1:
@@ -149,21 +140,22 @@ class FeedGraphRepository:
     return matches[0] if matches else None
 
   @classmethod
-  def _reconcile_enclosures(
+  async def _reconcile_enclosures(
     cls,
     item_block_id: int,
     canonical_enclosures: tuple[CanonicalEnclosure, ...],
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> None:
-    existing_relations = db_session.exec(
-      sqlmodel.select(RelationModel).where(
-        RelationModel.from_ == item_block_id,
-        RelationModel.content == ENCLOSURE_RELATION,
-      )
-    ).all()
+    existing_relations = await uow.relations.get(
+      item_block_id, include_in=False, content=ENCLOSURE_RELATION
+    )
+    blocks = {
+      block.id: block
+      for block in await uow.blocks.get_many(tuple(r.to_ for r in existing_relations))
+    }
     by_url: dict[str, list[tuple[RelationModel, BlockModel]]] = {}
     for relation in existing_relations:
-      block = db_session.get(BlockModel, relation.to_)
+      block = blocks.get(relation.to_)
       if block is None or block.resolver != ENCLOSURE_RESOLVER_ID:
         raise FeedGraphIntegrityError(
           f"enclosure relation {relation.id} does not target exact metadata"
@@ -181,71 +173,63 @@ class FeedGraphRepository:
       candidates = by_url.get(canonical.url, [])
       if candidates:
         relation, block = candidates.pop(0)
-        _replace_content(block, canonical.model_dump_json(), db_session)
+        await _replace_content(block, canonical.model_dump_json(), uow)
       else:
-        block = BlockManager.create(
+        block = await uow.blocks.create(
           BlockForm(
             resolver=ENCLOSURE_RESOLVER_ID,
             content=canonical.model_dump_json(),
           ),
-          db_session,
         )
-        relation = RelationManager.create(
+        relation = await uow.relations.create(
           item_block_id,
           _block_id(block),
           ENCLOSURE_RELATION,
-          db_session,
         )
       if relation.id is not None:
         retained_relation_ids.add(relation.id)
 
-    for relation in existing_relations:
-      if relation.id not in retained_relation_ids:
-        db_session.delete(relation)
-    db_session.flush()
+    await uow.relations.delete_many(
+      tuple(
+        relation.id
+        for relation in existing_relations
+        if relation.id is not None and relation.id not in retained_relation_ids
+      )
+    )
 
   @classmethod
-  def reconcile_item(
+  async def reconcile_item(
     cls,
     feed_block_id: int,
     canonical: CanonicalFeedItem,
     enclosures: tuple[CanonicalEnclosure, ...],
   ) -> ReconcileResult:
     """Reconcile one item primary graph in its own serializable feed scope."""
-    with SessionLocal() as db_session:
-      feed = db_session.exec(
-        sqlmodel.select(BlockModel)
-        .where(
-          BlockModel.id == feed_block_id,
-          BlockModel.resolver == FEED_RESOLVER_ID,
-        )
-        .with_for_update()
-      ).one()
-      del feed
+    async with graph_uow() as uow:
+      feed = await uow.blocks.get(feed_block_id, lock=True)
+      if feed is None or feed.resolver != FEED_RESOLVER_ID:
+        raise FeedGraphIntegrityError(f"feed {feed_block_id} does not exist")
 
-      item = cls._find_item(feed_block_id, canonical, db_session)
+      item = await cls._find_item(feed_block_id, canonical, uow)
       content = canonical.model_dump_json()
       if item is None:
-        item = BlockManager.create(
+        item = await uow.blocks.create(
           BlockForm(resolver=FEED_ITEM_RESOLVER_ID, content=content),
-          db_session,
         )
-        RelationManager.create(
+        await uow.relations.create(
           _block_id(item),
           feed_block_id,
           FEED_RELATION,
-          db_session,
         )
         action = "created"
         alternate_url_changed = True
       else:
         previous = CanonicalFeedItem.model_validate_json(item.content)
-        changed = _replace_content(item, content, db_session)
+        changed = await _replace_content(item, content, uow)
         action = "updated" if changed else "unchanged"
         alternate_url_changed = previous.alternate_url != canonical.alternate_url
 
-      cls._reconcile_enclosures(_block_id(item), enclosures, db_session)
-      db_session.commit()
+      await cls._reconcile_enclosures(_block_id(item), enclosures, uow)
       return ReconcileResult(_block_id(item), action, alternate_url_changed)
 
 
@@ -258,6 +242,6 @@ __all__ = [
   "FEED_RESOLVER_ID",
   "FULL_TEXT_RELATION",
   "FeedGraphIntegrityError",
-  "FeedGraphRepository",
+  "FeedGraphReconciler",
   "ReconcileResult",
 ]

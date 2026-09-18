@@ -2,6 +2,13 @@
 extend = "ruff.toml"
 include = [
   "app/persistence/**/repository.py",
+  "extensions/github/reconcile.py",
+  "extensions/github/stars.py",
+  "extensions/rss/**/*.py",
+  "extensions/mail/**/*.py",
+  "extensions/telegram/**/*.py",
+  "extensions/twitter/**/*.py",
+  "extensions/memos/**/*.py",
   "app/persistence/info_base/storage.py",
   "app/business/job.py",
   "app/business/cron.py",
