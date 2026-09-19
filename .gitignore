@@ -238,3 +238,5 @@ AGENTS.local.md
 
 # Temp
 .assets
+# Repository-local, unversioned agent skill
+/.agents/skills/python-backend-code/

@@ -6,6 +6,7 @@
 - [Candidate Hub PRD batch](hub-prd.md)
 - [Candidate Hub Product TDD batch](hub-product-tdd.md)
 - [Spoke Unit TDD promotion](spoke-unit-tdd.md)
+- [Organization 交付后的待提升项](organization.md)：本地实现/TDD 与生产交付已完成，Hub reconciliation 尚未执行。
 - [Architecture understanding provenance](../architecture-understanding/index.md)
 - [Agent Tool common patterns](../common-patterns/agent-tools.md)：已确认的 task-level 模式；后续按验证与 owner 进行
   durable promotion，当前不直接改 shared Hub。D-597 补充各查询的长输出分页，以及独立批次的成果/完成度分离；
@@ -35,6 +36,8 @@
   remain separately authorized operations。
 - **Owner rule**: Hub source、Spoke shared-ref、core-py Unit TDD 与 client-web docs 分属不同
   owner/operation，不混入一个 commit，也不在 `docs/_shared/**` 直接编辑。
+- **Organization**：D-562 关闭的是已生产交付的 unit，不隐含完成 Hub promotion；具体差异与边界由上述独立条目
+  保留。Parent 的 durable-truth 完成条件仍未因此关闭，但不把本项默认为每个下一 unit 的前置任务。
 
 ## Promotion Test
 

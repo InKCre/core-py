@@ -1,6 +1,6 @@
 # Product Design: Information Evolution Organization
 
-- **State**: Product phase complete under D-493 and feeds the same implementation vertical's active Technical/Acceptance stage；Knowledge Evolution、Crystals、Memory Links、Ontology、Entity Extraction、Memory
+- **State**: Product phase complete under D-493；同一 implementation vertical 已依 D-562 完成生产交付。Knowledge Evolution、Crystals、Memory Links、Ontology、Entity Extraction、Memory
   Compaction、exploratory Agentic execution topology、Automatic Labeling and Memory Type Review closed；info-base
   representation lens、Insight Detection、Working Memory、Skill Suggestions、Rule Suggestions and Memory Freshness closed；
   Organization Extension pressure accepted；Community Detection、Flags / Memory Maintenance and transfer audit closed。
@@ -8,6 +8,11 @@
   [D-471–D-480](../../decisions/D471-D480.md)、[D-481–D-490](../../decisions/D481-D490.md)、
   [D-491–D-498](../../decisions/D491-D500.md)。本文件拥有 coherent Product design；
   decision shards 拥有 accepted task-state decisions。
+
+阅读边界：本文保留 Product 研究与推导，部分表格说明的是 Nowledge 的状态规律或当时尚未确定的运行机制。
+当前 InKCre 合同以最新 decision 和 [Organization TDD](../../../../docs/30-unit-tdd/organization.md) 为准。
+例如下文的 default recall、confidence 描述不构成全图隐藏 predecessor 或计算置信度的实现要求；当前
+`read_lineage` 是有范围的显式读取。不得将历史“尚未批准实现”误读为本 unit 仍处于研究阶段。
 
 ## Product-to-Delivery Handoff
 

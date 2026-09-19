@@ -126,8 +126,9 @@ Before promoting an imperfection into a prerequisite：
 5. add identity/state/infrastructure only if the residual defeats the promised Product value at material frequency or harm。
 
 The Organization synthesis correction is the reference case：ordinary edits should create a new Block plus `edited` Relation；
-`contributes to` conducts observable upstream change into re-synthesis；bytes changing behind an unchanged external Storage
-pointer remain an acknowledged best-effort defect。That defect does not justify a universal stable-address/version subsystem。
+`synthesis` 关系为可观察的上游变化提供重新综合的路径（D-503 修正了旧名 `contributes to`），不意味着已实现通用
+传导引擎。bytes changing behind an unchanged external Storage pointer remain an acknowledged best-effort defect。
+That defect does not justify a universal stable-address/version subsystem。
 
 ## Scope Discipline
 

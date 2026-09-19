@@ -7,7 +7,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | `mcp-sink` | `01a04610-338e-7311-93df-847f9801c5af` | merged through PR #88；the current root worktree retains only local task-control state | protected `main` merge `459a6df` | Closed | D-381–D-420 | No active implementation ownership；MCP runtime、ChatGPT Tool acceptance and production delivery are complete |
 | `telegram-extension` | `01a04685-aa31-7682-a4a2-824727eacce5` | core-py PR #89 / `.github` PR #28 | merged as core-py `42d8527` and `.github` `f7269b9` | Closed / merged | D-421–D-460 | Telegram、repository-wide Changie→Towncrier cutover and organization guidance are complete；Unit worktrees are retired and Release PR #90 is independently owned by the release lifecycle |
-| `organization-nowledge-study` | current session | PR #100 / #101 merged；root worktree on main retains local task-control records | protected `main` `b3ccb00` | Closed / production delivered | D-461–D-570 | Core 0.2.0、production probes and stable admission complete；no active implementation ownership |
+| `organization-nowledge-study` | current session | PR #100 / #101 merged；root worktree on main retains local task-control records | protected `main` `b3ccb00` | Closed / production delivered | D-461–D-570 | Core 0.2.0、production probes and stable admission complete under D-562；no active implementation ownership |
 | `cli-sink` | 当前 CLI session | `feat/cli-sink-closure` / root core-py worktree | production `4143abe`；关闭记录 PR #104 | Closed | D-571–D-610 | Sir 授权后依序合并；CLI 0.1.0 PyPI 安装与生产复验通过。无 active 源码 ownership；见 unit delivery.md |
 
 ## Shared-worktree coordination
