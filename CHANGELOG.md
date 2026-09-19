@@ -4,6 +4,18 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.4.0 - 2026-09-19
+
+### Changed
+
+- 数据库运行时操作使用原生异步 I/O 与显式 UoW 事务边界，覆盖 Graph、配置、AI/Agent、Peer、Source/Sink、Job/Cron、扩展采集、检索、Organization 和 MCP；批量写入 flat graph 与检索投影，数据库日志独立批量写入，关闭时排空任务后释放连接池。新增全 runtime 数据库边界检查和长期维护指南。 (#105)
+
+### Removed
+
+- Extension Host 数据库操作与配置／状态持久化接口改为异步，Host 合同推进到 0.2；旧同步 Extension wheel 必须先停用并升级至匹配的正式版本。
+  删除运行时 SessionLocal、同步 BlockManager／RelationManager、可选 raw session 持久化及旧 Storage 写入接口；组合写入使用必需的 UoW，独立业务入口需要 await。 (#105)
+
+
 ## 0.3.0 - 2026-09-14
 
 ### Added

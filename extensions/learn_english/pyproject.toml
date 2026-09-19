@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "inkcre-ext-learn_english"
-version = "0.1.0"
+version = "0.2.0"
 description = "Learn English extension for InKCre"
 authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 dependencies = ["sqlmodel>=0.0.24,<0.0.25"]
