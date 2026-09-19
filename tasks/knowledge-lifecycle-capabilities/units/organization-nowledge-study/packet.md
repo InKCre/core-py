@@ -1,20 +1,28 @@
 # Organization Nowledge Study
 
 - **Unit ID**: `organization-nowledge-study`。
-- **当前工作（D-561）**：read_lineage 同步读取移出 Peer 事件循环的修正已随 `48ed482` 推送，公开说明与局部 TDD
+- **状态（D-562）**：**Closed / production delivered**。PR #100 已 squash 合入 main（`915be5a`），Release PR #101
+  发布 Core 0.2.0（`b3ccb00`）；2026-09-13 02:04:12（Asia/Shanghai）生产部署与 stable 接纳完成。
+  独立健康请求通过，生产目录已有七个 automatic Organization Job，行为配置仍为空，没有默认启用。
+  [生产交付记录](production-delivery.md) 保留版本、镜像、Heroku release 与探针回执。Parent task 保持 active，
+  包括尚未执行的 Hub owner reconciliation；本 packet 随 parent 生命周期保留。
+- **交付修正（D-561）**：read_lineage 同步读取移出 Peer 事件循环的修正已随 `48ed482` 推送，公开说明与局部 TDD
   已纠正。Session 在线程内创建和关闭，查询算法与上限不变。Preview 三节点完整读取、截断、真实闭环以及并行
   健康响应均通过，临时资源已清理。SQL 性能优化明确延期，没有扩节点或跳过读取验收。
-  [读取复验](acceptance/lineage-read-review.md) 保留新结果、此前失败与清理回执；PR 已具备当前范围的合并条件。
+  [读取复验](acceptance/lineage-read-review.md) 保留最终结果、此前失败与清理回执。
   D-559 的候选局部失败继续已实现，
   其它故障与取消仍传播，显式 rumination 不隐藏耗尽。不新增测试。已移除预定的 PR 专用临时调试设施。
-  [合并前复审](merge-review.md) 记录 findings、检查和残余；本轮不合并，也不宣告 Unit 或语义验收关闭。
-- **当前实现（D-557）**：`7bb868c` 的 evidence stance SOP 已先识别目标命题与证据贡献；工具合同、
+  [合并前复审](merge-review.md) 记录 findings、检查和残余；合并授权与 unit 关闭条件现由 D-562 确定。
+- **最后一轮 Agent 设计（D-557）**：`7bb868c` 的 evidence stance SOP 已先识别目标命题与证据贡献；工具合同、
   共享提示词、模型、预算与工具组合不变。使用现有 preview 配置新 definition 验证，没有新增测试。
-- **当前验收**：4a0f266 的 Job 101–107 全部 finished，18/6 初始图变为 39/27，临时数据和配置已清理。
+- **最新整组验收**：4a0f266 的 Job 101–107 全部 finished，18/6 初始图变为 39/27，临时数据和配置已清理。
   没有逐次 Agent 日志，不能宣称零预算耗尽；图中仍有局部陈述被误作 whole-Block 重复、来源重述被记 supports
-  等问题。见 [整组复评](acceptance/merge-run-review.md)。合并准备完成不代表整组语义验收通过。
-- **下一步边界**：新发现的实现修复先复核；不继续无边界地微调提示词。结束探索与不存在性证明的区分已沉淀至
+  等问题。见 [整组复评](acceptance/merge-run-review.md)。生产交付和 unit 关闭不改写这些语义残余。
+- **关闭后边界**：没有继续执行的本 unit 修复或发布工作；新发现的修复先复核，不继续无边界地微调提示词。
+  结束探索与不存在性证明的区分已沉淀至
   [通用模式](../../common-patterns/agent-tools.md)，新的修复方案仍先经 Sir 复核。
+- **实现阅读入口**：[Organization TDD](../../../../docs/30-unit-tdd/organization.md) 与最新 decision 解释已交付合同；
+  Product 研究稿和下面的历史进度保留推导过程，不能据其中过期的 active、候选或授权表述重新启动工作。
 
 ## 历史进度
 

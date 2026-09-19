@@ -7,7 +7,9 @@
 Parallel Units independently contribute pressures from their own Product、Acceptance or implementation evidence；a pressure
 does not become another Unit's design premise or authorize a shared abstraction without its own evidence。
 
-## Active Organization-study pressure
+## Organization 后续研究压力（未启动）
+
+原 study 已完成生产交付；以下压力由 parent 保留，不是关闭 session 的待办，也不自动成为下一 unit 的前置条件。
 
 ### P-032 — Evidence absence needs a bounded coverage witness before it becomes reusable meaning
 
@@ -29,17 +31,17 @@ does not become another Unit's design premise or authorize a shared abstraction 
 ### P-031 — Relations may conduct operational force in addition to expressing attribution or logic
 
 - **Upstream**: Crystals reuses prior EVOLVES relations to route candidate attention，derivation relations can route upstream
-  change pressure back to affected synthesis results，and the Memory Compaction inquiry asks whether a same-provenance duplicate
-  relation should conduct “count this assertion once” into evidence operations。
+  change pressure back to affected synthesis results，and the Memory Compaction study supplied the same-provenance duplicate
+  case for “count this assertion once” in evidence operations。
 - **Broken assumption**: relations only describe static meaning for later traversal，or graph change requires a separate
   feature-specific lifecycle to discover downstream effects。
-- **Candidate owner**: no durable/runtime owner yet。The organization study owns accumulating cases；a future Product TDD or
-  graph/Organization owner is selected only after shared semantics mature。
+- **Candidate owner**: no generic durable/runtime owner yet。Parent 保留后续案例；只在共享语义成熟后确定通用机制的
+  Product TDD 或 graph/Organization owner，不把已关闭的 study 当作持续执行者。
 - **Impact**: relation type/direction may eventually delimit which stimulus reaches which downstream operation、with what
   interpretation and termination/no-op law。
 - **Evidence**: Nowledge runs cluster evaluation after EVOLVES edges and links every synthesis to source dependencies；D-473
-  and D-474 recover propagation and candidate-routing uses without approving its packaging。The active compaction inquiry adds a
-  candidate evidence-cardinality case，not yet an accepted relation contract。D-483 provides the contrasting descriptive case：
+  and D-474 recover propagation and candidate-routing uses without approving its packaging。D-480 已接受同源重复断言的
+  关系语义，现有 graph navigation 可按该关系划分 component；这不是通用传导引擎。D-483 provides the contrasting descriptive case：
   a source-relative semantic-role Relation remains graph meaning unless an explicit consumer contract assigns an operational
   effect。
 - **Status**: research seed accepted by D-475。Future cases use a common observation tuple：stimulus、relation type/direction、

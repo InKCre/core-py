@@ -56,6 +56,10 @@ Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，不复用历史�
 CLI 已在 root worktree 从与 origin/main 一致的 `b3ccb00` 切出 `feat/inkcre-cli`，保留原有未提交 task-control。
 已关闭 session 不再持有源码锁，历史授权和 deferred 项也不自动成为新 unit 的实施范围。
 
+[Organization 的 Hub 待提升项](documentation-promotion/organization.md)、语义误判与已知 SQL 性能残余继续保留，
+但不是所有下一 unit 的前置任务。涉及已实现 Organization 能力时，先读
+[本地 Organization TDD](../../docs/30-unit-tdd/organization.md) 和对应最新 decision，而不是从研究稿重新猜实现。
+
 ## Unit 状态与选择
 
 [CLI sink](units/cli-sink/packet.md) 已关闭，公开接口、实现、四条本地旅程、跨 owner 正式交付及 PyPI 安装
@@ -71,7 +75,7 @@ framework。
 D-493 transfer audit 是它已完成的 Product phase；D-495 修正了将其误判
 为 research-only Unit 的错误，D-496 修正了继续拆 delivery slices 的错误。整组实现及多轮真实 preview/provider
 验收已执行；PR #100 已随 `915be5a` 合入 main，Release PR #101 的 `b3ccb00` 已完成 Core 0.2.0 生产发布、
-探针及 stable 接纳，unit 已关闭。Parent task 保持 active，Hub promotion 未被隐含标记为完成。
+探针及 stable 接纳，unit 按 D-562 关闭。Parent task 保持 active，Hub promotion 未被隐含标记为完成。
 递归环检测已修复；D-561 的 lineage 同步读取
 线程修正已推送，小图实际读取与并行健康响应通过，临时资源已清理。已知 SQL 性能问题延期，不增加大图验收门槛。
 整组 Job 均结束不等于所有 seeds 或图语义正确；保留语义误判、预算耗尽

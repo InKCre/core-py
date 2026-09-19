@@ -89,6 +89,8 @@ The detailed experimental filters remain in [design taste](../design-taste.md)�
 - Runtime evidence is black-box-first through real transport、persistence and realistic data or a credible protocol double。
 - Manual/script journeys precede automated regression admission；new automation still requires the task's accepted policy。
 - Acceptance does not reshape production code to make a fixture convenient。
+- 验收困难不反过来决定产品设计。Best-effort 应保留真实缺陷和覆盖限制，而非宣称全对；也不在收尾时擅自扩大
+  数据规模、性能门槛或跳过既定验收条件（D-561）。迁移执行载体不等于获准改变已有产品行为（D-553/D-554）。
 
 ## Working-Memory Discipline
 
