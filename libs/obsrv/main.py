@@ -47,7 +47,7 @@ def setup_obsrv() -> logging.Logger:
   elif backend == "postgresql":
     from .log_handler_postgresql import PostgreSQLHandler
 
-    pg_handler = PostgreSQLHandler(dsn=settings.database_url)
+    pg_handler = PostgreSQLHandler(level=settings.obsrv.logging_backend_level)
     LOGGER.addHandler(pg_handler)
     LOGGER.info("PostgreSQL logging enabled")
   elif backend not in (None, "", "none"):
@@ -64,3 +64,19 @@ def get_logger() -> logging.Logger:
   """
   global LOGGER
   return LOGGER
+
+
+def start_obsrv() -> None:
+  from .log_handler_postgresql import PostgreSQLHandler
+
+  for handler in LOGGER.handlers:
+    if isinstance(handler, PostgreSQLHandler):
+      handler.start()
+
+
+async def close_obsrv() -> None:
+  from .log_handler_postgresql import PostgreSQLHandler
+
+  for handler in LOGGER.handlers:
+    if isinstance(handler, PostgreSQLHandler):
+      await handler.aclose()

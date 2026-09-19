@@ -9,7 +9,7 @@ import uvicorn
 from fastapi.responses import JSONResponse
 
 # Setup logging
-from libs.obsrv.main import setup_obsrv
+from libs.obsrv.main import close_obsrv, setup_obsrv, start_obsrv
 
 logger = setup_obsrv()
 # Setup logging end
@@ -76,7 +76,7 @@ from app.runtime import RUNTIME_STATUS, RuntimePhase
 
 
 # Import scheduler
-from app.scheduler import scheduler
+from app.scheduler import drain_scheduler, scheduler, start_scheduler, with_trace_id
 
 
 async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
@@ -115,12 +115,13 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   # Publish only after every provider route and runtime-owned capability is ready.
   await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
 
-  if not scheduler.running:
-    scheduler.start()
+  start_scheduler()
 
   # Peer-local timers only wake the database-owned Cron and Job lifecycles.
   scheduler.add_job(
-    PeerManager.refresh_self,
+    with_trace_id(
+      "PeerManager.refresh_self", PeerManager.refresh_self, enable_backend=False
+    ),
     "interval",
     seconds=settings.peer_lease_renew_interval_seconds,
     args=[settings.peer_lease_ttl_seconds],
@@ -128,21 +129,25 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
     replace_existing=True,
   )
   scheduler.add_job(
-    JobManager.check,
+    with_trace_id("JobManager.check", JobManager.check, enable_backend=False),
     "interval",
     seconds=30,
     id="jobs.check",
     replace_existing=True,
   )
   scheduler.add_job(
-    JobManager.check_abort_requests,
+    with_trace_id(
+      "JobManager.check_abort_requests",
+      JobManager.check_abort_requests,
+      enable_backend=False,
+    ),
     "interval",
     seconds=2,
     id="jobs.check_abort_requests",
     replace_existing=True,
   )
   scheduler.add_job(
-    CronManager.check,
+    with_trace_id("CronManager.check", CronManager.check, enable_backend=False),
     "interval",
     seconds=30,
     id="crons.check",
@@ -174,6 +179,7 @@ async def bootstrap_when_database_is_ready(app: fastapi.FastAPI) -> None:
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
+  start_obsrv()
   logger.info("Application startup")
   RUNTIME_STATUS.set(RuntimePhase.STARTING, "runtime_bootstrap_pending")
   bootstrap_task = asyncio.create_task(bootstrap_when_database_is_ready(app))
@@ -188,8 +194,7 @@ async def lifespan(app: fastapi.FastAPI):
       bootstrap_task.cancel()
       with contextlib.suppress(asyncio.CancelledError):
         await bootstrap_task
-      if scheduler.running:
-        scheduler.pause()
+      await drain_scheduler()
       await JobManager.shutdown()
       await SinkManager.shutdown()
       await EXTENSION_HOST.close_running()
@@ -198,7 +203,10 @@ async def lifespan(app: fastapi.FastAPI):
       if runtime_was_ready:
         await PeerManager.clear_self_lease()
     finally:
-      await ASYNC_DB_ENGINE.dispose()
+      try:
+        await close_obsrv()
+      finally:
+        await ASYNC_DB_ENGINE.dispose()
 
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)

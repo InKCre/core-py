@@ -152,3 +152,16 @@ Lexical／Semantic 的 SQL 已移入所属 persistence，维护按 batch upsert�
 写失败回滚一项通过。navigation_probe 验证方向、hop limit、cursor 和 endpoint closure。
 全仓 gate 为 14 passed／60 skipped，lint、数据库边界、typecheck 全通过。
 旧同步测试 setup 及少量旧业务兼容方法按步骤 10 清零；当前进入 09，不宣称 #105 可合并。
+
+### 步骤 09 完成（2026-09-19）
+
+PostgreSQL handler 不再自行建同步 engine/session；lifespan 启动单 writer，有界 1024 队列，
+每批最多 100 条在独立 async transaction 写入，关闭最多五秒排空后再 dispose。
+readiness 保留既有 worker 内独立 psycopg connection，CLI 与 HTTP 共用完整 contract 检查；
+这是明确的隔离同步 adapter，不计作业务异步路径，也不宣称运行时零同步驱动。
+
+查阅当前 APScheduler 实现确认 shutdown(wait=True) 不等待 async cleanup，因此复用现有
+with_trace_id 包装跟踪调度回调，暂停 admission 后取消并等待，再关闭 Job/Sink/Extension。
+runtime_probe 已用隔离 PostgreSQL 验证日志独立于业务回滚、线程 trace、调度取消收尾。
+全仓 check 14 passed／60 skipped；PostgreSQL backend 下 import-only OpenAPI 成功且无差异。
+当前进入步骤 10：迁移测试 setup、移除过渡 API、收敛长期治理和总体验收。
