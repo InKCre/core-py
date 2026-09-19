@@ -50,3 +50,15 @@ the short Human projection. Promote only stable, reusable,
 expensive-to-rediscover knowledge into durable docs, and keep the owning layer
 explicit. At close, check for stranded deltas and material residual; do not
 perform an archive or deletion-time promotion ceremony.
+
+Maintain `packet.md` as the current state, not an append-only progress log. After a phase
+finishes, a blocker clears or authorization changes, replace the affected current-state and
+next-step text in the same update. If a plan or inventory owns detailed status, update that
+owner first and keep the packet's projection consistent. Do not leave “pending migration”
+beside a later completion entry and expect readers to reconcile them.
+
+Keep dated history only when it explains a decision or verification result; label it as history
+and link to it from the current state when useful. Distinguish implementation complete,
+checks pending, merged and production delivered. For delivery evidence, identify the verified
+commit and run, and distinguish actual deployment from a successful no-op workflow.
+These are editing rules for the task owner, not a new task schema or keyword lint gate.

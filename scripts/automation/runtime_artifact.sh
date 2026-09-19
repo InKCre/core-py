@@ -79,6 +79,37 @@ case "${1:-}" in
 - Schema command: \`python scripts/container.py db schema --json\`
 EOF
     ;;
+  summarize-production)
+    for name in HEAD_SHA EVENT_NAME JOB_STATUS SELECTION_RESULT DELIVERY_RESULT STABLE_RESULT; do
+      require_env "$name"
+    done
+    core_version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+    if [ "$SELECTION_RESULT" = success ] && [ "${SELECTED:-}" = false ]; then
+      result="未部署：Core 版本未变，本次为空操作；未修改 stable。"
+    elif [ "$DELIVERY_RESULT" = success ] && [ "$STABLE_RESULT" = success ]; then
+      result="生产发布完成：部署及线上探测通过，stable 已更新。"
+    else
+      result="生产发布未完成；可能已有部分部署效果，请查看失败或取消步骤，不能据此声称生产未变。"
+    fi
+    append_summary <<EOF
+### Core 生产发布结果
+
+$result
+
+| 项目 | 结果 |
+| --- | --- |
+| 源码声明的 Core 版本 | \`$core_version\` |
+| 源码提交 | \`$HEAD_SHA\` |
+| 触发方式 | \`$EVENT_NAME\`（workflow_dispatch 为手动恢复） |
+| Job 状态 | \`$JOB_STATUS\` |
+| 发布选择 | \`$SELECTION_RESULT\` / selected=\`${SELECTED:-未取得}\` |
+| 候选不可变镜像 | \`${IMAGE_DIGEST:-未取得}\` |
+| 部署及线上探测 | \`$DELIVERY_RESULT\` |
+| stable 更新 | \`$STABLE_RESULT\` |
+
+源码版本不等同于当前线上版本。只有部署探测与 stable 更新均成功才表示本次发布完成。
+EOF
+    ;;
   pull-production)
     for name in GHCR_TOKEN HEAD_SHA GITHUB_REPOSITORY GITHUB_ACTOR; do require_env "$name"; done
     image="ghcr.io/${GITHUB_REPOSITORY,,}"

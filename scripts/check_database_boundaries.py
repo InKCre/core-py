@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import subprocess
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -135,9 +137,23 @@ async def operation():
 
 def main() -> int:
   self_check()
-  paths = [ROOT / "run.py"]
-  for directory in ("app", "extensions", "libs"):
-    paths.extend((ROOT / directory).rglob("*.py"))
+  # Share Ruff's runtime scope and generated/ignored-file exclusions.
+  result = subprocess.run(
+    [
+      sys.executable,
+      "-m",
+      "ruff",
+      "check",
+      "--config",
+      "ruff.database.toml",
+      "--show-files",
+    ],
+    cwd=ROOT,
+    check=True,
+    capture_output=True,
+    text=True,
+  )
+  paths = [Path(line) for line in result.stdout.splitlines()]
   errors = []
   for path in sorted(paths):
     relative = path.relative_to(ROOT).as_posix()
