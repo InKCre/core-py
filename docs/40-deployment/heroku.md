@@ -117,6 +117,15 @@ an Alembic downgrade。
 The mutable GHCR `stable` tag advances only after this probe succeeds. Publication without
 production admission leaves `stable` unchanged。
 
+The production workflow ends with a **Core 生产发布结果** summary whenever source checkout
+succeeded, including failed or cancelled delivery attempts. It records the source-declared Core
+version, SHA, candidate digest, deployment/probe outcome and stable-promotion outcome.
+A successful job that selected no release explicitly says it performed no deployment; its source
+version is not evidence of the currently deployed version. A failed delivery may already have
+changed production, and the summary does not imply rollback. The existing detailed probe summary
+retains Heroku release identities and transport checks. If checkout itself failed, inspect that
+step; no repository-owned summary command could run.
+
 ## PostgREST Runtime Contract
 
 PostgREST is a separate app, not a second process supervised inside the core dyno. It uses:

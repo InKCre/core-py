@@ -33,7 +33,19 @@
           "mode": "run"
         },
         "readiness_timeout": 600,
-        "scope": "worktree"
+        "scope": "worktree",
+        "stop": {
+          "argv": [
+            "pdm",
+            "run",
+            "dev:database",
+            "stop",
+            "${dev.instance}"
+          ],
+          "cwd": ".",
+          "kind": "exec",
+          "timeout": 300
+        }
       }
     }
   },

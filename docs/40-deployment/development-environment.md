@@ -46,6 +46,17 @@ database-owned `config.http_public_base_url`. It then waits for that exact Peer 
 capabilities and a live database-time lease before writing a converged descriptor. Attached client-web runtimes only verify
 that snapshot; they do not rewrite the owner Peer, reset the database, or stop the owner runtime.
 
+## Stopping the development runtime
+
+When the owning task no longer needs its disposable database, run
+`svc dev stop database --repo <owning-worktree> --json` before removing the worktree.
+This invokes the existing runtime owner with that worktree's exact instance: it removes
+its Compose containers, network and database volume, closes its SSH tunnel, and deletes
+its runtime descriptors and credentials. Development data in that volume is deleted.
+The provider comes from the recorded runtime, so stopping an SSH runtime does not require
+a local Docker daemon or copying the provision environment into a second declaration.
+Do not use stop to repair a readiness mismatch or against another task's runtime.
+
 ## Shared Runtime Boundary Diagnostics
 
 An attached peer proves the selected database runtime by matching the owner descriptor and

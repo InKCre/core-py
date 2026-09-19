@@ -1,4 +1,4 @@
-name: Production application
+name: core-py deployment
 
 on:
   workflow_run:
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy exact main artifact
+    name: core-py deployment
     if: >-
       (github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
@@ -30,6 +30,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout exact main source
+        id: checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -73,6 +74,7 @@ jobs:
         run: bash scripts/automation/runtime_artifact.sh build-production-transports
 
       - name: Deliver production
+        id: delivery
         if: steps.selection.outputs.selected == 'true'
         uses: ./.github/actions/production-delivery
         with:
@@ -89,9 +91,23 @@ jobs:
           postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
 
       - name: Move production-admitted stable channel
+        id: stable
         if: steps.selection.outputs.selected == 'true'
         env:
           GHCR_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
           IMMUTABLE_CORE_IMAGE: ${{ steps.core.outputs.digest_ref }}
         run: bash scripts/automation/runtime_artifact.sh promote-stable
+
+      - name: Summarize production outcome
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          JOB_STATUS: ${{ job.status }}
+          SELECTION_RESULT: ${{ steps.selection.outcome }}
+          SELECTED: ${{ steps.selection.outputs.selected }}
+          IMAGE_DIGEST: ${{ steps.core.outputs.digest_ref }}
+          DELIVERY_RESULT: ${{ steps.delivery.outcome }}
+          STABLE_RESULT: ${{ steps.stable.outcome }}
+        run: bash scripts/automation/runtime_artifact.sh summarize-production
