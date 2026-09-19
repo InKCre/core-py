@@ -55,6 +55,32 @@ async def exercise():
     assert closed.started_at is not None and closed.closed_at is not None
     assert job.id not in JobManager._active
 
+    from app.persistence.job.repository import JobRepository
+
+    closing = asyncio.Event()
+    close_release = asyncio.Event()
+    original_close = JobRepository.close
+
+    async def delayed_close(self, record, status):
+      closing.set()
+      await close_release.wait()
+      return await original_close(self, record, status)
+
+    release.set()
+    completed_job = await JobManager.create(type_id, {})
+    assert completed_job.id is not None
+    with patch.object(JobRepository, "close", delayed_close):
+      completing = asyncio.create_task(JobManager.run(completed_job.id))
+      await asyncio.wait_for(closing.wait(), 5)
+      shutdown = asyncio.create_task(JobManager.shutdown())
+      await asyncio.sleep(0)
+      close_release.set()
+      await shutdown
+      assert await completing
+    finished = await JobManager.get(completed_job.id)
+    assert finished is not None and finished.status == JobStatus.FINISHED
+    JobManager.start()
+
     cron = await CronManager.create(CronForm(schedule="* * * * *", job_type=type_id))
     assert cron.id is not None
     materialized = await asyncio.gather(
@@ -97,7 +123,8 @@ async def exercise():
     assert rolled_back is not None and rolled_back.last_job is None
     assert rolled_back.last_scheduled_for is None
     print(
-      "PASS: exclusive claim, abort closure, concurrent Cron occurrence, Job/Cron rollback"
+      "PASS: exclusive claim, abort/close drain, "
+      "concurrent Cron occurrence, Job/Cron rollback"
     )
   finally:
     async with AsyncSessionFactory.begin() as session:

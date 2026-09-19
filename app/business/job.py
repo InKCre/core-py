@@ -27,10 +27,11 @@ class UnknownJobTypeError(ValueError):
 class _Execution:
   task: asyncio.Task
   cancellation_requested: bool = False
+  closing: bool = False
 
   def cancel(self) -> None:
     # Do not interrupt cleanup already started by timeout or an earlier abort.
-    if not self.cancellation_requested:
+    if not self.cancellation_requested and not self.closing:
       self.cancellation_requested = True
       if not self.task.cancelling():
         self.task.cancel()
@@ -273,6 +274,8 @@ class JobManager:
 
   @classmethod
   async def _claim(cls, job_id: JobID) -> JobModel | None:
+    if not cls._accepting:
+      return None
     async with job_uow() as uow:
       return await uow.jobs.claim(job_id)
 
@@ -280,6 +283,9 @@ class JobManager:
   async def _close(cls, job: JobModel, status: JobStatus) -> bool:
     if not status.terminal:
       raise ValueError("Job may close only to a terminal status")
+    execution = cls._active.get(job.id) if job.id is not None else None
+    if execution is not None:
+      execution.closing = True
     # Cleanup is independent of handler cancellation and cannot wait indefinitely.
     async with asyncio.timeout(10):
       async with job_uow() as uow:

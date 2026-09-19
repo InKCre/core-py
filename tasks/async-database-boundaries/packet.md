@@ -194,3 +194,11 @@ Docker PostgreSQL 17.10 x86_64。不是 preview，也没有控制远端 CPU/网�
 提交 p50/p95 67.001/253.365 ms，读取 10.071/54.081 ms；并发 8 为 51.354 graph/s，
 提交 123.904/168.076 ms，读取 16.526/48.797 ms。两次零错误。原始 JSON 在本 packet。
 这些是小样本当前版本结果，不能解释为相对旧同步版本的提升；池配置未调整。
+
+### 最终关闭顺序复核
+
+排空调度回调不能早于 JobManager 的受保护收尾，否则一次 shutdown cancel 可能打断已开始的
+terminal database write。现顺序为 pause scheduler → JobManager shutdown/drain → 其余 callback
+cancel/drain → Sink/Extension → lease/log/pool。Job execution 标记 closing，收尾开始后不再重复
+取消；停止 admission 后拒绝新 claim。job_probe 增加 terminal write 暂停期间 shutdown 的交错，
+验证最终 FINISHED 成功提交，已有 abort、Cron 并发和回滚场景仍通过。

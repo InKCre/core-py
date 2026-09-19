@@ -194,8 +194,10 @@ async def lifespan(app: fastapi.FastAPI):
       bootstrap_task.cancel()
       with contextlib.suppress(asyncio.CancelledError):
         await bootstrap_task
-      await drain_scheduler()
+      if scheduler.running:
+        scheduler.pause()
       await JobManager.shutdown()
+      await drain_scheduler()
       await SinkManager.shutdown()
       await EXTENSION_HOST.close_running()
       if scheduler.running:

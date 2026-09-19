@@ -27,7 +27,8 @@ async def drain_scheduler() -> None:
     scheduler.pause()
   tasks = tuple(_running)
   for task in tasks:
-    task.cancel()
+    if not task.cancelling():
+      task.cancel()
   await asyncio.gather(*tasks, return_exceptions=True)
 
 

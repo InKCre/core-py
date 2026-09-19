@@ -71,7 +71,8 @@ same database-owned config semantics through its runtime owner.
 
 ### 4. Shutdown must close long-lived runtime resources
 
-- scheduler admission is paused first; tracked callbacks are cancelled and awaited, then JobManager stops admitting work and drains any remaining active tasks
+- scheduler admission is paused first; JobManager stops admitting work, cancels active handlers and awaits their terminal database writes without cancelling a close already in progress
+- remaining tracked callbacks are cancelled and awaited before Sink/Extension resources close
 - running Sink instances close before Extension teardown, so an external endpoint cannot observe disappearing
   Extension-delivered behavior while it is still published
 - running extensions are closed asynchronously so they can release resources
