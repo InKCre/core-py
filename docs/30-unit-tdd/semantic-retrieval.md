@@ -19,7 +19,7 @@ retrieval. It remains an additive graph command, not part of retrieval or collec
 AIProvider -> AIModel -> EmbeddingProfile
                               |
 Block/Resolver projection ----+----> BlockEmbedding
-RelationManager projection ---+----> RelationEmbedding
+RelationService projection ---+----> RelationEmbedding
                               |
                               +----> SemanticRetrievalManager
 ```

@@ -13,7 +13,7 @@ import sqlmodel
 from app.business.info_base.commands import persist_graph, submit_graph, submit_stars
 from app.persistence.info_base.uow import graph_uow
 from app.business.info_base.resolver import register_core_resolvers
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.main import (
   GraphBlockForm,
@@ -35,7 +35,7 @@ pytestmark = pytest.mark.skipif(
 def _cleanup(block_ids: list[int]) -> None:
   if not block_ids:
     return
-  with SessionLocal() as db:
+  with TestSession() as db:
     db.connection().execute(
       sqlalchemy.text("DELETE FROM inkcre.blocks WHERE id = ANY(:ids)"),
       {"ids": block_ids},
@@ -67,7 +67,7 @@ def test_submit_graph_creates_arbitrary_links_and_returns_only_block_mapping(asy
         {"local_id": -5, "id": mapping[-5]},
       )
     }
-    with SessionLocal() as db:
+    with TestSession() as db:
       blocks = tuple(db.get(BlockModel, block_id) for block_id in persisted)
       relations = db.exec(
         sqlmodel.select(RelationModel).where(RelationModel.from_.in_(persisted))  # pyrefly: ignore[missing-attribute]
@@ -134,7 +134,7 @@ def test_recursive_stars_authoring_retains_reconciliation_and_direction(async_ru
     second_root = async_runner.run(submit_stars(stars))
     assert second_root.id == first_root.id
 
-    with SessionLocal() as db:
+    with TestSession() as db:
       blocks = db.exec(
         sqlmodel.select(BlockModel).where(BlockModel.content.in_(contents.values()))  # pyrefly: ignore[missing-attribute]
       ).all()
@@ -152,7 +152,7 @@ def test_recursive_stars_authoring_retains_reconciliation_and_direction(async_ru
       (by_content[contents["in"]], "incoming", by_content[contents["root"]]),
     }
   finally:
-    with SessionLocal() as db:
+    with TestSession() as db:
       cleanup_ids = [
         block.id
         for block in db.exec(
@@ -167,7 +167,7 @@ def test_recursive_stars_authoring_retains_reconciliation_and_direction(async_ru
 
 def test_composed_graph_failure_rolls_back_earlier_graph(async_runner):
   marker = uuid.uuid4().hex
-  with SessionLocal() as db:
+  with TestSession() as db:
     assert db.get(BlockModel, 2_147_483_647) is None
 
   async def compose():
@@ -190,7 +190,7 @@ def test_composed_graph_failure_rolls_back_earlier_graph(async_runner):
   with pytest.raises(sqlalchemy.exc.IntegrityError) as error:
     async_runner.run(compose())
   assert isinstance(error.value.orig, psycopg.errors.ForeignKeyViolation)
-  with SessionLocal() as db:
+  with TestSession() as db:
     assert (
       db.exec(sqlmodel.select(BlockModel).where(BlockModel.content == marker)).first()
       is None
@@ -218,7 +218,7 @@ def test_cancelled_graph_operation_rolls_back_and_releases_connection(async_runn
   result = async_runner.run(cancel_then_retry())
   persisted = [item.id for item in result.blocks]
   try:
-    with SessionLocal() as db:
+    with TestSession() as db:
       blocks = db.exec(
         sqlmodel.select(BlockModel).where(BlockModel.content == marker)
       ).all()
@@ -259,7 +259,7 @@ def test_blob_graph_transaction_and_hydration(async_runner):
       from app.business.info_base.storage.postgresql import PostgreSQLBlobPointer
 
       blob_id = PostgreSQLBlobPointer.model_validate_json(rolled_back_pointer).blob_id
-      with SessionLocal() as db:
+      with TestSession() as db:
         assert db.get(StorageBlobModel, blob_id) is None
     finally:
       async with graph_uow() as uow:

@@ -6,14 +6,11 @@ import math
 import typing
 
 import pydantic
-import sqlalchemy.dialects.postgresql
 
 from app.database_contract.profile import BUILTIN_AI_DIALECTS_BY_ID
-from app.engine import SessionLocal
 from app.schemas.ai import (
   AICapabilityType,
   AIDialectID,
-  AIDialectModel,
   AIModelCapability,
   AIModelID,
   AIModelModel,
@@ -122,33 +119,6 @@ class AIManager:
     return decorator
 
   @classmethod
-  def sync_dialects(cls) -> None:
-    """Persist registered dialect catalog contracts during explicit bootstrap."""
-    with SessionLocal() as db:
-      for dialect_id, registration in cls._DIALECTS.items():
-        builtin = BUILTIN_AI_DIALECTS_BY_ID.get(dialect_id)
-        statement = sqlalchemy.dialects.postgresql.insert(AIDialectModel).values(
-          id=dialect_id,
-          description=(
-            builtin.description if builtin is not None else registration.description
-          ),
-          config_schema=(
-            builtin.config_schema
-            if builtin is not None
-            else registration.config_model.model_json_schema()
-          ),
-        )
-        statement = statement.on_conflict_do_update(
-          index_elements=[AIDialectModel.id],
-          set_={
-            "description": statement.excluded.description,
-            "config_schema": statement.excluded.config_schema,
-          },
-        )
-        db.exec(statement)  # type: ignore
-      db.commit()
-
-  @classmethod
   async def sync_dialects_async(cls) -> None:
     records = []
     for dialect_id, registration in cls._DIALECTS.items():
@@ -175,14 +145,6 @@ class AIManager:
       raise UnknownAIDialectError(
         f"No local adapter implements AI dialect {dialect_id!r}"
       ) from error
-
-  @classmethod
-  def _load_target(cls, model_id: AIModelID) -> _ExecutionTarget:
-    """Legacy eligibility path, removed with synchronous Job preparation."""
-    with SessionLocal() as db:
-      model = db.get(AIModelModel, model_id)
-      provider = None if model is None else db.get(AIProviderModel, model.provider)
-    return cls._execution_target(model_id, model, provider)
 
   @classmethod
   async def _load_target_async(cls, model_id: AIModelID) -> _ExecutionTarget:

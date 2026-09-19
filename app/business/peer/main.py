@@ -11,7 +11,6 @@ import typing
 import pydantic
 
 from app.configuration import ConfigContract
-from app.engine import SessionLocal
 from app.schemas.ai import JSONValue
 from app.schemas.peer import (
   PEER_HTTP_PROTOCOL,
@@ -69,17 +68,6 @@ class PeerManager:
     return settings.peer_id
 
   @classmethod
-  def get_current_config(cls) -> CorePeerConfig:
-    """Load the current Peer owner's complete validated configuration."""
-    peer = cls.get(cls.get_current_peer_ref())
-    if peer is None:
-      raise RuntimeError("Current Peer must be registered before reading config")
-    try:
-      return cls._config_contract.validate(peer.config)
-    except pydantic.ValidationError as error:
-      raise ValueError("Current Peer config is invalid") from error
-
-  @classmethod
   async def get_current_config_async(cls) -> CorePeerConfig:
     peer = await cls.get_async(cls.get_current_peer_ref())
     if peer is None:
@@ -88,11 +76,6 @@ class PeerManager:
       return cls._config_contract.validate(peer.config)
     except pydantic.ValidationError as error:
       raise ValueError("Current Peer config is invalid") from error
-
-  @classmethod
-  def get(cls, peer: PeerRef) -> PeerModel | None:
-    with SessionLocal() as db:
-      return db.get(PeerModel, peer)
 
   @classmethod
   async def get_async(cls, peer: PeerRef) -> PeerModel | None:

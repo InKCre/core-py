@@ -1,5 +1,8 @@
 """Black-box proof for shared config persistence and row timestamp ownership."""
 
+from app.business.deployment_config import DeploymentConfigService
+
+
 import os
 from contextlib import asynccontextmanager
 import time
@@ -14,7 +17,8 @@ import sqlalchemy
 import sqlmodel
 
 from app.business.deployment_config import DeploymentConfigManager
-from app.engine import ASYNC_DB_ENGINE, SessionLocal
+from app.engine import ASYNC_DB_ENGINE
+from tests.database import TestSession
 from app.routes.deployment_config import ROUTER
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
@@ -91,7 +95,7 @@ def test_config_resource_replace_patch_read_and_explicit_failures(client):
     assert client.delete(f"/configs/{key}").status_code == 204
     assert client.get(f"/configs/{key}").status_code == 404
 
-    with SessionLocal() as db:
+    with TestSession() as db:
       _execute(
         db,
         sqlalchemy.text(
@@ -113,7 +117,7 @@ def test_config_resource_replace_patch_read_and_explicit_failures(client):
     assert client.get(f"/configs/{unknown_key}").status_code == 200
     assert client.get(f"/configs/{invalid_key}").status_code == 200
   finally:
-    with SessionLocal() as db:
+    with TestSession() as db:
       _execute(
         db,
         sqlalchemy.text("DELETE FROM inkcre.configs WHERE key = ANY(:keys)"),
@@ -122,13 +126,17 @@ def test_config_resource_replace_patch_read_and_explicit_failures(client):
       db.commit()
 
 
-def test_database_owned_timestamps_ignore_no_op_and_observe_row_changes():
+def test_database_owned_timestamps_ignore_no_op_and_observe_row_changes(
+  async_runner,
+):
   key = f"tests.i0.{uuid.uuid4().hex}"
   block_ids: list[int] = []
 
   try:
-    config = DeploymentConfigManager.replace(key, SCHEMA_ID, {"name": "first"})
-    with SessionLocal() as db:
+    config = async_runner.run(
+      DeploymentConfigService.replace(key, SCHEMA_ID, {"name": "first"})
+    )
+    with TestSession() as db:
       first = BlockModel(resolver="core.text.v1", content="first")
       second = BlockModel(resolver="core.text.v1", content="second")
       db.add(first)
@@ -151,7 +159,7 @@ def test_database_owned_timestamps_ignore_no_op_and_observe_row_changes():
       block_updated_at = first.updated_at
       relation_updated_at = relation.updated_at
 
-    with SessionLocal() as db:
+    with TestSession() as db:
       _execute(
         db,
         sqlalchemy.text("UPDATE inkcre.configs SET value = value WHERE key = :key"),
@@ -169,14 +177,16 @@ def test_database_owned_timestamps_ignore_no_op_and_observe_row_changes():
       )
       db.commit()
 
-    assert DeploymentConfigManager.read(key).updated_at == config.updated_at  # type: ignore[union-attr]
-    with SessionLocal() as db:
+    assert (
+      async_runner.run(DeploymentConfigService.read(key)).updated_at == config.updated_at
+    )  # type: ignore[union-attr]
+    with TestSession() as db:
       assert db.get(BlockModel, block_ids[0]).updated_at == block_updated_at  # type: ignore[union-attr]
       assert db.get(RelationModel, relation_id).updated_at == relation_updated_at  # type: ignore[union-attr]
 
     time.sleep(0.02)
-    patched = DeploymentConfigManager.patch(key, {"name": "second"})
-    with SessionLocal() as db:
+    patched = async_runner.run(DeploymentConfigService.patch(key, {"name": "second"}))
+    with TestSession() as db:
       _execute(
         db,
         sqlalchemy.text(
@@ -192,11 +202,11 @@ def test_database_owned_timestamps_ignore_no_op_and_observe_row_changes():
       db.commit()
 
     assert patched.updated_at > config.updated_at
-    with SessionLocal() as db:
+    with TestSession() as db:
       assert db.get(BlockModel, block_ids[0]).updated_at > block_updated_at  # type: ignore[union-attr]
       assert db.get(RelationModel, relation_id).updated_at > relation_updated_at  # type: ignore[union-attr]
   finally:
-    with SessionLocal() as db:
+    with TestSession() as db:
       _execute(
         db,
         sqlalchemy.text("DELETE FROM inkcre.configs WHERE key = :key"),

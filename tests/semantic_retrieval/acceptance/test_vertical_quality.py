@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from app.business.deployment_config import DeploymentConfigService
+from app.business.info_base.commands import submit_stars
+from tests.database import read_block, read_relations
+
+
 import asyncio
 import base64
 import copy
@@ -16,8 +21,6 @@ import sqlalchemy
 import sqlmodel
 
 from app.business.ai import AIManager
-from app.business.deployment_config import DeploymentConfigManager
-from app.business.info_base import BlockManager, InfoBaseManager, RelationManager
 from app.business.info_base.resolver import register_core_resolvers
 from app.business.info_base.resolver.html import HTMLResolver
 from app.business.info_base.storage import StorageManager
@@ -34,7 +37,7 @@ from app.business.semantic_retrieval import SemanticRetrievalManager
 from app.business.job import JobManager
 from app.business.lexical_retrieval import LexicalRetrievalManager
 from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas import AgentDefinitionModel
 from tests.extensions.runtime_support import publish_extension
 from app.schemas.ai import (
@@ -265,7 +268,7 @@ def _ingest_text_memo(content: str) -> int:
 
 
 def _create_source(source_type: str, config: FeedSourceConfig) -> int:
-  with SessionLocal() as db:
+  with TestSession() as db:
     source = SourceModel(
       type=source_type,
       nickname="semantic-retrieval-acceptance",
@@ -284,14 +287,14 @@ async def _collect_source(source_id: int) -> None:
   )
   job_id = _required_id(job.id)
   assert await JobManager.run(job_id)
-  with SessionLocal() as db:
+  with TestSession() as db:
     closed = db.get(JobModel, job_id)
   assert closed is not None
   assert closed.status is JobStatus.FINISHED, closed.state
 
 
 def _feed_entities(source_id: int, item_title: str) -> tuple[int, int]:
-  with SessionLocal() as db:
+  with TestSession() as db:
     feed = next(
       block
       for block in db.exec(
@@ -322,7 +325,7 @@ def _feed_entities(source_id: int, item_title: str) -> tuple[int, int]:
 
 async def _ingest_corpus(manifest: CorpusManifest) -> CorpusRun:
   register_core_resolvers()
-  StorageManager.setup_builtin_storages()
+  await StorageManager.setup_builtin_storages_async()
   MemosExtension._init_resolvers()
   RSSExtension._init_resolvers()
   RSSExtension._init_sources()
@@ -365,13 +368,7 @@ async def _ingest_corpus(manifest: CorpusManifest) -> CorpusRun:
       run.aliases[alias] = item_id
 
     sqlite_url = f"{server.base_url}/sqlite-architecture.html"
-    with SessionLocal() as db:
-      root = await InfoBaseManager.add_stars_graph_to_session(
-        HTMLResolver.create_graph(sqlite_url),
-        db,
-      )
-      db.commit()
-      db.refresh(root)
+    root = await submit_stars(HTMLResolver.create_graph(sqlite_url))
     sqlite_id = _required_id(root.id)
     run.roots.add(sqlite_id)
     run.aliases["sqlite.architecture-source"] = sqlite_id
@@ -384,10 +381,10 @@ async def _ingest_corpus(manifest: CorpusManifest) -> CorpusRun:
 def _connected_blocks(roots: set[int]) -> set[int]:
   connected = set(roots)
   frontier = set(roots)
-  with SessionLocal() as db:
+  with TestSession() as db:
     while frontier:
       current = frontier.pop()
-      for relation in RelationManager.get(current, db_session=db):
+      for relation in read_relations(current, db_session=db):
         other = relation.to_ if relation.from_ == current else relation.from_
         if other not in connected:
           connected.add(other)
@@ -398,7 +395,7 @@ def _connected_blocks(roots: set[int]) -> set[int]:
 def _discover_partial_roots(run: CorpusRun) -> None:
   """Recover acceptance-owned roots after a producer failed mid-command."""
   memo = run.manifest.producer_inputs["memo.design-capture"]
-  with SessionLocal() as db:
+  with TestSession() as db:
     for block in db.exec(sqlmodel.select(BlockModel)).all():
       block_id = block.id
       if block_id is None:
@@ -432,7 +429,7 @@ def _cleanup_corpus(run: CorpusRun) -> None:
   _discover_partial_roots(run)
   block_ids = _connected_blocks(run.roots) if run.roots else set()
   blob_ids: set[object] = set()
-  with SessionLocal() as db:
+  with TestSession() as db:
     for block_id in block_ids:
       block = db.get(BlockModel, block_id)
       if block is not None and block.storage == -4:
@@ -472,7 +469,7 @@ async def _close_corpus(run: CorpusRun) -> None:
 
 
 def _assert_ingested_graph(run: CorpusRun) -> None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     memo = db.get_one(BlockModel, run.aliases["memo.design-capture"])
     assert memo.resolver == "extensions.memos.memo.v1"
     rss_item = db.get_one(BlockModel, run.aliases["rss.deep-modules"])
@@ -563,14 +560,14 @@ def _provider_environment_available() -> bool:
   )
 
 
-def _restore_config(key: str, backup: DeploymentConfigView | None) -> None:
-  with SessionLocal() as db:
+async def _restore_config(key: str, backup: DeploymentConfigView | None) -> None:
+  with TestSession() as db:
     record = db.get(DeploymentConfigModel, key)
     if record is not None:
       db.delete(record)
       db.commit()
   if backup is not None:
-    DeploymentConfigManager.replace(key, backup.schema_id, backup.value)
+    await DeploymentConfigService.replace(key, backup.schema_id, backup.value)
 
 
 def _cleanup_ai(
@@ -580,12 +577,18 @@ def _cleanup_ai(
   profile_id: int | None,
   agent_id: int | None,
 ) -> None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     if agent_id is not None:
       agent = db.get(AgentDefinitionModel, agent_id)
       if agent is not None:
         db.delete(agent)
     if profile_id is not None:
+      # Maintenance may embed pre-existing rows; remove only this test profile's support.
+      for table in ("block_embeddings", "relation_embeddings"):
+        db.connection().execute(
+          sqlalchemy.text(f"DELETE FROM inkcre.{table} WHERE profile = :profile"),
+          {"profile": profile_id},
+        )
       profile = db.get(EmbeddingProfileModel, profile_id)
       if profile is not None:
         db.delete(profile)
@@ -611,7 +614,7 @@ def _create_ai_facts(
   config: dict[str, str] = {"api_key": api_key}
   if base_url:
     config["base_url"] = base_url
-  with SessionLocal() as db:
+  with TestSession() as db:
     provider = AIProviderModel(
       name="Semantic retrieval acceptance provider",
       dialect="core.openai-compatible.v1",
@@ -684,16 +687,14 @@ async def _exercise_quality(
   profile_id: int,
   agent_id: int,
 ) -> None:
-  DeploymentConfigManager.replace(
-    RUMINATION_CONFIG_KEY,
-    RUMINATION_CONFIG_SCHEMA,
-    {"agent": agent_id},
+  await DeploymentConfigService.replace(
+    RUMINATION_CONFIG_KEY, RUMINATION_CONFIG_SCHEMA, {"agent": agent_id}
   )
 
   sqlite_id = run.aliases["sqlite.architecture-source"]
   previous_relations = {
     relation.id
-    for relation in RelationManager.get(
+    for relation in read_relations(
       sqlite_id,
       include_in=False,
       include_out=True,
@@ -703,7 +704,7 @@ async def _exercise_quality(
   interpretation = max(
     (
       relation
-      for relation in RelationManager.get(
+      for relation in read_relations(
         sqlite_id,
         include_in=False,
         include_out=True,
@@ -713,7 +714,7 @@ async def _exercise_quality(
     ),
     key=lambda relation: _required_id(relation.id),
   )
-  pager = BlockManager.get(interpretation.to_)
+  pager = read_block(interpretation.to_)
   assert pager is not None
   assert "pager" in pager.content.casefold()
   run.aliases["sqlite.pager"] = _required_id(pager.id)
@@ -750,7 +751,7 @@ def _assert_judged_blocks_are_fresh(
     for judgment in manifest.quality_queries
     for alias in judgment.primary + judgment.distractors + judgment.must_outrank
   }
-  with SessionLocal() as db:
+  with TestSession() as db:
     profile = db.get(EmbeddingProfileModel, profile_id)
     assert profile is not None
     for alias in judged_aliases:
@@ -789,7 +790,7 @@ def test_vertical_quality_control_flow_with_deterministic_ai(async_runner, monke
   model_ids: tuple[int, ...] = ()
   profile_id: int | None = None
   agent_id: int | None = None
-  rumination_backup = DeploymentConfigManager.read(RUMINATION_CONFIG_KEY)
+  rumination_backup = async_runner.run(DeploymentConfigService.read(RUMINATION_CONFIG_KEY))
 
   async def embed(_cls, _model, inputs, dimensions):
     assert dimensions == 5
@@ -812,7 +813,7 @@ def test_vertical_quality_control_flow_with_deterministic_ai(async_runner, monke
           ToolCall(
             id="schema",
             tool=GET_DRAFT_GRAPH_SCHEMA_TOOL,
-            arguments={"resolvers": ["core.text.v1"]},
+            arguments={"resolver_types": ["core.text.v1"]},
           ),
         )
       )
@@ -825,14 +826,14 @@ def test_vertical_quality_control_flow_with_deterministic_ai(async_runner, monke
             id="draft",
             tool=DRAFT_GRAPH_TOOL,
             arguments={
-              "resolver": "core.text.v1",
+              "resolver_type": "core.text.v1",
               "input": {
                 "text": (
                   "SQLite pager: owns the page cache and coordinates database-file "
                   "locking, rollback, commit, and transaction behavior."
                 )
               },
-              "id_start": -1,
+              "local_block_id_start": -1,
             },
           ),
         )
@@ -872,7 +873,7 @@ def test_vertical_quality_control_flow_with_deterministic_ai(async_runner, monke
     nonlocal provider_id, model_ids, profile_id, agent_id
     run = await _ingest_corpus(manifest)
     try:
-      AIManager.sync_dialects()
+      await AIManager.sync_dialects_async()
       (
         provider_id,
         embedding_model_id,
@@ -900,7 +901,7 @@ def test_vertical_quality_control_flow_with_deterministic_ai(async_runner, monke
   try:
     async_runner.run(journey())
   finally:
-    _restore_config(RUMINATION_CONFIG_KEY, rumination_backup)
+    async_runner.run(_restore_config(RUMINATION_CONFIG_KEY, rumination_backup))
     _cleanup_ai(
       provider_id=provider_id,
       model_ids=model_ids,
@@ -924,13 +925,13 @@ def test_real_provider_quality_and_rumination_gain(
   model_ids: tuple[int, ...] = ()
   profile_id: int | None = None
   agent_id: int | None = None
-  rumination_backup = DeploymentConfigManager.read(RUMINATION_CONFIG_KEY)
+  rumination_backup = async_runner.run(DeploymentConfigService.read(RUMINATION_CONFIG_KEY))
 
   async def journey() -> None:
     nonlocal provider_id, model_ids, profile_id, agent_id
     run = await _ingest_corpus(manifest)
     try:
-      AIManager.sync_dialects()
+      await AIManager.sync_dialects_async()
       (
         provider_id,
         embedding_model_id,
@@ -957,7 +958,7 @@ def test_real_provider_quality_and_rumination_gain(
   try:
     async_runner.run(journey())
   finally:
-    _restore_config(RUMINATION_CONFIG_KEY, rumination_backup)
+    async_runner.run(_restore_config(RUMINATION_CONFIG_KEY, rumination_backup))
     _cleanup_ai(
       provider_id=provider_id,
       model_ids=model_ids,

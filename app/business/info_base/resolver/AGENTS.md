@@ -23,8 +23,8 @@
 ## Construction And Registration
 
 - 不 override `Resolver.__init__()`；subclass 使用 `__post_init__()` 和 `_get_solved_content()`。
-- 避免 module-level import `BlockManager`；resolver 与 `block.py` 有循环依赖风险，graph mutation dependency 按需
-  lazy import。
+- Resolver 通过 info-base commands/services 和绑定 UoW 的 repositories 使用持久化能力，
+  不创建 session；外部内容获取不能占用图写事务。
 - `Resolver.__init_subclass__()` exact-register decoder；同 class 重复 idempotent，不同 class 抢同 ID 失败。
 - Extension runtime disable 不撤销已 import 的 Resolver class registration。Registration 在进程内单调保留，
   使 persisted Block decoder 在 active Extension route/resource 关闭后仍可用；exact version replacement 仍以进程
@@ -59,7 +59,7 @@ OCR/STT/extraction 能力前显式 unsupported，不用 metadata 伪装正文。
 
 `get_label()` 是 required、concise、Block-local 的 resolver-qualified reference。它不得遍历 Relation、调用 AI 或
 materialize graph；identifier 缺失时返回 resolver 自己的 readable kind。Exact resolver ID 不能进入 label。
-RelationManager 用两端 label + exact relation content 投影 directed dynamic property，因此 retained label format 的
+RelationService 用两端 label + exact relation content 投影 directed dynamic property，因此 retained label format 的
 不兼容变化必须推进 resolver contract version。
 
 `draft_input_model` 是 Resolver-owned authoring contract，不是 persisted `block.content` schema。Agent runtime 对 selected
@@ -83,11 +83,11 @@ octet-stream。Protocol/source extension 自己拥有 declared MIME、HTTP MIME�
 
 ## Identity Risk
 
-默认 `get_existing()` 仍按 `resolver + content` 查重。改变它会改变 block identity，不是 resolver-local cleanup；
+默认 `get_existing_async(blocks)` 仍按 `resolver + content` 查重。改变它会改变 block identity，不是 resolver-local cleanup；
 必须回到 owning source/unit 的 exact identity contract，禁止用 fuzzy content/time match 偷换。
 
-## 异步迁移边界
+## 异步数据库边界
 
 `get_transfer_url()` 需要读取 storage catalog，因此现在必须 await。具体 Storage 的 URL 格式化仍是
 普通函数。`get_existing_async(blocks)` 通过绑定事务的 BlockRepository 查询精确身份，不接受 raw
-session，也不自行提交；旧 get_existing(session) 仅供未迁移的 Stars 消费者，最终删除。
+session，也不自行提交；所有 Stars 消费者调用此接口，不保留同步身份查询。

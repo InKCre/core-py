@@ -1,43 +1,19 @@
-# Temporary migration scope; expand and remove legacy exceptions in step 10.
+# Runtime-wide database rules. Readiness/CLI contract adapters own separate connections.
 extend = "ruff.toml"
-include = [
-  "app/persistence/**/repository.py",
-  "extensions/github/reconcile.py",
-  "extensions/github/stars.py",
-  "extensions/rss/**/*.py",
-  "extensions/mail/**/*.py",
-  "extensions/telegram/**/*.py",
-  "extensions/twitter/**/*.py",
-  "extensions/memos/**/*.py",
-  "app/persistence/info_base/storage.py",
-  "app/business/lexical_retrieval/**/*.py",
-  "app/business/semantic_retrieval/**/*.py",
-  "app/business/graph_navigation_retrieval/**/*.py",
-  "app/business/organization/**/*.py",
-  "app/business/organization_media.py",
-  "app/business/job.py",
-  "app/business/cron.py",
-  "app/business/sink/main.py",
-  "app/business/agent/main.py",
-  "app/business/source/job.py",
-  "app/business/extension/state.py",
-  "app/business/extension/main.py",
-  "app/business/extension/config.py",
-  "app/business/info_base/commands.py",
-  "app/business/info_base/services.py",
-]
+include = ["app/**/*.py", "extensions/**/*.py", "libs/**/*.py", "run.py"]
+extend-exclude = ["app/database_contract"]
 
 [lint]
 select = ["TID251"]
 
 [lint.flake8-tidy-imports.banned-api]
-"app.engine".msg = "应用操作和 repository 不能创建 session；通过 UoW 组合。"
-"sqlmodel.Session".msg = "已迁移数据库路径不能使用同步 session。"
-"sqlalchemy.orm.Session".msg = "已迁移数据库路径不能使用同步 session。"
-"sqlmodel.create_engine".msg = "Engine 只能由数据库基础设施创建。"
-"sqlalchemy.create_engine".msg = "Engine 只能由数据库基础设施创建。"
-"sqlalchemy.ext.asyncio.create_async_engine".msg = "Engine 只能由数据库基础设施创建。"
-"sqlalchemy.ext.asyncio.async_sessionmaker".msg = "Session factory 只能由数据库基础设施创建。"
-"app.business.info_base.block".msg = "已迁移路径使用 session-bound repository，不能调用旧同步 Manager。"
-"app.business.info_base.relation".msg = "已迁移路径使用 session-bound repository，不能调用旧同步 Manager。"
-"app.business.info_base.main".msg = "已迁移路径不能调用旧同步持久化入口。"
+"sqlmodel.Session".msg = "运行时持久化使用绑定 UoW 的 AsyncSession。"
+"sqlalchemy.orm.Session".msg = "运行时持久化使用绑定 UoW 的 AsyncSession。"
+"sqlalchemy.orm.sessionmaker".msg = "运行时只允许 app.engine 的异步工厂。"
+"sqlalchemy.orm.scoped_session".msg = "Session 生命周期必须显式，不使用 scoped session。"
+"sqlalchemy.ext.asyncio.async_scoped_session".msg = "每个 task 独立 UoW，不隐藏 session。"
+"sqlmodel.create_engine".msg = "运行时不创建同步 engine。"
+"sqlalchemy.create_engine".msg = "运行时不创建同步 engine。"
+"psycopg.connect".msg = "直接驱动只允许隔离的 database_contract 适配器。"
+"psycopg.Connection".msg = "直接驱动只允许隔离的 database_contract 适配器。"
+"psycopg.AsyncConnection".msg = "业务数据库访问通过 Core repositories。"

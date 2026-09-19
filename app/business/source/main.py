@@ -3,12 +3,10 @@ from __future__ import annotations
 import abc
 import jsonschema  # pyrefly: ignore[untyped-import]
 import pydantic
-import sqlmodel
 import typing
 from typing import Optional as Opt
 
 from app.persistence.source.uow import SourceUnitOfWork, source_uow
-from app.business.info_base.block import BlockManager
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.job import JobModel
 from app.schemas.source import SourceModel, SourceID, SourceTypesModel, SourceUpdateForm
@@ -313,52 +311,4 @@ class SourceManager:
       block.storage = None
       block.content = content
       await uow.graph.blocks.save(block)
-    return block
-
-  @classmethod
-  def resolve_writable_storage(
-    cls,
-    source: SourceModel,
-    db_session: sqlmodel.Session,
-  ):
-    from .config import resolve_writable_storage
-
-    return resolve_writable_storage(source, db_session)
-
-  @classmethod
-  def ensure_block(
-    cls,
-    source: SourceModel,
-    db_session: sqlmodel.Session,
-  ) -> BlockModel:
-    """Create/reuse and refresh one Source-owned graph anchor projection."""
-    if source.id is None:
-      raise ValueError("Source must be persisted before creating its anchor")
-    locked = db_session.exec(
-      sqlmodel.select(SourceModel).where(SourceModel.id == source.id).with_for_update()
-    ).one()
-    content = SourceContent(
-      id=source.id,
-      type=locked.type,
-      nickname=locked.nickname,
-    ).model_dump_json()
-    if locked.block is None:
-      block = BlockManager.create(
-        BlockForm(resolver=SOURCE_RESOLVER_ID, content=content),
-        db_session,
-      )
-      locked.block = block.id
-      db_session.add(locked)
-      db_session.flush()
-      return block
-
-    block = db_session.get(BlockModel, locked.block)
-    if block is None:  # pragma: no cover - FK invariant
-      raise RuntimeError("Source anchor reference does not resolve")
-    if block.resolver != SOURCE_RESOLVER_ID or block.content != content:
-      block.resolver = SOURCE_RESOLVER_ID
-      block.storage = None
-      block.content = content
-      db_session.add(block)
-      db_session.flush()
     return block

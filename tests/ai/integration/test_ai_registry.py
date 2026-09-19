@@ -9,7 +9,7 @@ import sqlalchemy
 import sqlalchemy.exc
 
 from app.business.ai import AIManager
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.ai import (
   AIModelModel,
   AIProviderModel,
@@ -28,7 +28,7 @@ pytestmark = pytest.mark.skipif(
 def _cleanup(provider_id: int | None) -> None:
   if provider_id is None:
     return
-  with SessionLocal() as db:
+  with TestSession() as db:
     db.connection().execute(
       sqlalchemy.text(
         "DELETE FROM inkcre.embedding_profiles WHERE ai_model IN "
@@ -51,7 +51,7 @@ def test_ai_facts_round_trip_typed_capabilities_and_database_invariants(async_ru
   async_runner.run(AIManager.sync_dialects_async())
   provider_id: int | None = None
   try:
-    with SessionLocal() as db:
+    with TestSession() as db:
       provider = AIProviderModel(
         name="integration provider",
         dialect="core.openai-compatible.v1",

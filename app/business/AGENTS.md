@@ -8,5 +8,5 @@
 - Semantic and lexical retrieval own separate derived records and ranking policy; neither owns graph facts or mutates the graph while reading.
 - Global Job/Cron machinery owns durable execution occurrence and claim lifecycle; domain units retain typed payload and effect semantics.
 - Peer owns identity, capability, lease, and delegation transport facts; typed business codecs remain with their business owner.
-- Preserve caller-owned database sessions: a helper must not commit a session it did not create.
+- Application use cases choose UoW scopes; raw sessions stay in persistence. Composed operations require a UoW and never end its transaction. Each concurrent task owns a separate UoW; external I/O runs outside DB scopes.
 - Required check: run tests for every affected business owner and the repository import-boundary checks.

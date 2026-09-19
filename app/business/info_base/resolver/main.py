@@ -6,7 +6,6 @@ import typing
 from typing import Optional as Opt
 
 import pydantic
-import sqlmodel
 
 from app.business.info_base.services import RelationService
 from app.schemas.info_base.main import StarsGraphForm
@@ -428,20 +427,6 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
   async def get_label(self, *, refresh: bool = False) -> str:
     """Read a concise label for this Block."""
     ...
-
-  def get_existing(self, db_session: sqlmodel.Session) -> Opt[BlockModel]:
-    """Check if a block with the same content already exists in the database.
-
-    :param db_session: Database session to use.
-    :return: Existing BlockModel if found, else None.
-    """
-    existing_block = db_session.exec(
-      sqlmodel.select(BlockModel).where(
-        BlockModel.resolver == self._block.resolver,
-        BlockModel.content == self._block.content,
-      )
-    ).one_or_none()
-    return existing_block
 
   async def get_existing_async(self, blocks: BlockRepository) -> Opt[BlockModel]:
     """Reconcile the exact resolver/content identity in the caller's transaction."""

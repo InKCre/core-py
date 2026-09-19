@@ -49,7 +49,7 @@ manual path 一致。
 
 - Source 负责 native fetch/adapter/policy，可以产生 graph form 或调用 owning repository/application service。
 - 新采集用例组合 SourceUnitOfWork 的 graph、sources、configuration；source 不复制通用 persistence。
-- 迁移期间旧扩展仍使用 ensure_block/resolve_writable_storage 的 caller-session API；这些入口随扩展迁移删除。
+- ensure_block_async／resolve_writable_storage_async 接受必需的 SourceUnitOfWork；anchor、graph 与 cursor 按用例共同提交，不接受 raw session。
 - `collect()` 不吞异常或假装成功。Unit 自己定义 per-item transaction、accepted partial effects 与 state advance。
 - Collection 不调用 organization hook。Organization 是独立 lifecycle，不得重新塞回 Source command。
 

@@ -1,5 +1,9 @@
 """Real PostgreSQL context and draft-to-submit graph proof."""
 
+from app.business.deployment_config import DeploymentConfigService
+from tests.database import seed_block, seed_relation
+
+
 import copy
 import inspect
 import json
@@ -13,8 +17,6 @@ import sqlmodel
 
 from app.business.agent import AgentManager
 from app.business.ai import AIManager
-from app.business.deployment_config import DeploymentConfigManager
-from app.business.info_base import BlockManager, RelationManager
 from app.business.info_base.resolver import register_core_resolvers
 from app.business.organization import (
   DRAFT_GRAPH_TOOL,
@@ -23,7 +25,7 @@ from app.business.organization import (
   SUBMIT_GRAPH_TOOL,
   RuminationBehaviorResolver,
 )
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas import AgentDefinitionModel
 from app.schemas.ai import (
   AIModelModel,
@@ -49,7 +51,7 @@ pytestmark = pytest.mark.skipif(
 def _cleanup(block_ids: list[int]) -> None:
   if not block_ids:
     return
-  with SessionLocal() as db:
+  with TestSession() as db:
     db.connection().execute(
       sqlalchemy.text("DELETE FROM inkcre.blocks WHERE id = ANY(:ids)"),
       {"ids": block_ids},
@@ -68,21 +70,15 @@ def test_context_preserves_direction_and_draft_submit_maps_local_ids(async_runne
   register_core_resolvers()
   block_ids: list[int] = []
   try:
-    focal = BlockManager.create(
-      BlockForm(resolver="core.text.v1", content="A long focal document")
-    )
-    incoming = BlockManager.create(
-      BlockForm(resolver="core.text.v1", content="Incoming reference")
-    )
-    outgoing = BlockManager.create(
-      BlockForm(resolver="core.text.v1", content="Outgoing value")
-    )
+    focal = seed_block(BlockForm(resolver="core.text.v1", content="A long focal document"))
+    incoming = seed_block(BlockForm(resolver="core.text.v1", content="Incoming reference"))
+    outgoing = seed_block(BlockForm(resolver="core.text.v1", content="Outgoing value"))
     block_ids.extend(
       block.id for block in (focal, incoming, outgoing) if block.id is not None
     )
     assert focal.id is not None and incoming.id is not None and outgoing.id is not None
-    outgoing_relation = RelationManager.create(focal.id, outgoing.id, "highlight")
-    incoming_relation = RelationManager.create(incoming.id, focal.id, "reference")
+    outgoing_relation = seed_relation(focal.id, outgoing.id, "highlight")
+    incoming_relation = seed_relation(incoming.id, focal.id, "reference")
 
     message = async_runner.run(RuminationBehaviorResolver._build_initial_message(focal.id))
     assert message is not None
@@ -148,7 +144,7 @@ def test_context_preserves_direction_and_draft_submit_maps_local_ids(async_runne
     assert isinstance(mapping, dict)
     assert mapping["local_id"] == -11
     block_ids.append(mapping["id"])
-    with SessionLocal() as db:
+    with TestSession() as db:
       created = db.get(BlockModel, mapping["id"])
       relation = db.get(
         RelationModel,
@@ -178,12 +174,12 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(
   model_id: int | None = None
   agent_id: int | None = None
   block_ids: list[int] = []
-  with SessionLocal() as db:
+  with TestSession() as db:
     existing_config = db.get(DeploymentConfigModel, RUMINATION_CONFIG_KEY)
     config_backup = existing_config.model_dump() if existing_config is not None else None
 
   try:
-    with SessionLocal() as db:
+    with TestSession() as db:
       provider = AIProviderModel(
         name="Organization integration provider",
         dialect="core.openai-compatible.v1",
@@ -224,12 +220,14 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(
       agent_id = agent.id
       assert agent_id is not None
 
-    DeploymentConfigManager.replace(
-      RUMINATION_CONFIG_KEY,
-      RUMINATION_CONFIG_SCHEMA,
-      {"agent": agent_id},
+    async_runner.run(
+      DeploymentConfigService.replace(
+        RUMINATION_CONFIG_KEY,
+        RUMINATION_CONFIG_SCHEMA,
+        {"agent": agent_id},
+      )
     )
-    focal = BlockManager.create(
+    focal = seed_block(
       BlockForm(resolver="core.text.v1", content=f"{marker}:coarse source document")
     )
     assert focal.id is not None
@@ -282,7 +280,7 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(
     async_runner.run(RuminationBehaviorResolver.ruminate(focal.id))
     async_runner.run(RuminationBehaviorResolver.ruminate(focal.id))
 
-    with SessionLocal() as db:
+    with TestSession() as db:
       derived = db.exec(
         sqlmodel.select(BlockModel).where(
           BlockModel.content.in_(  # pyrefly: ignore[missing-attribute]
@@ -301,7 +299,7 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(
     assert len(derived_ids) == 2
     assert {relation.to_ for relation in relations} == set(derived_ids)
   finally:
-    with SessionLocal() as db:
+    with TestSession() as db:
       current_config = db.get(DeploymentConfigModel, RUMINATION_CONFIG_KEY)
       if current_config is not None:
         db.delete(current_config)
@@ -321,7 +319,7 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(
         if stored_provider is not None:
           db.delete(stored_provider)
       db.commit()
-    with SessionLocal() as db:
+    with TestSession() as db:
       block_ids.extend(
         block.id
         for block in db.exec(

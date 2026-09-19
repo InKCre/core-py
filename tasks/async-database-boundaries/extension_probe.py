@@ -12,7 +12,8 @@ from app.business.extension import ExtensionBase, ExtensionHost, PublicHTTPRoute
 from app.business.extension.state import ExtensionStateService
 from app.business.extension.runtime import ExtensionRuntimeClaim
 from app.business.peer import PeerManager
-from app.engine import ASYNC_DB_ENGINE, SessionLocal
+from app.engine import ASYNC_DB_ENGINE
+from tests.database import TestSession
 from app.schemas.peer import PeerModel
 
 
@@ -20,7 +21,7 @@ async def exercise():
   name = "inkcre/async-probe-" + uuid.uuid4().hex[:12]
   extension_id = name.split("/")[1]
   peer_id = uuid.uuid4()
-  with SessionLocal() as session:
+  with TestSession() as session:
     session.add(PeerModel(id=peer_id, name="async-host-probe"))
     session.commit()
 
@@ -157,7 +158,7 @@ async def exercise():
       if peer_id in state.enabled:
         await store.set_peer_enabled(name, peer_id, False)
       await store.uninstall(name)
-    with SessionLocal() as session:
+    with TestSession() as session:
       peer = session.get(PeerModel, peer_id)
       if peer is not None:
         session.delete(peer)

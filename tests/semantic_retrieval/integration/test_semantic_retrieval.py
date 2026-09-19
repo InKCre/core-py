@@ -1,5 +1,9 @@
 """Real PostgreSQL vertical proof for maintenance, freshness and ranking."""
 
+from app.business.deployment_config import DeploymentConfigService
+from app.business.info_base.services import RelationService
+
+
 import os
 import time
 
@@ -7,8 +11,6 @@ import pytest
 import sqlalchemy
 
 from app.business.ai import AIManager
-from app.business.deployment_config import DeploymentConfigManager
-from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import register_core_resolvers
 from app.business.semantic_retrieval import (
   EmbeddingProfileNotFoundError,
@@ -16,7 +18,7 @@ from app.business.semantic_retrieval import (
   SEMANTIC_RETRIEVAL_CONFIG_SCHEMA,
   SemanticRetrievalManager,
 )
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.ai import (
   AIModelModel,
   AIProviderModel,
@@ -52,13 +54,13 @@ def _vector(text: str) -> tuple[float, float, float]:
   return (0.0, 0.0, 1.0)
 
 
-def _cleanup(
+async def _cleanup(
   provider_id: int | None,
   profile_id: int | None,
   block_ids: tuple[int, ...],
   previous_config,
 ) -> None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     if block_ids:
       db.connection().execute(
         sqlalchemy.text("DELETE FROM inkcre.blocks WHERE id = ANY(:ids)"),
@@ -92,22 +94,22 @@ def _cleanup(
     )
     db.commit()
   if previous_config is not None:
-    DeploymentConfigManager.replace(
-      previous_config.key,
-      previous_config.schema_id,
-      previous_config.value,
+    await DeploymentConfigService.replace(
+      previous_config.key, previous_config.schema_id, previous_config.value
     )
 
 
 def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypatch):
   register_core_resolvers()
-  AIManager.sync_dialects()
-  previous_config = DeploymentConfigManager.read(SEMANTIC_RETRIEVAL_CONFIG_KEY)
+  async_runner.run(AIManager.sync_dialects_async())
+  previous_config = async_runner.run(
+    DeploymentConfigService.read(SEMANTIC_RETRIEVAL_CONFIG_KEY)
+  )
   provider_id: int | None = None
   profile_id: int | None = None
   block_ids: list[int] = []
   try:
-    with SessionLocal() as db:
+    with TestSession() as db:
       provider = AIProviderModel(
         name="Semantic retrieval integration provider",
         dialect="core.openai-compatible.v1",
@@ -163,10 +165,12 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
       beta_id = beta.id
       relation_id = relation.id
 
-    DeploymentConfigManager.replace(
-      SEMANTIC_RETRIEVAL_CONFIG_KEY,
-      SEMANTIC_RETRIEVAL_CONFIG_SCHEMA,
-      {"default_profile": profile_id},
+    async_runner.run(
+      DeploymentConfigService.replace(
+        SEMANTIC_RETRIEVAL_CONFIG_KEY,
+        SEMANTIC_RETRIEVAL_CONFIG_SCHEMA,
+        {"default_profile": profile_id},
+      )
     )
 
     async def embed(_cls, model, inputs, dimensions):
@@ -216,7 +220,7 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
     ]
 
     relation_text = async_runner.run(
-      RelationManager.get_text(
+      RelationService.get_text(
         RelationModel(
           id=relation_id,
           from_=alpha_id,
@@ -230,7 +234,7 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
     )
 
     time.sleep(0.002)
-    with SessionLocal() as db:
+    with TestSession() as db:
       alpha_row = db.get(BlockModel, alpha_id)
       assert alpha_row is not None
       alpha_row.content = f"{ALPHA} systems updated"
@@ -251,7 +255,7 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
     )
     assert refreshed.embedded == 2
 
-    with SessionLocal() as db:
+    with TestSession() as db:
       db.connection().execute(
         sqlalchemy.text(
           "UPDATE inkcre.block_embeddings "
@@ -276,7 +280,7 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
     assert dimension_repair.embedded == 1
 
     time.sleep(0.002)
-    with SessionLocal() as db:
+    with TestSession() as db:
       profile_row = db.get(EmbeddingProfileModel, profile_id)
       assert profile_row is not None
       profile_row.name = "Updated semantic retrieval integration profile"
@@ -294,7 +298,7 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
     )
     assert rebuilt.embedded >= 4
 
-    with SessionLocal() as db:
+    with TestSession() as db:
       failure_block = BlockModel(
         resolver="core.text.v1",
         content="semantic-provider-failure-019fad3c",
@@ -317,10 +321,10 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
       )
     )
     assert failed.failed == 1
-    with SessionLocal() as db:
+    with TestSession() as db:
       assert db.get(BlockEmbeddingModel, (profile_id, failure_block_id)) is None
 
-    with SessionLocal() as db:
+    with TestSession() as db:
       second_failure_block = BlockModel(
         resolver="core.text.v1",
         content="semantic-cardinality-failure-019fad3c",
@@ -344,7 +348,7 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
       )
     )
     assert invalid_batch.failed == 2
-    with SessionLocal() as db:
+    with TestSession() as db:
       assert db.get(BlockEmbeddingModel, (profile_id, failure_block_id)) is None
       assert db.get(BlockEmbeddingModel, (profile_id, second_failure_block_id)) is None
 
@@ -364,12 +368,14 @@ def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypat
     )
     assert second_resumed_batch.embedded == 1
 
-    DeploymentConfigManager.replace(
-      SEMANTIC_RETRIEVAL_CONFIG_KEY,
-      SEMANTIC_RETRIEVAL_CONFIG_SCHEMA,
-      {"default_profile": 9_223_372_036_854_775_000},
+    async_runner.run(
+      DeploymentConfigService.replace(
+        SEMANTIC_RETRIEVAL_CONFIG_KEY,
+        SEMANTIC_RETRIEVAL_CONFIG_SCHEMA,
+        {"default_profile": 9_223_372_036_854_775_000},
+      )
     )
     with pytest.raises(EmbeddingProfileNotFoundError):
       async_runner.run(SemanticRetrievalManager.retrieve("dangling default"))
   finally:
-    _cleanup(provider_id, profile_id, tuple(block_ids), previous_config)
+    async_runner.run(_cleanup(provider_id, profile_id, tuple(block_ids), previous_config))

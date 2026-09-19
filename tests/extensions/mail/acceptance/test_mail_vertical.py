@@ -21,7 +21,7 @@ from app.business.source import (
   SOURCE_COLLECT_JOB_TYPE,
   SourceManager,
 )
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.extension import ExtensionModel
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
@@ -79,7 +79,7 @@ def _reset_acceptance_database() -> None:
   database_url = os.getenv("INKCRE_TEST_DATABASE_URL", "")
   if "mail_acceptance" not in database_url:
     raise RuntimeError("Mail acceptance requires an explicitly named disposable database")
-  with SessionLocal() as db:
+  with TestSession() as db:
     db.connection().execute(
       sqlalchemy.text(
         "TRUNCATE TABLE "
@@ -110,7 +110,7 @@ def _reset_acceptance_database() -> None:
 async def _bootstrap_runtime_catalogs() -> None:
   register_core_resolvers()
   Extension.load_decoders()
-  StorageManager.setup_builtin_storages()
+  await StorageManager.setup_builtin_storages_async()
   await SourceManager.sync_source_types_async()
   await JobManager.sync_job_types()
 
@@ -126,14 +126,14 @@ async def _run_job(
   )
   assert job.id is not None
   assert await JobManager.run(job.id)
-  with SessionLocal() as db:
+  with TestSession() as db:
     persisted = db.get(JobModel, job.id)
     assert persisted is not None
     return persisted
 
 
 def _email(message_id: str) -> BlockModel | None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     matches = [
       block
       for block in db.exec(
@@ -146,7 +146,7 @@ def _email(message_id: str) -> BlockModel | None:
 
 
 def _mailbox(name: str) -> BlockModel | None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     matches = [
       block
       for block in db.exec(
@@ -159,7 +159,7 @@ def _mailbox(name: str) -> BlockModel | None:
 
 
 def _locator(mailbox_id: int, uid: int) -> RelationModel | None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     matches = []
     for relation in db.exec(
       sqlmodel.select(RelationModel).where(RelationModel.from_ == mailbox_id)
@@ -175,7 +175,7 @@ def _locator(mailbox_id: int, uid: int) -> RelationModel | None:
 
 
 def _components(email_id: int) -> list[tuple[RelationModel, BlockModel, dict]]:
-  with SessionLocal() as db:
+  with TestSession() as db:
     result = []
     for relation in db.exec(
       sqlmodel.select(RelationModel).where(RelationModel.from_ == email_id)
@@ -193,7 +193,7 @@ def _components(email_id: int) -> list[tuple[RelationModel, BlockModel, dict]]:
 
 
 def _flag_names(email_id: int) -> set[str]:
-  with SessionLocal() as db:
+  with TestSession() as db:
     names = set()
     for relation in db.exec(
       sqlmodel.select(RelationModel).where(
@@ -208,7 +208,7 @@ def _flag_names(email_id: int) -> set[str]:
 
 
 def _graph_counts() -> tuple[int, int]:
-  with SessionLocal() as db:
+  with TestSession() as db:
     return (
       len(db.exec(sqlmodel.select(BlockModel)).all()),
       len(db.exec(sqlmodel.select(RelationModel)).all()),
@@ -216,14 +216,14 @@ def _graph_counts() -> tuple[int, int]:
 
 
 def _source(source_id: int) -> SourceModel:
-  with SessionLocal() as db:
+  with TestSession() as db:
     source = db.get(SourceModel, source_id)
     assert source is not None
     return source
 
 
 def _set_source_config(source_id: int, config: MailSourceConfig) -> None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     source = db.get(SourceModel, source_id)
     assert source is not None
     source.config = config.model_dump(mode="json")
@@ -232,7 +232,7 @@ def _set_source_config(source_id: int, config: MailSourceConfig) -> None:
 
 
 def _set_extension_exclusion(name: str) -> None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     extension = db.get(ExtensionModel, "inkcre/mail")
     assert extension is not None
     extension.config = {"default_excluded_mailboxes": {"names": [name], "special_uses": []}}
@@ -324,7 +324,7 @@ def test_mail_collection_backfill_and_materialization(
       item for item in components if item[1].resolver == MIME_PART_RESOLVER
     ]
     assert len(mime_components) == 2
-    with SessionLocal() as db:
+    with TestSession() as db:
       participant_roles = {
         json.loads(relation.content)["role"]
         for relation in db.exec(
@@ -367,7 +367,7 @@ def test_mail_collection_backfill_and_materialization(
       and part.solved_content.content is None
       for part in solved.mime_parts
     )
-    with SessionLocal() as db:
+    with TestSession() as db:
       assert len(db.exec(sqlmodel.select(StorageBlobModel)).all()) == 0
 
     inline = next(block for _, block, value in components if value["role"] == "inline")
@@ -382,7 +382,7 @@ def test_mail_collection_backfill_and_materialization(
       "deep-module-field-note.pdf"
     )
     assert attachment_match.matches[0].block.id == attachment.id
-    with SessionLocal() as db:
+    with TestSession() as db:
       assert len(db.exec(sqlmodel.select(StorageBlobModel)).all()) == 0
       assert not db.exec(
         sqlmodel.select(RelationModel).where(
@@ -398,7 +398,7 @@ def test_mail_collection_backfill_and_materialization(
     assert materialized.content is not None
     assert materialized.content.block.resolver == "core.image.v1"
     assert materialized.content.block.storage == -4
-    with SessionLocal() as db:
+    with TestSession() as db:
       blobs = db.exec(sqlmodel.select(StorageBlobModel)).all()
       assert len(blobs) == 1 and blobs[0].data.startswith(b"\x89PNG")
 

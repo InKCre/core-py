@@ -1,5 +1,8 @@
 """Online data-preservation proof for the Memos attachment v2 migration."""
 
+from tests.database import read_block, read_relations
+
+
 import asyncio
 import datetime
 import json
@@ -13,10 +16,8 @@ import pytest
 import sqlalchemy
 import sqlmodel
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
 from app.business.info_base.storage.postgresql import PostgreSQLBlobPointer
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageBlobModel
@@ -42,7 +43,7 @@ def _alembic() -> Config:
 
 
 def _cleanup(block_ids: set[int], blob_ids: set[uuid.UUID]) -> None:
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     for relation in db_session.exec(
       sqlmodel.select(RelationModel).where(
         sqlalchemy.or_(
@@ -68,7 +69,7 @@ def test_seeded_v1_upgrade_and_downgrade_preserve_identity_blob_and_owner_slot()
   command.downgrade(config, PREVIOUS_REVISION)
 
   try:
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       blob = StorageBlobModel(data=b"migration bytes")
       db_session.add(blob)
       db_session.flush()
@@ -105,14 +106,14 @@ def test_seeded_v1_upgrade_and_downgrade_preserve_identity_blob_and_owner_slot()
 
     command.upgrade(config, "head")
     Extension._init_resolvers()
-    with SessionLocal() as db_session:
-      metadata = BlockManager.get(attachment_id, db_session)
+    with TestSession() as db_session:
+      metadata = read_block(attachment_id, db_session)
       assert metadata is not None
       assert metadata.resolver == V2
       assert metadata.storage is None
       canonical = CanonicalAttachment.from_block_content(metadata.content)
       assert canonical.filename == "migration.png"
-      content_relations = RelationManager.get(
+      content_relations = read_relations(
         attachment_id,
         include_in=False,
         include_out=True,
@@ -122,12 +123,12 @@ def test_seeded_v1_upgrade_and_downgrade_preserve_identity_blob_and_owner_slot()
       assert len(content_relations) == 1
       semantic_id = content_relations[0].to_
       block_ids.add(semantic_id)
-      semantic = BlockManager.get(semantic_id, db_session)
+      semantic = read_block(semantic_id, db_session)
       assert semantic is not None
       assert semantic.resolver == "core.image.v1"
       assert semantic.storage == -4
       assert PostgreSQLBlobPointer.model_validate_json(semantic.content).blob_id == blob_id
-      owner = RelationManager.get(
+      owner = read_relations(
         memo_id,
         include_in=False,
         include_out=True,
@@ -140,17 +141,17 @@ def test_seeded_v1_upgrade_and_downgrade_preserve_identity_blob_and_owner_slot()
     ) == ("image/png", b"migration bytes")
 
     command.downgrade(config, PREVIOUS_REVISION)
-    with SessionLocal() as db_session:
-      metadata = BlockManager.get(attachment_id, db_session)
+    with TestSession() as db_session:
+      metadata = read_block(attachment_id, db_session)
       assert metadata is not None
       assert metadata.resolver == V1
       assert metadata.storage == -4
       restored = json.loads(metadata.content)
       assert restored["blob_id"] == str(blob_id)
       assert db_session.get(StorageBlobModel, blob_id).data == b"migration bytes"  # type: ignore[union-attr]
-      assert BlockManager.get(semantic_id, db_session) is None
+      assert read_block(semantic_id, db_session) is None
       assert (
-        RelationManager.get(
+        read_relations(
           attachment_id,
           include_in=False,
           include_out=True,
@@ -159,7 +160,7 @@ def test_seeded_v1_upgrade_and_downgrade_preserve_identity_blob_and_owner_slot()
         )
         == ()
       )
-      owner = RelationManager.get(
+      owner = read_relations(
         memo_id,
         include_in=False,
         include_out=True,
@@ -178,7 +179,7 @@ def test_downgrade_refuses_shared_semantic_content_before_mutation():
   blob_ids: set[uuid.UUID] = set()
 
   try:
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       blob = StorageBlobModel(data=b"shared")
       db_session.add(blob)
       db_session.flush()
@@ -212,7 +213,7 @@ def test_downgrade_refuses_shared_semantic_content_before_mutation():
     with pytest.raises(RuntimeError, match="post-upgrade information"):
       command.downgrade(config, PREVIOUS_REVISION)
 
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       assert all(
         db_session.get(BlockModel, item_id) is not None for item_id in metadata_ids
       )

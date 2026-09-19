@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from tests.database import read_block, read_relations
+
+
 import asyncio
 import os
 from pathlib import Path
@@ -14,14 +17,12 @@ import pytest
 import pydantic
 import sqlmodel
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import ResolverManager, register_core_resolvers
 from app.business.info_base.storage import StorageManager
 from app.business.info_base.storage.postgresql import PostgreSQLBlobPointer
 from app.business.job import JobManager
 from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageBlobModel
@@ -207,7 +208,7 @@ class FeedHTTPDouble:
 
 
 def _create_source(source_type: str, config: FeedSourceConfig) -> int:
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     source = SourceModel(
       type=source_type,
       nickname="rss-integration-test",
@@ -221,7 +222,7 @@ def _create_source(source_type: str, config: FeedSourceConfig) -> int:
 
 
 def _reload_job(job_id: int) -> JobModel:
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     return db_session.exec(sqlmodel.select(JobModel).where(JobModel.id == job_id)).one()
 
 
@@ -236,7 +237,7 @@ async def _run_job(source_id: int, config: dict | None = None) -> JobModel:
 
 
 def _feed_roots(source_id: int) -> list[tuple[BlockModel, CanonicalFeed]]:
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     matches = []
     for block in db_session.exec(
       sqlmodel.select(BlockModel).where(BlockModel.resolver == FEED_RESOLVER_ID)
@@ -254,7 +255,7 @@ def _feed_root(source_id: int) -> tuple[BlockModel, CanonicalFeed]:
 
 
 def _feed_items(feed_block_id: int) -> list[tuple[BlockModel, CanonicalFeedItem]]:
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     relations = db_session.exec(
       sqlmodel.select(RelationModel).where(
         RelationModel.to_ == feed_block_id,
@@ -278,11 +279,11 @@ def _graph_block_ids(source_id: int) -> tuple[set[int], set[object]]:
     return set(), set()
   block_ids = {block.id for block, _ in feed_roots if block.id is not None}
   blob_ids: set[object] = set()
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     frontier = list(block_ids)
     while frontier:
       current = frontier.pop()
-      relations = RelationManager.get(current, db_session=db_session)
+      relations = read_relations(current, db_session=db_session)
       for relation in relations:
         other = relation.to_ if relation.from_ == current else relation.from_
         if other not in block_ids:
@@ -302,7 +303,7 @@ def _cleanup(source_ids: set[int]) -> None:
     block_ids, blob_ids = _graph_block_ids(source_id)
     all_block_ids.update(block_ids)
     all_blob_ids.update(blob_ids)
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     if all_block_ids:
       for block in db_session.exec(
         sqlmodel.select(BlockModel).where(
@@ -367,7 +368,7 @@ async def _exercise_rss() -> None:
     exact_item = next(item for item in items if item[1].source_native_id == "rss-guid-1")
     exact_item_id = exact_item[0].id
     assert exact_item_id is not None
-    full_text = RelationManager.get(
+    full_text = read_relations(
       exact_item_id,
       include_in=False,
       include_out=True,
@@ -402,7 +403,7 @@ async def _exercise_rss() -> None:
     assert updated_item[0].id == exact_item_id
     assert updated_item[1].title == "First article updated"
 
-    enclosure_relations = RelationManager.get(
+    enclosure_relations = read_relations(
       exact_item_id,
       include_in=False,
       include_out=True,
@@ -411,7 +412,7 @@ async def _exercise_rss() -> None:
     assert len(enclosure_relations) == 7
     enclosure_ids: dict[str, int] = {}
     for relation in enclosure_relations:
-      enclosure_block = BlockManager.get(relation.to_)
+      enclosure_block = read_block(relation.to_)
       assert enclosure_block is not None
       enclosure = CanonicalEnclosure.model_validate_json(enclosure_block.content)
       enclosure_ids[enclosure.url.rsplit("/", 1)[-1]] = relation.to_
@@ -463,14 +464,14 @@ async def _exercise_rss() -> None:
     ]
     assert results[-1]["status"] == "failed"
     for name in ordered_names:
-      content_relations = RelationManager.get(
+      content_relations = read_relations(
         enclosure_ids[name],
         include_in=False,
         include_out=True,
         content=CONTENT_RELATION,
       )
       assert len(content_relations) == 1
-      content_block = BlockManager.get(content_relations[0].to_)
+      content_block = read_block(content_relations[0].to_)
       assert content_block is not None
       assert await content_block.get_hydrated_content() == (ASSETS / name).read_bytes()
       assert await ResolverManager.get(content_block).get_solved_content() is not None
@@ -491,7 +492,7 @@ async def _exercise_rss() -> None:
     assert len(_feed_items(feed_block.id)) == 3
 
     alternate_feed_url = f"{server.base_url}/rss-alt.xml"
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       source = db_session.get_one(SourceModel, source_id)
       source.config = {**source.config, "feed_url": alternate_feed_url}
       db_session.add(source)
@@ -500,7 +501,7 @@ async def _exercise_rss() -> None:
     assert changed_url_job.status == JobStatus.FINISHED
     assert changed_url_job.state.get("not_modified") is not True
     assert len(_feed_items(feed_block.id)) == 3
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       state = db_session.get_one(SourceModel, source_id).state
       assert state["snapshot_configured_url"] == alternate_feed_url
       assert state["snapshot_feed_block_id"] == feed_block.id
@@ -510,7 +511,7 @@ async def _exercise_rss() -> None:
     assert server.feed_requests == before_scheduled + 1
 
     no_self_feed_url = f"{server.base_url}/rss-no-self.xml"
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       source = db_session.get_one(SourceModel, source_id)
       source.config = {**source.config, "feed_url": no_self_feed_url}
       db_session.add(source)
@@ -519,7 +520,7 @@ async def _exercise_rss() -> None:
     assert new_feed_job.status == JobStatus.FINISHED
     roots_after_identity_change = _feed_roots(source_id)
     assert len(roots_after_identity_change) == 2
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       new_state = db_session.get_one(SourceModel, source_id).state
       assert new_state["snapshot_feed_block_id"] != feed_block.id
 
@@ -571,7 +572,7 @@ async def _exercise_rss() -> None:
       diagnostic["code"] == "primary_persistence_failed"
       for diagnostic in failed_job.state["diagnostics"]
     )
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       assert db_session.get_one(SourceModel, retry_source_id).state == {}
     retry_job = await _run_job(retry_source_id)
     assert retry_job.status == JobStatus.FINISHED
@@ -603,7 +604,7 @@ async def _exercise_atom_and_failures() -> None:
 
     wrong_family_job = await _run_job(source_id)
     assert wrong_family_job.status == JobStatus.FAILED
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       source = db_session.get_one(SourceModel, source_id)
       assert source.state == {}
 
@@ -617,27 +618,27 @@ async def _exercise_atom_and_failures() -> None:
     assert len(items) == 1
     item_id = items[0][0].id
     assert item_id is not None
-    assert not RelationManager.get(
+    assert not read_relations(
       item_id,
       include_in=False,
       include_out=True,
       content=FULL_TEXT_RELATION,
     )
-    enclosure = RelationManager.get(
+    enclosure = read_relations(
       item_id,
       include_in=False,
       include_out=True,
       content=ENCLOSURE_RELATION,
     )
     assert len(enclosure) == 1
-    content = RelationManager.get(
+    content = read_relations(
       enclosure[0].to_,
       include_in=False,
       include_out=True,
       content=CONTENT_RELATION,
     )
     assert len(content) == 1
-    semantic = BlockManager.get(content[0].to_)
+    semantic = read_block(content[0].to_)
     assert semantic is not None
     assert semantic.resolver == "core.image.v1"
     assert await semantic.get_hydrated_content() == (ASSETS / "image.png").read_bytes()
@@ -659,7 +660,7 @@ def test_rss_collection_reconciliation_watermark_conditional_and_manual_enclosur
   Extension._init_sources()
   async_runner.run(SourceManager.sync_source_types_async())
   async_runner.run(JobManager.sync_job_types())
-  StorageManager.setup_builtin_storages()
+  async_runner.run(StorageManager.setup_builtin_storages_async())
   async_runner.run(_exercise_rss())
 
 
@@ -671,5 +672,5 @@ def test_atom_family_failure_and_automatic_enclosure_materialization(
   Extension._init_sources()
   async_runner.run(SourceManager.sync_source_types_async())
   async_runner.run(JobManager.sync_job_types())
-  StorageManager.setup_builtin_storages()
+  async_runner.run(StorageManager.setup_builtin_storages_async())
   async_runner.run(_exercise_atom_and_failures())

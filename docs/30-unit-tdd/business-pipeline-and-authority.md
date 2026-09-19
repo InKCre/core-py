@@ -49,15 +49,14 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
 
 ### 3. Info-Base Owns Graph Persistence
 
-- `InfoBaseManager` 是 block / relation / graph command 持久化协调者。
+- `InfoBaseManager` 只拥有 graph-form normalization；`commands.py` 和 `services.py` 拥有 graph 用例。
 - producer 可以提出 recursive `StarsGraphForm` 或 flat signed-ID `GraphForm`；normalization、block/relation insert 与
   database-managed identity 由 info-base 协调。
-- 需要协调多个 graph mutation 的 application service 可以给 `BlockManager` / `RelationManager`
-  传入 caller-owned session；manager 不能擅自提交该 session。
+- 多个 graph mutation 通过必需的 GraphUnitOfWork 组合；只有 persistence 层接触 raw session。
 - persistence helper 的 transaction 边界不自动成为产品级 graph-completeness guarantee；具体 command
   的 primary effect、partial result 与 cleanup 语义由 owning unit 声明。
 
-### 数据库事务边界（迁移中）
+### 数据库事务边界
 
 `app/business` 拥有应用用例、业务规则及事务组合；`app/persistence` 按业务责任分组，拥有
 session-bound repository 和 UoW 的数据库工厂实现。用例决定何时进入、退出作用域，UoW 工厂负责
@@ -81,10 +80,10 @@ BlockService 和 RelationService 提供独立异步 CRUD；HTTP 批量实体查�
 AI 调用前释放读取 scope，返回后重新检查已有派生，再在一个 scope 中插入图。该检查保持原有 best-effort
 语义，不构成跨并发调用的唯一性承诺。
 
-配置 HTTP 使用 DeploymentConfigService，AI、Agent 定义和 Peer 的已迁移入口各自使用所属 UoW。
+配置 HTTP 使用 DeploymentConfigService，AI、Agent 定义和 Peer 的数据库入口各自使用所属 UoW。
 AI provider 调用和 Peer outbound 执行前结束数据库作用域；Peer 的内存 capability 注册仍是同步函数。
 `app/engine.py` 是异步 factory 的 authority，lifespan 在业务运行资源退出后 dispose 异步 engine。
-UoW 不跨并发任务共享。新应用操作不接受可选 session；共同原子提交必须组合事务内操作，而不调用
+UoW 不跨并发任务共享。应用操作不接受可选 session；共同原子提交必须组合事务内操作，而不调用
 独立提交入口。`expire_on_commit=False` 允许已提交的已加载字段在 scope 外读取，不授权隐式延迟查询。
 
 ExtensionStateService 与 Host 的数据库操作已异步化，state/config transform 在行锁内同步执行，
@@ -101,11 +100,21 @@ GitHub、RSS、Mail、Telegram、Twitter 和 Memos 的采集与物化已异步�
 Graph/Source UoW 组合 Core persistence，不创建 session。Twitter page graph 与 Source cursor 同事务；
 RSS/Mail 保持逐 item/occurrence 的既有 partial effects，Memos 主删除后的 best-effort cleanup 仍独立提交。
 
-迁移尚未完成。旧 InfoBaseManager、BlockManager、RelationManager、Storage 的 caller-session API
-仍供检索、organization 的旧用例及测试准备使用；旧配置查询保留到其消费者迁移。新路径不得调用这些入口，不得把同步 session 传进异步 UoW。迁移清单拥有临时消费者与删除步骤；
-最终删除旧 API，不把双轨当作长期接口。`pdm run lint:database-boundaries` 已约束新 persistence 模块
-和 Graph 应用层的同步 factory/import 使用，配置及暂时覆盖清单集中在
-`ruff.database.toml`，根 Ruff 配置只保留通用规则；事务方法与全 runtime 的结构治理在后续收敛阶段完成。
+Lexical、Semantic 的 SQL 与批量 upsert 归各自 persistence；候选读取、Resolver/AI 计算、
+结果写入分为不同作用域。Graph navigation、Organization、MCP 与 Agent Tool 原生 await 业务入口。
+组织行为的多个图写入同事务，外部 Agent 执行不持有 session。并发 Tool 各自打开 UoW。
+
+运行时不存在旧同步 SessionLocal、可选 session CRUD 或双轨 Storage API。同步测试数据准备只在
+`tests/database.py` 中，通过独立 NullPool engine 直接插入／读取 fixture，不复制业务身份协调逻辑；
+业务验收调用生产异步入口。Alembic／CLI 与 readiness 共用的 `app/database_contract` 保留独立同步
+连接，HTTP readiness 在线程中执行，详见 Runtime Orchestration。日志使用独立异步 batch 事务。
+
+`pdm run lint:database-boundaries` 是 `pdm run check` 的组成部分：`ruff.database.toml` 在全部
+runtime 路径禁止同步 session、scoped session 和直接驱动连接；`scripts/check_database_boundaries.py`
+检查 engine/factory 归属、route 到 business 的方向、persistence 不反向依赖 business，以及 repository
+不能结束绑定 session 的生命周期。结构检查带合法／违规样例，包含 import alias 与相对导入。
+根 Ruff 配置只拥有通用规则。新增用例必须说明事务的原子集合、外部 I/O 所在作用域及 task 所有权；
+静态 lint 不能证明并发 task 未共享 UoW，这仍需代码审查和具体风险的验收。
 
 ### 4. Resolver And Storage Form The Interpretation Boundary
 
@@ -130,7 +139,7 @@ RSS/Mail 保持逐 item/occurrence 的既有 partial effects，Memos 主删除�
 - Thread persistence backend 拥有完整 Thread snapshot。当前只有 process-local in-memory backend；不存在独立的
   Turn、ToolCall、ToolResult、Message 持久化关系，也不承诺 checkpoint、resume 或 Agent-level exactly-once。
 - `SemanticRetrievalManager` 是 projection/profile/record/ranking owner。Block semantic input 只来自 Resolver
-  `get_text()`；Relation semantic input 由 RelationManager 组合 from-label、exact relation content 与 to-label，保留
+  `get_text()`；Relation semantic input 由 RelationService 组合 from-label、exact relation content 与 to-label，保留
   `to is from's property` 的方向语义。AIManager 只接收最终 typed text batch。
 - semantic `maintain` 只扫描 missing/stale records，并越过 unavailable entity；`rebuild` 以调用开始时间为 cutoff。
   Manager method 不创建 job/dirty/lease/retry lifecycle，且 projection/provider work 不持有数据库 transaction；完整

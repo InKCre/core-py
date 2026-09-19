@@ -9,7 +9,6 @@ from app.business.info_base.storage import StorageManager, WritableStorage
 from app.schemas.info_base.storage import StorageID
 from app.schemas.source import SourceModel
 from app.persistence.source.uow import SourceUnitOfWork
-import sqlmodel
 
 
 SOURCE_CONFIG_KEY = "core.source"
@@ -26,25 +25,6 @@ class SourceDeploymentConfig(pydantic.BaseModel):
 DeploymentConfigManager.register_schema(
   SOURCE_CONFIG_SCHEMA_ID, SourceDeploymentConfig, keys=(SOURCE_CONFIG_KEY,)
 )
-
-
-def resolve_writable_storage(
-  source: SourceModel,
-  db_session: sqlmodel.Session,
-) -> WritableStorage:
-  """Resolve Source override → deployment default → built-in PostgreSQL binary."""
-  storage_id = source.storage
-  if storage_id is None:
-    persisted = DeploymentConfigManager.get(SOURCE_CONFIG_KEY)
-    storage_id = (
-      POSTGRESQL_BINARY_STORAGE_ID
-      if persisted is None
-      else typing.cast(SourceDeploymentConfig, persisted).default_storage
-    )
-  storage = StorageManager.get_storage(storage_id, db_session)
-  if not isinstance(storage, WritableStorage):
-    raise ValueError(f"Storage {storage_id} is not writable")
-  return storage
 
 
 async def resolve_writable_storage_async(

@@ -15,7 +15,7 @@ from app.business.agent import (
   TurnTermination,
 )
 from app.business.ai import AIManager
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas import AgentDefinitionModel
 from app.schemas.ai import (
   AIModelModel,
@@ -56,7 +56,7 @@ async def _zeta(input: _ProbeInput):
 def _cleanup(provider_id: int | None) -> None:
   if provider_id is None:
     return
-  with SessionLocal() as db:
+  with TestSession() as db:
     db.connection().execute(
       sqlalchemy.text(
         "DELETE FROM inkcre.agents WHERE model IN "
@@ -76,10 +76,10 @@ def _cleanup(provider_id: int | None) -> None:
 
 
 def test_agent_definition_round_trip_and_active_thread_snapshot(monkeypatch, async_runner):
-  AIManager.sync_dialects()
+  async_runner.run(AIManager.sync_dialects_async())
   provider_id: int | None = None
   try:
-    with SessionLocal() as db:
+    with TestSession() as db:
       provider = AIProviderModel(
         name="Agent integration provider",
         dialect="core.openai-compatible.v1",
@@ -154,7 +154,7 @@ def test_agent_definition_round_trip_and_active_thread_snapshot(monkeypatch, asy
 
     async_runner.run(scenario())
 
-    with SessionLocal() as db:
+    with TestSession() as db:
       stored_agent = db.get(AgentDefinitionModel, agent_id)
       assert stored_agent is not None
       model_id = stored_agent.model

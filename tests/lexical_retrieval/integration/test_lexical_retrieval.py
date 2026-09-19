@@ -1,11 +1,14 @@
 """Real PostgreSQL proof for lexical projection, freshness, and ranking."""
 
+from app.business.info_base.services import BlockService
+from tests.database import seed_block
+
+
 import os
 
 import pytest
 import sqlalchemy
 
-from app.business.info_base import BlockManager
 from app.business.info_base.resolver import register_core_resolvers
 from app.business.cron import CronManager
 from app.business.job import JobManager
@@ -14,7 +17,7 @@ from app.business.lexical_retrieval import (
   LEXICAL_REBUILD_JOB_TYPE,
   LexicalRetrievalManager,
 )
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.info_base.block import BlockForm
 from app.schemas.cron import CronModel
 from app.schemas.job import JobModel, JobStatus
@@ -28,7 +31,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _reset() -> None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     db.connection().execute(
       sqlalchemy.text(
         "TRUNCATE TABLE inkcre.block_lexical_records, inkcre.relations, "
@@ -39,7 +42,7 @@ def _reset() -> None:
 
 
 def _text(content: str) -> int:
-  block = BlockManager.create(BlockForm(resolver="core.text.v1", content=content))
+  block = seed_block(BlockForm(resolver="core.text.v1", content=content))
   assert block.id is not None
   return block.id
 
@@ -71,7 +74,9 @@ def test_literal_chinese_ranking_freshness_and_cascade(
   assert chinese_result.matches[0].block.id == chinese
   assert chinese_result.matches[0].evidence == "label_substring"
 
-  BlockManager.edit_block(phrase, content="replacement clue after authoritative edit")
+  async_runner.run(
+    BlockService.edit_block(phrase, content="replacement clue after authoritative edit")
+  )
   assert not async_runner.run(
     LexicalRetrievalManager.retrieve_local("continuous technical")
   ).matches
@@ -82,8 +87,8 @@ def test_literal_chinese_ranking_freshness_and_cascade(
   )
   assert updated_result.matches[0].block.id == phrase
 
-  assert BlockManager.delete(deleted)
-  with SessionLocal() as db:
+  assert async_runner.run(BlockService.delete(deleted))
+  with TestSession() as db:
     remaining = (
       db.connection()
       .execute(
@@ -101,7 +106,7 @@ def test_unknown_resolver_is_bounded_unavailable_diagnostic(
   async_runner,
 ):
   _reset()
-  block = BlockManager.create(BlockForm(resolver="unknown.lexical.v1", content="opaque"))
+  block = seed_block(BlockForm(resolver="unknown.lexical.v1", content="opaque"))
   assert block.id is not None
 
   report = async_runner.run(
@@ -132,7 +137,7 @@ def test_direct_and_cron_created_jobs_share_exact_handler_path(
   )
   assert direct.id is not None
   assert async_runner.run(JobManager.run(direct.id))
-  with SessionLocal() as db:
+  with TestSession() as db:
     persisted = db.get(JobModel, direct.id)
     assert persisted is not None
     assert persisted.status == JobStatus.FINISHED
@@ -153,7 +158,7 @@ def test_direct_and_cron_created_jobs_share_exact_handler_path(
   assert scheduled.type == LEXICAL_REBUILD_JOB_TYPE
   assert scheduled.id is not None
   assert async_runner.run(JobManager.run(scheduled.id))
-  with SessionLocal() as db:
+  with TestSession() as db:
     persisted = db.get(JobModel, scheduled.id)
     assert persisted is not None
     assert persisted.status == JobStatus.FINISHED

@@ -5,7 +5,7 @@ records, maintenance/rebuild, exact cosine ranking, and the public Block/Relatio
 
 - Graph rows remain authority. Embedding records are successful derived support only; never persist unavailable/failed as
   entity state and never repair records implicitly inside `retrieve()`.
-- Block input comes only from its Resolver `get_text()`. Relation input comes only from `RelationManager.get_text()` and
+- Block input comes only from its Resolver `get_text()`. Relation input comes only from `RelationService.get_text()` and
   preserves directed subject/property/value semantics through Block-local labels.
 - Freshness is timestamp- and dimension-derived. Relation records depend on the Relation plus both endpoint Blocks.
 - Projection/storage/provider work occurs outside database transactions. Persist one completely validated provider batch

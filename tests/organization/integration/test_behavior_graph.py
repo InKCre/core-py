@@ -1,5 +1,8 @@
 """Real PostgreSQL journey across exact Organization graph effects."""
 
+from tests.database import seed_block, seed_blocks, seed_relation
+
+
 import os
 import uuid
 
@@ -7,7 +10,6 @@ import pytest
 import sqlalchemy
 
 from app.business.graph_navigation_retrieval import GraphNavigationRetrievalManager
-from app.business.info_base import BlockManager
 from app.business.info_base.resolver import register_core_resolvers
 from app.business.organization import (
   DuplicateAssertionBehaviorResolver,
@@ -18,7 +20,7 @@ from app.business.organization import (
   SynthesisBehaviorResolver,
   register_core_organization_behaviors,
 )
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.info_base.block import BlockForm
 
 
@@ -31,7 +33,7 @@ pytestmark = pytest.mark.skipif(
 def _cleanup(block_ids: list[int]) -> None:
   if not block_ids:
     return
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     db_session.connection().execute(
       sqlalchemy.text("DELETE FROM inkcre.blocks WHERE id = ANY(:ids)"),
       {"ids": block_ids},
@@ -46,8 +48,8 @@ def test_exact_behaviors_compose_into_replayable_graph_use(async_runner) -> None
   persisted: list[int] = []
 
   try:
-    with SessionLocal() as db_session:
-      blocks = BlockManager.create_many(
+    with TestSession() as db_session:
+      blocks = seed_blocks(
         (
           BlockForm(resolver="core.text.v1", content=f"{marker}: old limit"),
           BlockForm(resolver="core.text.v1", content=f"{marker}: new limit"),
@@ -193,17 +195,16 @@ def test_connected_component_reports_missing_and_bounded_incomplete_proof(
   persisted: list[int] = []
   try:
     blocks = [
-      BlockManager.create(BlockForm(resolver="core.text.v1", content=f"{marker}:{index}"))
+      seed_block(BlockForm(resolver="core.text.v1", content=f"{marker}:{index}"))
       for index in range(3)
     ]
     ids = tuple(block.id for block in blocks if block.id is not None)
     assert len(ids) == 3
     persisted.extend(ids)
     left, bridge, right = ids
-    from app.business.info_base import RelationManager
 
-    RelationManager.create(left, bridge, "duplicates assertion")
-    RelationManager.create(bridge, right, "duplicates assertion")
+    seed_relation(left, bridge, "duplicates assertion")
+    seed_relation(bridge, right, "duplicates assertion")
 
     result = async_runner.run(
       GraphNavigationRetrievalManager.get_connected_components(

@@ -165,3 +165,20 @@ with_trace_id 包装跟踪调度回调，暂停 admission 后取消并等待，�
 runtime_probe 已用隔离 PostgreSQL 验证日志独立于业务回滚、线程 trace、调度取消收尾。
 全仓 check 14 passed／60 skipped；PostgreSQL backend 下 import-only OpenAPI 成功且无差异。
 当前进入步骤 10：迁移测试 setup、移除过渡 API、收敛长期治理和总体验收。
+
+### 步骤 10 本地验收完成（2026-09-19）
+
+删除运行时 SessionLocal／SQLDB_ENGINE、旧 BlockManager／RelationManager、InfoBaseManager 的
+旧持久化入口，以及 Source、Storage、AI、Peer、Config 的同步兼容路径。清零扫描发现的 MCP
+实体／Resolver 读取一并迁移；六个 Tool 通过真实 SDK 调用 + 隔离 PostgreSQL probe。
+测试数据 setup/readback 使用 tests/database.py 独立 NullPool；业务效果仍通过生产异步入口验证。
+
+长期治理由全 runtime Ruff 禁用能力 + AST ownership 检查构成，接入 pdm run check；合法／违规
+样例覆盖别名、相对导入和 repository 事务生命周期。更新现有 Unit TDD 和最近指南，移除过渡
+说明。原生 async 业务 + 独立日志 writer；同步 readiness/CLI adapter 的边界明确保留。
+
+本地 check 14 passed／60 skipped；隔离 PostgreSQL 回归 38 passed／2 skipped 后，修复新 fixture
+helper 对未生成 timestamps 的错误校验，失败目标复验 2 passed。三项无需真实 AI 凭据的语义
+纵向验收通过；其旧 Tool 输入字段及 profile-scoped 清理问题已修正。OpenAPI 无差异。
+Mail graph/checkpoint 已验证，本机无 Dovecot distribution 且 Docker daemon 不可用，不冒充 IMAP
+端到端验证。最终 head 仍需远端 artifact/portable-runtime/preview 结果。进入 11，评估可复用 benchmark。
