@@ -50,16 +50,18 @@ async def retrieve_semantic(
 
 
 @ROUTER.get("/embedding-profiles")
-def list_embedding_profiles(
+async def list_embedding_profiles(
   limit: int | None = fastapi.Query(None, gt=0), cursor: int | None = None
 ) -> dict[str, typing.Any]:
-  rows, next_cursor = SemanticRetrievalManager.list_profiles(limit=limit, cursor=cursor)
+  rows, next_cursor = await SemanticRetrievalManager.list_profiles(
+    limit=limit, cursor=cursor
+  )
   return {"profiles": rows, "next_cursor": next_cursor}
 
 
 @ROUTER.get("/embedding-profiles/{profile_id}")
-def get_embedding_profile(profile_id: int) -> EmbeddingProfileModel:
-  result = SemanticRetrievalManager.get_profile(profile_id)
+async def get_embedding_profile(profile_id: int) -> EmbeddingProfileModel:
+  result = await SemanticRetrievalManager.get_profile(profile_id)
   if result is None:
     raise fastapi.HTTPException(404, f"Embedding profile {profile_id} not found")
   return result

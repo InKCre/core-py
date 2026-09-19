@@ -177,3 +177,19 @@ pdm run dev:database stop
 Both commands resolve the current core-py SVC worktree identity. Reset remains protected by
 the database-owned development marker. Stop removes only the descriptor's exact Compose
 project, volume, credentials, and SSH control tunnel.
+
+
+## 按需数据库性能测量
+
+在已经迁移、可写的隔离 PostgreSQL 环境中，沿用应用的 `DATABASE_URL`、`JWT_SECRET` 和 dotenv
+加载方式运行 `pdm run python scripts/benchmark_database.py --nodes 100 --iterations 30 --concurrency 4`。
+可用 `--output result.json` 保存结果。不要把 `.env` 当 shell 脚本 source。
+
+脚本调用真实 `submit_graph` 与批量 Block 读取用例，每个 graph 含 N 个 Blocks、N−1 条 Relations。
+一次预热后记录提交和读取的 p50/p95、成功 graph/s、错误率，以及代码 revision、Python、驱动和
+PostgreSQL 版本。它测量应用数据库用例，不包含 HTTP、Resolver 或外部服务延迟；并发参数不会让
+多个 task 共享一个 session。每次运行使用独立 UUID 标识数据，finally 精确清理该次 Blocks 及级联
+Relations，包括提交成功但响应丢失的写入。进程被强制终止时 finally 无法保证执行，因此使用隔离环境。
+
+该工具只按需运行，不加入 CI 性能阈值。比较结果时保持数据库资源、网络路径、数据规模和连接池配置
+相同；一次当前版本测量不能证明相对同步版本的提升，也不据此自动扩大连接池。

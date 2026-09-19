@@ -32,19 +32,19 @@ def _raise_sink_error(error: SinkError) -> typing.NoReturn:
 
 
 @ROUTER.get("/sink-types")
-def list_sink_types() -> tuple[SinkTypeModel, ...]:
-  return SinkManager.list_types()
+async def list_sink_types() -> tuple[SinkTypeModel, ...]:
+  return await SinkManager.list_types()
 
 
 @ROUTER.get("/sinks")
-def list_sinks() -> tuple[SinkModel, ...]:
-  return SinkManager.list()
+async def list_sinks() -> tuple[SinkModel, ...]:
+  return await SinkManager.list()
 
 
 @ROUTER.post("/sinks", status_code=201)
-def create_sink(body: SinkCreateForm) -> SinkModel:
+async def create_sink(body: SinkCreateForm) -> SinkModel:
   try:
-    return SinkManager.create(body.type, nickname=body.nickname, config=body.config)
+    return await SinkManager.create(body.type, nickname=body.nickname, config=body.config)
   except pydantic.ValidationError as error:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -55,20 +55,20 @@ def create_sink(body: SinkCreateForm) -> SinkModel:
 
 
 @ROUTER.get("/sinks/{sink_id}")
-def get_sink(sink_id: SinkID) -> SinkModel:
+async def get_sink(sink_id: SinkID) -> SinkModel:
   try:
-    return SinkManager.get(sink_id)
+    return await SinkManager.get(sink_id)
   except SinkError as error:
     _raise_sink_error(error)
 
 
 @ROUTER.put("/sinks/{sink_id}/config")
-def update_sink_config(
+async def update_sink_config(
   sink_id: SinkID,
   body: dict[str, typing.Any] = fastapi.Body(...),
 ) -> SinkModel:
   try:
-    return SinkManager.update_config(sink_id, body)
+    return await SinkManager.update_config(sink_id, body)
   except pydantic.ValidationError as error:
     raise fastapi.HTTPException(
       status_code=fastapi.status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -95,9 +95,9 @@ async def disable_sink(sink_id: SinkID) -> SinkModel:
 
 
 @ROUTER.delete("/sinks/{sink_id}", status_code=204)
-def delete_sink(sink_id: SinkID) -> fastapi.Response:
+async def delete_sink(sink_id: SinkID) -> fastapi.Response:
   try:
-    SinkManager.delete(sink_id)
+    await SinkManager.delete(sink_id)
   except SinkError as error:
     _raise_sink_error(error)
   return fastapi.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)

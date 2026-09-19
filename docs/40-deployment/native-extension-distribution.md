@@ -81,3 +81,23 @@ version that does not yet exist. Because public
 descriptors intentionally omit private producer provenance, a new workflow run cannot safely
 resume an existing version: recovery must rerun the original Extension publication run so its
 stable `github.run_id` build identity is preserved.
+
+
+## Async Host compatibility window
+
+Core Host 0.2 uses Runtime SDK async startup and persistence capabilities. Host operations and
+Extension config/state mutations must be awaited; in-memory config projection and typed mutation
+callbacks remain synchronous. ExtensionStateService owns each short business transaction;
+app/persistence/extension owns SQL and session creation. Row locks serialize state transforms, and
+the shared enabled RPC retains ownership of enabled[].
+
+Registry-origin database reads finish before Registry HTTP and wheel acquisition. The existing
+blocking artifact clients run in a worker without a database session. Startup failure or cancellation
+withdraws the current publication and releases its runtime claim.
+
+First-party producer metadata targets >=0.2.0 <0.3.0. These changes require new immutable Extension
+releases; an old wheel's range must not be widened. Before upgrading a deployment, disable affected
+old Extensions, adopt the matching Core/Extension releases, restart where a loaded wheel was replaced,
+and then enable them. A persisted old enabled[] intent is not silently removed on failed cold restore.
+The migration PR remains unreleasable until the complete runtime migration and compatible artifacts
+are ready.

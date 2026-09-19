@@ -6,13 +6,14 @@ import typing
 from typing import Optional as Opt
 
 import pydantic
-import sqlmodel
 
-from app.business.info_base.relation import RelationManager
+from app.business.info_base.services import RelationService
 from app.schemas.info_base.main import StarsGraphForm
 from app.schemas.info_base.block import BlockForm, BlockID, ResolverType, BlockModel
 from app.schemas.info_base.relation import RelationModel
 from app.schemas.info_base.storage import StorageID
+
+from app.persistence.info_base.repository import BlockRepository
 
 from .contracts import (
   DuplicateResolverRegistrationError,
@@ -317,13 +318,13 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
       await self._block.get_hydrated_content(refresh=refresh),
     )
 
-  def get_transfer_url(self) -> str | None:
+  async def get_transfer_url(self) -> str | None:
     """Get a content transfer URL when available."""
     if self._block.storage is None:
       return None
     from app.business.info_base.storage import StorageManager
 
-    storage = StorageManager.get_storage(self._block.storage)
+    storage = await StorageManager.get_storage_async(self._block.storage)
     return storage.get_transfer_url(self._block.content)
 
   async def get_solved_content(
@@ -389,7 +390,7 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
           or (include_out and relation.from_ == self.block_id)
         )
       else:
-        self.__relations[key] = RelationManager.get(
+        self.__relations[key] = await RelationService.get(
           block_id=self.block_id,
           include_in=include_in,
           include_out=include_out,
@@ -427,16 +428,6 @@ class Resolver(abc.ABC, typing.Generic[SolvedContentTV, RawContentTV]):
     """Read a concise label for this Block."""
     ...
 
-  def get_existing(self, db_session: sqlmodel.Session) -> Opt[BlockModel]:
-    """Check if a block with the same content already exists in the database.
-
-    :param db_session: Database session to use.
-    :return: Existing BlockModel if found, else None.
-    """
-    existing_block = db_session.exec(
-      sqlmodel.select(BlockModel).where(
-        BlockModel.resolver == self._block.resolver,
-        BlockModel.content == self._block.content,
-      )
-    ).one_or_none()
-    return existing_block
+  async def get_existing_async(self, blocks: BlockRepository) -> Opt[BlockModel]:
+    """Reconcile the exact resolver/content identity in the caller's transaction."""
+    return await blocks.find_content(self._block.resolver, self._block.content)

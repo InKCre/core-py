@@ -1,8 +1,9 @@
+from unittest.mock import AsyncMock
+
 import pytest
 
-from app.business.deployment_config import DeploymentConfigManager
+from app.business.deployment_config import DeploymentConfigService
 from app.business.extension.config import (
-  EXTENSION_REGISTRY_CONFIG_KEY,
   ExtensionRegistryDeploymentConfig,
   normalize_registry_origin,
   resolve_extension_registry_origin,
@@ -31,51 +32,56 @@ def test_registry_origin_normalizes_one_trailing_slash():
   assert normalize_registry_origin(" https://registry.test/ ") == "https://registry.test"
 
 
-def test_executing_peer_registry_override_wins(monkeypatch):
+def test_executing_peer_registry_override_wins(monkeypatch, async_runner):
   monkeypatch.setattr(
     PeerManager,
-    "get_current_config",
-    lambda: CorePeerConfig(extension_registry_url="https://peer.registry.test"),
+    "get_current_config_async",
+    AsyncMock(
+      return_value=CorePeerConfig(extension_registry_url="https://peer.registry.test")
+    ),
   )
   monkeypatch.setattr(
-    DeploymentConfigManager,
+    DeploymentConfigService,
     "get",
-    lambda key: pytest.fail(f"deployment config must not be read: {key}"),
+    AsyncMock(side_effect=AssertionError("deployment config must not be read")),
   )
 
-  assert resolve_extension_registry_origin() == "https://peer.registry.test"
+  assert (
+    async_runner.run(resolve_extension_registry_origin()) == "https://peer.registry.test"
+  )
 
 
-def test_deployment_registry_default_precedes_process_fallback(monkeypatch):
+def test_deployment_registry_default_precedes_process_fallback(monkeypatch, async_runner):
   monkeypatch.setattr(
     PeerManager,
-    "get_current_config",
-    lambda: CorePeerConfig(),
+    "get_current_config_async",
+    AsyncMock(return_value=CorePeerConfig()),
   )
   monkeypatch.setattr(
-    DeploymentConfigManager,
+    DeploymentConfigService,
     "get",
-    lambda key: (
-      ExtensionRegistryDeploymentConfig(
+    AsyncMock(
+      return_value=ExtensionRegistryDeploymentConfig(
         extension_registry_url="https://deployment.registry.test/"
       )
-      if key == EXTENSION_REGISTRY_CONFIG_KEY
-      else None
     ),
   )
 
-  assert resolve_extension_registry_origin() == "https://deployment.registry.test"
+  assert (
+    async_runner.run(resolve_extension_registry_origin())
+    == "https://deployment.registry.test"
+  )
 
 
-def test_process_registry_origin_is_the_final_fallback(monkeypatch):
+def test_process_registry_origin_is_the_final_fallback(monkeypatch, async_runner):
   monkeypatch.setattr(
     PeerManager,
-    "get_current_config",
-    lambda: CorePeerConfig(),
+    "get_current_config_async",
+    AsyncMock(return_value=CorePeerConfig()),
   )
-  monkeypatch.setattr(DeploymentConfigManager, "get", lambda _key: None)
+  monkeypatch.setattr(DeploymentConfigService, "get", AsyncMock(return_value=None))
 
-  assert resolve_extension_registry_origin() == normalize_registry_origin(
+  assert async_runner.run(resolve_extension_registry_origin()) == normalize_registry_origin(
     settings.extension_registry_url
   )
 

@@ -1,9 +1,9 @@
 import json
 from typing import Optional as Opt
 
-from app.business.info_base.resolver import Resolver, TextProjectionContext
+from app.business.info_base.resolver import Resolver, ResolverManager, TextProjectionContext
 from app.business.info_base.resolver.label import format_label
-from app.business.info_base.block import BlockManager
+from app.business.info_base.services import BlockService
 from app.schemas.info_base.block import BlockForm
 from app.schemas.info_base.main import StarsGraphForm
 from .schema import Tweet
@@ -30,10 +30,22 @@ class TweetResolver(Resolver[Tweet, str], rso_type="extensions.twitter.tweet.v1"
     relations = await self.get_relations(include_in=False, refresh=refresh)
     tweet.attachments = []
     tweet.links = []
+    attachments = {
+      block.id: block
+      for block in await BlockService.get_many(
+        tuple(
+          relation.to_
+          for relation in relations
+          if relation.content.startswith("attachment:")
+          or relation.content == "entities:url"
+        )
+      )
+    }
     for relation in relations:
       if relation.content.startswith("attachment:") or relation.content == "entities:url":
-        attachment_resolver = BlockManager.get_resolver(relation.to_)
-        if attachment_resolver:
+        block = attachments.get(relation.to_)
+        if block is not None:
+          attachment_resolver = ResolverManager.get(block)
           solved = await attachment_resolver.get_solved_content(
             refresh=refresh,
             materialize_missing=materialize_missing,

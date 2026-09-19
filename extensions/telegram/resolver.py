@@ -5,19 +5,16 @@ from __future__ import annotations
 import mimetypes
 from pathlib import Path
 
-import sqlmodel
 import telegram
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
+from app.business.info_base.services import BlockService
 from app.business.info_base.resolver import Resolver, ResolverManager, TextProjectionContext
 from app.business.info_base.resolver.inspection import detect_media_type
 from app.business.info_base.resolver.label import format_label
-from app.business.source import SourceManager
-from app.engine import SessionLocal
+from app.business.source.config import resolve_writable_storage_async
+from app.persistence.source.uow import source_uow
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.main import StarsGraphForm
-from app.schemas.info_base.relation import RelationModel
 from app.schemas.source import SourceModel
 
 from .schema import SolvedTelegramAttachment, TelegramAttachment, TelegramMessage
@@ -109,7 +106,7 @@ class TelegramAttachmentResolver(
       raise RuntimeError(
         f"Telegram attachment {self.block_id} has multiple content children"
       )
-    content = BlockManager.get(content_ids[0]) if content_ids else None
+    content = await BlockService.get(content_ids[0]) if content_ids else None
     return SolvedTelegramAttachment(root=root, content=content)
 
   @classmethod
@@ -147,23 +144,15 @@ class TelegramAttachmentResolver(
     )
     return format_label(f"telegram {root.kind}", root.filename or root.title or root.emoji)
 
-  def _source(self) -> SourceModel:
-    with SessionLocal() as db:
-      relations = db.exec(
-        sqlmodel.select(RelationModel).where(
-          RelationModel.to_ == self.block_id,
-          RelationModel.content == SOURCE_RELATION,
-        )
-      ).all()
+  async def _source(self) -> SourceModel:
+    async with source_uow() as uow:
+      relations = await uow.graph.relations.get(
+        self.block_id, include_out=False, content=SOURCE_RELATION
+      )
       sources = [
         source
         for relation in relations
-        if (
-          source := db.exec(
-            sqlmodel.select(SourceModel).where(SourceModel.block == relation.from_)
-          ).one_or_none()
-        )
-        is not None
+        if (source := await uow.sources.get_by_block(relation.from_)) is not None
       ]
       if len(sources) != 1:
         raise TelegramMaterializationUnavailable(
@@ -175,7 +164,7 @@ class TelegramAttachmentResolver(
     existing = await self.get_solved_content(materialize_missing=False)
     if existing.content is not None:
       return existing.content
-    source = self._source()
+    source = await self._source()
     from .schema import TelegramSourceConfig, TelegramSourceState
 
     setup = TelegramSourceConfig.model_validate(source.config)
@@ -211,32 +200,30 @@ class TelegramAttachmentResolver(
     }.get(root.kind)
     resolver_id = detected or declared or guessed or by_kind or "core.file.v1"
 
-    with SessionLocal() as db:
-      metadata = db.exec(
-        sqlmodel.select(BlockModel).where(BlockModel.id == self.block_id).with_for_update()
-      ).one_or_none()
+    async with source_uow() as uow:
+      metadata = await uow.graph.blocks.get(self.block_id, lock=True)
       if metadata is None or metadata.resolver != ATTACHMENT_RESOLVER:
         raise TelegramMaterializationUnavailable("Telegram attachment no longer exists")
-      existing_relation = db.exec(
-        sqlmodel.select(RelationModel).where(
-          RelationModel.from_ == self.block_id,
-          RelationModel.content == CONTENT_RELATION,
-        )
-      ).one_or_none()
+      relations = await uow.graph.relations.get(
+        self.block_id, include_in=False, content=CONTENT_RELATION
+      )
+      if len(relations) > 1:
+        raise RuntimeError("Telegram attachment has multiple content children")
+      existing_relation = relations[0] if relations else None
       if existing_relation is not None:
-        existing = db.get(BlockModel, existing_relation.to_)
+        existing = await uow.graph.blocks.get(existing_relation.to_)
         if existing is None:
           raise RuntimeError("Telegram attachment content child is missing")
         return existing
-      live_source = db.get(SourceModel, source.id)
+      if source.id is None:
+        raise TelegramMaterializationUnavailable("Telegram Source has no identity")
+      live_source = await uow.sources.get(source.id)
       if live_source is None:
         raise TelegramMaterializationUnavailable("Telegram Source no longer exists")
-      storage = SourceManager.resolve_writable_storage(live_source, db)
-      pointer = storage.create_raw_content(body, db)
-      child = BlockManager.create(
-        BlockForm(storage=storage.storage_id, resolver=resolver_id, content=pointer), db
+      storage = await resolve_writable_storage_async(live_source, uow)
+      pointer = await storage.create_content(body, uow.graph.storage)
+      child = await uow.graph.blocks.create(
+        BlockForm(storage=storage.storage_id, resolver=resolver_id, content=pointer)
       )
-      RelationManager.create(_id(metadata), _id(child), CONTENT_RELATION, db)
-      db.commit()
-      db.refresh(child)
+      await uow.graph.relations.create(_id(metadata), _id(child), CONTENT_RELATION)
       return child

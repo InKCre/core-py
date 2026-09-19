@@ -7,7 +7,7 @@
 
 - 一个 canonical `extensions` row 表示 deployment 安装的 exact Release；`installed`、
   `enabled[]`、`running` 不可混用。
-- `ExtensionBase` 保持配置校验、`on_start`、`on_close` 与 active-effect publication。Route、Peer inbound
+- `ExtensionBase` 保持配置校验、`on_start_async`、`on_close` 与 active-effect publication。Route、Peer inbound
   和 public claim 可逆；已 import 的 Source/Resolver/Sink class registration 在当前进程内单调保留。
 - Extension wheel 直接 import Core 模块；Host 只接受标准 `inkcre.core.extensions` entry point。
 - Registry Simple URL 必须与配置的 Registry 同源且路径精确匹配 Project。
@@ -31,7 +31,8 @@
 
 ## 权限和持久化
 
-`state.py` 是唯一 DB adapter。`extensions.state` 是 deployment-wide Extension-produced state；
+`state.py` 拥有异步持久化用例与 state/config 规则；SQL 和 session-bound repository 位于
+`app/persistence/extension/`，UoW 工厂使用原生异步事务。`extensions.state` 是 deployment-wide Extension-produced state；
 `enabled[]` 只能通过
 `inkcre.set_extension_peer_enabled(p_name text,p_peer_id uuid,p_enabled boolean)` 变更，禁止
 read-modify-write。SQLModel 不应泄露成 Host 的稳定接口。

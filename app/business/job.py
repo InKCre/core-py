@@ -7,12 +7,9 @@ import typing
 
 import jsonschema  # pyrefly: ignore[untyped-import]
 import pydantic
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
-import sqlmodel
 
 from app.database_contract.profile import BUILTIN_JOB_TYPES_BY_ID
-from app.engine import SessionLocal
+from app.persistence.job.uow import JobUnitOfWork, job_uow
 from app.scheduler import scheduler, with_trace_id
 from app.schemas.job import JobID, JobModel, JobStatus, JobTypeID, JobTypeModel
 from libs.obsrv.main import get_logger
@@ -30,10 +27,11 @@ class UnknownJobTypeError(ValueError):
 class _Execution:
   task: asyncio.Task
   cancellation_requested: bool = False
+  closing: bool = False
 
   def cancel(self) -> None:
     # Do not interrupt cleanup already started by timeout or an earlier abort.
-    if not self.cancellation_requested:
+    if not self.cancellation_requested and not self.closing:
       self.cancellation_requested = True
       if not self.task.cancelling():
         self.task.cancel()
@@ -70,20 +68,20 @@ class JobHandler(abc.ABC, typing.Generic[ParametersTV]):
     return typing.cast(ParametersTV, cls.parameters_model.model_validate(parameters))
 
   @classmethod
-  def normalize_parameters(
-    cls, parameters: dict[str, typing.Any], db_session: sqlmodel.Session
+  async def normalize_parameters(
+    cls, parameters: dict[str, typing.Any], uow: JobUnitOfWork
   ) -> dict[str, typing.Any]:
     """Validate a new Job/Cron input; owners may resolve nested catalog contracts.
 
     Execution restores the persisted model through validate_parameters instead;
     it does not repeat submission-only normalization.
     """
-    del db_session
+    del uow
     return cls.validate_parameters(parameters).model_dump(mode="json")
 
   @classmethod
   @abc.abstractmethod
-  def can_handle(cls, parameters: ParametersTV) -> bool:
+  async def can_handle(cls, parameters: ParametersTV) -> bool:
     """Return whether this runtime can execute these parameters now."""
     ...
 
@@ -114,12 +112,12 @@ class JobManager:
     cls._handlers[handler.type] = handler
 
   @classmethod
-  def sync_job_types(cls) -> None:
-    """Project locally registered exact Handler contracts to PostgreSQL."""
-    with SessionLocal() as db_session:
-      for handler in cls._handlers.values():
-        builtin = BUILTIN_JOB_TYPES_BY_ID.get(handler.type)
-        statement = sqlalchemy.dialects.postgresql.insert(JobTypeModel).values(
+  async def sync_job_types(cls) -> None:
+    rows = []
+    for handler in cls._handlers.values():
+      builtin = BUILTIN_JOB_TYPES_BY_ID.get(handler.type)
+      rows.append(
+        dict(
           id=handler.type,
           description=builtin.description if builtin is not None else handler.description,
           parameters_schema=(
@@ -133,58 +131,49 @@ class JobManager:
             else handler.default_timeout_seconds
           ),
         )
-        statement = statement.on_conflict_do_update(
-          index_elements=[JobTypeModel.id],
-          set_={
-            "description": statement.excluded.description,
-            "parameters_schema": statement.excluded.parameters_schema,
-            "default_timeout_seconds": statement.excluded.default_timeout_seconds,
-          },
-        )
-        db_session.exec(statement)  # type: ignore
-      db_session.commit()
+      )
+    async with job_uow() as uow:
+      await uow.jobs.sync_types(rows)
 
   @classmethod
-  def normalize_parameters(
+  async def normalize_parameters(
     cls,
     job_type: JobTypeID,
     parameters: dict[str, typing.Any],
-    db_session: sqlmodel.Session,
+    uow: JobUnitOfWork,
   ) -> dict[str, typing.Any]:
     handler = cls._handlers.get(job_type)
     if handler is not None:
-      return handler.normalize_parameters(parameters, db_session)
+      return await handler.normalize_parameters(parameters, uow)
 
-    persisted_type = db_session.get(JobTypeModel, job_type)
+    persisted_type = await uow.jobs.get_type(job_type)
     if persisted_type is None:
       raise UnknownJobTypeError(f"Unknown Job type: {job_type}")
     jsonschema.Draft202012Validator(persisted_type.parameters_schema).validate(parameters)
     return parameters
 
   @classmethod
-  def create(
+  async def create(
+    cls,
+    job_type: JobTypeID,
+    parameters: dict[str, typing.Any],
+    timeout_seconds: int | None = None,
+  ) -> JobModel:
+    """Validate and persist one independent pending Job."""
+    async with job_uow() as uow:
+      return await cls.create_in_uow(job_type, parameters, timeout_seconds, uow=uow)
+
+  @classmethod
+  async def create_in_uow(
     cls,
     job_type: JobTypeID,
     parameters: dict[str, typing.Any],
     timeout_seconds: int | None = None,
     *,
-    db_session: sqlmodel.Session | None = None,
+    uow: JobUnitOfWork,
   ) -> JobModel:
-    """Validate and persist one independent pending Job."""
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        job = cls.create(
-          job_type,
-          parameters,
-          timeout_seconds,
-          db_session=owned_session,
-        )
-        owned_session.commit()
-        owned_session.refresh(job)
-        return job
-
-    normalized = cls.normalize_parameters(job_type, parameters, db_session)
-    persisted_type = db_session.get(JobTypeModel, job_type)
+    normalized = await cls.normalize_parameters(job_type, parameters, uow)
+    persisted_type = await uow.jobs.get_type(job_type)
     if persisted_type is None:
       raise UnknownJobTypeError(f"Unknown Job type: {job_type}")
     effective_timeout = (
@@ -198,13 +187,10 @@ class JobManager:
       parameters=normalized,
       timeout_seconds=effective_timeout,
     )
-    db_session.add(job)
-    db_session.flush()
-    db_session.refresh(job)
-    return job
+    return await uow.jobs.create(job)
 
   @classmethod
-  def _prepare(
+  async def _prepare(
     cls,
     job: JobModel,
   ) -> tuple[type[JobHandler], pydantic.BaseModel] | None:
@@ -212,35 +198,27 @@ class JobManager:
     if handler is None:
       return None
     parameters = handler.validate_parameters(job.parameters)
-    return (handler, parameters) if handler.can_handle(parameters) else None
+    return (handler, parameters) if await handler.can_handle(parameters) else None
 
   @classmethod
-  def get(cls, job_id: JobID) -> JobModel | None:
-    with SessionLocal() as db:
-      return db.get(JobModel, job_id)
+  async def get(cls, job_id: JobID) -> JobModel | None:
+    async with job_uow() as uow:
+      return await uow.jobs.get(job_id)
 
   @classmethod
-  def get_type(cls, type_: JobTypeID) -> JobTypeModel | None:
-    with SessionLocal() as db:
-      return db.get(JobTypeModel, type_)
+  async def get_type(cls, type_: JobTypeID) -> JobTypeModel | None:
+    async with job_uow() as uow:
+      return await uow.jobs.get_type(type_)
 
   @classmethod
-  def list_types(
+  async def list_types(
     cls, *, limit: int | None = None, cursor: str | None = None
   ) -> tuple[list[JobTypeModel], str | None]:
-    statement = sqlmodel.select(JobTypeModel).order_by(JobTypeModel.id)
-    if cursor is not None:
-      statement = statement.where(JobTypeModel.id > cursor)
-    if limit is not None:
-      statement = statement.limit(limit + 1)
-    with SessionLocal() as db:
-      rows = list(db.exec(statement).all())
-    more = limit is not None and len(rows) > limit
-    rows = rows[:limit]
-    return rows, rows[-1].id if more else None
+    async with job_uow() as uow:
+      return await uow.jobs.list_types(limit=limit, cursor=cursor)
 
   @classmethod
-  def list_jobs(
+  async def list_jobs(
     cls,
     *,
     limit: int = 20,
@@ -248,18 +226,10 @@ class JobManager:
     type_: JobTypeID | None = None,
     status: JobStatus | None = None,
   ) -> tuple[list[JobModel], JobID | None]:
-    statement = sqlmodel.select(JobModel).order_by(sqlmodel.col(JobModel.id).desc())
-    if cursor is not None:
-      statement = statement.where(sqlmodel.col(JobModel.id) < cursor)
-    if type_ is not None:
-      statement = statement.where(JobModel.type == type_)
-    if status is not None:
-      statement = statement.where(JobModel.status == status)
-    with SessionLocal() as db:
-      rows = list(db.exec(statement.limit(limit + 1)).all())
-    more = len(rows) > limit
-    rows = rows[:limit]
-    return rows, rows[-1].id if more else None
+    async with job_uow() as uow:
+      return await uow.jobs.list_jobs(
+        limit=limit, cursor=cursor, type_=type_, status=status
+      )
 
   @classmethod
   async def notify_worker(cls) -> None:
@@ -270,44 +240,18 @@ class JobManager:
       LOGGER.exception("Job discovery hint failed; periodic discovery remains active")
 
   @classmethod
-  def abort(cls, job_id: JobID) -> JobModel | None:
-    """Close pending work or request running work to stop; retain any terminal result.
-
-    A running record acknowledges intent, not completion. The executing Peer owns
-    cancellation and cleanup; the caller never needs to locate that Peer.
-    """
-    table = typing.cast(typing.Any, getattr(JobModel, "__table__"))
-    with SessionLocal() as db_session:
-      statement = sqlalchemy.update(table)
-      statement = statement.where(
-        table.c.id == job_id,
-        table.c.status.in_((JobStatus.PENDING, JobStatus.RUNNING)),
-      ).values(
-        abort_requested=True,
-        status=sqlalchemy.case(
-          (
-            table.c.status == JobStatus.PENDING,
-            sqlalchemy.cast(JobStatus.ABORTED.value, table.c.status.type),
-          ),
-          else_=table.c.status,
-        ),
-      )
-      db_session.exec(typing.cast(typing.Any, statement))
-      db_session.commit()
-      return db_session.get(JobModel, job_id)
+  async def abort(cls, job_id: JobID) -> JobModel | None:
+    """Close pending work or request the executing Peer to stop running work."""
+    async with job_uow() as uow:
+      return await uow.jobs.abort(job_id)
 
   @classmethod
   async def check_abort_requests(cls) -> None:
-    """One batch for this Peer's active work; handlers do not poll the database."""
+    """Read this Peer's active abort requests in one batch."""
     if not cls._active:
       return
-    with SessionLocal() as db_session:
-      ids = db_session.exec(
-        sqlmodel.select(JobModel.id).where(
-          sqlalchemy.column("id").in_(tuple(cls._active)),
-          sqlalchemy.column("abort_requested").is_(True),
-        )
-      ).all()
+    async with job_uow() as uow:
+      ids = await uow.jobs.abort_requests(tuple(cls._active))
     for job_id in ids:
       if job_id is None:
         continue
@@ -329,65 +273,48 @@ class JobManager:
     await asyncio.gather(*(item.task for item in executions), return_exceptions=True)
 
   @classmethod
-  def _claim(cls, job_id: JobID) -> JobModel | None:
-    table = typing.cast(typing.Any, getattr(JobModel, "__table__"))
-    with SessionLocal() as db_session:
-      statement = typing.cast(
-        typing.Any,
-        sqlalchemy.update(table)
-        .where(table.c.id == job_id, table.c.status == JobStatus.PENDING)
-        .values(status=JobStatus.RUNNING)
-        .returning(table.c.id),
-      )
-      claimed_id = db_session.exec(statement).scalar_one_or_none()
-      db_session.commit()
-      return None if claimed_id is None else db_session.get(JobModel, claimed_id)
+  async def _claim(cls, job_id: JobID) -> JobModel | None:
+    if not cls._accepting:
+      return None
+    async with job_uow() as uow:
+      return await uow.jobs.claim(job_id)
 
   @classmethod
-  def _close(cls, job: JobModel, status: JobStatus) -> bool:
+  async def _close(cls, job: JobModel, status: JobStatus) -> bool:
     if not status.terminal:
       raise ValueError("Job may close only to a terminal status")
-    table = typing.cast(typing.Any, getattr(JobModel, "__table__"))
-    with SessionLocal() as db_session:
-      result = db_session.exec(
-        typing.cast(
-          typing.Any,
-          sqlalchemy.update(table)
-          .where(table.c.id == job.id, table.c.status == JobStatus.RUNNING)
-          .values(
-            status=status,
-            state=job.state,
-          ),
-        )
-      )
-      db_session.commit()
-      return bool(result.rowcount)
+    execution = cls._active.get(job.id) if job.id is not None else None
+    if execution is not None:
+      execution.closing = True
+    # Cleanup is independent of handler cancellation and cannot wait indefinitely.
+    async with asyncio.timeout(10):
+      async with job_uow() as uow:
+        return await uow.jobs.close(job, status)
 
   @classmethod
   async def run(cls, job_id: JobID) -> bool:
     """Check local eligibility, atomically claim, then execute one Job."""
     if not cls._accepting:
       return False
-    with SessionLocal() as db_session:
-      candidate = db_session.get(JobModel, job_id)
+    candidate = await cls.get(job_id)
     if candidate is None or candidate.status != JobStatus.PENDING:
       return False
     try:
-      prepared = cls._prepare(candidate)
+      prepared = await cls._prepare(candidate)
     except pydantic.ValidationError as error:
       # A broken persisted command must be visible as failed, not remain pending
       # forever. Unknown/unavailable handlers still leave work for another Peer.
       LOGGER.exception("Persisted Job parameters are invalid", extra={"job_id": job_id})
-      claimed = cls._claim(job_id)
+      claimed = await cls._claim(job_id)
       if claimed is None:
         return False
       claimed.state = {**claimed.state, "error": str(error)}
-      cls._close(claimed, JobStatus.FAILED)
+      await cls._close(claimed, JobStatus.FAILED)
       return True
     if prepared is None:
       return False
 
-    claimed = cls._claim(job_id)
+    claimed = await cls._claim(job_id)
     if claimed is None:
       return False
     handler, parameters = prepared
@@ -399,50 +326,33 @@ class JobManager:
         await handler.handle(claimed, parameters)
     except asyncio.CancelledError:
       LOGGER.info("Job execution aborted", extra={"job_id": job_id})
-      cls._close(claimed, JobStatus.ABORTED)
+      await cls._close(claimed, JobStatus.ABORTED)
     except TimeoutError:
       LOGGER.warning("Job execution timed out", extra={"job_id": job_id})
-      cls._close(claimed, JobStatus.TIMED_OUT)
+      await cls._close(claimed, JobStatus.TIMED_OUT)
     except Exception as error:
       LOGGER.exception("Job execution failed", extra={"job_id": job_id})
       claimed.state = {**claimed.state, "error": str(error)}
-      cls._close(claimed, JobStatus.FAILED)
+      await cls._close(claimed, JobStatus.FAILED)
     else:
-      cls._close(claimed, JobStatus.FINISHED)
+      await cls._close(claimed, JobStatus.FINISHED)
     finally:
       cls._active.pop(job_id, None)
     return True
 
   @classmethod
-  def expire_overdue(cls) -> int:
+  async def expire_overdue(cls) -> int:
     """Use database time to close abandoned overdue running Jobs."""
-    table = typing.cast(typing.Any, getattr(JobModel, "__table__"))
-    with SessionLocal() as db_session:
-      result = db_session.exec(
-        typing.cast(
-          typing.Any,
-          sqlalchemy.update(table)
-          .where(
-            table.c.status == JobStatus.RUNNING,
-            sqlalchemy.text(
-              "started_at + timeout_seconds * interval '1 second' <= statement_timestamp()"
-            ),
-          )
-          .values(status=JobStatus.TIMED_OUT),
-        )
-      )
-      db_session.commit()
-      return result.rowcount or 0
+    async with job_uow() as uow:
+      return await uow.jobs.expire_overdue()
 
   @classmethod
   async def check(cls) -> None:
     """Schedule locally eligible pending Jobs and converge running timeouts."""
     if not cls._accepting:
       return
-    with SessionLocal() as db_session:
-      pending = db_session.exec(
-        sqlmodel.select(JobModel).where(JobModel.status == JobStatus.PENDING)
-      ).all()
+    async with job_uow() as uow:
+      pending = await uow.jobs.pending()
 
     for job in pending:
       if job.id is None or job.type not in cls._handlers:
@@ -454,4 +364,4 @@ class JobManager:
         replace_existing=True,
         misfire_grace_time=None,
       )
-    cls.expire_overdue()
+    await cls.expire_overdue()

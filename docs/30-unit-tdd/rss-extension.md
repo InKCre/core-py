@@ -38,7 +38,7 @@ extensions/rss/
   http.py                 bounded conditional HTTP transport
   adapter.py              feedparser -> canonical snapshot
   service.py              source policy and command orchestration
-  repository.py           graph reconciliation and exact grammar
+  reconcile.py            graph reconciliation through required graph UoW
   resolver.py             feed/item/enclosure use projections
   enrichment.py           full text and enclosure materialization
   api.py                  explicit materialization command
@@ -126,6 +126,7 @@ Watermark 只是减少 duplicate 的 cutoff，不是 identity 或 reconciliation
 
 ## Persistence And Failure Boundary
 
+FeedGraphReconciler 使用异步 Source/Graph UoW，SQL 由 Core persistence 执行。
 Feed root reconciliation 对 source row 加锁。每个 admitted item 使用自己的 primary transaction 完成 item root、
 feed relation 与 enclosure metadata graph；同一 snapshot 的 items 不承诺一个大事务。
 

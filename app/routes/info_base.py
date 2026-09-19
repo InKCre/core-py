@@ -4,7 +4,7 @@ __all__ = ["ROUTER"]
 
 import fastapi
 
-from app.business.info_base.main import InfoBaseManager
+from app.business.info_base.commands import submit_graph as submit_graph_command
 from app.schemas.info_base.main import GraphForm, SubmitGraphResult
 from .validation import database_write
 
@@ -13,6 +13,6 @@ ROUTER = fastapi.APIRouter(tags=["info-base"])
 
 
 @ROUTER.post("/graph")
-def submit_graph(body: GraphForm) -> SubmitGraphResult:
+async def submit_graph(body: GraphForm) -> SubmitGraphResult:
   with database_write():
-    return InfoBaseManager.submit_graph(body)
+    return await submit_graph_command(body)

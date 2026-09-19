@@ -113,9 +113,10 @@ for C supersedes B and B supersedes A, the complete acyclic result has frontier 
 contains Blocks with no incoming supersedes relation; a cyclic or truncated result has no current frontier. This read does
 not validate semantic supersession or select a latest Block by timestamp.
 
-The async method runs the complete synchronous traversal in a worker thread, which creates and closes its own Session.
-This keeps database round trips off the Peer event loop; it does not reduce SQL latency. Cancelling the await does not stop
-the in-flight synchronous read, which still closes its Session when it finishes. SQL round-trip optimization remains future work.
+这些读取直接 await GraphUnitOfWork 中的 repositories，不再通过 worker thread 执行同步 SQL。
+公开组织行为命令各自拥有一个事务；合成的 Block、来源关系与 edited 关系，以及锚定的片段和关系，
+都在同一事务中提交或回滚。内部协作只接收必需的 GraphUnitOfWork，不以可选 session 改变提交语义。
+自动行为先在短作用域内读取 seed 与邻居，退出后才调用 Resolver 或 Agent；媒体解释的邻居按 ID 批量读取。
 Other relations remain usable through ordinary navigation; no shadow Organization index is maintained.
 
 ## Best-effort limits

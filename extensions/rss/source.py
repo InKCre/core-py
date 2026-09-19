@@ -22,12 +22,12 @@ class FeedSourceMixin:
     collect_config = typing.cast(FeedCollectJobConfig, config)
     service = FeedCollectionService(source._id, self.expected_family)
     state = await service.collect(
-      source.get_config(),
-      validate_source_state(source.get_state()),
+      await source.get_config(),
+      validate_source_state(await source.get_state()),
       job,
       collect_config,
     )
-    source.set_state(state.model_dump(mode="json"))
+    await source.set_state(state.model_dump(mode="json"))
 
 
 __all__ = ["FeedSourceMixin"]

@@ -7,7 +7,7 @@ import dataclasses
 import fastapi
 import pydantic
 
-from app.business.info_base.block import BlockManager
+from app.business.info_base.services import BlockService
 from app.business.info_base.resolver import ResolverManager
 
 from .resolver import EnclosureResolver
@@ -40,7 +40,7 @@ def register_api(router: fastapi.APIRouter) -> None:
     results: list[MaterializeEnclosureResult] = []
     for enclosure_block_id in body.enclosure_block_ids:
       try:
-        block = BlockManager.get(enclosure_block_id)
+        block = await BlockService.get(enclosure_block_id)
         if block is None:
           raise LookupError(f"enclosure block {enclosure_block_id} not found")
         resolver = ResolverManager.get(block)

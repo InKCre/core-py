@@ -7,11 +7,8 @@ import typing
 import uuid
 
 import pydantic
-import sqlalchemy
-import sqlmodel
 
-from app.database_contract.constants import PROTOCOL_SCHEMA
-from app.engine import SessionLocal
+from app.persistence.extension.uow import extension_uow
 from app.schemas.extension import ExtensionModel
 
 from .errors import ExtensionNotInstalledError, ExtensionStateConflictError
@@ -41,46 +38,43 @@ ConfigStateMutation: typing.TypeAlias = Callable[
 
 
 class ExtensionStore(typing.Protocol):
-  def list(self) -> tuple[InstalledExtension, ...]: ...
+  async def list(self) -> tuple[InstalledExtension, ...]: ...
 
-  def get(self, name: str) -> InstalledExtension | None: ...
+  async def get(self, name: str) -> InstalledExtension | None: ...
 
-  def install(self, name: str, version: str, nickname: str) -> InstalledExtension: ...
+  async def install(self, name: str, version: str, nickname: str) -> InstalledExtension: ...
 
-  def uninstall(self, name: str) -> None: ...
+  async def uninstall(self, name: str) -> None: ...
 
-  def read_config(self, name: str) -> dict[str, typing.Any]: ...
+  async def read_config(self, name: str) -> dict[str, typing.Any]: ...
 
-  def update_config(
+  async def update_config(
     self, name: str, config: dict[str, typing.Any]
   ) -> InstalledExtension: ...
 
-  def read_state(self, name: str) -> dict[str, typing.Any]: ...
+  async def read_state(self, name: str) -> dict[str, typing.Any]: ...
 
-  def mutate_state(self, name: str, transform: StateMutation) -> dict[str, typing.Any]: ...
+  async def mutate_state(
+    self, name: str, transform: StateMutation
+  ) -> dict[str, typing.Any]: ...
 
-  def mutate_config_and_state(
+  async def mutate_config_and_state(
     self,
     name: str,
     transform: ConfigStateMutation,
   ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]: ...
 
-  def update_config_schema(
+  async def update_config_schema(
     self, name: str, schema: dict[str, typing.Any]
   ) -> InstalledExtension: ...
 
-  def set_peer_enabled(
+  async def set_peer_enabled(
     self, name: str, peer_id: uuid.UUID, enabled: bool
   ) -> InstalledExtension: ...
 
 
-class SQLExtensionStore:
+class ExtensionStateService:
   """Transactional adapter over the one canonical deployment relation."""
-
-  def __init__(
-    self, session_factory: Callable[[], sqlmodel.Session] = SessionLocal
-  ) -> None:
-    self._session_factory = session_factory
 
   @staticmethod
   def _state(model: ExtensionModel) -> InstalledExtension:
@@ -96,33 +90,24 @@ class SQLExtensionStore:
       ),
     )
 
-  def list(self) -> tuple[InstalledExtension, ...]:
-    with self._session_factory() as db:
-      rows = db.exec(sqlmodel.select(ExtensionModel).order_by(ExtensionModel.name)).all()
+  async def list(self) -> tuple[InstalledExtension, ...]:
+    async with extension_uow() as repository:
+      rows = await repository.list()
       return tuple(self._state(row) for row in rows)
 
-  def get(self, name: str) -> InstalledExtension | None:
-    with self._session_factory() as db:
-      row = db.get(ExtensionModel, name)
+  async def get(self, name: str) -> InstalledExtension | None:
+    async with extension_uow() as repository:
+      row = await repository.get(name)
       return self._state(row) if row is not None else None
 
-  def install(self, name: str, version: str, nickname: str) -> InstalledExtension:
-    with self._session_factory() as db:
-      locked = (
-        db.connection()
-        .execute(
-          sqlalchemy.text("SELECT pg_try_advisory_xact_lock(hashtextextended(:name, 0))"),
-          {"name": name},
-        )
-        .scalar_one()
-      )
+  async def install(self, name: str, version: str, nickname: str) -> InstalledExtension:
+    async with extension_uow() as repository:
+      locked = await repository.try_install_lock(name)
       if not locked:
         raise ExtensionStateConflictError(
           f"Another install operation for {name} is already in progress"
         )
-      row = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.name == name).with_for_update()
-      ).one_or_none()
+      row = await repository.get(name, lock=True)
       if row is None:
         row = ExtensionModel(
           name=name,
@@ -147,120 +132,90 @@ class SQLExtensionStore:
         row.config_schema = None
       else:
         row.nickname = nickname
-      db.add(row)
-      db.commit()
-      db.refresh(row)
+      await repository.save(row)
       return self._state(row)
 
-  def uninstall(self, name: str) -> None:
-    with self._session_factory() as db:
-      row = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.name == name).with_for_update()
-      ).one_or_none()
+  async def uninstall(self, name: str) -> None:
+    async with extension_uow() as repository:
+      row = await repository.get(name, lock=True)
       if row is None:
         raise ExtensionNotInstalledError(f"{name} is not installed")
       if row.enabled:
         raise ExtensionStateConflictError(
           f"Cannot uninstall {name} while one or more peers are enabled"
         )
-      db.delete(row)
-      db.commit()
+      await repository.delete(row)
 
-  def _update_json(
+  async def _update_json(
     self,
     name: str,
     field: typing.Literal["config", "config_schema"],
     value: dict[str, typing.Any],
   ) -> InstalledExtension:
-    with self._session_factory() as db:
-      row = db.get(ExtensionModel, name)
+    async with extension_uow() as repository:
+      row = await repository.get(name)
       if row is None:
         raise ExtensionNotInstalledError(f"{name} is not installed")
       setattr(row, field, value)
-      db.add(row)
-      db.commit()
-      db.refresh(row)
+      await repository.save(row)
       return self._state(row)
 
-  def update_config(self, name: str, config: dict[str, typing.Any]) -> InstalledExtension:
-    return self._update_json(name, "config", config)
+  async def update_config(
+    self, name: str, config: dict[str, typing.Any]
+  ) -> InstalledExtension:
+    return await self._update_json(name, "config", config)
 
-  def read_config(self, name: str) -> dict[str, typing.Any]:
-    state = self.get(name)
+  async def read_config(self, name: str) -> dict[str, typing.Any]:
+    state = await self.get(name)
     if state is None:
       raise ExtensionNotInstalledError(f"{name} is not installed")
     return dict(state.config)
 
-  def read_state(self, name: str) -> dict[str, typing.Any]:
-    state = self.get(name)
+  async def read_state(self, name: str) -> dict[str, typing.Any]:
+    state = await self.get(name)
     if state is None:
       raise ExtensionNotInstalledError(f"{name} is not installed")
     return dict(state.state)
 
-  def mutate_state(
+  async def mutate_state(
     self,
     name: str,
     transform: StateMutation,
   ) -> dict[str, typing.Any]:
-    with self._session_factory() as db:
-      row = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.name == name).with_for_update()
-      ).one_or_none()
+    async with extension_uow() as repository:
+      row = await repository.get(name, lock=True)
       if row is None:
         raise ExtensionNotInstalledError(f"{name} is not installed")
       row.state = transform(dict(row.state))
-      db.add(row)
-      db.commit()
-      db.refresh(row)
+      await repository.save(row)
       return dict(row.state)
 
-  def mutate_config_and_state(
+  async def mutate_config_and_state(
     self,
     name: str,
     transform: ConfigStateMutation,
   ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
-    with self._session_factory() as db:
-      row = db.exec(
-        sqlmodel.select(ExtensionModel).where(ExtensionModel.name == name).with_for_update()
-      ).one_or_none()
+    async with extension_uow() as repository:
+      row = await repository.get(name, lock=True)
       if row is None:
         raise ExtensionNotInstalledError(f"{name} is not installed")
       config, state = transform(dict(row.config), dict(row.state))
       row.config = config
       row.state = state
-      db.add(row)
-      db.commit()
-      db.refresh(row)
+      await repository.save(row)
       return dict(row.config), dict(row.state)
 
-  def update_config_schema(
+  async def update_config_schema(
     self, name: str, schema: dict[str, typing.Any]
   ) -> InstalledExtension:
-    return self._update_json(name, "config_schema", schema)
+    return await self._update_json(name, "config_schema", schema)
 
-  def set_peer_enabled(
+  async def set_peer_enabled(
     self, name: str, peer_id: uuid.UUID, enabled: bool
   ) -> InstalledExtension:
     """Use the shared atomic RPC; Core never performs array read-modify-write."""
-    statement = sqlalchemy.text(
-      f"SELECT * FROM {PROTOCOL_SCHEMA}.set_extension_peer_enabled("
-      ":p_name, :p_peer_id, :p_enabled)"
-    )
-    with self._session_factory() as db:
-      row = (
-        db.connection()
-        .execute(
-          statement,
-          {
-            "p_name": name,
-            "p_peer_id": peer_id,
-            "p_enabled": enabled,
-          },
-        )
-        .mappings()
-        .one_or_none()
-      )
+    async with extension_uow() as repository:
+      row = await repository.set_peer_enabled(name, peer_id, enabled)
       if row is None:
         raise ExtensionNotInstalledError(f"{name} is not installed")
-      db.commit()
       return InstalledExtension.model_validate(dict(row))

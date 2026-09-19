@@ -8,7 +8,7 @@ import typing
 from PIL import Image, UnidentifiedImageError
 import pydantic
 
-from app.business.deployment_config import DeploymentConfigManager
+from app.business.deployment_config import DeploymentConfigManager, DeploymentConfigService
 from app.schemas.ai import ImageContentPart
 from app.schemas.info_base.block import BlockForm
 from app.schemas.info_base.main import OutArcForm, StarsGraphForm
@@ -118,7 +118,7 @@ class ImageResolver(
     if materialize_missing:
       config = typing.cast(
         ImageResolverConfig | None,
-        DeploymentConfigManager.get(IMAGE_RESOLVER_CONFIG_KEY),
+        await DeploymentConfigService.get(IMAGE_RESOLVER_CONFIG_KEY),
       )
       if config is not None:
         media_type = solved.detected_media_type or (
@@ -136,7 +136,7 @@ class ImageResolver(
             media=ImageContentPart(
               data=solved.content,
               mime_type=media_type,
-              transfer_url=self.get_transfer_url(),
+              transfer_url=await self.get_transfer_url(),
             ),
           )
     return format_lexical_facts(

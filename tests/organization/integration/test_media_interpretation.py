@@ -1,6 +1,10 @@
 """Real-storage vertical proof for media textualization and interpretation Jobs."""
 
-import asyncio
+from app.business.deployment_config import DeploymentConfigService
+from app.persistence.info_base.uow import graph_uow
+from tests.database import read_relations
+
+
 import json
 import os
 from pathlib import Path
@@ -12,8 +16,6 @@ import sqlalchemy
 import app.business.organization_job  # noqa: F401  # exact Job registration
 from app.business.ai import AIManager
 from app.business.cron import CronManager
-from app.business.deployment_config import DeploymentConfigManager
-from app.business.info_base import BlockManager, RelationManager
 from app.business.info_base.resolver import register_core_resolvers
 from app.business.info_base.resolver.audio import (
   AUDIO_RESOLVER_CONFIG_KEY,
@@ -36,7 +38,7 @@ from app.business.organization_media import (
   MEDIA_INTERPRETATION_CONFIG_SCHEMA,
   MEDIA_INTERPRETATION_JOB_TYPE,
 )
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas import AgentDefinitionModel
 from app.schemas.ai import (
   AIModelModel,
@@ -73,18 +75,18 @@ CONFIG_KEYS = (
 
 
 def _reset_runtime_rows() -> None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     db.connection().execute(
       sqlalchemy.text(
         "TRUNCATE TABLE inkcre.block_lexical_records, inkcre.jobs, inkcre.crons, "
-        "inkcre.relations, inkcre.blocks, inkcre.storage_blobs RESTART IDENTITY CASCADE"
+        "inkcre.relations, inkcre.blocks, inkcre.storage_blobs CASCADE"
       )
     )
     db.commit()
 
 
 def _backup_configs() -> dict[str, dict[str, typing.Any]]:
-  with SessionLocal() as db:
+  with TestSession() as db:
     return {
       key: record.model_dump()
       for key in CONFIG_KEYS
@@ -93,7 +95,7 @@ def _backup_configs() -> dict[str, dict[str, typing.Any]]:
 
 
 def _restore_configs(backup: dict[str, dict[str, typing.Any]]) -> None:
-  with SessionLocal() as db:
+  with TestSession() as db:
     for key in CONFIG_KEYS:
       current = db.get(DeploymentConfigModel, key)
       if current is not None:
@@ -104,28 +106,24 @@ def _restore_configs(backup: dict[str, dict[str, typing.Any]]) -> None:
     db.commit()
 
 
-def _stored_media(resolver: str, content: bytes) -> BlockModel:
-  with SessionLocal() as db:
-    storage = StorageManager.get_storage(-4, db)
+async def _stored_media(resolver: str, content: bytes) -> BlockModel:
+  async with graph_uow() as uow:
+    storage = StorageManager.from_record(await uow.storage.get(-4))
     assert isinstance(storage, WritableStorage)
-    pointer = storage.create_raw_content(content, db)
-    block = BlockManager.create(
-      BlockForm(storage=-4, resolver=resolver, content=pointer),
-      db,
+    pointer = await storage.create_content(content, uow.storage)
+    return await uow.blocks.create(
+      BlockForm(storage=-4, resolver=resolver, content=pointer)
     )
-    db.commit()
-    db.refresh(block)
-    return block
 
 
 def _related(block: int, role: str) -> tuple[BlockModel, ...]:
-  relations = RelationManager.get(
+  relations = read_relations(
     block,
     include_in=False,
     include_out=True,
     content=role,
   )
-  with SessionLocal() as db:
+  with TestSession() as db:
     return tuple(
       target
       for relation in relations
@@ -134,14 +132,15 @@ def _related(block: int, role: str) -> tuple[BlockModel, ...]:
 
 
 def test_media_textualization_interpretation_and_lexical_recall(
+  async_runner,
   monkeypatch: pytest.MonkeyPatch,
   semantic_content_assets: Path,
 ) -> None:
   assert semantic_content_assets == ASSETS
   _reset_runtime_rows()
   register_core_resolvers()
-  StorageManager.setup_builtin_storages()
-  AIManager.sync_dialects()
+  async_runner.run(StorageManager.setup_builtin_storages_async())
+  async_runner.run(AIManager.sync_dialects_async())
   backup = _backup_configs()
   provider_id: int | None = None
   model_id: int | None = None
@@ -150,7 +149,7 @@ def test_media_textualization_interpretation_and_lexical_recall(
   agent_modalities: list[str] = []
 
   try:
-    with SessionLocal() as db:
+    with TestSession() as db:
       provider = AIProviderModel(
         name="Media acceptance provider",
         dialect="core.alibaba-model-studio.v1",
@@ -191,38 +190,54 @@ def test_media_textualization_interpretation_and_lexical_recall(
       agent_id = agent.id
       assert agent_id is not None
 
-    DeploymentConfigManager.replace(
-      IMAGE_RESOLVER_CONFIG_KEY,
-      IMAGE_RESOLVER_CONFIG_SCHEMA,
-      {"text_model": model_id},
+    async_runner.run(
+      DeploymentConfigService.replace(
+        IMAGE_RESOLVER_CONFIG_KEY,
+        IMAGE_RESOLVER_CONFIG_SCHEMA,
+        {"text_model": model_id},
+      )
     )
-    DeploymentConfigManager.replace(
-      AUDIO_RESOLVER_CONFIG_KEY,
-      AUDIO_RESOLVER_CONFIG_SCHEMA,
-      {"transcript_model": model_id},
+    async_runner.run(
+      DeploymentConfigService.replace(
+        AUDIO_RESOLVER_CONFIG_KEY,
+        AUDIO_RESOLVER_CONFIG_SCHEMA,
+        {"transcript_model": model_id},
+      )
     )
-    DeploymentConfigManager.replace(
-      VIDEO_RESOLVER_CONFIG_KEY,
-      VIDEO_RESOLVER_CONFIG_SCHEMA,
-      {"text_model": model_id, "transcript_model": model_id},
+    async_runner.run(
+      DeploymentConfigService.replace(
+        VIDEO_RESOLVER_CONFIG_KEY,
+        VIDEO_RESOLVER_CONFIG_SCHEMA,
+        {"text_model": model_id, "transcript_model": model_id},
+      )
     )
-    DeploymentConfigManager.replace(
-      MEDIA_INTERPRETATION_CONFIG_KEY,
-      MEDIA_INTERPRETATION_CONFIG_SCHEMA,
-      {
-        "image_agent": agent_id,
-        "audio_agent": 2**62,
-        "video_agent": agent_id,
-      },
+    async_runner.run(
+      DeploymentConfigService.replace(
+        MEDIA_INTERPRETATION_CONFIG_KEY,
+        MEDIA_INTERPRETATION_CONFIG_SCHEMA,
+        {
+          "image_agent": agent_id,
+          "audio_agent": 2**62,
+          "video_agent": agent_id,
+        },
+      )
     )
 
-    image = _stored_media("core.image.v1", (ASSETS / "image.png").read_bytes())
-    audio = _stored_media("core.audio.v1", (ASSETS / "audio.wav").read_bytes())
-    video = _stored_media(
-      "core.video.v1",
-      (ASSETS / "video-subtitled.mkv").read_bytes(),
+    image = async_runner.run(
+      _stored_media("core.image.v1", (ASSETS / "image.png").read_bytes())
     )
-    pdf = _stored_media("core.pdf.v1", (ASSETS / "document.pdf").read_bytes())
+    audio = async_runner.run(
+      _stored_media("core.audio.v1", (ASSETS / "audio.wav").read_bytes())
+    )
+    video = async_runner.run(
+      _stored_media(
+        "core.video.v1",
+        (ASSETS / "video-subtitled.mkv").read_bytes(),
+      )
+    )
+    pdf = async_runner.run(
+      _stored_media("core.pdf.v1", (ASSETS / "document.pdf").read_bytes())
+    )
     assert image.id is not None and audio.id is not None and video.id is not None
 
     async def chat(_cls, model, messages, tools=(), tool_choice=None):
@@ -287,7 +302,7 @@ def test_media_textualization_interpretation_and_lexical_recall(
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
 
-    first_maintenance = asyncio.run(
+    first_maintenance = async_runner.run(
       LexicalRetrievalManager.maintain(
         LexicalMaintenanceOptions(max_records=30, scan_page_size=3)
       )
@@ -308,16 +323,18 @@ def test_media_textualization_interpretation_and_lexical_recall(
       video.id: "Flight software integration rehearsal",
     }
     for parent, clue in clues.items():
-      result = LexicalRetrievalManager.retrieve_local(clue)
+      result = async_runner.run(LexicalRetrievalManager.retrieve_local(clue))
       assert result.matches
       assert result.matches[0].block.id in {
         child.id for role in expected_roles[parent] for child in _related(parent, role)
       }
-    pdf_body = LexicalRetrievalManager.retrieve_local("authoritative write-ahead log")
+    pdf_body = async_runner.run(
+      LexicalRetrievalManager.retrieve_local("authoritative write-ahead log")
+    )
     assert pdf_body.matches[0].block.id == pdf.id
 
     faithful_call_count = len(faithful_calls)
-    rebuild = asyncio.run(
+    rebuild = async_runner.run(
       LexicalRetrievalManager.rebuild(
         LexicalMaintenanceOptions(max_records=30, scan_page_size=3)
       )
@@ -328,8 +345,8 @@ def test_media_textualization_interpretation_and_lexical_recall(
       for role in roles:
         assert len(_related(parent, role)) == 1
 
-    JobManager.sync_job_types()
-    with SessionLocal() as db:
+    async_runner.run(JobManager.sync_job_types())
+    with TestSession() as db:
       cron = CronModel(
         schedule="* * * * *",
         job_type=MEDIA_INTERPRETATION_JOB_TYPE,
@@ -341,10 +358,10 @@ def test_media_textualization_interpretation_and_lexical_recall(
       assert cron.id is not None
       cron_id = cron.id
 
-    job = CronManager.run_now(cron_id)
+    job = async_runner.run(CronManager.run_now(cron_id))
     assert job.id is not None
-    assert asyncio.run(JobManager.run(job.id))
-    with SessionLocal() as db:
+    assert async_runner.run(JobManager.run(job.id))
+    with TestSession() as db:
       persisted = db.get(JobModel, job.id)
       assert persisted is not None
       assert persisted.status == JobStatus.FINISHED
@@ -368,26 +385,28 @@ def test_media_textualization_interpretation_and_lexical_recall(
     assert not _related(audio.id, "interpretation")
     assert len(_related(video.id, "interpretation")) == 1
 
-    interpretation_maintenance = asyncio.run(LexicalRetrievalManager.maintain())
+    interpretation_maintenance = async_runner.run(LexicalRetrievalManager.maintain())
     assert interpretation_maintenance.failed == 0
-    interpretation = LexicalRetrievalManager.retrieve_local("orbital integration strategy")
+    interpretation = async_runner.run(
+      LexicalRetrievalManager.retrieve_local("orbital integration strategy")
+    )
     assert len(interpretation.matches) == 2
     assert {match.block.id for match in interpretation.matches} == {
       _related(image.id, "interpretation")[0].id,
       _related(video.id, "interpretation")[0].id,
     }
 
-    second = JobManager.create(MEDIA_INTERPRETATION_JOB_TYPE, {})
+    second = async_runner.run(JobManager.create(MEDIA_INTERPRETATION_JOB_TYPE, {}))
     assert second.id is not None
-    assert asyncio.run(JobManager.run(second.id))
-    with SessionLocal() as db:
+    assert async_runner.run(JobManager.run(second.id))
+    with TestSession() as db:
       persisted = db.get(JobModel, second.id)
       assert persisted is not None
       assert persisted.state["selected"] == 1
       assert persisted.state["unavailable"] == 1
   finally:
     _restore_configs(backup)
-    with SessionLocal() as db:
+    with TestSession() as db:
       if agent_id is not None:
         stored_agent = db.get(AgentDefinitionModel, agent_id)
         if stored_agent is not None:

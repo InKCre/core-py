@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import typing
 
-import sqlmodel
 
 from app.business.deployment_config import DeploymentConfigManager
 from app.business.info_base.resolver import Resolver
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import GraphUnitOfWork, graph_uow
 from libs.obsrv.main import get_logger
 from app.schemas.info_base.block import BlockID
-from app.schemas.info_base.relation import RelationModel
 from app.schemas.organization_behavior import (
   BehaviorAgentConfig,
   CandidateWriteResult,
@@ -82,63 +80,51 @@ class RefinementBehaviorResolver(
   async def record_candidate(
     cls,
     block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, block_id, db_session=db_session)
+    return await record_candidate(cls, block_id)
 
   @classmethod
   async def record_refinement(
     cls,
     refinement_block_id: BlockID,
     predecessor_block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> RelationWriteResult:
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        result = await cls.record_refinement(
-          refinement_block_id,
-          predecessor_block_id,
-          db_session=owned_session,
+    async with graph_uow() as uow:
+      await require_distinct_blocks(refinement_block_id, predecessor_block_id, uow)
+      if await cls._has_directed_path(
+        predecessor_block_id,
+        refinement_block_id,
+        uow=uow,
+      ):
+        raise ValueError(
+          f"Cannot refine: an existing refines path runs from predecessor "
+          f"{predecessor_block_id} to refinement {refinement_block_id}"
         )
-        owned_session.commit()
-        return result
-    require_distinct_blocks(refinement_block_id, predecessor_block_id, db_session)
-    if cls._has_directed_path(
-      predecessor_block_id,
-      refinement_block_id,
-      db_session=db_session,
-    ):
-      raise ValueError(
-        f"Cannot refine: an existing refines path runs from predecessor "
-        f"{predecessor_block_id} to refinement {refinement_block_id}"
+      relation, created = await fetchsert_relation(
+        refinement_block_id,
+        predecessor_block_id,
+        REFINES_RELATION,
+        uow,
       )
-    relation, created = fetchsert_relation(
-      refinement_block_id,
-      predecessor_block_id,
-      REFINES_RELATION,
-      db_session,
-    )
-    return relation_result(relation, created)
+      return relation_result(relation, created)
 
   @classmethod
-  def _has_directed_path(
+  async def _has_directed_path(
     cls,
     start: BlockID,
     target: BlockID,
     *,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> bool:
     frontier = {start}
     visited = {start}
     while frontier:
-      rows = db_session.exec(
-        sqlmodel.select(RelationModel.to_).where(
-          RelationModel.from_.in_(tuple(frontier)),  # type: ignore[union-attr]
-          RelationModel.content == REFINES_RELATION,
+      rows = tuple(
+        relation.to_
+        for relation in await uow.relations.get_outgoing_many(
+          frontier, content=REFINES_RELATION
         )
-      ).all()
+      )
       next_frontier = set(rows) - visited
       if target in next_frontier:
         return True
@@ -147,18 +133,18 @@ class RefinementBehaviorResolver(
     return False
 
   @classmethod
-  def can_run_automatic(cls) -> bool:
-    return configured_agent_available(REFINEMENT_CONFIG_KEY, BehaviorAgentConfig)
+  async def can_run_automatic(cls) -> bool:
+    return await configured_agent_available(REFINEMENT_CONFIG_KEY, BehaviorAgentConfig)
 
   @classmethod
   async def run_automatic(cls, max_seeds: int) -> None:
     candidates = await candidate_seed_ids(cls, max_seeds)
     strong = merge_seed_categories(
       max_seeds,
-      recent_relation_endpoint_ids(max_seeds, contents=(EDITED_RELATION,)),
-      recent_block_ids(max_seeds),
+      await recent_relation_endpoint_ids(max_seeds, contents=(EDITED_RELATION,)),
+      await recent_block_ids(max_seeds),
     )
-    random = random_block_ids(max_seeds)
+    random = await random_block_ids(max_seeds)
     seeds = merge_seed_categories(max_seeds, candidates, strong, random)
     LOGGER.info(
       "organization.seeds.selected",

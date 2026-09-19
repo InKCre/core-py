@@ -21,9 +21,9 @@
 
 - Storage 输入是自己拥有 grammar 的 opaque pointer string，输出是 actual bytes。
 - Storage 不拥有 MIME、filename、information kind、resolver ID、embedding 或 block identity。
-- `WritableStorage.create_raw_content(bytes, caller_session)` 是 common create seam，返回可直接持久化为
+- `await WritableStorage.create_content(bytes, storage_repository)` 是 common create seam，返回可直接持久化为
   `block.content` 的 pointer string；storage handler 自己 serialize internal key。
-- Low-level read/write/update/delete 接受 caller-owned session，不得自行 commit；用于 application command 与
+- Low-level async read/write/update/delete 接受已绑定事务的 StorageRepository，不得自行 commit；用于 application command 与
   graph mutation 协调。
 - 原地 update pointer-addressed bytes 不更新 block row/cache/embedding；这是 storage 与 block 独立 authority 的
  代价，不通过 storage→block 反向依赖隐藏。
@@ -34,7 +34,7 @@ representation。Shared/domain prose 使用 `actual bytes` 与 `hydrated content
 ## Registry And Bootstrap
 
 - `Storage.__init_subclass__()` 只注册内存 class，不连接数据库。
-- `StorageManager.sync_storage_types()` / `setup_builtin_storages()` 在显式 runtime bootstrap 中 reconcile catalog。
+- `await StorageManager.setup_builtin_storages_async()` 在显式 runtime bootstrap 中 reconcile catalog。
 - Built-in handler type 是短 ID，因此 `storage/__init__.py` 必须 import 当前 handlers；dynamic dotted-path fallback
   只服务真正使用 dotted class path 的 custom type。
 
@@ -52,7 +52,7 @@ Retired `-2/-3` catalog rows可能存在于历史数据库，但当前 code/prof
 
 - `storage_blobs` backing relation 只拥有 UUID + bytes；它不是 storage type 或 information object。
 - Pointer 当前是 storage-owned JSON `{ "blob_id": "<uuid>" }`；application/extension 不得 hard-code。
-- Native core commands使用 caller session；PostgREST peer 使用 admitted raw create/read RPC 与 exact row update/delete。
+- Native core commands使用 GraphUnitOfWork.storage；PostgREST peer 使用 admitted raw create/read RPC 与 exact row update/delete。
 - Referenced `storages` catalog row deletion是 `RESTRICT`；删除 storage blob 不反查或改写 blocks。
 
 ## HTTP Storage
@@ -65,3 +65,9 @@ Retired `-2/-3` catalog rows可能存在于历史数据库，但当前 code/prof
 - 新 storage 优先回答 pointer grammar、byte limit、read/write capability 和 deletion ownership；不要从 media kind
   派生 storage family。
 - S3/Nextcloud 等 future storage 复用同一 byte contract；source/application 只依赖 common create seam。
+
+## 异步数据库边界
+
+新路径通过 `StorageManager.get_storage_async()` 读取 catalog，读取 scope 结束后才执行外部下载。
+PostgreSQL bytes 使用 `read_content/create_content/update_content/delete_content` 和必填的
+StorageRepository；GraphUnitOfWork 使 bytes 与图处于同一事务。不得重新加入接受 raw session 的兼容接口。

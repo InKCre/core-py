@@ -18,9 +18,9 @@ class MediaInterpretationJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: MediaInterpretationJobParameters) -> bool:
+  async def can_handle(cls, parameters: MediaInterpretationJobParameters) -> bool:
     del parameters
-    return can_handle_media_interpretation()
+    return await can_handle_media_interpretation()
 
   @classmethod
   async def handle(

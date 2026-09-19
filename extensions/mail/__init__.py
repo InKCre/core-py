@@ -4,7 +4,7 @@ import fastapi
 import pydantic
 
 from app.business.extension.main import ExtensionBase
-from app.business.info_base.block import BlockManager
+from app.business.info_base.services import BlockService
 from app.business.info_base.resolver import ResolverManager
 from app.business.peer import PeerHTTPInbound
 from app.schemas.info_base.block import BlockModel
@@ -55,7 +55,7 @@ class Extension(
     async def materialize_mime_part(
       body: MimePartMaterializeRequest,
     ) -> BlockModel:
-      block = BlockManager.get(body.block)
+      block = await BlockService.get(body.block)
       if block is None:
         raise fastapi.HTTPException(status_code=404, detail="MIME part Block not found")
       resolver = ResolverManager.get(block)

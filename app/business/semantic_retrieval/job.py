@@ -19,8 +19,8 @@ class SemanticMaintainJobHandler(
   default_timeout_seconds=900,
 ):
   @classmethod
-  def can_handle(cls, parameters: EmbeddingMaintenanceJobParameters) -> bool:
-    return SemanticRetrievalManager.can_maintain(parameters.profile)
+  async def can_handle(cls, parameters: EmbeddingMaintenanceJobParameters) -> bool:
+    return await SemanticRetrievalManager.can_maintain(parameters.profile)
 
   @classmethod
   async def handle(
@@ -43,8 +43,8 @@ class SemanticRebuildJobHandler(
   default_timeout_seconds=1800,
 ):
   @classmethod
-  def can_handle(cls, parameters: EmbeddingMaintenanceJobParameters) -> bool:
-    return SemanticRetrievalManager.can_maintain(parameters.profile)
+  async def can_handle(cls, parameters: EmbeddingMaintenanceJobParameters) -> bool:
+    return await SemanticRetrievalManager.can_maintain(parameters.profile)
 
   @classmethod
   async def handle(

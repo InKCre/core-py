@@ -21,8 +21,7 @@ import pydantic
 from starlette.routing import Mount
 
 from app.business.graph_navigation_retrieval import GraphNavigationRetrievalManager
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
+from app.business.info_base.services import BlockService, get_entity_records
 from app.business.info_base.resolver import (
   ResolverManager,
   UnknownResolverError,
@@ -120,7 +119,7 @@ async def _invoke_resolver_value(
   method_name: str,
   arguments: dict[str, typing.Any],
 ) -> typing.Any:
-  block = BlockManager.get(block_id)
+  block = await BlockService.get(block_id)
   if block is None:
     raise ValueError("Block does not exist")
   return await ResolverManager.invoke_method(block, method_name, arguments)
@@ -318,7 +317,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       ),
       annotations=annotations,
     )
-    def open_entities(entities: tuple[str, ...]) -> CallToolResult:
+    async def open_entities(entities: tuple[str, ...]) -> CallToolResult:
       parsed: list[tuple[str, typing.Literal["block", "relation"] | None, int | None]] = []
       block_ids: list[int] = []
       relation_ids: list[int] = []
@@ -330,10 +329,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
           continue
         parsed.append((entity, kind, entity_id))
         (block_ids if kind == "block" else relation_ids).append(entity_id)
-      blocks = {block.id: block for block in BlockManager.get_many(block_ids)}
-      relations = {
-        relation_id: RelationManager.get_by_id(relation_id) for relation_id in relation_ids
-      }
+      blocks, relations = await get_entity_records(block_ids, relation_ids)
       results = []
       for entity, kind, entity_id in parsed:
         if kind is None or entity_id is None:
@@ -360,7 +356,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       blocks: tuple[int, ...],
       content: ContentMode = "solved",
     ) -> CallToolResult:
-      loaded = {block.id: block for block in BlockManager.get_many(blocks)}
+      loaded = {block.id: block for block in (await BlockService.get_many(blocks))}
 
       async def read(block_id: int) -> tuple[dict[str, typing.Any], list[typing.Any]]:
         block = loaded.get(block_id)
@@ -406,7 +402,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       description="Expand bounded one-hop graph neighborhoods around Blocks or Relations.",
       annotations=annotations,
     )
-    def expand_entities(
+    async def expand_entities(
       entities: tuple[str, ...],
       context_limit: typing.Annotated[int, pydantic.Field(ge=1, le=100)] = 20,
       direction: GraphDirection = "both",
@@ -416,13 +412,13 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
         try:
           kind, entity_id = _parse_entity(entity)
           if kind == "block":
-            neighborhood = GraphNavigationRetrievalManager.get_block_neighborhood(
+            neighborhood = await GraphNavigationRetrievalManager.get_block_neighborhood(
               entity_id,
               direction=direction,
               limit=context_limit,
             )
           else:
-            neighborhood = GraphNavigationRetrievalManager.get_relation_neighborhood(
+            neighborhood = await GraphNavigationRetrievalManager.get_relation_neighborhood(
               entity_id
             )
           if neighborhood is None:
@@ -452,13 +448,13 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       description="Find one bounded shortest graph path between two Blocks.",
       annotations=annotations,
     )
-    def find_path(
+    async def find_path(
       from_block: int,
       to_block: int,
       max_hops: typing.Annotated[int, pydantic.Field(ge=0, le=8)] = 4,
       direction: GraphDirection = "both",
     ) -> CallToolResult:
-      result = GraphNavigationRetrievalManager.find_path(
+      result = await GraphNavigationRetrievalManager.find_path(
         from_block,
         to_block,
         max_hops=max_hops,
@@ -480,7 +476,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       ),
       annotations=annotations,
     )
-    def resolver_methods(
+    async def resolver_methods(
       blocks: tuple[int, ...] = (),
       resolvers: tuple[str, ...] = (),
     ) -> CallToolResult:
@@ -489,7 +485,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       grouped: dict[str, list[int]] = {}
       errors: list[dict[str, typing.Any]] = []
       if blocks:
-        found = {block.id: block for block in BlockManager.get_many(blocks)}
+        found = {block.id: block for block in (await BlockService.get_many(blocks))}
         for block_id in dict.fromkeys(blocks):
           block = found.get(block_id)
           if block is None:
@@ -534,7 +530,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       async def invoke(
         index: int, call: ResolverMethodCall
       ) -> tuple[dict[str, typing.Any], list[typing.Any]]:
-        block = BlockManager.get(call.block)
+        block = await BlockService.get(call.block)
         correlation = {"index": index, "block": call.block, "method": call.method}
         if block is None:
           return {**correlation, **_error("not_found", "Block does not exist")}, []
@@ -591,7 +587,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       mime_type="text/plain",
     )
     async def block_text_resource(block_id: int, mode: ContentMode, selector: str) -> str:
-      block = BlockManager.get(block_id)
+      block = await BlockService.get(block_id)
       if block is None:
         raise ValueError("Block does not exist")
       value = select_value(
@@ -612,7 +608,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       mime_type="application/octet-stream",
     )
     async def block_blob_resource(block_id: int, mode: ContentMode, selector: str) -> bytes:
-      block = BlockManager.get(block_id)
+      block = await BlockService.get(block_id)
       if block is None:
         raise ValueError("Block does not exist")
       value = select_value(

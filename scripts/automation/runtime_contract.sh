@@ -81,7 +81,9 @@ case "${1:-}" in
       sleep 1
     done
     curl --fail --silent http://127.0.0.1:18080/livez
-    curl --fail --silent http://127.0.0.1:18080/readyz
+    # Async bootstrap can yield while liveness already responds; wait for readiness itself.
+    curl --fail --silent --show-error --retry 30 --retry-delay 1 \
+      --retry-max-time 30 --max-time 5 http://127.0.0.1:18080/readyz
     ;;
   export)
     for name in CORE_DATABASE_PASSWORD POSTGREST_DATABASE_PASSWORD SOURCE_REVISION; do require_env "$name"; done

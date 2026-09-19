@@ -332,12 +332,12 @@ def register_backend(root: fastapi.APIRouter) -> None:
     )
 
   @protected.delete("/memos/{raw_memo_id}")
-  def delete_memo(raw_memo_id: str, request: fastapi.Request) -> dict:
+  async def delete_memo(raw_memo_id: str, request: fastapi.Request) -> dict:
     if request.query_params:
       raise _bad_request("Delete memo query parameters are not supported")
     block_id = _memo_id(raw_memo_id)
     try:
-      MemoApplicationService.delete(block_id)
+      await MemoApplicationService.delete(block_id)
     except MemoNotFoundError as error:
       raise _not_found(error) from error
     return {}
@@ -377,10 +377,10 @@ def register_backend(root: fastapi.APIRouter) -> None:
     )
 
   @protected.delete("/attachments/{raw_attachment_id}")
-  def delete_attachment(raw_attachment_id: str) -> dict:
+  async def delete_attachment(raw_attachment_id: str) -> dict:
     attachment_id_value = _memo_id(raw_attachment_id)
     try:
-      AttachmentApplicationService.delete(attachment_id_value)
+      await AttachmentApplicationService.delete(attachment_id_value)
     except AttachmentNotFoundError as error:
       raise _not_found(error) from error
     return {}

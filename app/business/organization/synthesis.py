@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import typing
 
-import sqlmodel
 
 from app.business.deployment_config import DeploymentConfigManager
-from app.business.info_base.block import BlockManager
 from app.business.info_base.resolver import Resolver
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import GraphUnitOfWork, graph_uow
 from libs.obsrv.main import get_logger
 from app.schemas.info_base.block import BlockForm, BlockID, BlockModel
-from app.schemas.info_base.relation import RelationModel
 from app.schemas.organization_behavior import (
   BehaviorAgentConfig,
   CandidateWriteResult,
@@ -84,10 +81,8 @@ class SynthesisBehaviorResolver(
   async def record_candidate(
     cls,
     block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, block_id, db_session=db_session)
+    return await record_candidate(cls, block_id)
 
   @classmethod
   async def create_synthesis(
@@ -95,140 +90,110 @@ class SynthesisBehaviorResolver(
     text: str,
     source_block_ids: typing.Collection[BlockID],
     previous_synthesis_block_id: BlockID | None = None,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> SynthesisWriteResult:
     proposal = SynthesisProposal(
       text=text,
       source_block_ids=tuple(source_block_ids),
       previous_synthesis_block_id=previous_synthesis_block_id,
     )
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        result = await cls.create_synthesis(
-          proposal.text,
-          proposal.source_block_ids,
+    async with graph_uow() as uow:
+      found = {block.id for block in (await uow.blocks.get_many(proposal.source_block_ids))}
+      missing = tuple(source for source in proposal.source_block_ids if source not in found)
+      if missing:
+        raise ValueError(f"Synthesis source Blocks do not exist: {missing!r}")
+      if proposal.previous_synthesis_block_id is not None:
+        previous = await uow.blocks.get(proposal.previous_synthesis_block_id)
+        if previous is None:
+          raise ValueError("Previous synthesis Block does not exist")
+        previous_basis = await cls._source_basis(previous, uow)
+        if len(set(previous_basis)) < 2:
+          raise ValueError("Previous synthesis has no valid multi-source basis")
+
+      source_set = set(proposal.source_block_ids)
+      text_candidates = await uow.blocks.matching_content("core.text.v1", proposal.text)
+      synthesis = None
+      for candidate in text_candidates:
+        if await cls._source_basis(candidate, uow) == source_set:
+          synthesis = candidate
+          break
+      synthesis_created = synthesis is None
+      if synthesis is None:
+        synthesis = await uow.blocks.create(
+          BlockForm(resolver="core.text.v1", content=proposal.text)
+        )
+      if synthesis.id is None:  # pragma: no cover - persisted Block invariant
+        raise RuntimeError("Persisted synthesis Block has no ID")
+
+      basis = []
+      for source_block_id in sorted(source_set):
+        relation, created = await fetchsert_relation(
+          source_block_id,
+          synthesis.id,
+          SYNTHESIS_RELATION,
+          uow,
+        )
+        basis.append(relation_result(relation, created))
+
+      edited = None
+      if (
+        proposal.previous_synthesis_block_id is not None
+        and proposal.previous_synthesis_block_id != synthesis.id
+      ):
+        relation, created = await fetchsert_relation(
           proposal.previous_synthesis_block_id,
-          db_session=owned_session,
+          synthesis.id,
+          EDITED_RELATION,
+          uow,
         )
-        owned_session.commit()
-        return result
-
-    found = {
-      block.id for block in BlockManager.get_many(proposal.source_block_ids, db_session)
-    }
-    missing = tuple(source for source in proposal.source_block_ids if source not in found)
-    if missing:
-      raise ValueError(f"Synthesis source Blocks do not exist: {missing!r}")
-    if proposal.previous_synthesis_block_id is not None:
-      previous = BlockManager.get(proposal.previous_synthesis_block_id, db_session)
-      if previous is None:
-        raise ValueError("Previous synthesis Block does not exist")
-      previous_basis = db_session.exec(
-        sqlmodel.select(RelationModel.from_).where(
-          RelationModel.to_ == proposal.previous_synthesis_block_id,
-          RelationModel.content == SYNTHESIS_RELATION,
-        )
-      ).all()
-      if len(set(previous_basis)) < 2:
-        raise ValueError("Previous synthesis has no valid multi-source basis")
-
-    source_set = set(proposal.source_block_ids)
-    text_candidates = db_session.exec(
-      sqlmodel.select(BlockModel).where(
-        BlockModel.resolver == "core.text.v1",
-        BlockModel.content == proposal.text,
+        edited = relation_result(relation, created)
+      return SynthesisWriteResult(
+        synthesis_block_id=synthesis.id,
+        synthesis_created=synthesis_created,
+        basis=tuple(basis),
+        edited=edited,
       )
-    ).all()
-    synthesis = next(
-      (
-        candidate
-        for candidate in text_candidates
-        if cls._source_basis(candidate, db_session) == source_set
-      ),
-      None,
-    )
-    synthesis_created = synthesis is None
-    if synthesis is None:
-      synthesis = BlockManager.create(
-        BlockForm(resolver="core.text.v1", content=proposal.text),
-        db_session,
-      )
-    if synthesis.id is None:  # pragma: no cover - persisted Block invariant
-      raise RuntimeError("Persisted synthesis Block has no ID")
-
-    basis = []
-    for source_block_id in sorted(source_set):
-      relation, created = fetchsert_relation(
-        source_block_id,
-        synthesis.id,
-        SYNTHESIS_RELATION,
-        db_session,
-      )
-      basis.append(relation_result(relation, created))
-
-    edited = None
-    if (
-      proposal.previous_synthesis_block_id is not None
-      and proposal.previous_synthesis_block_id != synthesis.id
-    ):
-      relation, created = fetchsert_relation(
-        proposal.previous_synthesis_block_id,
-        synthesis.id,
-        EDITED_RELATION,
-        db_session,
-      )
-      edited = relation_result(relation, created)
-    return SynthesisWriteResult(
-      synthesis_block_id=synthesis.id,
-      synthesis_created=synthesis_created,
-      basis=tuple(basis),
-      edited=edited,
-    )
 
   @staticmethod
-  def _source_basis(
+  async def _source_basis(
     synthesis: BlockModel,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> set[BlockID]:
     if synthesis.id is None:
       return set()
-    return set(
-      db_session.exec(
-        sqlmodel.select(RelationModel.from_).where(
-          RelationModel.to_ == synthesis.id,
-          RelationModel.content == SYNTHESIS_RELATION,
-        )
-      ).all()
-    )
+    return {
+      relation.from_
+      for relation in await uow.relations.get(
+        synthesis.id, include_out=False, content=SYNTHESIS_RELATION
+      )
+    }
 
   @classmethod
-  def _change_signal_ids(cls, limit: int) -> tuple[BlockID, ...]:
-    endpoints = recent_relation_endpoint_ids(limit)
+  async def _change_signal_ids(cls, limit: int) -> tuple[BlockID, ...]:
+    endpoints = await recent_relation_endpoint_ids(limit)
     if not endpoints:
       return ()
-    with SessionLocal() as db_session:
-      affected = db_session.exec(
-        sqlmodel.select(RelationModel.to_).where(
-          RelationModel.from_.in_(endpoints),  # type: ignore[union-attr]
-          RelationModel.content == SYNTHESIS_RELATION,
+    async with graph_uow() as uow:
+      affected = tuple(
+        relation.to_
+        for relation in await uow.relations.get_outgoing_many(
+          endpoints, content=SYNTHESIS_RELATION
         )
-      ).all()
+      )
     return tuple(dict.fromkeys((*endpoints, *affected)))
 
   @classmethod
-  def can_run_automatic(cls) -> bool:
-    return configured_agent_available(SYNTHESIS_CONFIG_KEY, BehaviorAgentConfig)
+  async def can_run_automatic(cls) -> bool:
+    return await configured_agent_available(SYNTHESIS_CONFIG_KEY, BehaviorAgentConfig)
 
   @classmethod
   async def run_automatic(cls, max_seeds: int) -> None:
     candidates = await candidate_seed_ids(cls, max_seeds)
     strong = merge_seed_categories(
       max_seeds,
-      cls._change_signal_ids(max_seeds),
-      recent_block_ids(max_seeds),
+      await cls._change_signal_ids(max_seeds),
+      await recent_block_ids(max_seeds),
     )
-    random = random_block_ids(max_seeds)
+    random = await random_block_ids(max_seeds)
     seeds = merge_seed_categories(max_seeds, candidates, strong, random)
     LOGGER.info(
       "organization.seeds.selected",

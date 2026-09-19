@@ -6,7 +6,7 @@ authors = [{ name = "Lan_zhijiang", email = "lanzhijiang@foxmail.com" }]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "inkcre-extension-runtime-core-py @ https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.1.3/inkcre_extension_runtime_core_py-0.1.3-py3-none-any.whl",
+    "inkcre-extension-runtime-core-py @ https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.1.5/inkcre_extension_runtime_core_py-0.1.5-py3-none-any.whl",
     "authlib>=1.7.2,<2.0.0",
     "pydantic (>=2.11.7,<3.0.0)",
     "pydantic-settings (>=2.14.2,<3.0.0)",
@@ -14,7 +14,7 @@ dependencies = [
     "packaging (>=25.0,<26.0)",
     "pip (>=25.2,<26.0)",
     "semantic-version (>=2.10.0,<3.0.0)",
-    "sqlalchemy (>=2.0.41,<3.0.0)",
+    "sqlalchemy[asyncio]<3.0.0,>=2.0.41",
     "aiohttp (>=3.14.1,<4.0.0)",
     "tencentcloud-sdk-python-lke (>=3.0.1427,<4.0.0)",
     "psycopg[binary] (>=3.2.0,<4.0.0)",
@@ -102,7 +102,10 @@ test = "python -m pytest -q"
 "build:extension-preview" = "python scripts/build_extension_preview.py {args}"
 "release:prepare" = "python scripts/release.py prepare {args}"
 "check:foundation" = { composite = ["doctor", "check:lock", "check:migrations", "check:automation"] }
-"check" = { composite = ["check:foundation", "format:check", "lint", "typecheck", "test"] }
+"lint:database-imports" = "ruff check --config ruff.database.toml ."
+"lint:database-ownership" = "python scripts/check_database_boundaries.py"
+"lint:database-boundaries" = { composite = ["lint:database-imports", "lint:database-ownership"] }
+"check" = { composite = ["check:foundation", "format:check", "lint", "lint:database-boundaries", "typecheck", "test"] }
 "db:revision" = "alembic revision -m {args}"
 "db:generate" = "alembic revision --autogenerate -m {args}"
 "db:record" = "python scripts/check_migration_history.py --record-new"

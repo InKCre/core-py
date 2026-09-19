@@ -3,10 +3,8 @@
 import datetime
 from dataclasses import dataclass
 
-import sqlmodel
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
+from app.persistence.info_base.uow import GraphUnitOfWork
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.relation import RelationModel
 from .schema import CanonicalMemo, MemoCursor
@@ -69,83 +67,72 @@ def solve_memo_links(block_id: int, relations: tuple[RelationModel, ...]) -> Mem
   )
 
 
-class MemoGraphRepository:
+class MemoGraph:
   """Persist memo-family roots without product DTO or transport knowledge."""
 
   @classmethod
-  def create_root(
+  async def create_root(
     cls,
     canonical: CanonicalMemo,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> BlockModel:
-    return BlockManager.create(
-      BlockForm(
-        resolver=MEMO_RESOLVER,
-        content=canonical.to_block_content(),
-      ),
-      db_session,
+    return await uow.blocks.create(
+      BlockForm(resolver=MEMO_RESOLVER, content=canonical.to_block_content())
     )
 
   @classmethod
-  def get_root(
+  async def get_root(
     cls,
     block_id: int,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
+    *,
+    lock: bool = False,
   ) -> BlockModel | None:
-    block = BlockManager.get(block_id, db_session)
+    block = await uow.blocks.get(block_id, lock=lock)
     if block is None or block.resolver != MEMO_RESOLVER:
       return None
     return block
 
   @classmethod
-  def create_comment(
+  async def create_comment(
     cls,
     parent_id: int,
     canonical: CanonicalMemo,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> BlockModel:
-    if cls.get_root(parent_id, db_session) is None:
+    if await cls.get_root(parent_id, uow) is None:
       raise LookupError(f"Memo memos/{parent_id} not found")
-    block = cls.create_root(canonical, db_session)
+    block = await cls.create_root(canonical, uow)
     if block.id is None:
       raise RuntimeError("Persisted memo comment has no ID")
-    RelationManager.create(
-      block.id,
-      parent_id,
-      PARENT_RELATION,
-      db_session,
-    )
+    await uow.relations.create(block.id, parent_id, PARENT_RELATION)
     return block
 
   @classmethod
-  def list_comment_roots(
+  async def list_comment_roots(
     cls,
     parent_id: int,
     *,
     limit: int,
     after_block_id: int | None,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> tuple[tuple[BlockModel, ...], int | None, int]:
     if limit <= 0:
       raise ValueError("comment page limit must be positive")
-    if cls.get_root(parent_id, db_session) is None:
+    if await cls.get_root(parent_id, uow) is None:
       raise LookupError(f"Memo memos/{parent_id} not found")
 
     child_ids = {
       relation.from_
-      for relation in RelationManager.get(
-        parent_id,
-        include_in=True,
-        include_out=False,
-        content=PARENT_RELATION,
-        db_session=db_session,
+      for relation in await uow.relations.get(
+        parent_id, include_in=True, include_out=False, content=PARENT_RELATION
       )
       if relation.to_ == parent_id
     }
     roots = tuple(
       block
-      for child_id in child_ids
-      if (block := cls.get_root(child_id, db_session)) is not None and block.id is not None
+      for block in await uow.blocks.get_many(child_ids)
+      if block.resolver == MEMO_RESOLVER and block.id is not None
     )
     ordered = sorted(roots, key=lambda block: block.id or 0, reverse=True)
     if after_block_id is not None:
@@ -157,13 +144,13 @@ class MemoGraphRepository:
     return tuple(selected), next_block_id, len(roots)
 
   @classmethod
-  def owned_deletion_plan(
+  async def owned_deletion_plan(
     cls,
     root_id: int,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> OwnedDeletionPlan:
     """Traverse only exclusive parent/attachment ownership, never references."""
-    if cls.get_root(root_id, db_session) is None:
+    if await cls.get_root(root_id, uow, lock=True) is None:
       raise LookupError(f"Memo memos/{root_id} not found")
 
     visited: set[int] = set()
@@ -180,28 +167,20 @@ class MemoGraphRepository:
       if memo_id in visited:
         continue
       visited.add(memo_id)
-      relations = RelationManager.get(
-        memo_id,
-        include_in=True,
-        include_out=True,
-        db_session=db_session,
-      )
+      relations = await uow.relations.get(memo_id, include_in=True, include_out=True)
 
       for relation in relations:
         if relation.from_ != memo_id or not relation.content.startswith(
           ATTACHMENT_RELATION_PREFIX
         ):
           continue
-        component = BlockManager.get(relation.to_, db_session)
+        component = await uow.blocks.get(relation.to_)
         if component is None or component.resolver != ATTACHMENT_RESOLVER:
           continue
         owners = tuple(
           candidate
-          for candidate in RelationManager.get(
-            relation.to_,
-            include_in=True,
-            include_out=False,
-            db_session=db_session,
+          for candidate in await uow.relations.get(
+            relation.to_, include_in=True, include_out=False
           )
           if candidate.content.startswith(ATTACHMENT_RELATION_PREFIX)
         )
@@ -213,17 +192,13 @@ class MemoGraphRepository:
         if relation.to_ != memo_id or relation.content != PARENT_RELATION:
           continue
         child_id = relation.from_
-        parents = RelationManager.get(
-          child_id,
-          include_in=False,
-          include_out=True,
-          content=PARENT_RELATION,
-          db_session=db_session,
+        parents = await uow.relations.get(
+          child_id, include_in=False, include_out=True, content=PARENT_RELATION
         )
         if (
           len(parents) != 1
           or parents[0].to_ != memo_id
-          or cls.get_root(child_id, db_session) is None
+          or await cls.get_root(child_id, uow) is None
         ):
           continue
         if child_id not in visited:

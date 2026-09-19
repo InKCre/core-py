@@ -62,7 +62,7 @@ class TwitterAPI(abc.ABC):
     cls.SINGLETON = None
 
   @classmethod
-  def new(
+  async def new(
     cls,
     *,
     expected_authorization_id: str | None = None,
@@ -74,7 +74,9 @@ class TwitterAPI(abc.ABC):
     config = Extension.get_config()
     backend_type = config.backend
     if backend_type == "official":
-      return OfficialAPI.from_extension(expected_authorization_id=expected_authorization_id)
+      return await OfficialAPI.from_extension(
+        expected_authorization_id=expected_authorization_id
+      )
     if cls.SINGLETON is not None:
       return cls.SINGLETON
     if backend_type == "twikit":
@@ -143,7 +145,7 @@ class OfficialAPI(TwitterAPI):
     self.__authorization_id = authorization_id
 
   @classmethod
-  def from_extension(
+  async def from_extension(
     cls,
     *,
     expected_authorization_id: str | None = None,
@@ -151,7 +153,7 @@ class OfficialAPI(TwitterAPI):
     from .setup_flow import TwitterExtensionState, TwitterSetupConflict, _fingerprint
 
     config = Extension.get_config()
-    state = typing.cast(TwitterExtensionState, Extension.get_state())
+    state = typing.cast(TwitterExtensionState, await Extension.get_state_async())
     account = state.account
     if (
       account is None
@@ -214,7 +216,7 @@ class OfficialAPI(TwitterAPI):
     """
     from .setup_flow import TwitterExtensionState, TwitterSetupConflict, _fingerprint
 
-    latest = typing.cast(TwitterExtensionState, Extension.get_state())
+    latest = typing.cast(TwitterExtensionState, await Extension.get_state_async())
     latest_config = Extension.get_config()
     if (
       latest.account is None
@@ -265,10 +267,10 @@ class OfficialAPI(TwitterAPI):
         state.account.token = dict(token)
         return state
 
-      Extension.mutate_state(update)
+      await Extension.mutate_state_async(update)
       self.__token = dict(token)
 
-    def require_reconnect() -> None:
+    async def require_reconnect() -> None:
       from .setup_flow import TwitterExtensionState
 
       def update(model: pydantic.BaseModel) -> pydantic.BaseModel:
@@ -280,7 +282,7 @@ class OfficialAPI(TwitterAPI):
           state.account.reconnect_required = True
         return state
 
-      Extension.mutate_state(update)
+      await Extension.mutate_state_async(update)
 
     client = AsyncOAuth2Client(
       client_id=self.__client_id,
@@ -321,11 +323,11 @@ class OfficialAPI(TwitterAPI):
         raise RuntimeError("Twitter API returned an invalid response")
       return payload
     except OAuthError:
-      require_reconnect()
+      await require_reconnect()
       raise RuntimeError("Twitter authorization requires reconnection") from None
     except httpx.HTTPStatusError as error:
       if error.response.status_code == 401:
-        require_reconnect()
+        await require_reconnect()
         raise RuntimeError("Twitter authorization requires reconnection") from None
       raise RuntimeError("Twitter API request failed") from error
     except httpx.HTTPError as error:

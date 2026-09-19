@@ -27,19 +27,24 @@ async def generate_faithful_text(
   return text or None
 
 
-def materialize_text_child(block_id: int, role: str, text: str) -> None:
+async def materialize_text_child(block_id: int, role: str, text: str) -> None:
   """Best-effort idempotent graph write for one exact information role."""
-  from app.business.info_base.main import InfoBaseManager
   from app.schemas.info_base.main import GraphBlockForm, GraphForm, GraphRelationForm
 
-  if InfoBaseManager.get_related_block(block_id, content=role) is not None:
-    return
-  InfoBaseManager.submit_graph(
-    GraphForm(
-      blocks=(GraphBlockForm(id=-1, resolver="core.text.v1", content=text),),
-      relations=(GraphRelationForm(from_=block_id, to_=-1, content=role),),
+  from app.business.info_base.commands import persist_graph
+  from app.persistence.info_base.uow import graph_uow
+
+  # Recheck after provider work in the same short scope as the graph insertion.
+  async with graph_uow() as uow:
+    if await uow.blocks.get_related(block_id, content=role) is not None:
+      return
+    await persist_graph(
+      GraphForm(
+        blocks=(GraphBlockForm(id=-1, resolver="core.text.v1", content=text),),
+        relations=(GraphRelationForm(from_=block_id, to_=-1, content=role),),
+      ),
+      uow,
     )
-  )
 
 
 async def try_materialize_model_text(
@@ -51,9 +56,9 @@ async def try_materialize_model_text(
   media: UserContentPart,
 ) -> None:
   """Keep one unavailable derivation shallow while preserving diagnostic evidence."""
-  from app.business.info_base.main import InfoBaseManager
+  from app.business.info_base.commands import get_related_block
 
-  if InfoBaseManager.get_related_block(block_id, content=role) is not None:
+  if await get_related_block(block_id, content=role) is not None:
     return
   try:
     text = await generate_faithful_text(
@@ -62,7 +67,7 @@ async def try_materialize_model_text(
       media=media,
     )
     if text is not None:
-      materialize_text_child(block_id, role, text)
+      await materialize_text_child(block_id, role, text)
   except Exception:
     logger.warning(
       "Resolver text materialization unavailable",

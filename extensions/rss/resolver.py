@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from lxml import html as lxml_html
 
-from app.business.info_base.block import BlockManager
+from app.business.info_base.services import BlockService
 from app.business.info_base.resolver import (
   Resolver,
   ResolverManager,
@@ -14,7 +14,7 @@ from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm
 from app.schemas.info_base.main import StarsGraphForm
 
-from .repository import (
+from .reconcile import (
   CONTENT_RELATION,
   ENCLOSURE_RELATION,
   ENCLOSURE_RESOLVER_ID,
@@ -163,7 +163,7 @@ class FeedItemResolver(
   ) -> str | None:
     if solved.full_text_block_id is None:
       return None
-    block = BlockManager.get(solved.full_text_block_id)
+    block = await BlockService.get(solved.full_text_block_id)
     if block is None:
       raise FeedGraphIntegrityError(
         f"full_text relation from item {self.block_id} targets a missing block"

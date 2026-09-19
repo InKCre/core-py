@@ -1,5 +1,6 @@
 """Test-only composition helper for Extension-owned HTTP surfaces."""
 
+import asyncio
 from dataclasses import dataclass
 import typing
 
@@ -15,21 +16,21 @@ class _TestActiveModel:
   config: dict[str, typing.Any]
   state: dict[str, typing.Any]
 
-  def update_config(self, value):
+  async def update_config_async(self, value):
     self.config = dict(value)
     return self
 
-  def update_config_schema(self, _schema):
+  async def update_config_schema_async(self, _schema):
     return self
 
-  def read_state(self):
+  async def read_state_async(self):
     return dict(self.state)
 
-  def mutate_state(self, transform):
+  async def mutate_state_async(self, transform):
     self.state = transform(dict(self.state))
     return dict(self.state)
 
-  def mutate_config_and_state(self, transform):
+  async def mutate_config_and_state_async(self, transform):
     self.config, self.state = transform(dict(self.config), dict(self.state))
     return dict(self.config), dict(self.state)
 
@@ -67,7 +68,16 @@ def publish_extension(
       state=runtime_state,
     )
   )
-  extension.on_start(runtime_app)
+
+  async def start():
+    from app.engine import ASYNC_DB_ENGINE
+
+    try:
+      await extension.on_start_async(runtime_app)
+    finally:
+      await ASYNC_DB_ENGINE.dispose()
+
+  asyncio.run(start())
   return PublishedExtension(
     runtime_app,
     extension,

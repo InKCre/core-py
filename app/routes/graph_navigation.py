@@ -28,14 +28,14 @@ def _result(value: pydantic.BaseModel) -> dict:
 
 
 @ROUTER.get("/blocks/{block_id}/neighborhood")
-def block_neighborhood(
+async def block_neighborhood(
   block_id: int,
   direction: GraphDirection = "both",
   contents: list[str] = fastapi.Query(default_factory=list),
   limit: int = fastapi.Query(DEFAULT_NEIGHBORHOOD_LIMIT, ge=1, le=MAX_NEIGHBORHOOD_LIMIT),
   cursor: int | None = None,
 ) -> dict:
-  result = GraphNavigationRetrievalManager.get_block_neighborhood(
+  result = await GraphNavigationRetrievalManager.get_block_neighborhood(
     block_id, direction=direction, contents=contents, limit=limit, cursor=cursor
   )
   if result is None:
@@ -44,17 +44,17 @@ def block_neighborhood(
 
 
 @ROUTER.get("/relations/{relation_id}/neighborhood")
-def relation_neighborhood(relation_id: int) -> dict:
-  result = GraphNavigationRetrievalManager.get_relation_neighborhood(relation_id)
+async def relation_neighborhood(relation_id: int) -> dict:
+  result = await GraphNavigationRetrievalManager.get_relation_neighborhood(relation_id)
   if result is None:
     raise fastapi.HTTPException(404, f"Relation {relation_id} not found")
   return _result(result)
 
 
 @ROUTER.post("/graph/path")
-def graph_path(body: GraphPathForm) -> dict:
+async def graph_path(body: GraphPathForm) -> dict:
   return _result(
-    GraphNavigationRetrievalManager.find_path(
+    await GraphNavigationRetrievalManager.find_path(
       body.from_block_id,
       body.to_block_id,
       direction=body.direction,
@@ -66,9 +66,9 @@ def graph_path(body: GraphPathForm) -> dict:
 
 
 @ROUTER.post("/graph/components")
-def graph_components(body: GraphComponentsForm) -> dict:
+async def graph_components(body: GraphComponentsForm) -> dict:
   return _result(
-    GraphNavigationRetrievalManager.get_connected_components(
+    await GraphNavigationRetrievalManager.get_connected_components(
       body.seed_block_ids,
       contents=body.contents,
       max_explored_blocks=body.max_explored_blocks,

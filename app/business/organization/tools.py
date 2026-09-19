@@ -10,7 +10,9 @@ import pydantic
 
 from app.business.agent import AgentManager, ToolExecutionError
 from app.business.graph_navigation_retrieval import GraphNavigationRetrievalManager
-from app.business.info_base import BlockManager, InfoBaseManager, RelationManager
+from app.business.info_base import InfoBaseManager
+from app.business.info_base.services import BlockService, get_entity_records
+from app.business.info_base.commands import submit_graph as persist_submitted_graph
 from app.business.info_base.resolver import (
   ResolverDraftCapability,
   ResolverManager,
@@ -189,7 +191,7 @@ async def draft_graph(input: DraftGraphInput) -> JSONValue:
   description="Persist one complete GraphForm and return local-to-persisted Block IDs.",
 )
 async def submit_graph(input: SubmitGraphInput) -> JSONValue:
-  result = InfoBaseManager.submit_graph(input.graph)
+  result = await persist_submitted_graph(input.graph)
   return typing.cast(JSONValue, result.model_dump(mode="json"))
 
 
@@ -199,8 +201,7 @@ async def submit_graph(input: SubmitGraphInput) -> JSONValue:
 )
 async def retrieve(input: OrganizationRetrieveInput) -> JSONValue:
   async def lexical() -> JSONValue:
-    result = await asyncio.to_thread(
-      LexicalRetrievalManager.retrieve_local,
+    result = await LexicalRetrievalManager.retrieve_local(
       input.query,
       input.limit,
     )
@@ -356,7 +357,7 @@ def _resolver_input_model() -> type[pydantic.BaseModel]:
 async def resolver(input: ResolverMetaToolInput) -> JSONValue:
   request = input.root
   if request.action == "describe":
-    found = await asyncio.to_thread(BlockManager.get_many, request.block_ids)
+    found = await BlockService.get_many(request.block_ids)
     resolver_ids = set(request.resolver_types)
     resolver_ids.update(block.resolver for block in found)
     if not request.block_ids and not request.resolver_types:
@@ -390,7 +391,7 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
 
   results: list[JSONValue] = []
   for index, call in enumerate(request.calls):
-    block = await asyncio.to_thread(BlockManager.get, call.block_id)
+    block = await BlockService.get(call.block_id)
     if block is None:
       results.append(
         {
@@ -483,21 +484,11 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
 )
 async def get_entities(input: GetEntitiesInput) -> JSONValue:
   if not input.entities:
-    return _project_json(
-      await asyncio.to_thread(BlockManager.get_random_many, input.random_count)
-    )
-  blocks, relations = await asyncio.gather(
-    asyncio.to_thread(
-      BlockManager.get_many,
-      tuple(ref.id for ref in input.entities if ref.type == "block"),
-    ),
-    asyncio.to_thread(
-      RelationManager.get_many,
-      tuple(ref.id for ref in input.entities if ref.type == "relation"),
-    ),
+    return _project_json(await BlockService.get_random_many(input.random_count))
+  blocks_by_id, relations_by_id = await get_entity_records(
+    tuple(ref.id for ref in input.entities if ref.type == "block"),
+    tuple(ref.id for ref in input.entities if ref.type == "relation"),
   )
-  blocks_by_id = {block.id: block for block in blocks}
-  relations_by_id = {relation.id: relation for relation in relations}
   return _project_json(
     [
       blocks_by_id.get(ref.id) if ref.type == "block" else relations_by_id.get(ref.id)
@@ -516,8 +507,7 @@ async def get_entities(input: GetEntitiesInput) -> JSONValue:
 async def get_entity_neighborhood(input: EntityNeighborhoodInput) -> JSONValue:
   request = input.root
   if request.entity_type == "block":
-    result = await asyncio.to_thread(
-      GraphNavigationRetrievalManager.get_block_neighborhood,
+    result = await GraphNavigationRetrievalManager.get_block_neighborhood(
       request.entity_id,
       direction=request.direction,
       contents=request.contents,
@@ -525,8 +515,7 @@ async def get_entity_neighborhood(input: EntityNeighborhoodInput) -> JSONValue:
       cursor=request.cursor,
     )
   else:
-    result = await asyncio.to_thread(
-      GraphNavigationRetrievalManager.get_relation_neighborhood,
+    result = await GraphNavigationRetrievalManager.get_relation_neighborhood(
       request.entity_id,
     )
   return _project_json(result)
@@ -537,8 +526,7 @@ async def get_entity_neighborhood(input: EntityNeighborhoodInput) -> JSONValue:
   description="Find a bounded graph path; an exploration limit is not proof of absence.",
 )
 async def find_path(input: FindPathInput) -> JSONValue:
-  result = await asyncio.to_thread(
-    GraphNavigationRetrievalManager.find_path,
+  result = await GraphNavigationRetrievalManager.find_path(
     input.from_block_id,
     input.to_block_id,
     direction=input.direction,
@@ -557,8 +545,7 @@ async def find_path(input: FindPathInput) -> JSONValue:
 )
 async def get_connected_components(input: ConnectedComponentsInput) -> JSONValue:
   return await _exact_result(
-    asyncio.to_thread(
-      GraphNavigationRetrievalManager.get_connected_components,
+    GraphNavigationRetrievalManager.get_connected_components(
       **input.model_dump(),
     )
   )

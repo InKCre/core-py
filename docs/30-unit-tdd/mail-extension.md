@@ -32,7 +32,7 @@ extensions/mail/
   schema.py         commands、canonical facts、checkpoints、solved projections
   adapter.py        protocol-neutral port、IMAPClient adapter、factory
   source.py         ordinary/backfill Source policy and state advancement
-  repository.py     reconciliation ladder and exact graph effects
+  reconcile.py      reconciliation ladder and transactional graph effects
   resolver.py       read projections and remote MIME materialization
 ```
 
@@ -140,6 +140,9 @@ client-web 无 IMAP socket，使用 exact Peer capability 请求 provider-local 
 自行 solve returned child。Provider inbound 调 non-delegating local Resolver path；不建立 generic Resolver delegation。
 
 ## Failure And Concurrency Boundary
+
+MailGraphReconciler 通过必需的 SourceUnitOfWork 组合 graph 与 Source 操作，不持有 raw session。
+Source 入口决定逐 Mailbox/occurrence 的异步事务；网络获取和 mark-as-seen 在数据库作用域外执行。
 
 - Job 是 one-shot envelope，无 retry/attempt；Source 可以逐 Mailbox/occurrence提交 accepted partial graph。
 - Ordinary checkpoint 只在 owning accepted boundary 推进；中断后允许重扫并依赖 exact reconciliation。

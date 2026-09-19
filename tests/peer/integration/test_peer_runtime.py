@@ -8,7 +8,7 @@ import pytest
 import sqlalchemy
 
 from app.business.peer import PeerHTTPInbound, PeerManager
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas.peer import PEER_HTTP_PROTOCOL, PeerModel
 
 
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(
 CAPABILITY = "core.peer.integration.v1"
 
 
-def test_real_snapshot_database_lease_and_candidate_filtering(monkeypatch):
+def test_real_snapshot_database_lease_and_candidate_filtering(monkeypatch, async_runner):
   original_peer = PeerManager.get_current_peer_ref()
   original_inbounds = PeerManager._INBOUNDS
   original_outbounds = PeerManager._OUTBOUNDS
@@ -35,10 +35,10 @@ def test_real_snapshot_database_lease_and_candidate_filtering(monkeypatch):
     monkeypatch.setattr("app.business.peer.main.settings.peer_id", local)
     monkeypatch.setattr("app.business.peer.main.settings.peer_name", "integration-local")
 
-    PeerManager.register_self()
+    async_runner.run(PeerManager.register_self())
     PeerManager.setup_builtin_outbounds()
     PeerManager.register_inbound(PeerHTTPInbound(CAPABILITY, "POST", "/integration-action"))
-    with SessionLocal() as db:
+    with TestSession() as db:
       local_row = db.get(PeerModel, local)
       assert local_row is not None
       local_row.config = {"http_public_base_url": "https://local.example/root/"}
@@ -84,7 +84,7 @@ def test_real_snapshot_database_lease_and_candidate_filtering(monkeypatch):
       )
       db.commit()
 
-    published = PeerManager.publish_self()
+    published = async_runner.run(PeerManager.publish_self())
     assert published.capabilities == [
       {
         "id": CAPABILITY,
@@ -97,8 +97,8 @@ def test_real_snapshot_database_lease_and_candidate_filtering(monkeypatch):
         },
       }
     ]
-    expiry = PeerManager.renew_self_lease(45)
-    with SessionLocal() as db:
+    expiry = async_runner.run(PeerManager.renew_self_lease(45))
+    with TestSession() as db:
       remaining = (
         db.connection()
         .execute(
@@ -113,20 +113,20 @@ def test_real_snapshot_database_lease_and_candidate_filtering(monkeypatch):
       )
     assert 40 < float(remaining) <= 45
 
-    candidates = PeerManager._candidates(CAPABILITY, None)
+    candidates = async_runner.run(PeerManager._candidates(CAPABILITY, None))
     assert [candidate.peer.id for candidate in candidates] == [live]
-    assert PeerManager._candidates(CAPABILITY, live)[0].peer.id == live
-    assert PeerManager._candidates(CAPABILITY, expired) == ()
+    assert async_runner.run(PeerManager._candidates(CAPABILITY, live))[0].peer.id == live
+    assert async_runner.run(PeerManager._candidates(CAPABILITY, expired)) == ()
 
-    PeerManager.clear_self_lease()
-    cleared = PeerManager.get(local)
+    async_runner.run(PeerManager.clear_self_lease())
+    cleared = async_runner.run(PeerManager.get_async(local))
     assert cleared is not None
     assert cleared.lease_expires_at is None
   finally:
     monkeypatch.setattr(PeerManager, "_INBOUNDS", original_inbounds)
     monkeypatch.setattr(PeerManager, "_OUTBOUNDS", original_outbounds)
     monkeypatch.setattr("app.business.peer.main.settings.peer_id", original_peer)
-    with SessionLocal() as db:
+    with TestSession() as db:
       db.connection().execute(
         sqlalchemy.text("DELETE FROM inkcre.peers WHERE id = ANY(:ids)"),
         {"ids": list(peer_ids)},

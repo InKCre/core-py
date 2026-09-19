@@ -68,7 +68,7 @@ PostgREST 14 对 raw byte response 需要 explicit response media-type domain；
 `bytea` argument。Readiness separately proves both signatures。
 
 Storage pointer JSON belongs to the `postgresql_binary` handler。Peer/application只持有 opaque pointer string；
-bytes、MIME、filename 与 resolver semantics不复制到 pointer。Core native commands通过 caller-owned session进行
+bytes、MIME、filename 与 resolver semantics不复制到 pointer。Core native commands通过 GraphUnitOfWork 中的 StorageRepository 异步进行
 C/R/U/D；browser peer通过 raw RPC + exact relation update/delete获得等价 capability。
 
 Deleting a referenced `storages` catalog row is `RESTRICT`。Changing/deleting a blob does not query or rewrite blocks，

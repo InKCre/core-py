@@ -5,15 +5,11 @@ from __future__ import annotations
 import typing
 
 import pydantic
-import sqlalchemy
-import sqlmodel
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
 from app.business.source import SourceManager
 from app.schemas.info_base.block import BlockModel
 from app.schemas.info_base.relation import RelationCreateForm, RelationModel
-from app.schemas.source import SourceModel
+from app.persistence.source.uow import SourceUnitOfWork
 
 from .resolver import (
   ACCOUNT_RESOLVER_ID,
@@ -57,7 +53,7 @@ def _id(block: BlockModel) -> int:
   return block.id
 
 
-class GitHubGraphRepository:
+class GitHubGraphReconciler:
   """Own exact GitHub identity and current relation-set reconciliation."""
 
   _resolver_models: typing.ClassVar[dict[str, type[pydantic.BaseModel]]] = {
@@ -66,17 +62,19 @@ class GitHubGraphRepository:
     LIST_RESOLVER_ID: GitHubList,
   }
 
-  def __init__(self, db_session: sqlmodel.Session):
-    self.db = db_session
+  def __init__(self, uow: SourceUnitOfWork):
+    self.uow = uow
     self.blocks_created = 0
     self.blocks_updated = 0
     self.relations_created = 0
     self.relations_deleted = 0
 
-  def reconcile(self, source_id: int, snapshot: GitHubSnapshot) -> GitHubReconcileReport:
-    source = self.db.exec(
-      sqlmodel.select(SourceModel).where(SourceModel.id == source_id).with_for_update()
-    ).one()
+  async def reconcile(
+    self, source_id: int, snapshot: GitHubSnapshot
+  ) -> GitHubReconcileReport:
+    source = await self.uow.sources.get(source_id, lock=True)
+    if source is None:
+      raise ValueError(f"Source {source_id} does not exist")
     state = GitHubSourceState.model_validate(source.state or {})
     if (
       state.account_node_id is not None
@@ -86,8 +84,8 @@ class GitHubGraphRepository:
         "GitHub Source token resolves to a different Account; create another Source"
       )
 
-    source_anchor = SourceManager.ensure_block(source, self.db)
-    existing = self._load_github_blocks()
+    source_anchor = await SourceManager.ensure_block_async(source, self.uow)
+    existing = await self._load_github_blocks()
     repositories = {
       fact.repository.node_id: fact.repository for fact in snapshot.repositories
     }
@@ -95,22 +93,24 @@ class GitHubGraphRepository:
     accounts[snapshot.account.node_id] = snapshot.account
     lists = {fact.list.node_id: fact.list for fact in snapshot.lists}
 
-    repository_blocks = self._upsert_many(GitHubRepositoryResolver, repositories, existing)
-    account_blocks = self._upsert_many(GitHubAccountResolver, accounts, existing)
-    list_blocks = self._upsert_many(GitHubListResolver, lists, existing)
+    repository_blocks = await self._upsert_many(
+      GitHubRepositoryResolver, repositories, existing
+    )
+    account_blocks = await self._upsert_many(GitHubAccountResolver, accounts, existing)
+    list_blocks = await self._upsert_many(GitHubListResolver, lists, existing)
 
     source_block_id = _id(source_anchor)
     account_block_id = _id(account_blocks[snapshot.account.node_id])
     repository_ids = {node_id: _id(block) for node_id, block in repository_blocks.items()}
     current_list_ids = {node_id: _id(block) for node_id, block in list_blocks.items()}
-    previous_list_ids = self._previous_list_ids(account_block_id, existing)
+    previous_list_ids = await self._previous_list_ids(account_block_id, existing)
     roots = {
       source_block_id,
       account_block_id,
       *previous_list_ids,
       *current_list_ids.values(),
     }
-    candidates = self._load_candidate_relations(roots, set(repository_ids.values()))
+    candidates = await self._load_candidate_relations(roots, set(repository_ids.values()))
 
     blocks_by_id = {_id(block): block for block in existing.values()}
     for values in (
@@ -135,13 +135,12 @@ class GitHubGraphRepository:
       previous_list_ids | set(current_list_ids.values()),
       set(repository_ids.values()),
     )
-    self._replace_relations(managed, desired)
+    await self._replace_relations(managed, desired)
 
     source.state = GitHubSourceState(account_node_id=snapshot.account.node_id).model_dump(
       mode="json"
     )
-    self.db.add(source)
-    self.db.flush()
+    await self.uow.sources.save(source)
     return GitHubReconcileReport(
       account=snapshot.account.login,
       stars=len(snapshot.starred_repository_node_ids),
@@ -153,12 +152,8 @@ class GitHubGraphRepository:
       relations_deleted=self.relations_deleted,
     )
 
-  def _load_github_blocks(self) -> dict[tuple[str, str], BlockModel]:
-    blocks = self.db.exec(
-      sqlmodel.select(BlockModel).where(
-        BlockModel.resolver.in_(tuple(self._resolver_models))  # type: ignore[union-attr]
-      )
-    ).all()
+  async def _load_github_blocks(self) -> dict[tuple[str, str], BlockModel]:
+    blocks = await self.uow.graph.blocks.get_by_resolvers(tuple(self._resolver_models))
     indexed: dict[tuple[str, str], BlockModel] = {}
     for block in blocks:
       resolver_id = block.resolver
@@ -177,7 +172,7 @@ class GitHubGraphRepository:
       indexed[key] = block
     return indexed
 
-  def _upsert_many(
+  async def _upsert_many(
     self,
     resolver_cls: typing.Any,
     contents: typing.Mapping[str, GitHubAccount | GitHubRepository | GitHubList],
@@ -186,6 +181,7 @@ class GitHubGraphRepository:
     resolver_id = typing.cast(str, resolver_cls.__rsotype__)
     result: dict[str, BlockModel] = {}
     missing: list[tuple[str, typing.Any]] = []
+    changed: list[BlockModel] = []
     for node_id, content in contents.items():
       form = resolver_cls.create_block(content)
       block = existing.get((resolver_id, node_id))
@@ -195,17 +191,18 @@ class GitHubGraphRepository:
         if block.content != form.content or block.storage is not None:
           block.storage = None
           block.content = form.content
-          self.db.add(block)
+          changed.append(block)
           self.blocks_updated += 1
         result[node_id] = block
-    created = BlockManager.create_many((form for _, form in missing), self.db)
+    await self.uow.graph.blocks.save_many(changed)
+    created = await self.uow.graph.blocks.create_many(form for _, form in missing)
     self.blocks_created += len(created)
     for (node_id, _), block in zip(missing, created, strict=True):
       result[node_id] = block
       existing[(resolver_id, node_id)] = block
     return result
 
-  def _previous_list_ids(
+  async def _previous_list_ids(
     self, account_id: int, blocks: dict[tuple[str, str], BlockModel]
   ) -> set[int]:
     list_ids = {
@@ -213,32 +210,19 @@ class GitHubGraphRepository:
     }
     if not list_ids:
       return set()
-    return set(
-      self.db.exec(
-        sqlmodel.select(RelationModel.to_).where(
-          RelationModel.from_ == account_id,
-          RelationModel.content == "owns",
-          RelationModel.to_.in_(tuple(list_ids)),  # type: ignore[union-attr]
-        )
-      ).all()
-    )
+    return {
+      relation.to_
+      for relation in await self.uow.graph.relations.get(
+        account_id, include_in=False, content="owns"
+      )
+      if relation.to_ in list_ids
+    }
 
-  def _load_candidate_relations(
+  async def _load_candidate_relations(
     self, roots: set[int], repository_ids: set[int]
   ) -> tuple[RelationModel, ...]:
-    endpoints = roots | repository_ids
-    if not endpoints:
-      return ()
-    return tuple(
-      self.db.exec(
-        sqlmodel.select(RelationModel).where(
-          RelationModel.content.in_(("collects", "stars", "owns", "contains")),  # type: ignore[union-attr]
-          sqlalchemy.or_(
-            RelationModel.from_.in_(tuple(endpoints)),  # type: ignore[union-attr]
-            RelationModel.to_.in_(tuple(endpoints)),  # type: ignore[union-attr]
-          ),
-        )
-      ).all()
+    return await self.uow.graph.relations.get_for_endpoints(
+      roots | repository_ids, contents=("collects", "stars", "owns", "contains")
     )
 
   @staticmethod
@@ -319,26 +303,28 @@ class GitHubGraphRepository:
         managed.append(relation)
     return tuple(managed)
 
-  def _replace_relations(
+  async def _replace_relations(
     self, existing: tuple[RelationModel, ...], desired: set[tuple[int, int, str]]
   ) -> None:
     retained: set[tuple[int, int, str]] = set()
+    removed: list[int] = []
     for relation in existing:
       key = (relation.from_, relation.to_, relation.content)
       if key in desired and key not in retained:
         retained.add(key)
       else:
-        self.db.delete(relation)
+        if relation.id is not None:
+          removed.append(relation.id)
         self.relations_deleted += 1
     missing = desired - retained
-    RelationManager.create_many(
+    await self.uow.graph.relations.delete_many(removed)
+    await self.uow.graph.relations.create_many(
       (
         RelationCreateForm(from_=from_, to_=to_, content=content)
         for from_, to_, content in missing
       ),
-      self.db,
     )
     self.relations_created += len(missing)
 
 
-__all__ = ["GitHubGraphRepository", "GitHubReconcileReport", "GitHubSourceBindingError"]
+__all__ = ["GitHubGraphReconciler", "GitHubReconcileReport", "GitHubSourceBindingError"]

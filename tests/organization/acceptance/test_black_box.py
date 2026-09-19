@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
+from app.business.deployment_config import DeploymentConfigService
+from tests.database import seed_block, seed_relation
+
+
 import json
 import os
 import typing
@@ -13,8 +16,6 @@ import sqlalchemy
 import sqlmodel
 
 from app.business.ai import AIManager
-from app.business.deployment_config import DeploymentConfigManager
-from app.business.info_base import BlockManager, RelationManager
 from app.business.graph_navigation_retrieval import GraphNavigationRetrievalManager
 from app.business.info_base.resolver import ResolverManager, register_core_resolvers
 from app.business.job import JobManager
@@ -80,7 +81,7 @@ from app.business.organization.synthesis import (
   SYNTHESIS_CONFIG_SCHEMA,
   SYNTHESIS_RELATION,
 )
-from app.engine import SessionLocal
+from tests.database import TestSession
 from app.schemas import AgentDefinitionModel
 from app.schemas.ai import AIModelModel, AIProviderModel, ChatCapability
 from app.schemas.deployment_config import DeploymentConfigModel, DeploymentConfigView
@@ -181,16 +182,16 @@ def _required_id(value: int | None) -> int:
 
 def _ingest(manifest: CorpusManifest) -> dict[str, int]:
   aliases: dict[str, int] = {}
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     for world in manifest.worlds:
       for artifact in world.artifacts:
-        block = BlockManager.create(
+        block = seed_block(
           BlockForm(resolver="core.text.v1", content=read_artifact(artifact.path)),
           db_session,
         )
         aliases[artifact.alias] = _required_id(block.id)
       for relation in world.relations:
-        RelationManager.create(
+        seed_relation(
           aliases[relation.from_],
           aliases[relation.to],
           relation.content,
@@ -207,12 +208,12 @@ async def _maintain_lexical_projection() -> None:
   assert report.failed == 0, report.diagnostics
 
 
-def _create_provider_and_model() -> tuple[int, int]:
-  AIManager.sync_dialects()
+async def _create_provider_and_model() -> tuple[int, int]:
+  await AIManager.sync_dialects_async()
   config = {"api_key": os.environ["INKCRE_ORGANIZATION_ACCEPTANCE_AI_API_KEY"]}
   if base_url := os.getenv("INKCRE_ORGANIZATION_ACCEPTANCE_AI_BASE_URL"):
     config["base_url"] = base_url
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     provider = AIProviderModel(
       name="Organization acceptance provider",
       dialect="core.openai-compatible.v1",
@@ -239,7 +240,7 @@ def _create_provider_and_model() -> tuple[int, int]:
 def _create_agents(model_id: int) -> dict[str, int]:
   definitions = json.loads(Path(__file__).with_name("agent_definitions.json").read_text())
   result: dict[str, int] = {}
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     for behavior in _BEHAVIORS:
       definition = definitions["agents"][behavior.name]
       agent = AgentDefinitionModel(
@@ -261,22 +262,20 @@ def _create_agents(model_id: int) -> dict[str, int]:
   return result
 
 
-def _configure_agents(agent_ids: dict[str, int]) -> None:
+async def _configure_agents(agent_ids: dict[str, int]) -> None:
   for behavior in _BEHAVIORS:
-    DeploymentConfigManager.replace(
-      behavior.config_key,
-      behavior.config_schema,
-      {"agent": agent_ids[behavior.name]},
+    await DeploymentConfigService.replace(
+      behavior.config_key, behavior.config_schema, {"agent": agent_ids[behavior.name]}
     )
 
 
 async def _run_round(round_number: int) -> list[dict[str, typing.Any]]:
   results: list[dict[str, typing.Any]] = []
   for behavior in _BEHAVIORS:
-    job = JobManager.create(behavior.job_type, {"max_seeds": 100})
+    job = await JobManager.create(behavior.job_type, {"max_seeds": 100})
     job_id = _required_id(job.id)
     claimed = await JobManager.run(job_id)
-    with SessionLocal() as db_session:
+    with TestSession() as db_session:
       closed = db_session.get(JobModel, job_id)
     assert claimed and closed is not None
     assert closed.status is JobStatus.FINISHED, closed.state
@@ -297,13 +296,13 @@ def _apply_upstream_change(
   aliases: dict[str, int],
 ) -> None:
   change = manifest.upstream_change
-  with SessionLocal() as db_session:
-    block = BlockManager.create(
+  with TestSession() as db_session:
+    block = seed_block(
       BlockForm(resolver="core.text.v1", content=read_artifact(change.path)),
       db_session,
     )
     block_id = _required_id(block.id)
-    RelationManager.create(
+    seed_relation(
       aliases[change.predecessor],
       block_id,
       change.relation,
@@ -314,7 +313,7 @@ def _apply_upstream_change(
 
 
 def _snapshot_graph(block_ids_before: set[int]) -> dict[str, typing.Any]:
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     blocks = db_session.exec(sqlmodel.select(BlockModel)).all()
     relations = db_session.exec(sqlmodel.select(RelationModel)).all()
   new_blocks = [block for block in blocks if _required_id(block.id) not in block_ids_before]
@@ -342,7 +341,7 @@ def _snapshot_graph(block_ids_before: set[int]) -> dict[str, typing.Any]:
 
 
 async def _use_readback() -> dict[str, typing.Any]:
-  with SessionLocal() as db_session:
+  with TestSession() as db_session:
     relations = db_session.exec(sqlmodel.select(RelationModel)).all()
     duplicate_edges = [
       relation
@@ -373,9 +372,11 @@ async def _use_readback() -> dict[str, typing.Any]:
         for endpoint in (relation.from_, relation.to_)
       )
     )
-    duplicate_components = GraphNavigationRetrievalManager.get_connected_components(
-      duplicate_seeds,
-      contents=(DUPLICATES_ASSERTION_RELATION,),
+    duplicate_components = (
+      await GraphNavigationRetrievalManager.get_connected_components(
+        duplicate_seeds,
+        contents=(DUPLICATES_ASSERTION_RELATION,),
+      )
     ).model_dump(mode="json")
 
   lineage = None
@@ -395,17 +396,17 @@ async def _use_readback() -> dict[str, typing.Any]:
   }
 
 
-def _restore_config(key: str, backup: DeploymentConfigView | None) -> None:
-  with SessionLocal() as db_session:
+async def _restore_config(key: str, backup: DeploymentConfigView | None) -> None:
+  with TestSession() as db_session:
     record = db_session.get(DeploymentConfigModel, key)
     if record is not None:
       db_session.delete(record)
       db_session.commit()
   if backup is not None:
-    DeploymentConfigManager.replace(key, backup.schema_id, backup.value)
+    await DeploymentConfigService.replace(key, backup.schema_id, backup.value)
 
 
-def _cleanup(  # noqa: PLR0913
+async def _cleanup(  # noqa: PLR0913
   *,
   block_ids_before: set[int],
   job_ids_before: set[int],
@@ -415,8 +416,8 @@ def _cleanup(  # noqa: PLR0913
   provider_id: int | None,
 ) -> None:
   for key, backup in config_backups.items():
-    _restore_config(key, backup)
-  with SessionLocal() as db_session:
+    await _restore_config(key, backup)
+  with TestSession() as db_session:
     new_block_ids = (
       set(db_session.exec(sqlmodel.select(BlockModel.id)).all()) - block_ids_before
     )
@@ -457,12 +458,14 @@ def _cleanup(  # noqa: PLR0913
     "requires a migrated PostgreSQL database and Organization acceptance chat provider"
   ),
 )
-def test_two_information_worlds_are_organized_for_human_review() -> None:
+def test_two_information_worlds_are_organized_for_human_review(
+  async_runner,
+) -> None:
   manifest = load_manifest()
   register_core_resolvers()
   register_core_organization_behaviors()
-  JobManager.sync_job_types()
-  with SessionLocal() as db_session:
+  async_runner.run(JobManager.sync_job_types())
+  with TestSession() as db_session:
     block_ids_before = {
       _required_id(block_id)
       for block_id in db_session.exec(sqlmodel.select(BlockModel.id)).all()
@@ -479,32 +482,36 @@ def test_two_information_worlds_are_organized_for_human_review() -> None:
   job_results: list[dict[str, typing.Any]] = []
   try:
     aliases = _ingest(manifest)
-    asyncio.run(_maintain_lexical_projection())
-    provider_id, model_id = _create_provider_and_model()
+    async_runner.run(_maintain_lexical_projection())
+    provider_id, model_id = async_runner.run(_create_provider_and_model())
     agent_ids = _create_agents(model_id)
     config_backups = {
-      behavior.config_key: DeploymentConfigManager.read(behavior.config_key)
+      behavior.config_key: async_runner.run(
+        DeploymentConfigService.read(behavior.config_key)
+      )
       for behavior in _BEHAVIORS
     }
-    _configure_agents(agent_ids)
-    job_results.extend(asyncio.run(_run_round(1)))
+    async_runner.run(_configure_agents(agent_ids))
+    job_results.extend(async_runner.run(_run_round(1)))
     _apply_upstream_change(manifest, aliases)
-    asyncio.run(_maintain_lexical_projection())
-    job_results.extend(asyncio.run(_run_round(2)))
+    async_runner.run(_maintain_lexical_projection())
+    job_results.extend(async_runner.run(_run_round(2)))
 
     evidence = {
       "aliases": aliases,
       "jobs": job_results,
       "graph": _snapshot_graph(block_ids_before),
-      "later_use": asyncio.run(_use_readback()),
+      "later_use": async_runner.run(_use_readback()),
     }
     print("ORGANIZATION_ACCEPTANCE_EVIDENCE=" + json.dumps(evidence, ensure_ascii=False))
   finally:
-    _cleanup(
-      block_ids_before=block_ids_before,
-      job_ids_before=job_ids_before,
-      config_backups=config_backups,
-      agent_ids=agent_ids.values(),
-      model_id=model_id,
-      provider_id=provider_id,
+    async_runner.run(
+      _cleanup(
+        block_ids_before=block_ids_before,
+        job_ids_before=job_ids_before,
+        config_backups=config_backups,
+        agent_ids=agent_ids.values(),
+        model_id=model_id,
+        provider_id=provider_id,
+      )
     )

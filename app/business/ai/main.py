@@ -6,15 +6,11 @@ import math
 import typing
 
 import pydantic
-import sqlalchemy.dialects.postgresql
-import sqlmodel
 
 from app.database_contract.profile import BUILTIN_AI_DIALECTS_BY_ID
-from app.engine import SessionLocal
 from app.schemas.ai import (
   AICapabilityType,
   AIDialectID,
-  AIDialectModel,
   AIModelCapability,
   AIModelID,
   AIModelModel,
@@ -31,6 +27,8 @@ from app.schemas.ai import (
   validate_message_history,
 )
 from app.schemas.info_base.main import Vector
+
+from app.persistence.ai.uow import ai_uow
 
 from .contracts import (
   AICapabilityUnavailableError,
@@ -75,25 +73,17 @@ class AIManager:
   _DIALECTS: dict[AIDialectID, _DialectRegistration] = {}
 
   @classmethod
-  def get_model(cls, model_id: AIModelID) -> AIModelModel | None:
-    """Read a model record without requiring its provider/dialect to execute here."""
-    with SessionLocal() as db:
-      return db.get(AIModelModel, model_id)
+  async def get_model(cls, model_id: AIModelID) -> AIModelModel | None:
+    """Read a model without requiring its provider/dialect to execute here."""
+    async with ai_uow() as models:
+      return await models.get_model(model_id)
 
   @classmethod
-  def list_models(
+  async def list_models(
     cls, *, limit: int | None = None, cursor: int | None = None
   ) -> tuple[list[AIModelModel], int | None]:
-    statement = sqlmodel.select(AIModelModel).order_by(sqlmodel.col(AIModelModel.id))
-    if cursor is not None:
-      statement = statement.where(sqlmodel.col(AIModelModel.id) > cursor)
-    if limit is not None:
-      statement = statement.limit(limit + 1)
-    with SessionLocal() as db:
-      rows = list(db.exec(statement).all())
-    more = limit is not None and len(rows) > limit
-    rows = rows[:limit]
-    return rows, rows[-1].id if more else None
+    async with ai_uow() as models:
+      return await models.list_models(limit=limit, cursor=cursor)
 
   @classmethod
   def register_dialect(
@@ -129,31 +119,23 @@ class AIManager:
     return decorator
 
   @classmethod
-  def sync_dialects(cls) -> None:
-    """Persist registered dialect catalog contracts during explicit bootstrap."""
-    with SessionLocal() as db:
-      for dialect_id, registration in cls._DIALECTS.items():
-        builtin = BUILTIN_AI_DIALECTS_BY_ID.get(dialect_id)
-        statement = sqlalchemy.dialects.postgresql.insert(AIDialectModel).values(
-          id=dialect_id,
-          description=(
-            builtin.description if builtin is not None else registration.description
-          ),
-          config_schema=(
-            builtin.config_schema
-            if builtin is not None
-            else registration.config_model.model_json_schema()
-          ),
-        )
-        statement = statement.on_conflict_do_update(
-          index_elements=[AIDialectModel.id],
-          set_={
-            "description": statement.excluded.description,
-            "config_schema": statement.excluded.config_schema,
-          },
-        )
-        db.exec(statement)  # type: ignore
-      db.commit()
+  async def sync_dialects_async(cls) -> None:
+    records = []
+    for dialect_id, registration in cls._DIALECTS.items():
+      builtin = BUILTIN_AI_DIALECTS_BY_ID.get(dialect_id)
+      records.append(
+        {
+          "id": dialect_id,
+          "description": builtin.description
+          if builtin is not None
+          else registration.description,
+          "config_schema": builtin.config_schema
+          if builtin is not None
+          else registration.config_model.model_json_schema(),
+        }
+      )
+    async with ai_uow() as models:
+      await models.sync_dialects(records)
 
   @classmethod
   def _registration(cls, dialect_id: AIDialectID) -> _DialectRegistration:
@@ -165,21 +147,26 @@ class AIManager:
       ) from error
 
   @classmethod
-  def _load_target(cls, model_id: AIModelID) -> _ExecutionTarget:
-    with SessionLocal() as db:
-      model = db.get(AIModelModel, model_id)
-      if model is None:
-        raise AIModelNotFoundError(f"AI model {model_id} does not exist")
-      if not model.enabled:
-        raise AIModelDisabledError(f"AI model {model_id} is disabled")
-      provider = db.get(AIProviderModel, model.provider)
-      if provider is None:
-        raise AIProviderNotFoundError(
-          f"AI model {model_id} references missing provider {model.provider}"
-        )
-      if not provider.enabled:
-        raise AIProviderDisabledError(f"AI provider {provider.id} is disabled")
+  async def _load_target_async(cls, model_id: AIModelID) -> _ExecutionTarget:
+    async with ai_uow() as models:
+      model = await models.get_model(model_id)
+      provider = None if model is None else await models.get_provider(model.provider)
+    return cls._execution_target(model_id, model, provider)
 
+  @classmethod
+  def _execution_target(
+    cls, model_id: AIModelID, model: AIModelModel | None, provider: AIProviderModel | None
+  ) -> _ExecutionTarget:
+    if model is None:
+      raise AIModelNotFoundError(f"AI model {model_id} does not exist")
+    if not model.enabled:
+      raise AIModelDisabledError(f"AI model {model_id} is disabled")
+    if provider is None:
+      raise AIProviderNotFoundError(
+        f"AI model {model_id} references missing provider {model.provider}"
+      )
+    if not provider.enabled:
+      raise AIProviderDisabledError(f"AI provider {provider.id} is disabled")
     registration = cls._registration(provider.dialect)
     try:
       config = registration.config_model.model_validate(provider.config)
@@ -221,14 +208,14 @@ class AIManager:
       )
 
   @classmethod
-  def can_execute(
+  async def can_execute(
     cls,
     model: AIModelID,
     requirement: AIExecutionRequirement,
   ) -> bool:
     """Return static peer-local eligibility without probing a remote provider."""
     try:
-      target = cls._load_target(model)
+      target = await cls._load_target_async(model)
       capability = cls._capability(target.model, requirement.capability)
     except (
       AIModelNotFoundError,
@@ -275,7 +262,7 @@ class AIManager:
       raise ValueError("embedding inputs must not be empty")
     if dimensions <= 0:
       raise ValueError("embedding dimensions must be positive")
-    target = cls._load_target(model)
+    target = await cls._load_target_async(model)
     capability = cls._capability(target.model, "embedding")
     cls._require_modalities(
       target.model,
@@ -314,7 +301,7 @@ class AIManager:
   ) -> AssistantMessage:
     """Execute one provider-neutral chat model call without owning history."""
     history = validate_message_history(messages)
-    target = cls._load_target(model)
+    target = await cls._load_target_async(model)
     capability = cls._capability(target.model, "chat")
     # System instructions, Tool schemas/results and Assistant history all travel
     # through the textual chat channel even when the latest User turn is media-only.

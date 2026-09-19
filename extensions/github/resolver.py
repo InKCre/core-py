@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import typing
 
-import sqlmodel
 
 from app.business.info_base.resolver import Resolver, TextProjectionContext
+from app.persistence.info_base.repository import BlockRepository
 from app.business.info_base.resolver.label import format_label
 from app.schemas.info_base.block import BlockForm, BlockModel
 from app.schemas.info_base.main import InArcForm, OutArcForm, StarsGraphForm
 from app.schemas.info_base.relation import RelationForm
-from utils.sql import find_by_json_field
 
 from .schema import GitHubAccount, GitHubList, GitHubRepository
 
@@ -58,28 +57,17 @@ class _GitHubResolverMixin:
   def create_graph(cls, content) -> StarsGraphForm:
     return StarsGraphForm(block=cls.create_block(content))
 
-  @classmethod
-  def find_existing(
-    cls,
-    node_id: str,
-    db_session: sqlmodel.Session,
-  ) -> BlockModel | None:
-    matches = db_session.exec(
-      sqlmodel.select(BlockModel).where(
-        BlockModel.resolver == typing.cast(typing.Any, cls).__rsotype__,
-        find_by_json_field(BlockModel.content, "node_id", node_id),
-      )
-    ).all()
-    if len(matches) > 1:
-      raise GitHubGraphIntegrityError(
-        f"GitHub node {node_id!r} resolves to multiple Blocks"
-      )
-    return matches[0] if matches else None
-
-  def get_existing(self, db_session: sqlmodel.Session) -> BlockModel | None:
+  async def get_existing_async(self, blocks: BlockRepository) -> BlockModel | None:
     resolver = typing.cast(Resolver[typing.Any, str], self)
     content = self.content_model.model_validate_json(resolver._block.content)
-    return self.find_existing(content.node_id, db_session)
+    matches = await blocks.find_json_field(
+      resolver._block.resolver, "node_id", content.node_id
+    )
+    if len(matches) > 1:
+      raise GitHubGraphIntegrityError(
+        f"GitHub node {content.node_id!r} resolves to multiple Blocks"
+      )
+    return matches[0] if matches else None
 
 
 class GitHubAccountResolver(

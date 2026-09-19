@@ -71,12 +71,14 @@ same database-owned config semantics through its runtime owner.
 
 ### 4. Shutdown must close long-lived runtime resources
 
-- scheduler admission is paused first; JobManager stops admitting work, cancels its active tasks and awaits their cleanup
+- scheduler admission is paused first; JobManager stops admitting work, cancels active handlers and awaits their terminal database writes without cancelling a close already in progress
+- remaining tracked callbacks are cancelled and awaited before Sink/Extension resources close
 - running Sink instances close before Extension teardown, so an external endpoint cannot observe disappearing
   Extension-delivered behavior while it is still published
 - running extensions are closed asynchronously so they can release resources
-- APScheduler shuts down after those resources close, so its cancellation does not interrupt already-running cleanup
+- APScheduler shuts down after those resources close; its `wait=True` does not itself await async cleanup, so callbacks are tracked and drained before resource teardown
 - a runtime that reached ready clears its Peer lease after scheduler/extension shutdown；abrupt loss relies on expiry
+- PostgreSQL logging drains after business resources close; the shared async database pool is disposed last
 
 Active Agent Turns are ordinary caller-owned asyncio Tasks，not scheduler jobs or deployment work records。The MVP Thread
 persistence backend is process-local memory，so process shutdown does not promise Thread resume。Cancelling an awaiting
@@ -101,7 +103,22 @@ module import.
 - health routes do not require JWT credentials and never include connection errors or
   database URLs in their payloads
 
-### 7. Each Peer may own a scheduler
+Readiness 复用 `app/database_contract` 的同步 psycopg 检查，在 `asyncio.to_thread` 内创建、使用并关闭
+独立连接，不使用业务 Session。它与 CLI 共用完整判断规则，是明确保留的隔离同步适配边界；
+取消 HTTP 等待不会中断已经运行的 worker，但连接仍由该 worker 的 context manager 关闭。
+业务数据库访问与日志写入均使用原生 async，不把这个例外推广到业务查询。
+
+### 7. PostgreSQL logging has a bounded async lifecycle
+
+同步 logging 调用只捕获 LogModel 和当时的 trace/span，再写入线程安全的有界队列。
+`lifespan` 启动单个异步 writer，每批最多 100 条，在独立事务中写入，绝不加入业务事务。
+队列最多保存 1024 条；满时丢弃 backend 记录并向 stderr 报告，控制台 handler 保持独立。
+数据库写失败时丢弃该批并向 stderr 报告异常类型，不递归调用日志系统。
+
+关闭时先停止接受新 backend 记录，最多等待五秒排空；超时取消写入并丢弃剩余记录，之后才释放
+连接池。日志仍为 best-effort telemetry，不承诺进程崩溃后的交付。导入模块不启动 writer、不连接数据库。
+
+### 8. Each Peer may own a scheduler
 
 APScheduler belongs to each web process. Cron row serialization, occurrence identity and the conditional pending-Job
 claim coordinate multiple Peers through PostgreSQL; a single-replica recommendation is not the concurrency mechanism.

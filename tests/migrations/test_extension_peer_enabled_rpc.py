@@ -18,15 +18,10 @@ import psycopg
 import pytest
 import sqlalchemy
 from sqlalchemy.exc import ProgrammingError
-import sqlmodel
 
-import app.business.cron as cron_module
-import app.business.job as job_module
-import app.business.source.job as source_job_module
-import app.business.source.main as source_module
 from app.business.cron import CronManager
 from app.business.extension.errors import ExtensionStateConflictError
-from app.business.extension.state import SQLExtensionStore
+from app.business.extension.state import ExtensionStateService
 from app.business.job import JobManager
 from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
 from app.schemas.cron import CronForm
@@ -385,17 +380,19 @@ def test_internal_guard_is_not_in_the_postgrest_protocol_schema(rpc_database):
   ]
 
 
-def test_concurrent_first_install_returns_semantic_conflict(rpc_database):
+def test_concurrent_first_install_returns_semantic_conflict(rpc_database, monkeypatch):
   name = "inkcre/concurrent"
   database_url = (
     f"postgresql+psycopg://127.0.0.1:{rpc_database['port']}/{rpc_database['dbname']}"
   )
-  engine = sqlalchemy.create_engine(database_url)
+  import asyncio
+  from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+  from app.persistence.extension import uow
 
-  def make_session() -> sqlmodel.Session:
-    return sqlmodel.Session(engine)
-
-  store = SQLExtensionStore(make_session)
+  engine = create_async_engine(database_url)
+  monkeypatch.setattr(uow, "AsyncSessionFactory", async_sessionmaker(engine))
+  store = ExtensionStateService()
+  runner = asyncio.Runner()
   with psycopg.connect(**rpc_database) as first:
     first.execute(
       "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
@@ -407,51 +404,64 @@ def test_concurrent_first_install_returns_semantic_conflict(rpc_database):
       (name,),
     )
     with pytest.raises(ExtensionStateConflictError, match="already in progress"):
-      store.install(name, "2.0.0", "Second")
+      runner.run(store.install(name, "2.0.0", "Second"))
     first.commit()
 
-  state = store.install(name, "1.0.0", "First")
+  state = runner.run(store.install(name, "1.0.0", "First"))
   assert state.version == "1.0.0"
-  engine.dispose()
+  runner.run(engine.dispose())
+  runner.close()
 
 
 def test_setup_source_and_cron_use_simple_core_owned_operations(
   setup_domain_engine,
   monkeypatch,
 ):
-  def make_session() -> sqlmodel.Session:
-    return sqlmodel.Session(setup_domain_engine)
+  import asyncio
+  from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+  from app.persistence.source import uow as source_uow
+  from app.persistence.job import uow as job_uow
+  from app.persistence.cron import uow as cron_uow
 
-  for module in (source_module, cron_module, job_module, source_job_module):
-    monkeypatch.setattr(module, "SessionLocal", make_session)
+  engine = create_async_engine(setup_domain_engine.url)
+  factory = async_sessionmaker(engine, expire_on_commit=False)
+  for module in (source_uow, job_uow, cron_uow):
+    monkeypatch.setattr(module, "AsyncSessionFactory", factory)
 
-  source_type = f"{BookmarkSource.__module__}.{BookmarkSource.__qualname__}"
-  SourceManager.sync_source_types({source_type: BookmarkSource})
-  JobManager.sync_job_types()
+  async def scenario():
+    source_type = f"{BookmarkSource.__module__}.{BookmarkSource.__qualname__}"
+    await SourceManager.sync_source_types_async({source_type: BookmarkSource})
+    await JobManager.sync_job_types()
 
-  source = SourceManager.create(source_type, nickname="Twitter Bookmarks")
-  source_id = source.id
-  assert source_id is not None
+    source = await SourceManager.create(source_type, nickname="Twitter Bookmarks")
+    source_id = source.id
+    assert source_id is not None
 
-  form = CronForm(
-    schedule="0 6 * * *",
-    job_type=SOURCE_COLLECT_JOB_TYPE,
-    job_parameters={
-      "source": source_id,
-      "config": {
-        "full": False,
-        "result_limit": 40,
+    form = CronForm(
+      schedule="0 6 * * *",
+      job_type=SOURCE_COLLECT_JOB_TYPE,
+      job_parameters={
+        "source": source_id,
+        "config": {
+          "full": False,
+          "result_limit": 40,
+        },
       },
-    },
-  )
-  cron = CronManager.create(form)
-  assert cron.id is not None
-  first_job = CronManager.run_now(cron.id)
-  repeated_job = CronManager.run_now(cron.id)
-  assert repeated_job.id != first_job.id
+    )
+    cron = await CronManager.create(form)
+    assert cron.id is not None
+    first_job = await CronManager.run_now(cron.id)
+    repeated_job = await CronManager.run_now(cron.id)
+    assert repeated_job.id != first_job.id
 
-  rebound = CronManager.update(cron.id, form.model_copy(update={"enabled": False}))
-  assert rebound.enabled is False
+    rebound = await CronManager.update(cron.id, form.model_copy(update={"enabled": False}))
+    assert rebound.enabled is False
+
+  with asyncio.Runner() as runner:
+    try:
+      runner.run(scenario())
+    finally:
+      runner.run(engine.dispose())
 
 
 def test_core_runtime_owns_state_writes_without_exposing_them_to_browser_peers(

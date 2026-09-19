@@ -62,11 +62,11 @@ def _raise_http_error(error: ExtensionHostError) -> typing.NoReturn:
 
 
 @ROUTER.get("/extensions")
-def list_extensions(
+async def list_extensions(
   limit: int | None = fastapi.Query(None, gt=0), cursor: str | None = None
 ) -> dict[str, typing.Any]:
   rows = sorted(
-    (row for row in EXTENSION_HOST.list() if cursor is None or row.name > cursor),
+    (row for row in await EXTENSION_HOST.list() if cursor is None or row.name > cursor),
     key=lambda row: row.name,
   )
   more = limit is not None and len(rows) > limit
@@ -75,55 +75,55 @@ def list_extensions(
 
 
 @ROUTER.get("/extensions/{namespace}/{name}")
-def get_extension(namespace: str, name: str) -> InstalledExtension:
+async def get_extension(namespace: str, name: str) -> InstalledExtension:
   try:
-    return EXTENSION_HOST.get(_coordinate(namespace, name))
+    return await EXTENSION_HOST.get(_coordinate(namespace, name))
   except ExtensionHostError as error:
     _raise_http_error(error)
 
 
 @ROUTER.post("/extensions/{namespace}/{name}")
-def install_extension(
+async def install_extension(
   namespace: str,
   name: str,
   version: str = fastapi.Query(...),
 ) -> InstalledExtension:
   """Install one exact published Extension Release with no enabled peers."""
   try:
-    return EXTENSION_HOST.install(_coordinate(namespace, name), version)
+    return await EXTENSION_HOST.install(_coordinate(namespace, name), version)
   except ExtensionHostError as error:
     _raise_http_error(error)
 
 
 @ROUTER.delete("/extensions/{namespace}/{name}", status_code=204)
-def uninstall_extension(namespace: str, name: str) -> fastapi.Response:
+async def uninstall_extension(namespace: str, name: str) -> fastapi.Response:
   try:
-    EXTENSION_HOST.uninstall(_coordinate(namespace, name))
+    await EXTENSION_HOST.uninstall(_coordinate(namespace, name))
   except ExtensionHostError as error:
     _raise_http_error(error)
   return fastapi.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
 
 @ROUTER.put("/extensions/{namespace}/{name}/config")
-def update_extension_config(
+async def update_extension_config(
   namespace: str,
   name: str,
   body: dict[str, typing.Any] = fastapi.Body(...),
 ) -> InstalledExtension:
   try:
     with request_input():
-      return EXTENSION_HOST.update_config(_coordinate(namespace, name), body)
+      return await EXTENSION_HOST.update_config(_coordinate(namespace, name), body)
   except ExtensionHostError as error:
     _raise_http_error(error)
 
 
 @ROUTER.patch("/extensions/{namespace}/{name}/config")
-def patch_extension_config(
+async def patch_extension_config(
   namespace: str, name: str, body: dict[str, typing.Any] = fastapi.Body(...)
 ) -> InstalledExtension:
   try:
     with request_input():
-      return EXTENSION_HOST.patch_config(_coordinate(namespace, name), body)
+      return await EXTENSION_HOST.patch_config(_coordinate(namespace, name), body)
   except ExtensionHostError as error:
     _raise_http_error(error)
 

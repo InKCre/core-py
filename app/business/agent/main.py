@@ -7,13 +7,13 @@ import inspect
 import typing
 
 import pydantic
-import sqlmodel
 
 from app.business.ai import AIExecutionRequirement, AIManager
-from app.engine import SessionLocal
 from app.schemas import AgentDefinitionModel
 from app.schemas.agent import AgentID, AgentForm, AgentUpdateForm
 from app.schemas.ai import FunctionTool, SystemMessage, UserMessage
+
+from app.persistence.agent.uow import agent_uow
 
 from .contracts import (
   AgentNotFoundError,
@@ -72,71 +72,48 @@ class AgentManager:
   _persistence: ThreadPersistenceBackend = InMemoryThreadPersistenceBackend()
 
   @classmethod
-  def get_definition(cls, agent_id: AgentID) -> AgentDefinitionModel | None:
-    with SessionLocal() as db:
-      return db.get(AgentDefinitionModel, agent_id)
+  async def get_definition(cls, agent_id: AgentID) -> AgentDefinitionModel | None:
+    async with agent_uow() as agents:
+      return await agents.get(agent_id)
 
   @classmethod
-  def list_definitions(
+  async def list_definitions(
     cls, *, limit: int | None = None, cursor: int | None = None
   ) -> tuple[list[AgentDefinitionModel], int | None]:
-    statement = sqlmodel.select(AgentDefinitionModel).order_by(
-      sqlmodel.col(AgentDefinitionModel.id)
-    )
-    if cursor is not None:
-      statement = statement.where(sqlmodel.col(AgentDefinitionModel.id) > cursor)
-    if limit is not None:
-      statement = statement.limit(limit + 1)
-    with SessionLocal() as db:
-      rows = list(db.exec(statement).all())
-    more = limit is not None and len(rows) > limit
-    rows = rows[:limit]
-    return rows, rows[-1].id if more else None
+    async with agent_uow() as agents:
+      return await agents.list(limit=limit, cursor=cursor)
 
   @classmethod
-  def create_definition(cls, form: AgentForm) -> AgentDefinitionModel:
-    with SessionLocal() as db:
-      record = AgentDefinitionModel(**form.model_dump())
-      db.add(record)
-      db.commit()
-      db.refresh(record)
-      return record
+  async def create_definition(cls, form: AgentForm) -> AgentDefinitionModel:
+    async with agent_uow() as agents:
+      record = await agents.create(form)
+    return record
 
   @classmethod
-  def update_definition(
+  async def update_definition(
     cls, agent_id: AgentID, form: AgentUpdateForm
   ) -> AgentDefinitionModel:
-    with SessionLocal() as db:
-      record = db.exec(
-        sqlmodel.select(AgentDefinitionModel)
-        .where(AgentDefinitionModel.id == agent_id)
-        .with_for_update()
-      ).one_or_none()
+    async with agent_uow() as agents:
+      record = await agents.get(agent_id, for_update=True)
       if record is None:
         raise AgentNotFoundError(f"Agent {agent_id} does not exist")
       changes = form.model_dump(exclude_unset=True)
       candidate = AgentForm.model_validate(
-        {
-          **{field: getattr(record, field) for field in AgentForm.model_fields},
-          **changes,
-        }
+        {**{field: getattr(record, field) for field in AgentForm.model_fields}, **changes}
       )
       for field in changes:
         setattr(record, field, getattr(candidate, field))
-      db.add(record)
-      db.commit()
-      db.refresh(record)
-      return record
+      await agents.save(record)
+    return record
 
   @classmethod
-  def delete_definition(cls, agent_id: AgentID) -> bool:
-    with SessionLocal() as db:
-      record = db.get(AgentDefinitionModel, agent_id)
+  async def delete_definition(cls, agent_id: AgentID) -> bool:
+    async with agent_uow() as agents:
+      record = await agents.get(agent_id)
       if record is None:
         return False
-      db.delete(record)
-      db.commit()
-      return True
+      await agents.delete(record)
+    return True
 
   @classmethod
   def list_tools(
@@ -157,10 +134,9 @@ class AgentManager:
     return registration.bind(tool_id).definition
 
   @classmethod
-  def can_execute(cls, agent_id: AgentID, input_modality: str) -> bool:
+  async def can_execute(cls, agent_id: AgentID, input_modality: str) -> bool:
     """Return static local eligibility for one Agent and canonical input modality."""
-    with SessionLocal() as db:
-      definition = db.get(AgentDefinitionModel, agent_id)
+    definition = await cls.get_definition(agent_id)
     if definition is None:
       return False
     try:
@@ -168,7 +144,7 @@ class AgentManager:
     except MissingAgentToolError:
       return False
     requires_tools = bool(definition.tools) or definition.tool_choice is not None
-    return AIManager.can_execute(
+    return await AIManager.can_execute(
       definition.model,
       AIExecutionRequirement(
         capability="chat",
@@ -231,8 +207,7 @@ class AgentManager:
   @classmethod
   async def run(cls, agent_id: AgentID, initial_message: UserMessage) -> Thread:
     """Create one active Thread from a persisted Agent definition snapshot."""
-    with SessionLocal() as db:
-      definition = db.get(AgentDefinitionModel, agent_id)
+    definition = await cls.get_definition(agent_id)
     if definition is None:
       raise AgentNotFoundError(f"Agent {agent_id} does not exist")
 

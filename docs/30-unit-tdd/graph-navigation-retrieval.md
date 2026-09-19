@@ -22,6 +22,9 @@ It is distinct from producer `GraphForm`; a read never carries placeholders or p
 Direction and Relation-content constraints prune traversal. They never rewrite persisted direction or
 become presentation hints.
 
+查询入口均为异步业务方法，每次调用拥有独立的 GraphUnitOfWork。HTTP、MCP 与 Agent Tool
+等待业务方法，不创建 session；内部遍历复用该次操作的 repositories，不接受可选 raw session。
+
 ## Query Mechanics
 
 Relation pages use `(from_, id DESC)` and `(to_, id DESC)` indexes. A `both` neighborhood intentionally

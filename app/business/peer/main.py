@@ -9,13 +9,8 @@ import random
 import typing
 
 import pydantic
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
-import sqlmodel
 
 from app.configuration import ConfigContract
-from app.database_contract import PROTOCOL_SCHEMA
-from app.engine import SessionLocal
 from app.schemas.ai import JSONValue
 from app.schemas.peer import (
   PEER_HTTP_PROTOCOL,
@@ -38,6 +33,7 @@ from .contracts import (
   PeerRequestNotExecuted,
 )
 from .http import PeerHTTPOutbound
+from app.persistence.peer.uow import peer_uow
 
 
 logger = logging.getLogger(__name__)
@@ -58,44 +54,22 @@ class PeerManager:
   _config_contract = ConfigContract(CorePeerConfig)
 
   @classmethod
-  def register_self(cls) -> PeerModel:
-    """Upsert identity/schema while preserving owner-authored config and runtime state."""
-    config_schema = typing.cast(
-      dict[str, JSONValue],
-      cls._config_contract.json_schema(),
-    )
-    with SessionLocal() as db:
-      statement = sqlalchemy.dialects.postgresql.insert(PeerModel).values(
-        id=settings.peer_id,
-        name=settings.peer_name,
-        labels=[],
-        config={},
-        config_schema=config_schema,
-        capabilities=[],
+  async def register_self(cls) -> PeerModel:
+    """Upsert runtime-owned identity/schema without changing owner configuration."""
+    async with peer_uow() as peers:
+      peer = await peers.register(
+        settings.peer_id, settings.peer_name, cls._config_contract.json_schema()
       )
-      statement = statement.on_conflict_do_update(
-        index_elements=["id"],
-        set_={
-          "name": statement.excluded.name,
-          "config_schema": statement.excluded.config_schema,
-        },
-      )
-      db.exec(statement)  # type: ignore
-      db.commit()
-      peer = db.get(PeerModel, settings.peer_id)
-      if peer is None:  # pragma: no cover - database upsert invariant
-        raise RuntimeError("Peer self-registration did not persist")
-      logger.info("Peer registered", extra={"peer": str(peer.id), "name": peer.name})
-      return peer
+    logger.info("Peer registered", extra={"peer": str(peer.id), "name": peer.name})
+    return peer
 
   @classmethod
   def get_current_peer_ref(cls) -> PeerRef:
     return settings.peer_id
 
   @classmethod
-  def get_current_config(cls) -> CorePeerConfig:
-    """Load the current Peer owner's complete validated configuration."""
-    peer = cls.get(cls.get_current_peer_ref())
+  async def get_current_config_async(cls) -> CorePeerConfig:
+    peer = await cls.get_async(cls.get_current_peer_ref())
     if peer is None:
       raise RuntimeError("Current Peer must be registered before reading config")
     try:
@@ -104,54 +78,27 @@ class PeerManager:
       raise ValueError("Current Peer config is invalid") from error
 
   @classmethod
-  def get(cls, peer: PeerRef) -> PeerModel | None:
-    with SessionLocal() as db:
-      return db.get(PeerModel, peer)
+  async def get_async(cls, peer: PeerRef) -> PeerModel | None:
+    async with peer_uow() as peers:
+      return await peers.get(peer)
 
   @classmethod
-  def get_all(cls) -> tuple[PeerModel, ...]:
-    with SessionLocal() as db:
-      return tuple(db.exec(sqlmodel.select(PeerModel)).all())
+  async def get_all(cls) -> tuple[PeerModel, ...]:
+    async with peer_uow() as peers:
+      return await peers.get_all()
 
   @classmethod
-  def get_with_lease(cls, peer: PeerRef) -> dict[str, typing.Any] | None:
-    with SessionLocal() as db:
-      result = db.exec(
-        sqlmodel.select(
-          PeerModel,
-          sqlmodel.func.coalesce(
-            sqlmodel.col(PeerModel.lease_expires_at) > sqlmodel.func.statement_timestamp(),
-            False,
-          ),
-        ).where(PeerModel.id == peer)
-      ).one_or_none()
-      if result is None:
-        return None
-      row, active = result
-      return {**row.model_dump(mode="json"), "lease_active": active}
+  async def get_with_lease(cls, peer: PeerRef) -> dict[str, typing.Any] | None:
+    async with peer_uow() as peers:
+      rows, _ = await peers.with_leases(peer_id=peer)
+    return rows[0] if rows else None
 
   @classmethod
-  def list_with_leases(
+  async def list_with_leases(
     cls, *, limit: int | None = None, cursor: PeerRef | None = None
   ) -> tuple[list[dict[str, typing.Any]], PeerRef | None]:
-    statement = sqlmodel.select(
-      PeerModel,
-      sqlmodel.func.coalesce(
-        sqlmodel.col(PeerModel.lease_expires_at) > sqlmodel.func.statement_timestamp(),
-        False,
-      ),
-    ).order_by(sqlmodel.col(PeerModel.id))
-    if cursor is not None:
-      statement = statement.where(sqlmodel.col(PeerModel.id) > cursor)
-    if limit is not None:
-      statement = statement.limit(limit + 1)
-    with SessionLocal() as db:
-      rows = list(db.exec(statement).all())
-    more = limit is not None and len(rows) > limit
-    rows = rows[:limit]
-    return [
-      {**row.model_dump(mode="json"), "lease_active": active} for row, active in rows
-    ], rows[-1][0].id if more else None
+    async with peer_uow() as peers:
+      return await peers.with_leases(limit=limit, cursor=cursor)
 
   @classmethod
   def register_inbound(cls, inbound: PeerInbound) -> bool:
@@ -190,13 +137,10 @@ class PeerManager:
     cls.register_outbound(PEER_HTTP_PROTOCOL, PeerHTTPOutbound)
 
   @classmethod
-  def publish_self(cls) -> PeerModel:
+  async def publish_self(cls) -> PeerModel:
     """Replace this Peer-owned capability snapshot from current config/registry."""
-    with SessionLocal() as db:
-      statement = (
-        sqlmodel.select(PeerModel).where(PeerModel.id == settings.peer_id).with_for_update()
-      )
-      peer = db.exec(statement).one_or_none()
+    async with peer_uow() as peers:
+      peer = await peers.get(settings.peer_id, for_update=True)
       if peer is None:
         raise RuntimeError("Current Peer must be registered before publication")
       try:
@@ -209,52 +153,34 @@ class PeerManager:
         if (advertisement := inbound.advertise(config)) is not None
       )
       normalized = [
-        typing.cast(
-          dict[str, JSONValue],
-          advertisement.model_dump(mode="json"),
-        )
+        typing.cast(dict[str, JSONValue], advertisement.model_dump(mode="json"))
         for advertisement in advertisements
       ]
       if peer.capabilities != normalized:
         peer.capabilities = normalized
-        db.add(peer)
-        db.commit()
-        db.refresh(peer)
-      return peer
-
-  @classmethod
-  def renew_self_lease(cls, ttl_seconds: int) -> datetime.datetime:
-    """Renew only liveness through the database-time SECURITY INVOKER helper."""
-    if ttl_seconds <= 0:
-      raise ValueError("Peer lease TTL must be positive")
-    with SessionLocal() as db:
-      expiry = db.exec(
-        sqlmodel.select(
-          getattr(sqlalchemy.func, PROTOCOL_SCHEMA).renew_peer_lease(
-            settings.peer_id,
-            ttl_seconds,
-          )
-        )
-      ).one()
-      db.commit()
-      return typing.cast(datetime.datetime, expiry)
-
-  @classmethod
-  def refresh_self(cls, ttl_seconds: int) -> PeerModel:
-    """Refresh advertisement from persisted config, then renew its route lease."""
-    peer = cls.publish_self()
-    peer.lease_expires_at = cls.renew_self_lease(ttl_seconds)
+        await peers.save(peer)
     return peer
 
   @classmethod
-  def clear_self_lease(cls) -> None:
-    with SessionLocal() as db:
-      peer = db.get(PeerModel, settings.peer_id)
-      if peer is None or peer.lease_expires_at is None:
-        return
-      peer.lease_expires_at = None
-      db.add(peer)
-      db.commit()
+  async def renew_self_lease(cls, ttl_seconds: int) -> datetime.datetime:
+    """Renew liveness through the database-time helper."""
+    if ttl_seconds <= 0:
+      raise ValueError("Peer lease TTL must be positive")
+    async with peer_uow() as peers:
+      expiry = await peers.renew_lease(settings.peer_id, ttl_seconds)
+    return expiry
+
+  @classmethod
+  async def refresh_self(cls, ttl_seconds: int) -> PeerModel:
+    """Refresh advertisement, then renew its route lease."""
+    peer = await cls.publish_self()
+    peer.lease_expires_at = await cls.renew_self_lease(ttl_seconds)
+    return peer
+
+  @classmethod
+  async def clear_self_lease(cls) -> None:
+    async with peer_uow() as peers:
+      await peers.clear_lease(settings.peer_id)
 
   @classmethod
   async def delegate(
@@ -265,7 +191,7 @@ class PeerManager:
     route_to_peer: PeerRef | None = None,
   ) -> JSONValue:
     """Execute through one eligible Peer, failing over only after non-execution."""
-    candidates = cls._candidates(capability, route_to_peer)
+    candidates = await cls._candidates(capability, route_to_peer)
     attempted = 0
     for candidate in candidates:
       factory = cls._OUTBOUNDS.get(candidate.advertisement.inbound.protocol)
@@ -292,19 +218,13 @@ class PeerManager:
     )
 
   @classmethod
-  def _candidates(
+  async def _candidates(
     cls,
     capability: CapabilityID,
     route_to_peer: PeerRef | None,
   ) -> tuple[_Candidate, ...]:
-    with SessionLocal() as db:
-      statement = sqlmodel.select(PeerModel).where(
-        PeerModel.id != settings.peer_id,
-        PeerModel.lease_expires_at > sqlalchemy.func.statement_timestamp(),
-      )
-      if route_to_peer is not None:
-        statement = statement.where(PeerModel.id == route_to_peer)
-      peers = tuple(db.exec(statement).all())
+    async with peer_uow() as peers_repository:
+      peers = await peers_repository.candidates(settings.peer_id, route_to_peer)
 
     candidates: list[_Candidate] = []
     for peer in peers:

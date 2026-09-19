@@ -6,7 +6,7 @@
 
 ## 何时阅读
 
-- 修改 `InfoBaseManager`、`BlockManager`、`RelationManager`；
+- 修改 `InfoBaseManager`、`BlockService`、`RelationService`；
 - 修改 block hydration、resolver/storage contract；
 - 修改 graph persistence、identity/dedup 或 embedding invalidation；
 - 新增 common semantic content resolver。
@@ -34,11 +34,11 @@
 
 ## Persistence And Graph Facts
 
-- Source/extension 可以提出 `StarsGraphForm` 或使用 caller-owned session 协调 graph command；info-base manager
-  拥有 normalization 与实际 block/relation persistence。
+- Source/extension 可以提出 `StarsGraphForm` 或使用必需的 GraphUnitOfWork 组合 graph command；
+  info-base commands 拥有图写入用例，persistence repositories 执行 SQL。
 - Draft-capable Resolver 仍只产生 rooted `StarsGraphForm`；Agent-facing `draft_graph` 是 Resolver create +
   `InfoBaseManager.normalize_graph` 的 thin wrapper，`submit_graph` 才进入 persistence。
-- `InfoBaseManager` 先落 block 再落 relations；relation identity 当前是 `from_ + to_ + content`。
+- `persist_graph` 批量先落 Blocks 再落 Relations；relation identity 当前是 `from_ + to_ + content`。
 - Caller 传入 session 时，manager/helper 不得擅自 commit。
 - Helper transaction boundary 不自动成为产品级 complete-graph guarantee；owning command 声明 partial effects。
 - 默认 `Resolver.get_existing()` 仍按 `resolver + content` exact match；source-specific identity ladder 可在其
@@ -59,7 +59,7 @@
 - Duplicate registration：同 class 重复注册 idempotent，不同 class 抢同 ID 抛错。
 - `get_text()` 的 unsupported、supported-null 与 authored-empty 必须保持可区分；不要添加 use-specific
   `get_*_for_embedding()` projection。
-- `get_label()` 必须 concise、Block-local、resolver-qualified；RelationManager 使用
+- `get_label()` 必须 concise、Block-local、resolver-qualified；RelationService 使用
   `subject/from label + exact content/property + value/to label`，不增加 RelationResolver。
 - Resolver 可显式使用 `materialize_missing` 触发 absent derivation；读时写 graph 不是天然错误，但必须由 exact
   capability contract 声明。
@@ -86,3 +86,10 @@
   `knowledge-capability-contract.md`。
 - 单一 protocol 的 relation grammar、identity ladder 与 transaction 留在 owning extension Unit TDD。
 - 不用新增 generic metadata JSON、resource binding 或 media storage family 来绕开现有 graph/resolver boundary。
+
+## 异步数据库边界
+
+- 新 Graph 应用入口位于 `commands.py`，事务内组合使用必填 `GraphUnitOfWork`，不能传 raw session。
+- `app/persistence/info_base/repository.py` 只接收 session 并执行查询／写入／flush，不允许创建 session 或 commit/rollback。
+- `app/persistence/info_base/uow.py` 拥有工厂组合，使用 SQLAlchemy 原生 framing，不跨 task 共享。
+- 独立入口使用 BlockService／RelationService；组合写入调用 persist_graph／persist_stars。不保留同步或可选 session 接口。

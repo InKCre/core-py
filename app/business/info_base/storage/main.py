@@ -5,18 +5,14 @@ __all__ = [
 
 import abc
 import importlib
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
 import sqlmodel
 import typing
-from typing import Optional as Opt
-from app.engine import SessionLocal
+from app.persistence.info_base.storage import StorageRepository
 from app.database_contract.profile import BUILTIN_STORAGES, BUILTIN_STORAGE_TYPES_BY_ID
 from app.schemas.info_base.storage import (
   StorageID,
   StorageTypeID,
   StorageModel,
-  StorageTypesModel,
 )
 
 
@@ -38,128 +34,48 @@ class StorageManager:
     cls._STORAGE_CLASSES[storage_cls.__stgtype__] = storage_cls
 
   @classmethod
-  def sync_storage_types(cls) -> None:
-    """Persist registered storage types during explicit runtime bootstrap."""
-    with SessionLocal() as db:
-      for storage_cls in cls._STORAGE_CLASSES.values():
-        builtin = BUILTIN_STORAGE_TYPES_BY_ID.get(storage_cls.__stgtype__)
-        stmt = sqlalchemy.dialects.postgresql.insert(StorageTypesModel).values(
-          id=storage_cls.__stgtype__,
-          description=(
-            builtin.description
-            if builtin is not None
-            else storage_cls.__doc__ or "No description."
-          ),
-          config_schema=(
-            builtin.config_schema if builtin is not None else storage_cls.__configschema__
-          ),
-          writable=issubclass(storage_cls, WritableStorage),
-        )
-        stmt = stmt.on_conflict_do_update(
-          index_elements=[StorageTypesModel.id],
-          set_=dict(
-            description=stmt.excluded.description,
-            config_schema=stmt.excluded.config_schema,
-            writable=stmt.excluded.writable,
-          ),
-        )
-        db.exec(stmt)  # type: ignore
-      db.commit()
+  async def get_storage_async(cls, storage_id: StorageID) -> "Storage":
+    from app.persistence.info_base.uow import graph_uow
+
+    async with graph_uow() as uow:
+      record = await uow.storage.get(storage_id)
+    return cls.from_record(record)
 
   @classmethod
-  def get_storage(
-    cls,
-    storage_id: StorageID,
-    db_session: Opt[sqlmodel.Session] = None,
-  ) -> "Storage":
-    """Create a storage instance."""
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        return cls.get_storage(storage_id, owned_session)
-    storage_record = db_session.exec(
-      sqlmodel.select(StorageModel).where(StorageModel.id == storage_id)
-    ).one()
-    storage_class = cls._STORAGE_CLASSES.get(storage_record.type)
+  def from_record(cls, record: StorageModel) -> "Storage":
+    storage_class = cls._STORAGE_CLASSES.get(record.type)
     if storage_class is None:
-      # Dynamically import the storage class
-      module_path, class_name = storage_record.type.rsplit(".", 1)
-      module = importlib.import_module(module_path)
-      storage_class = getattr(module, class_name)
-
-    return storage_class(storage_record)
+      module_path, class_name = record.type.rsplit(".", 1)
+      storage_class = getattr(importlib.import_module(module_path), class_name)
+    return storage_class(record)
 
   @classmethod
-  def create(
-    cls,
-    type_: str,
-    nickname: Opt[str] = None,
-    config: Opt[dict] = None,
-  ) -> StorageModel:
-    """Create a new storage instance."""
-    with SessionLocal() as db:
-      storage = StorageModel(type=type_, nickname=nickname, config=config or {})
-      db.add(storage)
-      db.commit()
-      db.refresh(storage)
+  async def setup_builtin_storages_async(cls) -> None:
+    from app.persistence.info_base.uow import graph_uow
 
-    return storage
-
-  @classmethod
-  def create_builtin(
-    cls,
-    builtin_id: StorageID,
-    type_: str,
-    nickname: Opt[str] = None,
-    config: Opt[dict] = None,
-  ) -> StorageModel:
-    """Create a built-in storage instance with explicit negative ID.
-
-    :param builtin_id: Negative integer ID for the built-in storage
-    :param type_: The storage type
-    :param nickname: Optional descriptive nickname
-    :param config: Optional configuration
-    :return: The created storage model
-    """
-    if builtin_id >= 0:
-      raise ValueError("Built-in storage IDs must be negative integers")
-
-    with SessionLocal() as db:
-      storage = StorageModel(
-        id=builtin_id, type=type_, nickname=nickname, config=config or {}
+    records = []
+    for storage_cls in cls._STORAGE_CLASSES.values():
+      builtin = BUILTIN_STORAGE_TYPES_BY_ID.get(storage_cls.__stgtype__)
+      records.append(
+        {
+          "id": storage_cls.__stgtype__,
+          "description": builtin.description
+          if builtin
+          else storage_cls.__doc__ or "No description.",
+          "config_schema": builtin.config_schema
+          if builtin
+          else storage_cls.__configschema__,
+          "writable": issubclass(storage_cls, WritableStorage),
+        }
       )
-      db.add(storage)
-      db.commit()
-      db.refresh(storage)
-
-    return storage
-
-  @classmethod
-  def setup_builtin_storages(cls) -> None:
-    """Setup all built-in storage instances at application startup.
-
-    Uses PostgreSQL upsert to ensure built-in storages exist with correct configuration.
-    """
-    cls.sync_storage_types()
-
-    with SessionLocal() as db:
-      for storage in BUILTIN_STORAGES:
-        # Use PostgreSQL INSERT ... ON CONFLICT DO UPDATE
-        stmt = sqlalchemy.dialects.postgresql.insert(StorageModel).values(
-          id=storage.id,
-          type=storage.type,
-          nickname=storage.nickname,
-          config=storage.config,
-        )
-        stmt = stmt.on_conflict_do_update(
-          index_elements=["id"],
-          set_=dict(
-            type=stmt.excluded.type,
-            nickname=stmt.excluded.nickname,
-            config=stmt.excluded.config,
-          ),
-        )
-        db.exec(stmt)  # type: ignore
-      db.commit()
+    async with graph_uow() as uow:
+      await uow.storage.sync_types(records)
+      await uow.storage.sync_builtins(
+        [
+          {"id": row.id, "type": row.type, "nickname": row.nickname, "config": row.config}
+          for row in BUILTIN_STORAGES
+        ]
+      )
 
 
 class Storage(abc.ABC, typing.Generic[ConfigTV, ContentTV]):
@@ -233,52 +149,35 @@ class WritableStorage(Storage[ConfigTV, ContentTV], abc.ABC):
   """Storage capability for raw content owned by the current deployment."""
 
   async def get_raw_content(self, block_content: str) -> ContentTV:
-    with SessionLocal() as db_session:
-      return self.read_raw_content(block_content, db_session)
+    from app.persistence.info_base.uow import graph_uow
 
-  def create_raw_content(
-    self,
-    content: ContentTV,
-    db_session: sqlmodel.Session,
-  ) -> str:
-    """Write content and return the opaque pointer persisted in ``block.content``."""
-    pointer = self.write_raw_content(content, db_session)
-    return self.serialize_pointer(pointer)
+    async with graph_uow() as uow:
+      return await self.read_content(block_content, uow.storage)
+
+  async def create_content(self, content: ContentTV, storage: StorageRepository) -> str:
+    return self.serialize_pointer(await self.write_content(content, storage))
+
+  @abc.abstractmethod
+  async def read_content(
+    self, block_content: str, storage: StorageRepository
+  ) -> ContentTV: ...
+
+  @abc.abstractmethod
+  async def write_content(
+    self, content: ContentTV, storage: StorageRepository
+  ) -> typing.Any: ...
+
+  @abc.abstractmethod
+  async def update_content(
+    self, block_content: str, content: ContentTV, storage: StorageRepository
+  ) -> bool: ...
+
+  @abc.abstractmethod
+  async def delete_content(
+    self, block_content: str, storage: StorageRepository
+  ) -> bool: ...
 
   @abc.abstractmethod
   def serialize_pointer(self, pointer: typing.Any) -> str:
     """Encode a storage-owned key as one opaque block pointer string."""
     ...
-
-  @abc.abstractmethod
-  def read_raw_content(
-    self,
-    block_content: str,
-    db_session: sqlmodel.Session,
-  ) -> ContentTV:
-    """Read through the caller's transaction when command coordination needs it."""
-    ...
-
-  @abc.abstractmethod
-  def write_raw_content(
-    self,
-    content: ContentTV,
-    db_session: sqlmodel.Session,
-  ) -> typing.Any: ...
-
-  @abc.abstractmethod
-  def update_raw_content(
-    self,
-    block_content: str,
-    content: ContentTV,
-    db_session: sqlmodel.Session,
-  ) -> bool:
-    """Replace bytes addressed by an existing pointer without changing it."""
-    ...
-
-  @abc.abstractmethod
-  def delete_raw_content(
-    self,
-    block_content: str,
-    db_session: sqlmodel.Session,
-  ) -> bool: ...

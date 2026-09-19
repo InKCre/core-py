@@ -5,7 +5,7 @@ import typing
 
 import pydantic
 
-from app.business.deployment_config import DeploymentConfigManager
+from app.business.deployment_config import DeploymentConfigManager, DeploymentConfigService
 from app.business.peer import PeerManager
 from app.settings import settings
 
@@ -51,12 +51,12 @@ DeploymentConfigManager.register_schema(
 )
 
 
-def resolve_extension_registry_origin() -> str:
+async def resolve_extension_registry_origin() -> str:
   """Resolve one immutable origin snapshot for a Host operation."""
-  peer_override = PeerManager.get_current_config().extension_registry_url
+  peer_override = (await PeerManager.get_current_config_async()).extension_registry_url
   if peer_override is not None:
     return peer_override
-  deployment = DeploymentConfigManager.get(EXTENSION_REGISTRY_CONFIG_KEY)
+  deployment = await DeploymentConfigService.get(EXTENSION_REGISTRY_CONFIG_KEY)
   if deployment is not None:
     configured = typing.cast(ExtensionRegistryDeploymentConfig, deployment)
     if configured.extension_registry_url is not None:
