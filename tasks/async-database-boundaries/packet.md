@@ -182,3 +182,15 @@ helper 对未生成 timestamps 的错误校验，失败目标复验 2 passed。�
 纵向验收通过；其旧 Tool 输入字段及 profile-scoped 清理问题已修正。OpenAPI 无差异。
 Mail graph/checkpoint 已验证，本机无 Dovecot distribution 且 Docker daemon 不可用，不冒充 IMAP
 端到端验证。最终 head 仍需远端 artifact/portable-runtime/preview 结果。进入 11，评估可复用 benchmark。
+
+### 步骤 11 性能工具与测量（2026-09-19）
+
+新增按需 scripts/benchmark_database.py，真实 submit_graph + 批量 Block 读取，不加入 CI 性能阈值。
+每次使用 UUID 标记，成功／失败都清理本轮专属数据；测后查询剩余 benchmark rows 为 0。
+环境：macOS ARM64 Python 3.12.10，经 SVC SSH tunnel 访问 wsl.win-ws.localhost 的任务专属
+Docker PostgreSQL 17.10 x86_64。不是 preview，也没有控制远端 CPU/网络竞争。
+
+当前应用 revision cdfd113，100 Blocks + 99 Relations，30 次：并发 1 为 9.127 graph/s，
+提交 p50/p95 67.001/253.365 ms，读取 10.071/54.081 ms；并发 8 为 51.354 graph/s，
+提交 123.904/168.076 ms，读取 16.526/48.797 ms。两次零错误。原始 JSON 在本 packet。
+这些是小样本当前版本结果，不能解释为相对旧同步版本的提升；池配置未调整。
