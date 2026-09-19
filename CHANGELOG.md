@@ -4,6 +4,13 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.4.1 - 2026-09-19
+
+### Changed
+
+- 生产发布摘要明确区分版本未变的空操作、完整发布与失败／取消，并记录源码版本、提交、候选镜像和 stable 更新结果；数据库边界检查复用 Ruff 的源码范围，避免旧构建产物导致误报。
+
+
 ## 0.4.0 - 2026-09-19
 
 ### Changed
