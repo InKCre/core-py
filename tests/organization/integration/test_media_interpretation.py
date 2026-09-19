@@ -76,7 +76,7 @@ def _reset_runtime_rows() -> None:
     db.connection().execute(
       sqlalchemy.text(
         "TRUNCATE TABLE inkcre.block_lexical_records, inkcre.jobs, inkcre.crons, "
-        "inkcre.relations, inkcre.blocks, inkcre.storage_blobs RESTART IDENTITY CASCADE"
+        "inkcre.relations, inkcre.blocks, inkcre.storage_blobs CASCADE"
       )
     )
     db.commit()
@@ -308,12 +308,14 @@ def test_media_textualization_interpretation_and_lexical_recall(
       video.id: "Flight software integration rehearsal",
     }
     for parent, clue in clues.items():
-      result = LexicalRetrievalManager.retrieve_local(clue)
+      result = async_runner.run(LexicalRetrievalManager.retrieve_local(clue))
       assert result.matches
       assert result.matches[0].block.id in {
         child.id for role in expected_roles[parent] for child in _related(parent, role)
       }
-    pdf_body = LexicalRetrievalManager.retrieve_local("authoritative write-ahead log")
+    pdf_body = async_runner.run(
+      LexicalRetrievalManager.retrieve_local("authoritative write-ahead log")
+    )
     assert pdf_body.matches[0].block.id == pdf.id
 
     faithful_call_count = len(faithful_calls)
@@ -370,7 +372,9 @@ def test_media_textualization_interpretation_and_lexical_recall(
 
     interpretation_maintenance = async_runner.run(LexicalRetrievalManager.maintain())
     assert interpretation_maintenance.failed == 0
-    interpretation = LexicalRetrievalManager.retrieve_local("orbital integration strategy")
+    interpretation = async_runner.run(
+      LexicalRetrievalManager.retrieve_local("orbital integration strategy")
+    )
     assert len(interpretation.matches) == 2
     assert {match.block.id for match in interpretation.matches} == {
       _related(image.id, "interpretation")[0].id,

@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections import deque
 from graphlib import CycleError, TopologicalSorter
 import typing
 
-import sqlmodel
 
 from app.business.deployment_config import DeploymentConfigManager
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import Resolver
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import GraphUnitOfWork, graph_uow
 from libs.obsrv.main import get_logger
 from app.schemas.graph_navigation_retrieval import GraphModel
 from app.schemas.info_base.block import BlockID
@@ -91,63 +87,51 @@ class SupersessionBehaviorResolver(
   async def record_candidate(
     cls,
     block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, block_id, db_session=db_session)
+    return await record_candidate(cls, block_id)
 
   @classmethod
   async def record_supersession(
     cls,
     successor_block_id: BlockID,
     predecessor_block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> RelationWriteResult:
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        result = await cls.record_supersession(
-          successor_block_id,
-          predecessor_block_id,
-          db_session=owned_session,
+    async with graph_uow() as uow:
+      await require_distinct_blocks(successor_block_id, predecessor_block_id, uow)
+      if await cls._has_directed_path(
+        predecessor_block_id,
+        successor_block_id,
+        uow=uow,
+      ):
+        raise ValueError(
+          f"Cannot supersede: an existing supersedes path runs from predecessor "
+          f"{predecessor_block_id} to successor {successor_block_id}"
         )
-        owned_session.commit()
-        return result
-    require_distinct_blocks(successor_block_id, predecessor_block_id, db_session)
-    if cls._has_directed_path(
-      predecessor_block_id,
-      successor_block_id,
-      db_session=db_session,
-    ):
-      raise ValueError(
-        f"Cannot supersede: an existing supersedes path runs from predecessor "
-        f"{predecessor_block_id} to successor {successor_block_id}"
+      relation, created = await fetchsert_relation(
+        successor_block_id,
+        predecessor_block_id,
+        SUPERSEDES_RELATION,
+        uow,
       )
-    relation, created = fetchsert_relation(
-      successor_block_id,
-      predecessor_block_id,
-      SUPERSEDES_RELATION,
-      db_session,
-    )
-    return relation_result(relation, created)
+      return relation_result(relation, created)
 
   @classmethod
-  def _has_directed_path(
+  async def _has_directed_path(
     cls,
     start: BlockID,
     target: BlockID,
     *,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> bool:
     frontier = {start}
     visited = {start}
     while frontier:
-      rows = db_session.exec(
-        sqlmodel.select(RelationModel.to_).where(
-          RelationModel.from_.in_(tuple(frontier)),  # type: ignore[union-attr]
-          RelationModel.content == SUPERSEDES_RELATION,
+      rows = tuple(
+        relation.to_
+        for relation in await uow.relations.get_outgoing_many(
+          frontier, content=SUPERSEDES_RELATION
         )
-      ).all()
+      )
       next_frontier = set(rows) - visited
       if target in next_frontier:
         return True
@@ -165,24 +149,21 @@ class SupersessionBehaviorResolver(
     """Read supersedes history; incomplete or cyclic graphs have no current frontier."""
     if max_explored_blocks < 1 or max_explored_relations < 1:
       raise ValueError("exploration bounds must be positive")
-    # Keep the synchronous traversal and its Session in one worker thread so
-    # database round trips do not block the Peer event loop.
-    return await asyncio.to_thread(
-      self._read_lineage,
+    return await self._read_lineage(
       focal_block_id,
       max_explored_blocks=max_explored_blocks,
       max_explored_relations=max_explored_relations,
     )
 
-  def _read_lineage(
+  async def _read_lineage(
     self,
     focal_block_id: BlockID,
     *,
     max_explored_blocks: int,
     max_explored_relations: int,
   ) -> SupersessionLineage:
-    with SessionLocal() as db_session:
-      if BlockManager.get(focal_block_id, db_session) is None:
+    async with graph_uow() as uow:
+      if (await uow.blocks.get(focal_block_id)) is None:
         raise ValueError("Focal Block does not exist")
       visited = {focal_block_id}
       frontier = deque((focal_block_id,))
@@ -199,13 +180,12 @@ class SupersessionBehaviorResolver(
               truncated = True
               break
             requested = min(200, remaining + 1)
-            page = RelationManager.get_endpoint_page(
+            page = await uow.relations.get_endpoint_page(
               (current,),
               endpoint=typing.cast(typing.Literal["from", "to"], endpoint),
               contents=(SUPERSEDES_RELATION,),
               cursor=cursor,
               limit=requested,
-              db_session=db_session,
             )
             if len(page) > remaining:
               page = page[:remaining]
@@ -234,7 +214,7 @@ class SupersessionBehaviorResolver(
         if truncated or cycle_detected
         else tuple(sorted(block_id for block_id in visited if block_id not in incoming))
       )
-      blocks = BlockManager.get_many(visited, db_session)
+      blocks = await uow.blocks.get_many(visited)
       existing = {block.id for block in blocks}
       closed_relations = tuple(
         relation
@@ -275,10 +255,10 @@ class SupersessionBehaviorResolver(
     candidates = await candidate_seed_ids(cls, max_seeds)
     strong = merge_seed_categories(
       max_seeds,
-      recent_relation_endpoint_ids(max_seeds, contents=(EDITED_RELATION,)),
-      recent_block_ids(max_seeds),
+      await recent_relation_endpoint_ids(max_seeds, contents=(EDITED_RELATION,)),
+      await recent_block_ids(max_seeds),
     )
-    random = random_block_ids(max_seeds)
+    random = await random_block_ids(max_seeds)
     seeds = merge_seed_categories(max_seeds, candidates, strong, random)
     LOGGER.info(
       "organization.seeds.selected",

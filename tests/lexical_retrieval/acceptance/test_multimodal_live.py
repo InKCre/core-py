@@ -1,6 +1,5 @@
 """Credentialed real-provider media -> graph -> lexical acceptance."""
 
-import asyncio
 import os
 from pathlib import Path
 import typing
@@ -123,7 +122,9 @@ async def _project(block: BlockModel) -> str:
   return text
 
 
-def test_real_multimodal_materialization_interpretation_and_recall() -> None:
+def test_real_multimodal_materialization_interpretation_and_recall(
+  async_runner,
+) -> None:
   assets = prepare_assets()
   _reset_runtime_rows()
   register_core_resolvers()
@@ -217,7 +218,7 @@ def test_real_multimodal_materialization_interpretation_and_recall() -> None:
     video = _stored_media("core.video.v1", assets / "nasa-gpm-subtitled.mkv")
     assert image.id is not None and audio.id is not None and video.id is not None
 
-    first = asyncio.run(
+    first = async_runner.run(
       LexicalRetrievalManager.maintain(
         LexicalMaintenanceOptions(max_records=30, scan_page_size=3)
       )
@@ -239,20 +240,21 @@ def test_real_multimodal_materialization_interpretation_and_recall() -> None:
       )
     )
     assert (
-      "nasa.gov/gpm" in asyncio.run(_project(typing.cast(BlockModel, image_text))).lower()
+      "nasa.gov/gpm"
+      in async_runner.run(_project(typing.cast(BlockModel, image_text))).lower()
     )
     assert (
       "flight software"
-      in asyncio.run(_project(typing.cast(BlockModel, audio_transcript))).lower()
+      in async_runner.run(_project(typing.cast(BlockModel, audio_transcript))).lower()
     )
     assert (
       "flight software"
-      in asyncio.run(_project(typing.cast(BlockModel, video_subtitle))).lower()
+      in async_runner.run(_project(typing.cast(BlockModel, video_subtitle))).lower()
     )
 
-    image_recall = LexicalRetrievalManager.retrieve_local("nasa.gov/gpm")
+    image_recall = async_runner.run(LexicalRetrievalManager.retrieve_local("nasa.gov/gpm"))
     assert image_recall.matches[0].block.id == typing.cast(BlockModel, image_text).id
-    spoken_recall = LexicalRetrievalManager.retrieve_local("Tanegashima")
+    spoken_recall = async_runner.run(LexicalRetrievalManager.retrieve_local("Tanegashima"))
     assert typing.cast(BlockModel, audio_transcript).id in {
       match.block.id for match in spoken_recall.matches
     }
@@ -267,7 +269,7 @@ def test_real_multimodal_materialization_interpretation_and_recall() -> None:
         video_text,
       )
     }
-    second = asyncio.run(LexicalRetrievalManager.maintain())
+    second = async_runner.run(LexicalRetrievalManager.maintain())
     assert second.failed == second.unavailable == 0
     assert child_ids == {
       typing.cast(BlockModel, _related(image.id, "text")).id,
@@ -277,19 +279,21 @@ def test_real_multimodal_materialization_interpretation_and_recall() -> None:
       typing.cast(BlockModel, _related(video.id, "text")).id,
     }
 
-    report = asyncio.run(interpret_missing_media())
+    report = async_runner.run(interpret_missing_media())
     assert report.selected == 3
     assert report.interpreted == 1
     assert report.unavailable == 2
     interpretation = _related(video.id, "interpretation")
     assert interpretation is not None
-    assert asyncio.run(_project(interpretation)) == (
+    assert async_runner.run(_project(interpretation)) == (
       "international flight-software collaboration insight"
     )
-    indexed = asyncio.run(LexicalRetrievalManager.maintain())
+    indexed = async_runner.run(LexicalRetrievalManager.maintain())
     assert indexed.failed == 0
-    interpretation_recall = LexicalRetrievalManager.retrieve_local(
-      "international flight-software collaboration insight"
+    interpretation_recall = async_runner.run(
+      LexicalRetrievalManager.retrieve_local(
+        "international flight-software collaboration insight"
+      )
     )
     assert interpretation_recall.matches[0].block.id == interpretation.id
   finally:

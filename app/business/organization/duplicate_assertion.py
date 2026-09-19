@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import typing
 
-import sqlmodel
 
 from app.business.deployment_config import DeploymentConfigManager
 from app.business.info_base.resolver import Resolver
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import graph_uow
 from libs.obsrv.main import get_logger
 from app.schemas.info_base.block import BlockID
 from app.schemas.organization_behavior import (
@@ -82,37 +81,25 @@ class DuplicateAssertionBehaviorResolver(
   async def record_candidate(
     cls,
     block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, block_id, db_session=db_session)
+    return await record_candidate(cls, block_id)
 
   @classmethod
   async def record_duplicate_assertion(
     cls,
     left_block_id: BlockID,
     right_block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> RelationWriteResult:
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        result = await cls.record_duplicate_assertion(
-          left_block_id,
-          right_block_id,
-          db_session=owned_session,
-        )
-        owned_session.commit()
-        return result
-    require_distinct_blocks(left_block_id, right_block_id, db_session)
-    from_, to_ = sorted((left_block_id, right_block_id))
-    relation, created = fetchsert_relation(
-      from_,
-      to_,
-      DUPLICATES_ASSERTION_RELATION,
-      db_session,
-    )
-    return relation_result(relation, created)
+    async with graph_uow() as uow:
+      await require_distinct_blocks(left_block_id, right_block_id, uow)
+      from_, to_ = sorted((left_block_id, right_block_id))
+      relation, created = await fetchsert_relation(
+        from_,
+        to_,
+        DUPLICATES_ASSERTION_RELATION,
+        uow,
+      )
+      return relation_result(relation, created)
 
   @classmethod
   async def can_run_automatic(cls) -> bool:
@@ -124,8 +111,8 @@ class DuplicateAssertionBehaviorResolver(
   @classmethod
   async def run_automatic(cls, max_seeds: int) -> None:
     candidates = await candidate_seed_ids(cls, max_seeds)
-    recent = recent_block_ids(max_seeds)
-    random = random_block_ids(max_seeds)
+    recent = await recent_block_ids(max_seeds)
+    random = await random_block_ids(max_seeds)
     seeds = merge_seed_categories(max_seeds, candidates, recent, random)
     LOGGER.info(
       "organization.seeds.selected",

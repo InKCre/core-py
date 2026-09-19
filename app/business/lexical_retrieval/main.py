@@ -8,9 +8,6 @@ import logging
 import typing
 
 import pydantic
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
-import sqlmodel
 
 from app.business.info_base.resolver import (
   ResolverManager,
@@ -18,10 +15,9 @@ from app.business.info_base.resolver import (
   UnsupportedResolverCapability,
 )
 from app.business.peer import PeerManager
-from app.engine import SessionLocal
+from app.persistence.lexical_retrieval.uow import lexical_uow
 from app.schemas.info_base.block import BlockModel
 from app.schemas.lexical_retrieval import (
-  BlockLexicalRecordModel,
   LexicalEvidence,
   LexicalMaintenanceDiagnostic,
   LexicalMaintenanceOptions,
@@ -107,7 +103,7 @@ class LexicalRetrievalManager:
   ) -> LexicalRetrievalResult:
     request = LexicalRetrievalRequest(query=query, limit=limit)
     if route_to_peer is None or route_to_peer == PeerManager.get_current_peer_ref():
-      return cls.retrieve_local(request.query, request.limit)
+      return await cls.retrieve_local(request.query, request.limit)
 
     payload = PeerProtocolRequest(
       body=typing.cast(typing.Any, request.model_dump(mode="json"))
@@ -130,63 +126,11 @@ class LexicalRetrievalManager:
       ) from error
 
   @classmethod
-  def retrieve_local(cls, query: str, limit: int = 20) -> LexicalRetrievalResult:
+  async def retrieve_local(cls, query: str, limit: int = 20) -> LexicalRetrievalResult:
     request = LexicalRetrievalRequest(query=query, limit=limit)
     normalized = request.query.strip()
-    literal_pattern = f"%{cls._escape_like(normalized)}%"
-
-    block_columns = typing.cast(
-      typing.Any,
-      BlockModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-    )
-    record_columns = typing.cast(
-      typing.Any,
-      BlockLexicalRecordModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-    )
-    query_terms = sqlalchemy.func.plainto_tsquery("simple", normalized)
-    label_exact = sqlalchemy.func.lower(record_columns.label) == normalized.lower()
-    label_substring = record_columns.label.ilike(literal_pattern, escape="\\")
-    text_substring = record_columns.text.ilike(literal_pattern, escape="\\")
-    term_match = record_columns.search_vector.op("@@")(query_terms)
-    evidence = sqlalchemy.case(
-      (label_exact, "label_exact"),
-      (label_substring, "label_substring"),
-      (text_substring, "text_substring"),
-      else_="terms",
-    ).label("evidence")
-    evidence_class = sqlalchemy.case(
-      (label_exact, 4.0),
-      (label_substring, 3.0),
-      (text_substring, 2.0),
-      else_=1.0,
-    )
-    term_rank = sqlalchemy.func.ts_rank_cd(record_columns.search_vector, query_terms)
-    rank = (evidence_class + term_rank).label("rank")
-
-    statement = (
-      sqlmodel.select(BlockModel, BlockLexicalRecordModel, evidence, rank)
-      .join(
-        BlockLexicalRecordModel,
-        record_columns.block == block_columns.id,
-      )
-      .where(
-        record_columns.updated_at >= block_columns.updated_at,
-        sqlalchemy.or_(
-          label_exact,
-          label_substring,
-          text_substring,
-          term_match,
-        ),
-      )
-      .order_by(
-        sqlalchemy.desc(evidence_class),
-        sqlalchemy.desc(term_rank),
-        block_columns.id,
-      )
-      .limit(request.limit)
-    )
-    with SessionLocal() as db:
-      rows = db.exec(statement).all()
+    async with lexical_uow() as repository:
+      rows = await repository.search(normalized, request.limit)
 
     return LexicalRetrievalResult(
       matches=tuple(
@@ -216,8 +160,8 @@ class LexicalRetrievalManager:
     cls,
     options: LexicalMaintenanceOptions | None = None,
   ) -> LexicalMaintenanceReport:
-    with SessionLocal() as db:
-      cutoff = db.exec(sqlmodel.select(sqlalchemy.func.current_timestamp())).one()
+    async with lexical_uow() as repository:
+      cutoff = await repository.database_now()
     return await cls._maintain(
       options or LexicalMaintenanceOptions(),
       rebuild_cutoff=cutoff,
@@ -234,11 +178,12 @@ class LexicalRetrievalManager:
     cursor = 0
     processed = 0
     while processed < options.max_records:
-      blocks, next_cursor, exhausted = cls._candidate_page(
-        cursor,
-        min(options.scan_page_size, options.max_records - processed),
-        rebuild_cutoff,
-      )
+      async with lexical_uow() as repository:
+        blocks, next_cursor, exhausted = await repository.candidate_page(
+          cursor,
+          min(options.scan_page_size, options.max_records - processed),
+          rebuild_cutoff,
+        )
       cursor = next_cursor
       projections: list[_Projection] = []
       for block in blocks:
@@ -253,7 +198,17 @@ class LexicalRetrievalManager:
           report.record(block_id, "failed", type(error).__name__)
       if projections:
         try:
-          cls._upsert(projections)
+          async with lexical_uow() as repository:
+            await repository.upsert(
+              [
+                {
+                  "block": projection.block,
+                  "label": projection.label,
+                  "text": projection.text,
+                }
+                for projection in projections
+              ]
+            )
         except Exception as error:
           logger.exception(
             "Lexical projection batch upsert failed",
@@ -285,79 +240,6 @@ class LexicalRetrievalManager:
     if not normalized_label:
       raise _ProjectionUnavailable("empty_label")
     return _Projection(block_id, normalized_label, normalized_text)
-
-  @classmethod
-  def _candidate_page(
-    cls,
-    cursor: int,
-    page_size: int,
-    rebuild_cutoff: datetime.datetime | None,
-  ) -> tuple[tuple[BlockModel, ...], int, bool]:
-    block_columns = typing.cast(
-      typing.Any,
-      BlockModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-    )
-    record_columns = typing.cast(
-      typing.Any,
-      BlockLexicalRecordModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-    )
-    needs_projection = sqlalchemy.or_(
-      record_columns.block.is_(None),
-      record_columns.updated_at < block_columns.updated_at,
-    )
-    if rebuild_cutoff is not None:
-      needs_projection = sqlalchemy.or_(
-        needs_projection,
-        record_columns.updated_at < rebuild_cutoff,
-      )
-    statement = (
-      sqlmodel.select(BlockModel)
-      .outerjoin(
-        BlockLexicalRecordModel,
-        record_columns.block == block_columns.id,
-      )
-      .where(block_columns.id > cursor, needs_projection)
-      .order_by(block_columns.id)
-      .limit(page_size)
-    )
-    with SessionLocal() as db:
-      blocks = tuple(db.exec(statement).all())
-    next_cursor = typing.cast(int, blocks[-1].id) if blocks else cursor
-    return blocks, next_cursor, len(blocks) < page_size
-
-  @classmethod
-  def _upsert(cls, projections: list[_Projection]) -> None:
-    with SessionLocal() as db:
-      for projection in projections:
-        label_vector = sqlalchemy.func.setweight(
-          sqlalchemy.func.to_tsvector("simple", projection.label),
-          sqlalchemy.literal_column("'A'::\"char\""),
-        )
-        text_vector = sqlalchemy.func.setweight(
-          sqlalchemy.func.to_tsvector("simple", projection.text or ""),
-          sqlalchemy.literal_column("'D'::\"char\""),
-        )
-        statement = sqlalchemy.dialects.postgresql.insert(BlockLexicalRecordModel).values(
-          block=projection.block,
-          label=projection.label,
-          text=projection.text,
-          search_vector=label_vector.op("||")(text_vector),
-        )
-        statement = statement.on_conflict_do_update(
-          index_elements=["block"],
-          set_={
-            "label": statement.excluded.label,
-            "text": statement.excluded.text,
-            "search_vector": statement.excluded.search_vector,
-            "updated_at": sqlalchemy.func.current_timestamp(),
-          },
-        )
-        db.exec(statement)  # type: ignore
-      db.commit()
-
-  @staticmethod
-  def _escape_like(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
   @staticmethod
   def _excerpt(label: str, text: str | None, query: str) -> str:

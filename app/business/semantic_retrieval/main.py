@@ -9,21 +9,16 @@ import math
 import typing
 
 import pydantic
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
-import sqlalchemy.orm
-import sqlmodel
 
 from app.business.ai import AIExecutionRequirement, AIManager
 from app.business.deployment_config import DeploymentConfigManager, DeploymentConfigService
-from app.business.info_base.relation import RelationManager
+from app.business.info_base.services import RelationService
 from app.business.info_base.resolver import (
   ResolverManager,
   UnknownResolverError,
   UnsupportedResolverCapability,
 )
 from app.business.peer import PeerManager
-from app.engine import SessionLocal
 from app.persistence.semantic_retrieval.uow import semantic_retrieval_uow
 from app.schemas.ai import (
   BlockEmbeddingModel,
@@ -150,26 +145,16 @@ class SemanticRetrievalManager:
   """Single use-domain owner for projection, records, ranking and defaults."""
 
   @classmethod
-  def get_profile(cls, profile_id: EmbeddingProfileID) -> EmbeddingProfileModel | None:
-    with SessionLocal() as db:
-      return db.get(EmbeddingProfileModel, profile_id)
+  async def get_profile(
+    cls, profile_id: EmbeddingProfileID
+  ) -> EmbeddingProfileModel | None:
+    async with semantic_retrieval_uow() as repository:
+      return await repository.get_profile(profile_id)
 
   @classmethod
-  def list_profiles(
-    cls, *, limit: int | None = None, cursor: int | None = None
-  ) -> tuple[list[EmbeddingProfileModel], int | None]:
-    statement = sqlmodel.select(EmbeddingProfileModel).order_by(
-      sqlmodel.col(EmbeddingProfileModel.id)
-    )
-    if cursor is not None:
-      statement = statement.where(sqlmodel.col(EmbeddingProfileModel.id) > cursor)
-    if limit is not None:
-      statement = statement.limit(limit + 1)
-    with SessionLocal() as db:
-      rows = list(db.exec(statement).all())
-    more = limit is not None and len(rows) > limit
-    rows = rows[:limit]
-    return rows, rows[-1].id if more else None
+  async def list_profiles(cls, *, limit: int | None = None, cursor: int | None = None):
+    async with semantic_retrieval_uow() as repository:
+      return await repository.list_profiles(limit=limit, cursor=cursor)
 
   @classmethod
   async def _configured_profile_id(cls) -> EmbeddingProfileID:
@@ -282,24 +267,20 @@ class SemanticRetrievalManager:
     cls._require_non_zero_vector(query_vector)
 
     matches: list[SemanticRetrievalMatch] = []
-    with SessionLocal() as db:
+    async with semantic_retrieval_uow() as repository:
       if "block" in retrieval_options.entity_types:
+        rows = await repository.retrieve_blocks(selected, query_vector, retrieval_options)
         matches.extend(
-          cls._retrieve_blocks(
-            db,
-            selected,
-            query_vector,
-            retrieval_options,
-          )
+          BlockSemanticRetrievalMatch(entity=block, score=cls._score(distance))
+          for block, distance in rows
         )
       if "relation" in retrieval_options.entity_types:
+        rows = await repository.retrieve_relations(
+          selected, query_vector, retrieval_options
+        )
         matches.extend(
-          cls._retrieve_relations(
-            db,
-            selected,
-            query_vector,
-            retrieval_options,
-          )
+          RelationSemanticRetrievalMatch(entity=relation, score=cls._score(distance))
+          for relation, distance in rows
         )
 
     matches.sort(
@@ -336,8 +317,8 @@ class SemanticRetrievalManager:
   ) -> EmbeddingMaintenanceReport:
     """Re-embed records that were present before this invocation began."""
     selected = await cls._load_profile(profile)
-    with SessionLocal() as db:
-      cutoff = db.exec(sqlmodel.select(sqlalchemy.func.current_timestamp())).one()
+    async with semantic_retrieval_uow() as repository:
+      cutoff = await repository.database_now()
     return await cls._maintain(
       selected,
       options or EmbeddingMaintenanceOptions(),
@@ -417,7 +398,7 @@ class SemanticRetrievalManager:
     for entity_type in typing.cast(tuple[SemanticEntityType, ...], ("block", "relation")):
       cursor = 0
       while report.embedded + len(batch) < options.max_embeddings:
-        page = cls._candidate_page(
+        page = await cls._candidate_page(
           profile,
           entity_type,
           cursor,
@@ -445,7 +426,7 @@ class SemanticRetrievalManager:
       if entity_type == "block":
         text = await ResolverManager.get(typing.cast(BlockModel, entity)).get_text()
       else:
-        text = await RelationManager.get_text(typing.cast(RelationModel, entity))
+        text = await RelationService.get_text(typing.cast(RelationModel, entity))
     except UnknownResolverError as error:
       raise _ProjectionUnavailable("unknown_resolver") from error
     except UnsupportedResolverCapability as error:
@@ -469,39 +450,20 @@ class SemanticRetrievalManager:
       cls._require_non_zero_vector(vector)
 
     profile_id = cls._profile_id(profile)
-    with SessionLocal() as db:
-      for candidate, vector in zip(candidates, vectors, strict=True):
-        if candidate.entity_type == "block":
-          statement = sqlalchemy.dialects.postgresql.insert(BlockEmbeddingModel).values(
-            profile=profile_id,
-            block=candidate.entity_id,
-            embedding=vector,
-          )
-          statement = statement.on_conflict_do_update(
-            index_elements=["profile", "block"],
-            set_={
-              "embedding": statement.excluded.embedding,
-              "updated_at": sqlalchemy.func.current_timestamp(),
-            },
-          )
-        else:
-          statement = sqlalchemy.dialects.postgresql.insert(RelationEmbeddingModel).values(
-            profile=profile_id,
-            relation=candidate.entity_id,
-            embedding=vector,
-          )
-          statement = statement.on_conflict_do_update(
-            index_elements=["profile", "relation"],
-            set_={
-              "embedding": statement.excluded.embedding,
-              "updated_at": sqlalchemy.func.current_timestamp(),
-            },
-          )
-        db.exec(statement)  # type: ignore
-      db.commit()
+    blocks = []
+    relations = []
+    for candidate, vector in zip(candidates, vectors, strict=True):
+      row = {
+        "profile": profile_id,
+        candidate.entity_type: candidate.entity_id,
+        "embedding": vector,
+      }
+      (blocks if candidate.entity_type == "block" else relations).append(row)
+    async with semantic_retrieval_uow() as repository:
+      await repository.upsert(blocks, relations)
 
   @classmethod
-  def _candidate_page(
+  async def _candidate_page(
     cls,
     profile: EmbeddingProfileModel,
     entity_type: SemanticEntityType,
@@ -510,89 +472,25 @@ class SemanticRetrievalManager:
     rebuild_cutoff: datetime.datetime | None,
   ) -> _CandidatePage:
     profile_id = cls._profile_id(profile)
-    with SessionLocal() as db:
+    async with semantic_retrieval_uow() as repository:
       if entity_type == "block":
-        block_columns = typing.cast(
-          typing.Any,
-          BlockModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-        )
-        record_columns = typing.cast(
-          typing.Any,
-          BlockEmbeddingModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-        )
-        statement = (
-          sqlmodel.select(BlockModel, BlockEmbeddingModel)
-          .outerjoin(
-            BlockEmbeddingModel,
-            sqlalchemy.and_(
-              record_columns.profile == profile_id,
-              record_columns.block == block_columns.id,
-            ),
-          )
-          .where(block_columns.id > cursor)
-          .order_by(block_columns.id)
-          .limit(page_size)
-        )
-        rows = db.exec(statement).all()
+        rows = await repository.candidate_blocks(profile_id, cursor, page_size)
         entities = tuple(
           block
           for block, record in rows
-          if cls._block_requires_embedding(
-            profile,
-            block,
-            record,
-            rebuild_cutoff,
+          if cls._block_requires_embedding(profile, block, record, rebuild_cutoff)
+        )
+      else:
+        rows = await repository.candidate_relations(profile_id, cursor, page_size)
+        entities = tuple(
+          relation
+          for relation, record, from_updated, to_updated in rows
+          if cls._relation_requires_embedding(
+            profile, relation, record, (from_updated, to_updated), rebuild_cutoff
           )
         )
-        next_cursor = typing.cast(int, rows[-1][0].id) if rows else cursor
-        return _CandidatePage(entities, next_cursor, len(rows) < page_size)
-
-      from_block = sqlalchemy.orm.aliased(BlockModel)
-      to_block = sqlalchemy.orm.aliased(BlockModel)
-      from_columns = typing.cast(typing.Any, from_block)
-      to_columns = typing.cast(typing.Any, to_block)
-      relation_columns = typing.cast(
-        typing.Any,
-        RelationModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-      )
-      record_columns = typing.cast(
-        typing.Any,
-        RelationEmbeddingModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-      )
-      statement = (
-        sqlmodel.select(
-          RelationModel,
-          RelationEmbeddingModel,
-          from_block.updated_at,
-          to_block.updated_at,
-        )
-        .outerjoin(
-          RelationEmbeddingModel,
-          sqlalchemy.and_(
-            record_columns.profile == profile_id,
-            record_columns.relation == relation_columns.id,
-          ),
-        )
-        .join(from_block, from_columns.id == relation_columns.from_)
-        .join(to_block, to_columns.id == relation_columns.to_)
-        .where(relation_columns.id > cursor)
-        .order_by(relation_columns.id)
-        .limit(page_size)
-      )
-      rows = db.exec(statement).all()
-      entities = tuple(
-        relation
-        for relation, record, from_updated_at, to_updated_at in rows
-        if cls._relation_requires_embedding(
-          profile,
-          relation,
-          record,
-          (from_updated_at, to_updated_at),
-          rebuild_cutoff,
-        )
-      )
-      next_cursor = typing.cast(int, rows[-1][0].id) if rows else cursor
-      return _CandidatePage(entities, next_cursor, len(rows) < page_size)
+    next_cursor = typing.cast(int, rows[-1][0].id) if rows else cursor
+    return _CandidatePage(entities, next_cursor, len(rows) < page_size)
 
   @staticmethod
   def _block_requires_embedding(
@@ -629,99 +527,6 @@ class SemanticRetrievalManager:
       or record.updated_at < relation.updated_at
       or record.updated_at < endpoint_updated_at[0]
       or record.updated_at < endpoint_updated_at[1]
-    )
-
-  @classmethod
-  def _retrieve_blocks(
-    cls,
-    db: sqlmodel.Session,
-    profile: EmbeddingProfileModel,
-    query_vector,
-    options: VectorRetrievalOptions,
-  ) -> tuple[BlockSemanticRetrievalMatch, ...]:
-    profile_id = cls._profile_id(profile)
-    block_columns = typing.cast(
-      typing.Any,
-      BlockModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-    )
-    record_columns = typing.cast(
-      typing.Any,
-      BlockEmbeddingModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-    )
-    distance = record_columns.embedding.cosine_distance(query_vector).label("distance")
-    statement = (
-      sqlmodel.select(BlockModel, distance)
-      .join(BlockEmbeddingModel, record_columns.block == block_columns.id)
-      .where(
-        record_columns.profile == profile_id,
-        record_columns.updated_at >= profile.updated_at,
-        record_columns.updated_at >= block_columns.updated_at,
-        sqlalchemy.func.vector_dims(record_columns.embedding) == profile.dimensions,
-        sqlalchemy.func.vector_norm(record_columns.embedding) > 0,
-      )
-      .order_by(distance, block_columns.id)
-      .limit(options.limit)
-    )
-    if options.min_score is not None:
-      statement = statement.where(distance <= 1 - options.min_score)
-    return tuple(
-      BlockSemanticRetrievalMatch(
-        entity=block,
-        score=cls._score(distance_value),
-      )
-      for block, distance_value in db.exec(statement).all()
-    )
-
-  @classmethod
-  def _retrieve_relations(
-    cls,
-    db: sqlmodel.Session,
-    profile: EmbeddingProfileModel,
-    query_vector,
-    options: VectorRetrievalOptions,
-  ) -> tuple[RelationSemanticRetrievalMatch, ...]:
-    profile_id = cls._profile_id(profile)
-    from_block = sqlalchemy.orm.aliased(BlockModel)
-    to_block = sqlalchemy.orm.aliased(BlockModel)
-    from_columns = typing.cast(typing.Any, from_block)
-    to_columns = typing.cast(typing.Any, to_block)
-    relation_columns = typing.cast(
-      typing.Any,
-      RelationModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-    )
-    record_columns = typing.cast(
-      typing.Any,
-      RelationEmbeddingModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-    )
-    distance = record_columns.embedding.cosine_distance(query_vector).label("distance")
-    statement = (
-      sqlmodel.select(RelationModel, distance)
-      .join(
-        RelationEmbeddingModel,
-        record_columns.relation == relation_columns.id,
-      )
-      .join(from_block, from_columns.id == relation_columns.from_)
-      .join(to_block, to_columns.id == relation_columns.to_)
-      .where(
-        record_columns.profile == profile_id,
-        record_columns.updated_at >= profile.updated_at,
-        record_columns.updated_at >= relation_columns.updated_at,
-        record_columns.updated_at >= from_columns.updated_at,
-        record_columns.updated_at >= to_columns.updated_at,
-        sqlalchemy.func.vector_dims(record_columns.embedding) == profile.dimensions,
-        sqlalchemy.func.vector_norm(record_columns.embedding) > 0,
-      )
-      .order_by(distance, relation_columns.id)
-      .limit(options.limit)
-    )
-    if options.min_score is not None:
-      statement = statement.where(distance <= 1 - options.min_score)
-    return tuple(
-      RelationSemanticRetrievalMatch(
-        entity=relation,
-        score=cls._score(distance_value),
-      )
-      for relation, distance_value in db.exec(statement).all()
     )
 
   @staticmethod

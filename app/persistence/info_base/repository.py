@@ -188,6 +188,54 @@ class BlockRepository:
     )
     return (await self._session.scalars(statement)).first()
 
+  async def select_ids(
+    self,
+    limit: int,
+    *,
+    exclude_resolvers: typing.Collection[str],
+    random_order: bool = False,
+  ) -> tuple[BlockID, ...]:
+    statement = sqlmodel.select(BlockModel.id).where(
+      sqlmodel.col(BlockModel.resolver).not_in(tuple(exclude_resolvers))
+    )
+    statement = (
+      statement.order_by(sqlalchemy.func.random())
+      if random_order
+      else statement.order_by(
+        sqlmodel.desc(BlockModel.updated_at), sqlmodel.desc(BlockModel.id)
+      )
+    )
+    return tuple(
+      typing.cast(BlockID, value)
+      for value in await self._session.scalars(statement.limit(limit))
+    )
+
+  async def matching_content(self, resolver: str, content: str) -> tuple[BlockModel, ...]:
+    return tuple(
+      await self._session.scalars(
+        sqlmodel.select(BlockModel).where(
+          BlockModel.resolver == resolver, BlockModel.content == content
+        )
+      )
+    )
+
+  async def without_outgoing_relation(
+    self, resolvers: typing.Collection[str], content: str, *, limit: int
+  ) -> tuple[BlockModel, ...]:
+    exists = sqlalchemy.exists(
+      sqlmodel.select(RelationModel.id).where(
+        RelationModel.from_ == BlockModel.id, RelationModel.content == content
+      )
+    )
+    return tuple(
+      await self._session.scalars(
+        sqlmodel.select(BlockModel)
+        .where(sqlmodel.col(BlockModel.resolver).in_(tuple(resolvers)), ~exists)
+        .order_by(sqlmodel.col(BlockModel.id))
+        .limit(limit)
+      )
+    )
+
 
 class RelationRepository:
   def __init__(self, session: AsyncSession) -> None:
@@ -386,3 +434,27 @@ class RelationRepository:
     return (
       await self.create_many((RelationCreateForm(from_=from_, to_=to_, content=content),))
     )[0]
+
+  async def random_incoming_sources(
+    self, block_id: BlockID, content: str, limit: int
+  ) -> tuple[BlockID, ...]:
+    return tuple(
+      await self._session.scalars(
+        sqlmodel.select(RelationModel.from_)
+        .where(RelationModel.to_ == block_id, RelationModel.content == content)
+        .order_by(sqlalchemy.func.random())
+        .limit(limit)
+      )
+    )
+
+  async def recent(
+    self, limit: int, *, contents: typing.Collection[str] = ()
+  ) -> tuple[RelationModel, ...]:
+    statement = (
+      sqlmodel.select(RelationModel)
+      .order_by(sqlmodel.desc(RelationModel.updated_at), sqlmodel.desc(RelationModel.id))
+      .limit(limit)
+    )
+    if contents:
+      statement = statement.where(sqlmodel.col(RelationModel.content).in_(tuple(contents)))
+    return tuple(await self._session.scalars(statement))

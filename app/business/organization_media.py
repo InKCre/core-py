@@ -4,18 +4,15 @@ import json
 import logging
 import typing
 
-import sqlalchemy
-import sqlmodel
 
 from app.business.agent import AgentManager, TurnTermination
 from app.business.deployment_config import DeploymentConfigManager, DeploymentConfigService
-from app.business.info_base.main import InfoBaseManager
-from app.business.info_base.relation import RelationManager
+from app.business.info_base.commands import get_related_block
 from app.business.info_base.resolver import ResolverManager
 from app.business.info_base.resolver.audio import AudioSolvedContent
 from app.business.info_base.resolver.image import ImageSolvedContent
 from app.business.info_base.resolver.video import VideoSolvedContent
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import graph_uow
 from app.schemas.ai import (
   AudioContentPart,
   ImageContentPart,
@@ -25,7 +22,6 @@ from app.schemas.ai import (
   VideoContentPart,
 )
 from app.schemas.info_base.block import BlockModel
-from app.schemas.info_base.relation import RelationModel
 from app.schemas.organization import (
   MediaInterpretationConfig,
   MediaInterpretationDiagnostic,
@@ -87,41 +83,25 @@ async def can_handle_media_interpretation() -> bool:
   return False
 
 
-def _candidates() -> tuple[BlockModel, ...]:
-  block_columns = typing.cast(
-    typing.Any,
-    BlockModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-  )
-  relation_columns = typing.cast(
-    typing.Any,
-    RelationModel.__table__.c,  # pyrefly: ignore[missing-attribute]
-  )
-  interpretation_exists = sqlalchemy.exists(
-    sqlmodel.select(RelationModel.id).where(
-      relation_columns.from_ == block_columns.id,
-      relation_columns.content == "interpretation",
+async def _candidates() -> tuple[BlockModel, ...]:
+  async with graph_uow() as uow:
+    return await uow.blocks.without_outgoing_relation(
+      tuple(_RESOLVER_MODALITIES), "interpretation", limit=_CANDIDATE_LIMIT
     )
-  )
-  statement = (
-    sqlmodel.select(BlockModel)
-    .where(
-      block_columns.resolver.in_(tuple(_RESOLVER_MODALITIES)),
-      ~interpretation_exists,
-    )
-    .order_by(block_columns.id)
-    .limit(_CANDIDATE_LIMIT)
-  )
-  with SessionLocal() as db:
-    return tuple(db.exec(statement).all())
 
 
 async def _relation_context(block_id: int) -> list[dict[str, typing.Any]]:
-  relations = RelationManager.get(block_id)
+  async with graph_uow() as uow:
+    relations = (await uow.relations.get(block_id))[:20]
+    neighbor_ids = {
+      relation.to_ if relation.from_ == block_id else relation.from_
+      for relation in relations
+    }
+    neighbors = {block.id: block for block in await uow.blocks.get_many(neighbor_ids)}
   context: list[dict[str, typing.Any]] = []
-  for relation in relations[:20]:
+  for relation in relations:
     other_id = relation.to_ if relation.from_ == block_id else relation.from_
-    with SessionLocal() as db:
-      other = db.get(BlockModel, other_id)
+    other = neighbors.get(other_id)
     label = None
     if other is not None:
       try:
@@ -240,7 +220,7 @@ async def interpret_missing_media() -> MediaInterpretationReport:
         )
       )
 
-  for block in _candidates():
+  for block in await _candidates():
     selected += 1
     block_id = typing.cast(int, block.id)
     modality = _RESOLVER_MODALITIES[block.resolver]
@@ -267,7 +247,7 @@ async def interpret_missing_media() -> MediaInterpretationReport:
       logger.exception("Media interpretation failed", extra={"block": block_id})
       diagnostic(block_id, modality, "failed", type(error).__name__)
       continue
-    if InfoBaseManager.get_related_block(block_id, content="interpretation") is None:
+    if await get_related_block(block_id, content="interpretation") is None:
       no_output += 1
       diagnostic(block_id, modality, "no_output", "missing_interpretation_relation")
     else:

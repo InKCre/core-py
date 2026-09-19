@@ -1,6 +1,5 @@
 """Real PostgreSQL context and draft-to-submit graph proof."""
 
-import asyncio
 import copy
 import inspect
 import json
@@ -65,7 +64,7 @@ async def _invoke(handler, input) -> JSONValue:
   return typing.cast(JSONValue, result)
 
 
-def test_context_preserves_direction_and_draft_submit_maps_local_ids():
+def test_context_preserves_direction_and_draft_submit_maps_local_ids(async_runner):
   register_core_resolvers()
   block_ids: list[int] = []
   try:
@@ -85,7 +84,7 @@ def test_context_preserves_direction_and_draft_submit_maps_local_ids():
     outgoing_relation = RelationManager.create(focal.id, outgoing.id, "highlight")
     incoming_relation = RelationManager.create(incoming.id, focal.id, "reference")
 
-    message = asyncio.run(RuminationBehaviorResolver._build_initial_message(focal.id))
+    message = async_runner.run(RuminationBehaviorResolver._build_initial_message(focal.id))
     assert message is not None
     text_part = message.content[0]
     assert isinstance(text_part, TextContentPart)
@@ -141,7 +140,7 @@ def test_context_preserves_direction_and_draft_submit_maps_local_ids():
       submit_input = submit.input_model.model_validate({"graph": graph})
       return await _invoke(submit.handler, submit_input)
 
-    result = asyncio.run(draft_and_submit())
+    result = async_runner.run(draft_and_submit())
     assert isinstance(result, dict)
     result_blocks = result["blocks"]
     assert isinstance(result_blocks, list)
@@ -170,7 +169,9 @@ def test_context_preserves_direction_and_draft_submit_maps_local_ids():
     _cleanup(block_ids)
 
 
-def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(monkeypatch):
+def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(
+  monkeypatch, async_runner
+):
   register_core_resolvers()
   marker = uuid.uuid4().hex
   provider_id: int | None = None
@@ -278,8 +279,8 @@ def test_explicit_rumination_runs_real_agent_tools_and_repeats_additively(monkey
       return AssistantMessage(content="complete")
 
     monkeypatch.setattr(AIManager, "chat", classmethod(chat))
-    asyncio.run(RuminationBehaviorResolver.ruminate(focal.id))
-    asyncio.run(RuminationBehaviorResolver.ruminate(focal.id))
+    async_runner.run(RuminationBehaviorResolver.ruminate(focal.id))
+    async_runner.run(RuminationBehaviorResolver.ruminate(focal.id))
 
     with SessionLocal() as db:
       derived = db.exec(

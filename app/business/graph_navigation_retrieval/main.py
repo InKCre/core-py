@@ -3,11 +3,8 @@
 from collections import deque
 import typing
 
-import sqlmodel
 
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import GraphUnitOfWork, graph_uow
 from app.schemas.graph_navigation_retrieval import (
   DEFAULT_NEIGHBORHOOD_LIMIT,
   MAX_NEIGHBORHOOD_LIMIT,
@@ -38,14 +35,14 @@ class GraphNavigationRetrievalManager:
   """Own bounded graph-navigation queries over persisted entities."""
 
   @classmethod
-  def get_random_block(
+  async def get_random_block(
     cls,
-    db_session: sqlmodel.Session | None = None,
   ) -> BlockModel | None:
-    return BlockManager.get_random(db_session)
+    async with graph_uow() as uow:
+      return await uow.blocks.get_random()
 
   @classmethod
-  def get_block_neighborhood(  # noqa: PLR0913
+  async def get_block_neighborhood(
     cls,
     focal_block: BlockID,
     *,
@@ -53,109 +50,88 @@ class GraphNavigationRetrievalManager:
     contents: typing.Collection[str] = (),
     limit: int = DEFAULT_NEIGHBORHOOD_LIMIT,
     cursor: RelationID | None = None,
-    db_session: sqlmodel.Session | None = None,
   ) -> BlockNeighborhood | None:
     if not 1 <= limit <= MAX_NEIGHBORHOOD_LIMIT:
       raise ValueError(f"limit must be between 1 and {MAX_NEIGHBORHOOD_LIMIT}")
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        return cls.get_block_neighborhood(
-          focal_block,
-          direction=direction,
-          contents=contents,
-          limit=limit,
-          cursor=cursor,
-          db_session=owned_session,
-        )
-    focal = BlockManager.get(focal_block, db_session)
-    if focal is None:
-      return None
+    async with graph_uow() as uow:
+      focal = await uow.blocks.get(focal_block)
+      if focal is None:
+        return None
 
-    requested = limit + 1
-    branches: list[tuple[RelationModel, ...]] = []
-    if direction in ("out", "both"):
-      branches.append(
-        RelationManager.get_endpoint_page(
-          (focal_block,),
-          endpoint="from",
-          contents=contents,
-          cursor=cursor,
-          limit=requested,
-          db_session=db_session,
+      requested = limit + 1
+      branches: list[tuple[RelationModel, ...]] = []
+      if direction in ("out", "both"):
+        branches.append(
+          await uow.relations.get_endpoint_page(
+            (focal_block,),
+            endpoint="from",
+            contents=contents,
+            cursor=cursor,
+            limit=requested,
+          )
         )
-      )
-    if direction in ("in", "both"):
-      branches.append(
-        RelationManager.get_endpoint_page(
-          (focal_block,),
-          endpoint="to",
-          contents=contents,
-          cursor=cursor,
-          limit=requested,
-          db_session=db_session,
+      if direction in ("in", "both"):
+        branches.append(
+          await uow.relations.get_endpoint_page(
+            (focal_block,), endpoint="to", contents=contents, cursor=cursor, limit=requested
+          )
         )
+      by_id = {
+        relation.id: relation
+        for branch in branches
+        for relation in branch
+        if relation.id is not None
+      }
+      ordered = sorted(
+        by_id.values(),
+        key=lambda relation: typing.cast(int, relation.id),
+        reverse=True,
       )
-    by_id = {
-      relation.id: relation
-      for branch in branches
-      for relation in branch
-      if relation.id is not None
-    }
-    ordered = sorted(
-      by_id.values(),
-      key=lambda relation: typing.cast(int, relation.id),
-      reverse=True,
-    )
-    page = ordered[:requested]
-    has_more = len(page) > limit
-    page = page[:limit]
-    endpoint_ids = {focal_block}
-    for relation in page:
-      endpoint_ids.update((relation.from_, relation.to_))
-    blocks = BlockManager.get_many(endpoint_ids, db_session)
-    existing_ids = {block.id for block in blocks}
-    closed_relations = tuple(
-      relation
-      for relation in page
-      if relation.from_ in existing_ids and relation.to_ in existing_ids
-    )
-    next_cursor = typing.cast(RelationID, page[-1].id) if has_more and page else None
-    return BlockNeighborhood(
-      focal_block=focal_block,
-      graph=GraphModel(blocks=blocks, relations=closed_relations),
-      next_cursor=next_cursor,
-    )
+      page = ordered[:requested]
+      has_more = len(page) > limit
+      page = page[:limit]
+      endpoint_ids = {focal_block}
+      for relation in page:
+        endpoint_ids.update((relation.from_, relation.to_))
+      blocks = await uow.blocks.get_many(endpoint_ids)
+      existing_ids = {block.id for block in blocks}
+      closed_relations = tuple(
+        relation
+        for relation in page
+        if relation.from_ in existing_ids and relation.to_ in existing_ids
+      )
+      next_cursor = typing.cast(RelationID, page[-1].id) if has_more and page else None
+      return BlockNeighborhood(
+        focal_block=focal_block,
+        graph=GraphModel(blocks=blocks, relations=closed_relations),
+        next_cursor=next_cursor,
+      )
 
   @classmethod
-  def get_relation_neighborhood(
+  async def get_relation_neighborhood(
     cls,
     focal_relation: RelationID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> RelationNeighborhood | None:
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        return cls.get_relation_neighborhood(focal_relation, db_session=owned_session)
-    relation = RelationManager.get_by_id(focal_relation, db_session)
-    if relation is None:
-      return None
-    blocks = BlockManager.get_many((relation.from_, relation.to_), db_session)
-    if {block.id for block in blocks} != {relation.from_, relation.to_}:
-      return None
-    return RelationNeighborhood(
-      focal_relation=focal_relation,
-      graph=GraphModel(blocks=blocks, relations=(relation,)),
-    )
+    async with graph_uow() as uow:
+      relation = await uow.relations.get_by_id(focal_relation)
+      if relation is None:
+        return None
+      blocks = await uow.blocks.get_many((relation.from_, relation.to_))
+      if {block.id for block in blocks} != {relation.from_, relation.to_}:
+        return None
+      return RelationNeighborhood(
+        focal_relation=focal_relation,
+        graph=GraphModel(blocks=blocks, relations=(relation,)),
+      )
 
   @classmethod
-  def get_connected_components(
+  async def get_connected_components(
     cls,
     seed_block_ids: typing.Collection[BlockID],
     *,
     contents: typing.Collection[str],
     max_explored_blocks: int = DEFAULT_MAX_EXPLORED_BLOCKS,
     max_explored_relations: int = DEFAULT_MAX_EXPLORED_RELATIONS,
-    db_session: sqlmodel.Session | None = None,
   ) -> ConnectedComponentsResult:
     """Partition existing seeds by bounded undirected exact-content reachability."""
     seeds = tuple(dict.fromkeys(seed_block_ids))
@@ -166,105 +142,95 @@ class GraphNavigationRetrievalManager:
       raise ValueError("exploration bounds must be positive")
     if len(seeds) > max_explored_blocks:
       raise ValueError("seed blocks exceed max_explored_blocks")
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        return cls.get_connected_components(
-          seeds,
-          contents=relation_contents,
-          max_explored_blocks=max_explored_blocks,
-          max_explored_relations=max_explored_relations,
-          db_session=owned_session,
-        )
+    async with graph_uow() as uow:
+      existing_blocks = await uow.blocks.get_many(seeds)
+      existing_seed_ids = {block.id for block in existing_blocks if block.id is not None}
+      missing = tuple(seed for seed in seeds if seed not in existing_seed_ids)
+      assigned_seeds: set[BlockID] = set()
+      explored_blocks = set(existing_seed_ids)
+      seen_relations: set[RelationID] = set()
+      explored_relation_count = 0
+      proof_relations: dict[RelationID, RelationModel] = {}
+      components: list[ConnectedSeedComponent] = []
+      truncated = False
 
-    existing_blocks = BlockManager.get_many(seeds, db_session)
-    existing_seed_ids = {block.id for block in existing_blocks if block.id is not None}
-    missing = tuple(seed for seed in seeds if seed not in existing_seed_ids)
-    assigned_seeds: set[BlockID] = set()
-    explored_blocks = set(existing_seed_ids)
-    seen_relations: set[RelationID] = set()
-    explored_relation_count = 0
-    proof_relations: dict[RelationID, RelationModel] = {}
-    components: list[ConnectedSeedComponent] = []
-    truncated = False
+      for seed in seeds:
+        if seed not in existing_seed_ids or seed in assigned_seeds:
+          continue
+        if truncated:
+          components.append(
+            ConnectedSeedComponent(seed_block_ids=(seed,), member_block_ids=(seed,))
+          )
+          assigned_seeds.add(seed)
+          continue
 
-    for seed in seeds:
-      if seed not in existing_seed_ids or seed in assigned_seeds:
-        continue
-      if truncated:
-        components.append(
-          ConnectedSeedComponent(seed_block_ids=(seed,), member_block_ids=(seed,))
-        )
-        assigned_seeds.add(seed)
-        continue
-
-      members = {seed}
-      frontier = deque((seed,))
-      while frontier and not truncated:
-        current = frontier.popleft()
-        for endpoint in ("from", "to"):
-          cursor: RelationID | None = None
-          while not truncated:
-            remaining = max_explored_relations - explored_relation_count
-            if remaining == 0:
-              truncated = True
-              break
-            requested = min(FRONTIER_QUERY_SIZE, remaining + 1)
-            page = RelationManager.get_endpoint_page(
-              (current,),
-              endpoint=typing.cast(typing.Literal["from", "to"], endpoint),
-              contents=relation_contents,
-              cursor=cursor,
-              limit=requested,
-              db_session=db_session,
-            )
-            if len(page) > remaining:
-              page = page[:remaining]
-              truncated = True
-            explored_relation_count += len(page)
-            for relation in page:
-              if relation.id is None or relation.id in seen_relations:
-                continue
-              relation_id = relation.id
-              seen_relations.add(relation_id)
-              neighbor = relation.to_ if relation.from_ == current else relation.from_
-              if neighbor in members:
-                continue
-              if (
-                neighbor not in explored_blocks
-                and len(explored_blocks) >= max_explored_blocks
-              ):
+        members = {seed}
+        frontier = deque((seed,))
+        while frontier and not truncated:
+          current = frontier.popleft()
+          for endpoint in ("from", "to"):
+            cursor: RelationID | None = None
+            while not truncated:
+              remaining = max_explored_relations - explored_relation_count
+              if remaining == 0:
                 truncated = True
                 break
-              members.add(neighbor)
-              explored_blocks.add(neighbor)
-              frontier.append(neighbor)
-              proof_relations[relation_id] = relation
-            if truncated or len(page) < requested:
-              break
-            cursor = typing.cast(RelationID, page[-1].id)
+              requested = min(FRONTIER_QUERY_SIZE, remaining + 1)
+              page = await uow.relations.get_endpoint_page(
+                (current,),
+                endpoint=typing.cast(typing.Literal["from", "to"], endpoint),
+                contents=relation_contents,
+                cursor=cursor,
+                limit=requested,
+              )
+              if len(page) > remaining:
+                page = page[:remaining]
+                truncated = True
+              explored_relation_count += len(page)
+              for relation in page:
+                if relation.id is None or relation.id in seen_relations:
+                  continue
+                relation_id = relation.id
+                seen_relations.add(relation_id)
+                neighbor = relation.to_ if relation.from_ == current else relation.from_
+                if neighbor in members:
+                  continue
+                if (
+                  neighbor not in explored_blocks
+                  and len(explored_blocks) >= max_explored_blocks
+                ):
+                  truncated = True
+                  break
+                members.add(neighbor)
+                explored_blocks.add(neighbor)
+                frontier.append(neighbor)
+                proof_relations[relation_id] = relation
+              if truncated or len(page) < requested:
+                break
+              cursor = typing.cast(RelationID, page[-1].id)
 
-      component_seeds = tuple(seed_id for seed_id in seeds if seed_id in members)
-      assigned_seeds.update(component_seeds)
-      components.append(
-        ConnectedSeedComponent(
-          seed_block_ids=component_seeds,
-          member_block_ids=tuple(sorted(members)),
+        component_seeds = tuple(seed_id for seed_id in seeds if seed_id in members)
+        assigned_seeds.update(component_seeds)
+        components.append(
+          ConnectedSeedComponent(
+            seed_block_ids=component_seeds,
+            member_block_ids=tuple(sorted(members)),
+          )
         )
+
+      proof_blocks = await uow.blocks.get_many(explored_blocks)
+      return ConnectedComponentsResult(
+        components=tuple(components),
+        proof_graph=GraphModel(
+          blocks=proof_blocks,
+          relations=tuple(proof_relations.values()),
+        ),
+        missing_seed_block_ids=missing,
+        truncated=truncated,
       )
 
-    proof_blocks = BlockManager.get_many(explored_blocks, db_session)
-    return ConnectedComponentsResult(
-      components=tuple(components),
-      proof_graph=GraphModel(
-        blocks=proof_blocks,
-        relations=tuple(proof_relations.values()),
-      ),
-      missing_seed_block_ids=missing,
-      truncated=truncated,
-    )
-
   @classmethod
-  def find_path(  # noqa: PLR0913
+  async def find_path(  # noqa: PLR0913
     cls,
     from_block: BlockID,
     to_block: BlockID,
@@ -273,7 +239,6 @@ class GraphNavigationRetrievalManager:
     contents: typing.Collection[str] = (),
     max_hops: int = DEFAULT_MAX_HOPS,
     max_explored_blocks: int = DEFAULT_MAX_EXPLORED_BLOCKS,
-    db_session: sqlmodel.Session | None = None,
   ) -> PathResult:
     if not 0 <= max_hops <= MAX_MAX_HOPS:
       raise ValueError(f"max_hops must be between 0 and {MAX_MAX_HOPS}")
@@ -281,87 +246,77 @@ class GraphNavigationRetrievalManager:
       raise ValueError(
         f"max_explored_blocks must be between 1 and {MAX_MAX_EXPLORED_BLOCKS}"
       )
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        return cls.find_path(
-          from_block,
-          to_block,
-          direction=direction,
-          contents=contents,
-          max_hops=max_hops,
-          max_explored_blocks=max_explored_blocks,
-          db_session=owned_session,
+    async with graph_uow() as uow:
+      endpoints = await uow.blocks.get_many((from_block, to_block))
+      if {block.id for block in endpoints} != {from_block, to_block}:
+        return PathNotFound()
+      if from_block == to_block:
+        return PathFound(
+          graph=GraphModel(blocks=endpoints, relations=()),
+          block_path=(from_block,),
+          relation_path=(),
         )
-    endpoints = BlockManager.get_many((from_block, to_block), db_session)
-    if {block.id for block in endpoints} != {from_block, to_block}:
+
+      forward_parents: dict[BlockID, tuple[BlockID, RelationID] | None] = {from_block: None}
+      backward_next: dict[BlockID, tuple[BlockID, RelationID] | None] = {to_block: None}
+      forward_depths = {from_block: 0}
+      backward_depths = {to_block: 0}
+      forward_frontier = {from_block}
+      backward_frontier = {to_block}
+      traversed_relations: dict[RelationID, RelationModel] = {}
+
+      while forward_frontier and backward_frontier:
+        forward_level = forward_depths[next(iter(forward_frontier))]
+        backward_level = backward_depths[next(iter(backward_frontier))]
+        if forward_level + backward_level >= max_hops:
+          return PathLimitReached()
+
+        expand_forward = len(forward_frontier) <= len(backward_frontier)
+        if expand_forward:
+          next_frontier, meeting = await cls._expand_path_frontier(
+            forward_frontier,
+            direction=direction,
+            contents=contents,
+            reverse=False,
+            own_steps=forward_parents,
+            own_depths=forward_depths,
+            other_depths=backward_depths,
+            max_hops=max_hops,
+            traversed_relations=traversed_relations,
+            uow=uow,
+          )
+          forward_frontier = next_frontier
+        else:
+          next_frontier, meeting = await cls._expand_path_frontier(
+            backward_frontier,
+            direction=direction,
+            contents=contents,
+            reverse=True,
+            own_steps=backward_next,
+            own_depths=backward_depths,
+            other_depths=forward_depths,
+            max_hops=max_hops,
+            traversed_relations=traversed_relations,
+            uow=uow,
+          )
+          backward_frontier = next_frontier
+        explored = set(forward_parents) | set(backward_next)
+        if len(explored) > max_explored_blocks:
+          return PathLimitReached()
+        if meeting is not None:
+          return await cls._assemble_bidirectional_path(
+            from_block,
+            to_block,
+            meeting=meeting,
+            forward_parents=forward_parents,
+            backward_next=backward_next,
+            traversed_relations=traversed_relations,
+            uow=uow,
+          )
       return PathNotFound()
-    if from_block == to_block:
-      return PathFound(
-        graph=GraphModel(blocks=endpoints, relations=()),
-        block_path=(from_block,),
-        relation_path=(),
-      )
-
-    forward_parents: dict[BlockID, tuple[BlockID, RelationID] | None] = {from_block: None}
-    backward_next: dict[BlockID, tuple[BlockID, RelationID] | None] = {to_block: None}
-    forward_depths = {from_block: 0}
-    backward_depths = {to_block: 0}
-    forward_frontier = {from_block}
-    backward_frontier = {to_block}
-    traversed_relations: dict[RelationID, RelationModel] = {}
-
-    while forward_frontier and backward_frontier:
-      forward_level = forward_depths[next(iter(forward_frontier))]
-      backward_level = backward_depths[next(iter(backward_frontier))]
-      if forward_level + backward_level >= max_hops:
-        return PathLimitReached()
-
-      expand_forward = len(forward_frontier) <= len(backward_frontier)
-      if expand_forward:
-        next_frontier, meeting = cls._expand_path_frontier(
-          forward_frontier,
-          direction=direction,
-          contents=contents,
-          reverse=False,
-          own_steps=forward_parents,
-          own_depths=forward_depths,
-          other_depths=backward_depths,
-          max_hops=max_hops,
-          traversed_relations=traversed_relations,
-          db_session=db_session,
-        )
-        forward_frontier = next_frontier
-      else:
-        next_frontier, meeting = cls._expand_path_frontier(
-          backward_frontier,
-          direction=direction,
-          contents=contents,
-          reverse=True,
-          own_steps=backward_next,
-          own_depths=backward_depths,
-          other_depths=forward_depths,
-          max_hops=max_hops,
-          traversed_relations=traversed_relations,
-          db_session=db_session,
-        )
-        backward_frontier = next_frontier
-      explored = set(forward_parents) | set(backward_next)
-      if len(explored) > max_explored_blocks:
-        return PathLimitReached()
-      if meeting is not None:
-        return cls._assemble_bidirectional_path(
-          from_block,
-          to_block,
-          meeting=meeting,
-          forward_parents=forward_parents,
-          backward_next=backward_next,
-          traversed_relations=traversed_relations,
-          db_session=db_session,
-        )
-    return PathNotFound()
 
   @classmethod
-  def _expand_path_frontier(  # noqa: PLR0913
+  async def _expand_path_frontier(  # noqa: PLR0913
     cls,
     frontier: set[BlockID],
     *,
@@ -373,7 +328,7 @@ class GraphNavigationRetrievalManager:
     other_depths: dict[BlockID, int],
     max_hops: int,
     traversed_relations: dict[RelationID, RelationModel],
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> tuple[set[BlockID], BlockID | None]:
     next_frontier: set[BlockID] = set()
     meeting: BlockID | None = None
@@ -382,12 +337,12 @@ class GraphNavigationRetrievalManager:
     for chunk_start in range(0, len(frontier), FRONTIER_QUERY_SIZE):
       chunk = frontier_items[chunk_start : chunk_start + FRONTIER_QUERY_SIZE]
       chunk_members = set(chunk)
-      relations = cls._frontier_relations(
+      relations = await cls._frontier_relations(
         chunk,
         direction=direction,
         contents=contents,
         reverse=reverse,
-        db_session=db_session,
+        uow=uow,
       )
       for relation in relations:
         relation_id = typing.cast(RelationID, relation.id)
@@ -430,14 +385,14 @@ class GraphNavigationRetrievalManager:
     return tuple(steps)
 
   @classmethod
-  def _frontier_relations(
+  async def _frontier_relations(
     cls,
     frontier: typing.Collection[BlockID],
     *,
     direction: GraphDirection,
     contents: typing.Collection[str],
     reverse: bool = False,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> tuple[RelationModel, ...]:
     relations: dict[RelationID, RelationModel] = {}
     needs_from = (
@@ -459,29 +414,21 @@ class GraphNavigationRetrievalManager:
       )
     )
     if needs_from:
-      for relation in RelationManager.get_endpoint_page(
-        frontier,
-        endpoint="from",
-        contents=contents,
-        limit=MAX_MAX_EXPLORED_BLOCKS,
-        db_session=db_session,
+      for relation in await uow.relations.get_endpoint_page(
+        frontier, endpoint="from", contents=contents, limit=MAX_MAX_EXPLORED_BLOCKS
       ):
         if relation.id is not None:
           relations[relation.id] = relation
     if needs_to:
-      for relation in RelationManager.get_endpoint_page(
-        frontier,
-        endpoint="to",
-        contents=contents,
-        limit=MAX_MAX_EXPLORED_BLOCKS,
-        db_session=db_session,
+      for relation in await uow.relations.get_endpoint_page(
+        frontier, endpoint="to", contents=contents, limit=MAX_MAX_EXPLORED_BLOCKS
       ):
         if relation.id is not None:
           relations[relation.id] = relation
     return tuple(relations.values())
 
   @classmethod
-  def _assemble_bidirectional_path(  # noqa: PLR0913
+  async def _assemble_bidirectional_path(  # noqa: PLR0913
     cls,
     from_block: BlockID,
     to_block: BlockID,
@@ -490,7 +437,7 @@ class GraphNavigationRetrievalManager:
     forward_parents: dict[BlockID, tuple[BlockID, RelationID] | None],
     backward_next: dict[BlockID, tuple[BlockID, RelationID] | None],
     traversed_relations: dict[RelationID, RelationModel],
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> PathResult:
     block_path: list[BlockID] = [meeting]
     relation_path: list[RelationID] = []
@@ -512,7 +459,7 @@ class GraphNavigationRetrievalManager:
       current, relation_id = next_step
       block_path.append(current)
       relation_path.append(relation_id)
-    blocks = BlockManager.get_many(block_path, db_session)
+    blocks = await uow.blocks.get_many(block_path)
     relations = tuple(
       relation
       for relation_id in relation_path

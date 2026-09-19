@@ -372,9 +372,11 @@ async def _use_readback() -> dict[str, typing.Any]:
         for endpoint in (relation.from_, relation.to_)
       )
     )
-    duplicate_components = GraphNavigationRetrievalManager.get_connected_components(
-      duplicate_seeds,
-      contents=(DUPLICATES_ASSERTION_RELATION,),
+    duplicate_components = (
+      await GraphNavigationRetrievalManager.get_connected_components(
+        duplicate_seeds,
+        contents=(DUPLICATES_ASSERTION_RELATION,),
+      )
     ).model_dump(mode="json")
 
   lineage = None

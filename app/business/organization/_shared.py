@@ -8,20 +8,16 @@ import logging
 import typing
 
 import pydantic
-import sqlalchemy
-import sqlmodel
 
 from app.business.agent import AgentManager, AgentNotFoundError, TurnTermination
 from app.business.deployment_config import DeploymentConfigService
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import (
   Resolver,
   ResolverManager,
   UnknownResolverError,
   UnsupportedResolverCapability,
 )
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import GraphUnitOfWork, graph_uow
 from app.schemas.ai import TextContentPart, UserMessage
 from app.schemas.info_base.block import BlockForm, BlockID, BlockModel, ResolverType
 from app.schemas.info_base.relation import RelationID, RelationModel
@@ -65,46 +61,37 @@ def get_behavior_resolver(resolver: ResolverType) -> type[Resolver] | None:
 
 async def get_or_create_descriptor(
   behavior: type[Resolver],
-  db_session: sqlmodel.Session,
+  uow: GraphUnitOfWork,
 ) -> BlockModel:
-  return await BlockManager.fetchsert(
-    BlockForm(resolver=behavior.__rsotype__, content=""),
-    db_session,
+  form = BlockForm(resolver=behavior.__rsotype__, content="")
+  existing = await ResolverManager.get(BlockModel.model_validate(form)).get_existing_async(
+    uow.blocks
   )
+  return existing if existing is not None else await uow.blocks.create(form)
 
 
 async def record_candidate(
   behavior: type[Resolver],
   block_id: BlockID,
-  *,
-  db_session: sqlmodel.Session | None = None,
 ) -> CandidateWriteResult:
-  if db_session is None:
-    with SessionLocal() as owned_session:
-      result = await record_candidate(
-        behavior,
-        block_id,
-        db_session=owned_session,
-      )
-      owned_session.commit()
-      return result
-  if BlockManager.get(block_id, db_session) is None:
-    raise OrganizationBlockNotFoundError(f"Block {block_id} does not exist")
-  descriptor = await get_or_create_descriptor(behavior, db_session)
-  descriptor_id = _block_id(descriptor)
-  if block_id == descriptor_id:
-    raise ValueError("An Organization behavior cannot be its own candidate")
-  relation, created = fetchsert_relation(
-    block_id,
-    descriptor_id,
-    CANDIDATE_RELATION,
-    db_session,
-  )
-  return CandidateWriteResult(
-    descriptor_block_id=descriptor_id,
-    relation_id=_relation_id(relation),
-    created=created,
-  )
+  async with graph_uow() as uow:
+    if (await uow.blocks.get(block_id)) is None:
+      raise OrganizationBlockNotFoundError(f"Block {block_id} does not exist")
+    descriptor = await get_or_create_descriptor(behavior, uow)
+    descriptor_id = _block_id(descriptor)
+    if block_id == descriptor_id:
+      raise ValueError("An Organization behavior cannot be its own candidate")
+    relation, created = await fetchsert_relation(
+      block_id,
+      descriptor_id,
+      CANDIDATE_RELATION,
+      uow,
+    )
+    return CandidateWriteResult(
+      descriptor_block_id=descriptor_id,
+      relation_id=_relation_id(relation),
+      created=created,
+    )
 
 
 async def candidate_seed_ids(
@@ -113,70 +100,47 @@ async def candidate_seed_ids(
 ) -> tuple[BlockID, ...]:
   if limit <= 0:
     return ()
-  with SessionLocal() as db_session:
-    descriptor = await get_or_create_descriptor(behavior, db_session)
+  async with graph_uow() as uow:
+    descriptor = await get_or_create_descriptor(behavior, uow)
     descriptor_id = _block_id(descriptor)
-    statement = (
-      sqlmodel.select(RelationModel.from_)
-      .where(
-        RelationModel.to_ == descriptor_id,
-        RelationModel.content == CANDIDATE_RELATION,
-      )
-      .order_by(sqlalchemy.func.random())
-      .limit(limit)
+    return await uow.relations.random_incoming_sources(
+      descriptor_id, CANDIDATE_RELATION, limit
     )
-    seeds = tuple(db_session.exec(statement).all())
-    db_session.commit()
-    return seeds
 
 
-def recent_block_ids(limit: int) -> tuple[BlockID, ...]:
+async def recent_block_ids(limit: int) -> tuple[BlockID, ...]:
   if limit <= 0:
     return ()
   behavior_types = tuple(
     resolver_cls.__rsotype__ for resolver_cls in behavior_resolver_classes()
   )
-  statement = sqlmodel.select(BlockModel.id).where(BlockModel.id.is_not(None))  # type: ignore[union-attr]
-  if behavior_types:
-    statement = statement.where(BlockModel.resolver.not_in(behavior_types))  # type: ignore[union-attr]
-  statement = statement.order_by(
-    sqlmodel.desc(BlockModel.updated_at),
-    sqlmodel.desc(BlockModel.id),
-  ).limit(limit)
-  with SessionLocal() as db_session:
-    return tuple(typing.cast(BlockID, value) for value in db_session.exec(statement).all())
+  async with graph_uow() as uow:
+    return await uow.blocks.select_ids(
+      limit, exclude_resolvers=behavior_types, random_order=False
+    )
 
 
-def random_block_ids(limit: int) -> tuple[BlockID, ...]:
+async def random_block_ids(limit: int) -> tuple[BlockID, ...]:
   if limit <= 0:
     return ()
   behavior_types = tuple(
     resolver_cls.__rsotype__ for resolver_cls in behavior_resolver_classes()
   )
-  statement = sqlmodel.select(BlockModel.id).where(BlockModel.id.is_not(None))  # type: ignore[union-attr]
-  if behavior_types:
-    statement = statement.where(BlockModel.resolver.not_in(behavior_types))  # type: ignore[union-attr]
-  statement = statement.order_by(sqlalchemy.func.random()).limit(limit)
-  with SessionLocal() as db_session:
-    return tuple(typing.cast(BlockID, value) for value in db_session.exec(statement).all())
+  async with graph_uow() as uow:
+    return await uow.blocks.select_ids(
+      limit, exclude_resolvers=behavior_types, random_order=True
+    )
 
 
-def recent_relation_endpoint_ids(
+async def recent_relation_endpoint_ids(
   limit: int,
   *,
   contents: typing.Collection[str] = (),
 ) -> tuple[BlockID, ...]:
   if limit <= 0:
     return ()
-  statement = sqlmodel.select(RelationModel).order_by(
-    sqlmodel.desc(RelationModel.updated_at),
-    sqlmodel.desc(RelationModel.id),
-  )
-  if contents:
-    statement = statement.where(RelationModel.content.in_(tuple(contents)))  # type: ignore[union-attr]
-  statement = statement.limit(limit)
-  with SessionLocal() as db_session:
-    relations = db_session.exec(statement).all()
+  async with graph_uow() as uow:
+    relations = await uow.relations.recent(limit, contents=contents)
   return tuple(
     dict.fromkeys(
       endpoint for relation in relations for endpoint in (relation.from_, relation.to_)
@@ -277,13 +241,13 @@ async def build_seed_message(
   seed_id: BlockID,
 ) -> UserMessage | None:
   """Resolve one bounded seed neighborhood without holding a DB transaction."""
-  with SessionLocal() as db_session:
-    block = BlockManager.get(seed_id, db_session)
+  async with graph_uow() as uow:
+    block = await uow.blocks.get(seed_id)
     if block is None:
       raise OrganizationBlockNotFoundError(f"Block {seed_id} does not exist")
     relations = tuple(
       sorted(
-        RelationManager.get(seed_id, db_session=db_session),
+        (await uow.relations.get(seed_id)),
         key=lambda relation: relation.id or 0,
       )[-_CONTEXT_RELATION_LIMIT:]
     )
@@ -293,7 +257,7 @@ async def build_seed_message(
     }
     neighbors = {
       neighbor.id: neighbor
-      for neighbor in BlockManager.get_many(neighbor_ids, db_session)
+      for neighbor in (await uow.blocks.get_many(neighbor_ids))
       if neighbor.id is not None
     }
 
@@ -358,14 +322,14 @@ async def build_seed_message(
   )
 
 
-def fetchsert_relation(
+async def fetchsert_relation(
   from_: BlockID,
   to_: BlockID,
   content: str,
-  db_session: sqlmodel.Session,
+  uow: GraphUnitOfWork,
 ) -> tuple[RelationModel, bool]:
   proposed = RelationModel(from_=from_, to_=to_, content=content)
-  relation = RelationManager.fetchsert(proposed, db_session)
+  relation = await uow.relations.fetchsert(proposed)
   return relation, relation is proposed
 
 
@@ -373,14 +337,14 @@ def relation_result(relation: RelationModel, created: bool) -> RelationWriteResu
   return RelationWriteResult(relation_id=_relation_id(relation), created=created)
 
 
-def require_distinct_blocks(
+async def require_distinct_blocks(
   left: BlockID,
   right: BlockID,
-  db_session: sqlmodel.Session,
+  uow: GraphUnitOfWork,
 ) -> None:
   if left == right:
     raise ValueError("Organization relation endpoints must be different")
-  found = {block.id for block in BlockManager.get_many((left, right), db_session)}
+  found = {block.id for block in (await uow.blocks.get_many((left, right)))}
   missing = tuple(block_id for block_id in (left, right) if block_id not in found)
   if missing:
     raise OrganizationBlockNotFoundError(f"Blocks do not exist: {missing!r}")

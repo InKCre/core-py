@@ -378,7 +378,9 @@ def test_mail_collection_backfill_and_materialization(
       LexicalMaintenanceOptions(max_records=500)
     )
     assert lexical.failed == 0
-    attachment_match = LexicalRetrievalManager.retrieve_local("deep-module-field-note.pdf")
+    attachment_match = await LexicalRetrievalManager.retrieve_local(
+      "deep-module-field-note.pdf"
+    )
     assert attachment_match.matches[0].block.id == attachment.id
     with SessionLocal() as db:
       assert len(db.exec(sqlmodel.select(StorageBlobModel)).all()) == 0

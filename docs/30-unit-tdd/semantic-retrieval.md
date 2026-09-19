@@ -117,3 +117,7 @@ vectors, and generated graph rows are never committed as authority.
 - transient chunk/segment persistence
 - generic capability invocation endpoints or delegation jobs
 - persistent Agent Thread/checkpoint infrastructure
+
+数据库查询与 embedding upsert 由 `app/persistence/semantic_retrieval/` 执行。每个 provider batch
+先完成向量数量与维度校验，再在同一短事务中分别批量写入 Block 和 Relation embeddings；
+任一种写入失败都会回滚整个 batch。profile 与检索读取同样原生 await，不使用同步 session。

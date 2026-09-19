@@ -544,11 +544,11 @@ def test_real_producer_corpus_supports_exact_and_chinese_lexical_recall(
       )
       assert report.failed == 0
 
-      technical = LexicalRetrievalManager.retrieve_local("sqlite3_prepare_v2")
+      technical = await LexicalRetrievalManager.retrieve_local("sqlite3_prepare_v2")
       assert technical.matches[0].block.id == run.aliases["sqlite.architecture-source"]
       assert technical.matches[0].evidence in {"label_substring", "text_substring"}
 
-      chinese = LexicalRetrievalManager.retrieve_local("链路故障注入")
+      chinese = await LexicalRetrievalManager.retrieve_local("链路故障注入")
       assert chinese.matches[0].block.id == target
       assert distractor not in {match.block.id for match in chinese.matches}
     finally:

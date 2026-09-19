@@ -140,3 +140,15 @@ Memos 原有 13 项真实 PostgreSQL 验收通过，并补充单附件并发 own
 附件归属案例通过，RSS 两项通过；GitHub snapshot/replay/list-removal/account-binding probe 通过，
 Mail、Telegram/Twitter probes 通过。扩展 lint 覆盖除 GitHub legacy identity override 之外的全部
 已迁移 producer，该 override 仅由旧 Stars 消费，随步骤 10 清零。当前进入步骤 08。
+
+### 步骤 08 完成（2026-09-19）
+
+Lexical／Semantic 的 SQL 已移入所属 persistence，维护按 batch upsert；Resolver／embedding
+计算在事务外，原有 ranking、freshness 和 cutoff 保持。Graph navigation 的 HTTP、MCP、Agent
+调用链原生 await；组织行为公开命令各自拥有事务，内部 helper 必需 GraphUnitOfWork。
+媒体解释与 Rumination 的邻居改为批量查询；多实体 Tool 复用既有 get_entity_records。
+
+隔离 PostgreSQL：Lexical 三项、Semantic 一项通过；Organization 原有五项与新增合成中途
+写失败回滚一项通过。navigation_probe 验证方向、hop limit、cursor 和 endpoint closure。
+全仓 gate 为 14 passed／60 skipped，lint、数据库边界、typecheck 全通过。
+旧同步测试 setup 及少量旧业务兼容方法按步骤 10 清零；当前进入 09，不宣称 #105 可合并。

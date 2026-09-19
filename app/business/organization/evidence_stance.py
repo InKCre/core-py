@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import typing
 
-import sqlmodel
 
 from app.business.deployment_config import DeploymentConfigManager
 from app.business.info_base.resolver import Resolver
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import graph_uow
 from libs.obsrv.main import get_logger
 from app.schemas.info_base.block import BlockID
-from app.schemas.info_base.relation import RelationModel
 from app.schemas.organization_behavior import (
   BehaviorAgentConfig,
   CandidateWriteResult,
@@ -86,10 +84,8 @@ class EvidenceStanceBehaviorResolver(
   async def record_candidate(
     cls,
     block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, block_id, db_session=db_session)
+    return await record_candidate(cls, block_id)
 
   @classmethod
   async def record_evidence_stance(
@@ -97,37 +93,22 @@ class EvidenceStanceBehaviorResolver(
     evidence_block_id: BlockID,
     assertion_block_id: BlockID,
     stance: typing.Literal["supports", "challenges"],
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> RelationWriteResult:
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        result = await cls.record_evidence_stance(
-          evidence_block_id,
-          assertion_block_id,
-          stance,
-          db_session=owned_session,
-        )
-        owned_session.commit()
-        return result
-    require_distinct_blocks(evidence_block_id, assertion_block_id, db_session)
-    opposite = CHALLENGES_RELATION if stance == SUPPORTS_RELATION else SUPPORTS_RELATION
-    existing_opposite = db_session.exec(
-      sqlmodel.select(RelationModel.id).where(
-        RelationModel.from_ == evidence_block_id,
-        RelationModel.to_ == assertion_block_id,
-        RelationModel.content == opposite,
+    async with graph_uow() as uow:
+      await require_distinct_blocks(evidence_block_id, assertion_block_id, uow)
+      opposite = CHALLENGES_RELATION if stance == SUPPORTS_RELATION else SUPPORTS_RELATION
+      existing_opposite = await uow.relations.get_outgoing_many(
+        (evidence_block_id,), to_ids=(assertion_block_id,), content=opposite
       )
-    ).first()
-    if existing_opposite is not None:
-      raise ValueError("The evidence/assertion pair already has the opposite stance")
-    relation, created = fetchsert_relation(
-      evidence_block_id,
-      assertion_block_id,
-      stance,
-      db_session,
-    )
-    return relation_result(relation, created)
+      if existing_opposite:
+        raise ValueError("The evidence/assertion pair already has the opposite stance")
+      relation, created = await fetchsert_relation(
+        evidence_block_id,
+        assertion_block_id,
+        stance,
+        uow,
+      )
+      return relation_result(relation, created)
 
   @classmethod
   async def can_run_automatic(cls) -> bool:
@@ -138,10 +119,10 @@ class EvidenceStanceBehaviorResolver(
     candidates = await candidate_seed_ids(cls, max_seeds)
     strong = merge_seed_categories(
       max_seeds,
-      recent_relation_endpoint_ids(max_seeds),
-      recent_block_ids(max_seeds),
+      await recent_relation_endpoint_ids(max_seeds),
+      await recent_block_ids(max_seeds),
     )
-    random = random_block_ids(max_seeds)
+    random = await random_block_ids(max_seeds)
     seeds = merge_seed_categories(max_seeds, candidates, strong, random)
     LOGGER.info(
       "organization.seeds.selected",

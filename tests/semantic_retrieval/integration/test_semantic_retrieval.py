@@ -1,6 +1,5 @@
 """Real PostgreSQL vertical proof for maintenance, freshness and ranking."""
 
-import asyncio
 import os
 import time
 
@@ -100,7 +99,7 @@ def _cleanup(
     )
 
 
-def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
+def test_real_maintenance_freshness_and_global_retrieval(async_runner, monkeypatch):
   register_core_resolvers()
   AIManager.sync_dialects()
   previous_config = DeploymentConfigManager.read(SEMANTIC_RETRIEVAL_CONFIG_KEY)
@@ -175,7 +174,7 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
       return tuple(_vector(text) for text in inputs)
 
     monkeypatch.setattr(AIManager, "embed", classmethod(embed))
-    maintenance = asyncio.run(
+    maintenance = async_runner.run(
       SemanticRetrievalManager.maintain(
         options=EmbeddingMaintenanceOptions(
           max_embeddings=10_000,
@@ -187,7 +186,7 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
     assert maintenance.unavailable >= 1
     assert maintenance.embedded >= 4
 
-    result = asyncio.run(
+    result = async_runner.run(
       SemanticRetrievalManager.retrieve(
         f"find {ALPHA}",
         options=VectorRetrievalOptions(limit=3),
@@ -200,7 +199,7 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
     ]
     assert result.matches[0].score > result.matches[1].score > result.matches[2].score
 
-    blocks_only = asyncio.run(
+    blocks_only = async_runner.run(
       SemanticRetrievalManager.retrieve(
         f"find {ALPHA}",
         profile_id,
@@ -216,7 +215,7 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
       ("block", beta_id),
     ]
 
-    relation_text = asyncio.run(
+    relation_text = async_runner.run(
       RelationManager.get_text(
         RelationModel(
           id=relation_id,
@@ -238,13 +237,13 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
       db.add(alpha_row)
       db.commit()
 
-    stale = asyncio.run(SemanticRetrievalManager.retrieve(f"find {ALPHA}", profile_id))
+    stale = async_runner.run(SemanticRetrievalManager.retrieve(f"find {ALPHA}", profile_id))
     stale_identities = {(match.type, match.entity.id) for match in stale.matches}
     assert ("block", alpha_id) not in stale_identities
     assert ("relation", relation_id) not in stale_identities
     assert ("block", beta_id) in stale_identities
 
-    refreshed = asyncio.run(
+    refreshed = async_runner.run(
       SemanticRetrievalManager.maintain(
         profile_id,
         EmbeddingMaintenanceOptions(max_embeddings=10, batch_size=2),
@@ -262,13 +261,13 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
         {"profile": profile_id, "block": beta_id},
       )
       db.commit()
-    mixed_dimensions = asyncio.run(
+    mixed_dimensions = async_runner.run(
       SemanticRetrievalManager.retrieve(f"find {ALPHA}", profile_id)
     )
     assert ("block", beta_id) not in {
       (match.type, match.entity.id) for match in mixed_dimensions.matches
     }
-    dimension_repair = asyncio.run(
+    dimension_repair = async_runner.run(
       SemanticRetrievalManager.maintain(
         profile_id,
         EmbeddingMaintenanceOptions(max_embeddings=10, batch_size=2),
@@ -283,11 +282,11 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
       profile_row.name = "Updated semantic retrieval integration profile"
       db.add(profile_row)
       db.commit()
-    invalidated = asyncio.run(
+    invalidated = async_runner.run(
       SemanticRetrievalManager.retrieve(f"find {ALPHA}", profile_id)
     )
     assert invalidated.matches == ()
-    rebuilt = asyncio.run(
+    rebuilt = async_runner.run(
       SemanticRetrievalManager.rebuild(
         profile_id,
         EmbeddingMaintenanceOptions(max_embeddings=10_000, batch_size=4),
@@ -311,7 +310,7 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
       raise RuntimeError("provider unavailable")
 
     monkeypatch.setattr(AIManager, "embed", classmethod(provider_failure))
-    failed = asyncio.run(
+    failed = async_runner.run(
       SemanticRetrievalManager.maintain(
         profile_id,
         EmbeddingMaintenanceOptions(max_embeddings=1, batch_size=1),
@@ -338,7 +337,7 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
       return ((0.0, 0.0, 1.0),)
 
     monkeypatch.setattr(AIManager, "embed", classmethod(wrong_cardinality))
-    invalid_batch = asyncio.run(
+    invalid_batch = async_runner.run(
       SemanticRetrievalManager.maintain(
         profile_id,
         EmbeddingMaintenanceOptions(max_embeddings=2, batch_size=2),
@@ -350,14 +349,14 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
       assert db.get(BlockEmbeddingModel, (profile_id, second_failure_block_id)) is None
 
     monkeypatch.setattr(AIManager, "embed", classmethod(embed))
-    first_resumed_batch = asyncio.run(
+    first_resumed_batch = async_runner.run(
       SemanticRetrievalManager.maintain(
         profile_id,
         EmbeddingMaintenanceOptions(max_embeddings=1, batch_size=1),
       )
     )
     assert first_resumed_batch.embedded == 1
-    second_resumed_batch = asyncio.run(
+    second_resumed_batch = async_runner.run(
       SemanticRetrievalManager.maintain(
         profile_id,
         EmbeddingMaintenanceOptions(max_embeddings=10, batch_size=2),
@@ -371,6 +370,6 @@ def test_real_maintenance_freshness_and_global_retrieval(monkeypatch):
       {"default_profile": 9_223_372_036_854_775_000},
     )
     with pytest.raises(EmbeddingProfileNotFoundError):
-      asyncio.run(SemanticRetrievalManager.retrieve("dangling default"))
+      async_runner.run(SemanticRetrievalManager.retrieve("dangling default"))
   finally:
     _cleanup(provider_id, profile_id, tuple(block_ids), previous_config)

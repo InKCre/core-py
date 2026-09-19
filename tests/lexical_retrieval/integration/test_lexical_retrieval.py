@@ -62,20 +62,24 @@ def test_literal_chinese_ranking_freshness_and_cascade(
   assert report.indexed == 4
   assert report.failed == report.unavailable == 0
 
-  ranked = LexicalRetrievalManager.retrieve_local("alpha beta")
+  ranked = async_runner.run(LexicalRetrievalManager.retrieve_local("alpha beta"))
   assert [match.block.id for match in ranked.matches[:2]] == [phrase, terms_only]
   assert ranked.matches[0].evidence == "label_substring"
   assert ranked.matches[1].evidence == "terms"
 
-  chinese_result = LexicalRetrievalManager.retrieve_local("链路故障")
+  chinese_result = async_runner.run(LexicalRetrievalManager.retrieve_local("链路故障"))
   assert chinese_result.matches[0].block.id == chinese
   assert chinese_result.matches[0].evidence == "label_substring"
 
   BlockManager.edit_block(phrase, content="replacement clue after authoritative edit")
-  assert not LexicalRetrievalManager.retrieve_local("continuous technical").matches
+  assert not async_runner.run(
+    LexicalRetrievalManager.retrieve_local("continuous technical")
+  ).matches
   update = async_runner.run(LexicalRetrievalManager.maintain())
   assert update.indexed == 1
-  updated_result = LexicalRetrievalManager.retrieve_local("replacement clue")
+  updated_result = async_runner.run(
+    LexicalRetrievalManager.retrieve_local("replacement clue")
+  )
   assert updated_result.matches[0].block.id == phrase
 
   assert BlockManager.delete(deleted)

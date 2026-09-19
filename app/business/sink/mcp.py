@@ -406,7 +406,7 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       description="Expand bounded one-hop graph neighborhoods around Blocks or Relations.",
       annotations=annotations,
     )
-    def expand_entities(
+    async def expand_entities(
       entities: tuple[str, ...],
       context_limit: typing.Annotated[int, pydantic.Field(ge=1, le=100)] = 20,
       direction: GraphDirection = "both",
@@ -416,13 +416,13 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
         try:
           kind, entity_id = _parse_entity(entity)
           if kind == "block":
-            neighborhood = GraphNavigationRetrievalManager.get_block_neighborhood(
+            neighborhood = await GraphNavigationRetrievalManager.get_block_neighborhood(
               entity_id,
               direction=direction,
               limit=context_limit,
             )
           else:
-            neighborhood = GraphNavigationRetrievalManager.get_relation_neighborhood(
+            neighborhood = await GraphNavigationRetrievalManager.get_relation_neighborhood(
               entity_id
             )
           if neighborhood is None:
@@ -452,13 +452,13 @@ class MCPSink(SinkBase[MCPSinkConfig], sink_type="core.mcp.v1", config_cls=MCPSi
       description="Find one bounded shortest graph path between two Blocks.",
       annotations=annotations,
     )
-    def find_path(
+    async def find_path(
       from_block: int,
       to_block: int,
       max_hops: typing.Annotated[int, pydantic.Field(ge=0, le=8)] = 4,
       direction: GraphDirection = "both",
     ) -> CallToolResult:
-      result = GraphNavigationRetrievalManager.find_path(
+      result = await GraphNavigationRetrievalManager.find_path(
         from_block,
         to_block,
         max_hops=max_hops,

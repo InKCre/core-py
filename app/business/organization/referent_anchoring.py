@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import typing
 
-import sqlmodel
 
 from app.business.deployment_config import DeploymentConfigManager
-from app.business.info_base.block import BlockManager
-from app.business.info_base.relation import RelationManager
 from app.business.info_base.resolver import Resolver
-from app.engine import SessionLocal
+from app.persistence.info_base.uow import GraphUnitOfWork, graph_uow
 from libs.obsrv.main import get_logger
 from app.schemas.info_base.block import BlockForm, BlockID
 from app.schemas.info_base.relation import RelationModel
@@ -88,10 +85,8 @@ class ExistingReferentAnchoringBehaviorResolver(
   async def record_candidate(
     cls,
     block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> CandidateWriteResult:
-    return await record_candidate(cls, block_id, db_session=db_session)
+    return await record_candidate(cls, block_id)
 
   @classmethod
   async def anchor_existing_referent(
@@ -99,93 +94,81 @@ class ExistingReferentAnchoringBehaviorResolver(
     source_block_id: BlockID,
     selected_text: str,
     referent_block_id: BlockID,
-    *,
-    db_session: sqlmodel.Session | None = None,
   ) -> ExistingReferentAnchorResult:
     proposal = ExistingReferentAnchorProposal(
       source_block_id=source_block_id,
       selected_text=selected_text,
       referent_block_id=referent_block_id,
     )
-    if db_session is None:
-      with SessionLocal() as owned_session:
-        result = await cls.anchor_existing_referent(
-          proposal.source_block_id,
-          proposal.selected_text,
-          proposal.referent_block_id,
-          db_session=owned_session,
-        )
-        owned_session.commit()
-        return result
-    require_distinct_blocks(
-      proposal.source_block_id, proposal.referent_block_id, db_session
-    )
-    source = BlockManager.get(proposal.source_block_id, db_session)
-    if source is None:  # pragma: no cover - require_distinct_blocks invariant
-      raise ValueError("Source Block does not exist")
+    async with graph_uow() as uow:
+      await require_distinct_blocks(
+        proposal.source_block_id, proposal.referent_block_id, uow
+      )
+      source = await uow.blocks.get(proposal.source_block_id)
+      if source is None:  # pragma: no cover - require_distinct_blocks invariant
+        raise ValueError("Source Block does not exist")
 
-    existing = cls._existing_path(
-      proposal.source_block_id,
-      proposal.selected_text,
-      proposal.referent_block_id,
-      db_session,
-    )
-    if existing is not None:
-      fragment_id, has_mention, refers_to = existing
+      existing = await cls._existing_path(
+        proposal.source_block_id,
+        proposal.selected_text,
+        proposal.referent_block_id,
+        uow,
+      )
+      if existing is not None:
+        fragment_id, has_mention, refers_to = existing
+        return ExistingReferentAnchorResult(
+          fragment_block_id=fragment_id,
+          fragment_created=False,
+          has_mention=(
+            relation_result(has_mention, False) if has_mention is not None else None
+          ),
+          refers_to=relation_result(refers_to, False),
+        )
+
+      source_is_fragment = (
+        source.resolver == "core.text.v1" and source.content == proposal.selected_text
+      )
+      if source_is_fragment:
+        fragment_id = proposal.source_block_id
+        fragment_created = False
+        has_mention_result = None
+      else:
+        fragment = await uow.blocks.create(
+          BlockForm(resolver="core.text.v1", content=proposal.selected_text)
+        )
+        if fragment.id is None:  # pragma: no cover - persisted Block invariant
+          raise RuntimeError("Persisted referring fragment has no ID")
+        fragment_id = fragment.id
+        fragment_created = True
+        has_mention, created = await fetchsert_relation(
+          proposal.source_block_id,
+          fragment_id,
+          HAS_MENTION_RELATION,
+          uow,
+        )
+        has_mention_result = relation_result(has_mention, created)
+
+      refers_to, created = await fetchsert_relation(
+        fragment_id,
+        proposal.referent_block_id,
+        REFERS_TO_RELATION,
+        uow,
+      )
       return ExistingReferentAnchorResult(
         fragment_block_id=fragment_id,
-        fragment_created=False,
-        has_mention=(
-          relation_result(has_mention, False) if has_mention is not None else None
-        ),
-        refers_to=relation_result(refers_to, False),
+        fragment_created=fragment_created,
+        has_mention=has_mention_result,
+        refers_to=relation_result(refers_to, created),
       )
-
-    source_is_fragment = (
-      source.resolver == "core.text.v1" and source.content == proposal.selected_text
-    )
-    if source_is_fragment:
-      fragment_id = proposal.source_block_id
-      fragment_created = False
-      has_mention_result = None
-    else:
-      fragment = BlockManager.create(
-        BlockForm(resolver="core.text.v1", content=proposal.selected_text),
-        db_session,
-      )
-      if fragment.id is None:  # pragma: no cover - persisted Block invariant
-        raise RuntimeError("Persisted referring fragment has no ID")
-      fragment_id = fragment.id
-      fragment_created = True
-      has_mention, created = fetchsert_relation(
-        proposal.source_block_id,
-        fragment_id,
-        HAS_MENTION_RELATION,
-        db_session,
-      )
-      has_mention_result = relation_result(has_mention, created)
-
-    refers_to, created = fetchsert_relation(
-      fragment_id,
-      proposal.referent_block_id,
-      REFERS_TO_RELATION,
-      db_session,
-    )
-    return ExistingReferentAnchorResult(
-      fragment_block_id=fragment_id,
-      fragment_created=fragment_created,
-      has_mention=has_mention_result,
-      refers_to=relation_result(refers_to, created),
-    )
 
   @staticmethod
-  def _existing_path(
+  async def _existing_path(
     source_block_id: BlockID,
     selected_text: str,
     referent_block_id: BlockID,
-    db_session: sqlmodel.Session,
+    uow: GraphUnitOfWork,
   ) -> tuple[BlockID, RelationModel | None, RelationModel] | None:
-    source = BlockManager.get(source_block_id, db_session)
+    source = await uow.blocks.get(source_block_id)
     if (
       source is not None
       and source.resolver == "core.text.v1"
@@ -194,11 +177,10 @@ class ExistingReferentAnchoringBehaviorResolver(
       refers_to = next(
         (
           relation
-          for relation in RelationManager.get(
-            source_block_id,
-            include_in=False,
-            content=REFERS_TO_RELATION,
-            db_session=db_session,
+          for relation in (
+            await uow.relations.get(
+              source_block_id, include_in=False, content=REFERS_TO_RELATION
+            )
           )
           if relation.to_ == referent_block_id
         ),
@@ -207,13 +189,10 @@ class ExistingReferentAnchoringBehaviorResolver(
       if refers_to is not None:
         return source_block_id, None, refers_to
 
-    for has_mention in RelationManager.get(
-      source_block_id,
-      include_in=False,
-      content=HAS_MENTION_RELATION,
-      db_session=db_session,
+    for has_mention in await uow.relations.get(
+      source_block_id, include_in=False, content=HAS_MENTION_RELATION
     ):
-      fragment = BlockManager.get(has_mention.to_, db_session)
+      fragment = await uow.blocks.get(has_mention.to_)
       if (
         fragment is None
         or fragment.resolver != "core.text.v1"
@@ -223,11 +202,10 @@ class ExistingReferentAnchoringBehaviorResolver(
       refers_to = next(
         (
           relation
-          for relation in RelationManager.get(
-            has_mention.to_,
-            include_in=False,
-            content=REFERS_TO_RELATION,
-            db_session=db_session,
+          for relation in (
+            await uow.relations.get(
+              has_mention.to_, include_in=False, content=REFERS_TO_RELATION
+            )
           )
           if relation.to_ == referent_block_id
         ),
@@ -247,8 +225,8 @@ class ExistingReferentAnchoringBehaviorResolver(
   @classmethod
   async def run_automatic(cls, max_seeds: int) -> None:
     candidates = await candidate_seed_ids(cls, max_seeds)
-    recent = recent_block_ids(max_seeds)
-    random = random_block_ids(max_seeds)
+    recent = await recent_block_ids(max_seeds)
+    random = await random_block_ids(max_seeds)
     seeds = merge_seed_categories(max_seeds, candidates, recent, random)
     LOGGER.info(
       "organization.seeds.selected",

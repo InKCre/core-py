@@ -75,6 +75,34 @@ class BlockService:
 
 class RelationService:
   @staticmethod
+  async def get_text(
+    relation: RelationModel,
+    *,
+    refresh: bool = False,
+  ) -> str | None:
+    """Project one directed dynamic property through Block-local endpoint labels."""
+    if not relation.content.strip():
+      return None
+    async with graph_uow() as uow:
+      endpoints = {
+        block.id: block
+        for block in await uow.blocks.get_many((relation.from_, relation.to_))
+      }
+    from_block = endpoints.get(relation.from_)
+    to_block = endpoints.get(relation.to_)
+    if from_block is None or to_block is None:
+      return None
+
+    # Local imports avoid reversing Resolver -> RelationService ownership.
+    from app.business.info_base.resolver import ResolverManager
+
+    subject = await ResolverManager.get(from_block).get_label(refresh=refresh)
+    value = await ResolverManager.get(to_block).get_label(refresh=refresh)
+    if not subject.strip() or not value.strip():
+      return None
+    return f"subject:\n{subject}\nproperty:\n{relation.content}\nvalue:\n{value}"
+
+  @staticmethod
   async def get_many(
     relation_ids: typing.Collection[RelationID],
   ) -> tuple[RelationModel, ...]:
