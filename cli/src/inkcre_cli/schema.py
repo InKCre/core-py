@@ -3,6 +3,8 @@
 from copy import deepcopy
 from typing import Any
 
+import click
+
 from .http import CoreRESTClient
 
 
@@ -10,11 +12,16 @@ def request_schema(
     client: CoreRESTClient, path: str, method: str, *, omit: tuple[str, ...] = ()
 ) -> dict:
     document = client.request("GET", "/openapi.json", authenticated=False)
-    schema = deepcopy(
-        document["paths"][path][method.lower()]["requestBody"]["content"]["application/json"][
-            "schema"
-        ]
-    )
+    try:
+        schema = deepcopy(
+            document["paths"][path][method.lower()]["requestBody"]["content"]["application/json"][
+                "schema"
+            ]
+        )
+    except KeyError as error:
+        raise click.ClickException(
+            f"当前 Core 未发布 {method.upper()} {path} 的 JSON 输入 schema；确认能力或实例已启用"
+        ) from error
     if "$ref" in schema:
         schema = deepcopy(document["components"]["schemas"][schema["$ref"].rsplit("/", 1)[1]])
     for name in omit:

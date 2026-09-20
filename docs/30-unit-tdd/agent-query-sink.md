@@ -45,14 +45,15 @@ The recommended definition selects these exact tools:
     "get_connected_components",
     "submit_query_result"
   ],
-  "tool_choice": "auto",
+  "tool_choice": "required",
   "max_model_calls_per_turn": 8
 }
 ```
 
-Replace `model` with an AI model ID available in the deployment. `tool_choice` may be `null` for a provider that cannot
-represent it; the system prompt still defines result delivery. A successful result has non-empty `answer` and zero or more
-`references`, each `{ "type": "block" | "relation", "id": <int> }`.
+Replace `model` with an AI model ID available in the deployment. `required` is recommended because Agent Query requires an
+explicit delivery Tool call; a provider may otherwise end with ordinary Assistant text. Providers that cannot represent
+tool choice may use `null` and rely on the prompt, with missing delivery reported as a failed Job. A successful result has
+non-empty `answer` and zero or more `references`, each `{ "type": "block" | "relation", "id": <int> }`.
 
 ## Execution And Ownership
 
