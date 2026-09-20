@@ -14,6 +14,9 @@ transport policy.
   shape is a static type-checking contract, not a second runtime schema.
 - Tool registration is decorator-owned. Exact persisted Tool IDs have set semantics and are bound once per new Thread;
   later registry changes do not rewrite existing Thread schemas or handlers.
+- Tool handlers are owner-local controllers: they own Agent input/result projection and call ordinary domain services.
+  Do not move domain behavior into this subtree or create a central `agent_tools` business package. The durable boundary is
+  documented in `docs/30-unit-tdd/business-pipeline-and-authority.md`.
 - Cancellation owns no rollback, retry, shielding, or compensation. Completed Tool effects remain.
 - `OBSRV__AGENT_DEBUG` enables development events through existing logging. These are diagnostic records, not execution
   persistence or recovery authority. Preserve the actual ToolResult and Turn outcome when changing debug instrumentation.

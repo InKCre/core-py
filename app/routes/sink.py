@@ -36,6 +36,14 @@ async def list_sink_types() -> tuple[SinkTypeModel, ...]:
   return await SinkManager.list_types()
 
 
+@ROUTER.get("/sink-types/{type_}")
+async def get_sink_type(type_: str) -> SinkTypeModel:
+  result = await SinkManager.get_type(type_)
+  if result is None:
+    raise fastapi.HTTPException(404, f"Sink type {type_!r} not found")
+  return result
+
+
 @ROUTER.get("/sinks")
 async def list_sinks() -> tuple[SinkModel, ...]:
   return await SinkManager.list()

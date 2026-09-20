@@ -17,7 +17,14 @@ import sqlmodel
 
 from app.business.ai import AIManager
 from app.business.graph_navigation_retrieval import GraphNavigationRetrievalManager
+from app.business.graph_navigation_retrieval.tools import (
+  FIND_PATH_TOOL,
+  GET_CONNECTED_COMPONENTS_TOOL,
+  GET_ENTITY_NEIGHBORHOOD_TOOL,
+)
+from app.business.info_base.tools import GET_ENTITIES_TOOL, RETRIEVE_TOOL
 from app.business.info_base.resolver import ResolverManager, register_core_resolvers
+from app.business.info_base.resolver.tools import RESOLVER_TOOL
 from app.business.job import JobManager
 from app.business.lexical_retrieval import LexicalRetrievalManager
 from app.business.organization import (
@@ -25,16 +32,10 @@ from app.business.organization import (
   CREATE_SYNTHESIS_TOOL,
   DRAFT_GRAPH_TOOL,
   GET_DRAFT_GRAPH_SCHEMA_TOOL,
-  GET_ENTITIES_TOOL,
-  GET_ENTITY_NEIGHBORHOOD_TOOL,
-  FIND_PATH_TOOL,
-  GET_CONNECTED_COMPONENTS_TOOL,
   RECORD_DUPLICATE_ASSERTION_TOOL,
   RECORD_EVIDENCE_STANCE_TOOL,
   RECORD_REFINEMENT_TOOL,
   RECORD_SUPERSESSION_TOOL,
-  RESOLVER_TOOL,
-  RETRIEVE_TOOL,
   SUBMIT_GRAPH_TOOL,
   register_core_organization_behaviors,
 )

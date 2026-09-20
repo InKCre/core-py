@@ -1,4 +1,16 @@
-"""Info-base graph command coordination."""
+"""Info-base graph command coordination and cross-retrieval use cases."""
+
+import asyncio
+from dataclasses import dataclass
+import typing
+
+from app.business.info_base.services import BlockService, get_entity_records
+from app.business.lexical_retrieval import LexicalRetrievalManager
+from app.business.semantic_retrieval import SemanticRetrievalManager
+from app.schemas.lexical_retrieval import LexicalRetrievalResult
+from app.schemas.semantic_retrieval import SemanticRetrievalResult, VectorRetrievalOptions
+from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.relation import RelationModel
 
 from app.schemas.info_base.main import (
   GraphBlockForm,
@@ -8,8 +20,60 @@ from app.schemas.info_base.main import (
 )
 
 
+@dataclass(frozen=True)
+class RetrievalBranch:
+  result: LexicalRetrievalResult | SemanticRetrievalResult | None = None
+  error: BaseException | None = None
+
+
 class InfoBaseManager:
-  """Own graph-form normalization and graph insertion coordination."""
+  """Own graph commands and use cases that span info-base read capabilities."""
+
+  @classmethod
+  async def retrieve(
+    cls,
+    query: str,
+    mode: typing.Literal["lexical", "semantic", "hybrid"] = "hybrid",
+    limit: int = 20,
+  ) -> dict[str, RetrievalBranch]:
+    """Run selected retrieval owners independently without merging their ranking."""
+    operations: dict[str, typing.Awaitable] = {}
+    if mode in {"lexical", "hybrid"}:
+      operations["lexical"] = LexicalRetrievalManager.retrieve_local(query, limit)
+    if mode in {"semantic", "hybrid"}:
+      operations["semantic"] = SemanticRetrievalManager.retrieve_local(
+        query, options=VectorRetrievalOptions(limit=limit)
+      )
+    outcomes = await asyncio.gather(*operations.values(), return_exceptions=True)
+    return {
+      name: RetrievalBranch(
+        error=outcome if isinstance(outcome, BaseException) else None,
+        result=None if isinstance(outcome, BaseException) else outcome,
+      )
+      for name, outcome in zip(operations, outcomes, strict=True)
+    }
+
+  @classmethod
+  async def get_entities(
+    cls,
+    entities: typing.Collection[tuple[typing.Literal["block", "relation"], int]],
+    *,
+    random_count: int = 1,
+  ) -> tuple[BlockModel | RelationModel | None, ...]:
+    """Read ordered persisted entities, or random Blocks when selection is empty."""
+    if not entities:
+      return typing.cast(
+        tuple[BlockModel | RelationModel | None, ...],
+        await BlockService.get_random_many(random_count),
+      )
+    blocks, relations = await get_entity_records(
+      tuple(identity for kind, identity in entities if kind == "block"),
+      tuple(identity for kind, identity in entities if kind == "relation"),
+    )
+    return tuple(
+      blocks.get(identity) if kind == "block" else relations.get(identity)
+      for kind, identity in entities
+    )
 
   @classmethod
   def normalize_graph(

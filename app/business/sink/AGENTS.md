@@ -1,6 +1,6 @@
 # sink/ Local Guide
 
-本目录实现 deployment-owned Sink type/instance lifecycle 与首个 MCP projection。跨 Unit authority 见
+本目录实现 deployment-owned Sink type/instance lifecycle 与具体 Sink projections。跨 Unit authority 见
 [business-pipeline-and-authority.md](../../../docs/30-unit-tdd/business-pipeline-and-authority.md)，MCP 具体 contract 见
 [mcp-sink.md](../../../docs/30-unit-tdd/mcp-sink.md)。
 
@@ -13,6 +13,16 @@
 - Enable/disable 先持久化当前 Peer intent，再 start/close local runtime。失败保持可观察且不反向改写 durable intent。
 - 不增加 generic deliver、reconcile、transport、restart 或 rollback interface；具体 Sink 直接实现 `on_start/on_close`。
 - Sink 只投影既有 use behavior，不取得 info-base、retrieval、Resolver 或 Storage authority。
+- SinkBase hooks 默认 no-op；只有拥有 active resource 的类型实现它们。Agent Query instance 挂载 exact REST
+  route，MCP instance 挂载 MCP endpoint，两者都由 SinkManager 的同一实例 lifecycle 启停。
+
+## Agent Query Boundary
+
+- `core.agent-query.v1` config 只选择一个 Agent definition；prompt、model、tools 和 model-call budget 留在 Agent。
+- `/sinks/{id}/query` 异步创建 `core.sink.agent-query.v1` Job，不在 HTTP request 内运行模型。
+- `submit_query_result` 是 Sink-owned delivery Tool。读取工具仍由 info-base、Resolver 和 Graph Navigation 拥有。
+- result 保存在 Job state，不建立额外 query/result table。正常结束但未提交结果是明确失败；已经闭合的提交在
+  后续失败或取消时尽力保留。
 
 ## MCP Boundary
 

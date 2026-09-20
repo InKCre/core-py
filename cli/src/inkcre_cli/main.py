@@ -8,7 +8,7 @@ import httpx
 from pydantic import ValidationError
 
 from .command import Group, Invocation, common
-from .commands import agent, config, connection, extension, info, jobs, peer, source
+from .commands import agent, config, connection, extension, info, jobs, peer, sink, source
 from .errors import CommandError
 from .output import compact
 
@@ -40,6 +40,8 @@ for command in (
     connection.connection,
     extension.extension,
     peer.peer,
+    sink.sink,
+    sink.query,
 ):
     cli.add_command(command)
 

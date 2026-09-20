@@ -25,6 +25,11 @@ become presentation hints.
 查询入口均为异步业务方法，每次调用拥有独立的 GraphUnitOfWork。HTTP、MCP 与 Agent Tool
 等待业务方法，不创建 session；内部遍历复用该次操作的 repositories，不接受可选 raw session。
 
+Agent-facing controllers 与输入模型由本领域拥有，并调用相同 Manager methods：
+`get_entity_neighborhood`、`find_path`、`get_connected_components`。它们只负责 Agent 参数接合与 JSON
+projection，不复制遍历逻辑，也不让 Manager 依赖 Agent runtime。Organization、MCP 和 Agent Query 只是这些
+能力的消费者。
+
 ## Query Mechanics
 
 Relation pages use `(from_, id DESC)` and `(to_, id DESC)` indexes. A `both` neighborhood intentionally

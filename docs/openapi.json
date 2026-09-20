@@ -3934,6 +3934,48 @@
         }
       }
     },
+    "/sink-types/{type_}": {
+      "get": {
+        "tags": [
+          "sink"
+        ],
+        "summary": "Get Sink Type",
+        "operationId": "get_sink_type_sink_types__type___get",
+        "parameters": [
+          {
+            "name": "type_",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Type "
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SinkTypeModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sinks": {
       "get": {
         "tags": [

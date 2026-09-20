@@ -30,6 +30,9 @@ class SinkRepository:
       await self._session.scalars(sqlmodel.select(SinkTypeModel).order_by(SinkTypeModel.id))
     )
 
+  async def get_type(self, sink_type: str) -> SinkTypeModel | None:
+    return await self._session.get(SinkTypeModel, sink_type)
+
   async def list(self):
     return tuple(
       await self._session.scalars(

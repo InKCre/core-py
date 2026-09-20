@@ -89,7 +89,7 @@ so one stable ID has one predictable address；the shard boundary does not imply
   D-421–D-460；Organization Nowledge study retains D-461–D-570；CLI sink retains D-571–D-610；Agent Query Sink reserves D-611–D-650。
 - MCP、Telegram 和 [organization-nowledge-study](../units/organization-nowledge-study/packet.md) 均已关闭；Organization
   已完成 PR #100 / #101 合并及 Core 0.2.0 生产交付。[CLI sink](../units/cli-sink/packet.md) 已正式发布并关闭；当前
-  [Agent Query Sink](../units/agent-query-sink/packet.md) 已按 D-629–D-631 修正实现计划及 Handshake，本次 packet 提交获授权，未授权源码实施；
+  [Agent Query Sink](../units/agent-query-sink/packet.md) 已进入 Implementation / local acceptance，等待 draft PR preview 的真实模型验收；
   Parent task 保留其余候选与 durable-owner reconciliation。
 - Parallel placement and integration surfaces are shared peer control in the [roster](../collaboration/roster.md)；there is no
   coordinator role。
