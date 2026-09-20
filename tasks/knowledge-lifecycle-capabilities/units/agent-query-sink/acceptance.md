@@ -2,7 +2,7 @@
 
 依据 D-611–D-628。验收证明配置、异步交付、基于材料回答与实际消费；不以工具数量、固定调用次序、
 固定措辞或单次模型正常结束代替产品价值。本文保留已确认的验收合同；Preview 执行结果见
-[implementation-evidence](implementation-evidence.md)，production/PyPI 仍待后续授权。
+[implementation-evidence](implementation-evidence.md)。Preview、production 与 PyPI 交付终点均已完成。
 
 ## 数据与证据
 
@@ -67,6 +67,6 @@ D-629–D-631 增补结构与文档核验，不改变四条产品旅程：检查
 调用方向、exact IDs/输入合同和普通领域返回能力；按 documentation-authority.md 核对合同唯一 owner、
 旧位置清理及引用可达。此项通过源码/文档审查与既有静态检查完成，不增加自动化测试。
 
-已确认交付终点：preview 四旅程通过 → 经单独授权合并与发布 → production 部署成功、CLI 发布 PyPI →
-本地隔离安装已发布版本并连接 production 完成配置/一次有依据查询。此终点不代表当前
-已获提交、推送、合并或发布授权。Core 先就绪，再验证 CLI 消费；不重做现有 release workflow。
+已确认并完成的交付终点：preview 四旅程通过 → 经授权合并与发布 → production 部署成功、CLI 发布 PyPI →
+本地隔离安装已发布版本并连接 production 完成配置/一次有依据查询。Core 先就绪，再验证 CLI 消费；
+未重做现有 release workflow。

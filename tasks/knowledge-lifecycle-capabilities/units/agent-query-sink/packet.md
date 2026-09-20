@@ -1,9 +1,7 @@
 # Agent Query Sink
 
-- **阶段**：Human review。原实现的 P1–P4、本地门禁、真实模型 A1–A4 与镜像 smoke 已通过；
-  本轮注册完整性、schema/route rationale 与历史文档状态修正已完成，冷启动/路由 smoke 与本地门禁通过。
-  PR #111 保持 draft 且未合并。
-  证据见 [implementation-evidence](implementation-evidence.md)。
+- **阶段**：Closed。Preview A1–A4、维护性复审、Hub authority 修正、Core/CLI 发布、production delivery
+  与已发布 CLI 的生产查询旅程均已通过；证据见 [implementation-evidence](implementation-evidence.md)。
 - **目标与边界**：[D-611](../../decisions/D611-D620.md)。由 AI 组合既有 info-base 原子查询，承担检索决策并交付相关信息；不另建索引或接管下游创作。
 - **位置**：`feat/agent-query-sink`，core-py root worktree；从干净且与 origin/main 一致的 `676886a4d2242be2f14465523c3267a126b60fd3` 切出。决策保留 D-611–D-650。
 - **已确认交付物**：[D-620](../../decisions/D611-D620.md) 修正 D-612：基于 info-base 回答信息需求，实体是可寻址依据而非答案上限；允许跨材料比较、解释与有依据的推论。
@@ -22,10 +20,10 @@
 - **已确认结束语义**：[D-627](../../decisions/D621-D630.md)：正常 Turn 有交付则 finished，未交付则 failed；保留真实中断状态。预算只由 runtime 控制，不向 LLM 暴露。
 - **当前复核面**：[Impact Handshake](impact-handshake.md)。[四条验收旅程与交付终点](acceptance.md) 已由 D-628 确认；[实现计划](implementation-plan.md)、[preflight](preflight.md)、[实测记录](preflight-evidence.md) 与 [corpus](corpus.md) 已准备。
 - **事实依据**：[代码与边界调查](research.md)。区分读取工具可发现的方法、能够返回的内容和模型实际能够理解的输入。
-- **下一步**：由 Sir 继续 review PR #111 与 Hub PR #29；本轮修正提交为 `daab9d6`，最新 CI/Preview 结果以
-  PR checks 为准。后续合并、版本准备、production 与 PyPI 复验需
-  单独授权后才能关闭 unit。
-- **文档修正**：D-631 已落实到领域 owner 文档；长期准则见 Hub draft PR #29，具体运行合同仍留 Core。
+- **交付**：Hub PR #29、Core PR #111 与 Release PR #109 已依序合并；Core 0.5.0、CLI 0.2.0、production
+  与 stable admission 已交付。production Agent Query Job 8 读取 Block 6 并交付准确答案与真实引用。
+- **文档修正**：D-631 已落实到领域 owner 文档；长期准则已由 Hub PR #29 进入 shared truth，具体运行合同仍留
+  Core。
 
 ## 工作方式
 
