@@ -114,24 +114,30 @@ def _resolver_input_model() -> type[pydantic.BaseModel]:
     __base__=ResolverInvokeInput,
     calls=(tuple[call_type, ...], pydantic.Field(min_length=1, max_length=20)),
   )
-  envelope = pydantic.create_model(
+  provider_envelope = pydantic.create_model(
     "ResolverEnvelope",
     __base__=ResolverDescribeInput,
     action=(typing.Literal["describe", "invoke"], ...),
     calls=(tuple[call_type, ...], pydantic.Field(default=(), max_length=20)),
   )
-  documented = pydantic.RootModel[
+  method_contract = pydantic.RootModel[
     typing.Annotated[ResolverDescribeInput | invoke, pydantic.Field(discriminator="action")]
   ]
 
+  # Runtime validates the dispatch envelope, then the selected Resolver validates
+  # each call's arguments. One invalid method argument must not reject the batch.
+  # The richer method schema below guides the model without changing that boundary.
   class BoundResolverInput(ResolverMetaToolInput):
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, typing.Any]:
-      schema = documented.model_json_schema(*args, **kwargs)
-      visible = envelope.model_json_schema(*args, **kwargs)
-      schema.update(type="object", properties=visible["properties"])
-      schema.setdefault("$defs", {}).update(visible.get("$defs", {}))
-      return schema
+      method_schema = method_contract.model_json_schema(*args, **kwargs)
+      # Some providers infer parameter types only from top-level properties.
+      # Expose the wider envelope there while retaining the union's oneOf,
+      # discriminator and $defs so describe/invoke keep their distinct contracts.
+      provider_schema = provider_envelope.model_json_schema(*args, **kwargs)
+      method_schema.update(type="object", properties=provider_schema["properties"])
+      method_schema.setdefault("$defs", {}).update(provider_schema.get("$defs", {}))
+      return method_schema
 
   return BoundResolverInput
 

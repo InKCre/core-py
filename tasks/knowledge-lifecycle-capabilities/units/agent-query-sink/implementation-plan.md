@@ -1,8 +1,13 @@
-# 实现计划（待实施 baseline）
+# 实现计划（实施前历史基线）
+
+P1–P4 与 P5 的 Preview 部分已由 [core-py#111](https://github.com/InKCre/core-py/pull/111) 实现并验收。
+本文保留计划快照；当前状态与剩余授权边界见 [packet](packet.md)，执行证据见
+[implementation-evidence](implementation-evidence.md)，当前实现合同见
+[Agent Query Sink TDD](../../../../docs/30-unit-tdd/agent-query-sink.md)。
 
 依据 D-611–D-631 与已确认的 [验收方案](acceptance.md)。领域 owner、controller/service 和文档 authority
 修正已纳入下列步骤；注册机制的补充源码核对见 preflight-evidence.md。影响边界见
-[Impact Handshake](impact-handshake.md)。源码尚未授权，不能把本页当作实施指令。
+[Impact Handshake](impact-handshake.md)。
 当前 branch 为 feat/agent-query-sink，起点 676886a；实施前重新核对 main 与 working tree，不清除 parent packet。
 
 ## 依赖次序

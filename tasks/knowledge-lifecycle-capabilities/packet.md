@@ -18,8 +18,9 @@
   能力划分见 [capability-map.md](capability-map.md)，当前状态见本页下方；details stay in each unit packet and the
   [decision register](decisions/index.md)。GitHub extension 的 collection-side correction remains queued, but no longer
   blocks root-usability selection after ownership corrections merged。
-- **Next Step**: [Agent Query Sink](units/agent-query-sink/packet.md) 已实现并通过本地门禁、Preview 真实模型 A1–A4
-  与修正后镜像 smoke；等待 Sir review Core PR #111 与 Hub PR #29，不合并。
+- **Next Step**: [Agent Query Sink](units/agent-query-sink/packet.md) 已实现并通过 Preview 真实模型 A1–A4；
+  Sir 对 #111 的维护性 review 已落实，本轮冷启动/路由 smoke 与本地门禁通过。继续 review Core PR #111 与
+  Hub PR #29，不合并。
 
 ## Program Boundary
 
@@ -43,7 +44,7 @@
 
 2026-09-20，Sir 选择 `agent-query-sink`，由 AI 组合 info-base 原始查询，服务检索而非下游创作；见
 [D-611](decisions/D611-D620.md)。已从干净、与 origin/main 一致的 `676886a` 切出 `feat/agent-query-sink`。
-当前只调查和维护 task packet。环境入口仍为 `AGENTS.local.md` 与 `svc.local.json`。
+当前已完成实现与 Preview 验收，正在落实 Sir 对 #111 的 review。环境入口仍为 `AGENTS.local.md` 与 `svc.local.json`。
 
 Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，新 unit 保留 D-611–D-650，不复用历史空号。
 已关闭 session 不再持有源码锁，历史授权和 deferred 项也不自动成为新 unit 的实施范围。

@@ -1,7 +1,12 @@
-# 技术方案草案
+# 技术方案（实施前历史基线）
+
+本文保留实施前的设计与推演措辞；已由 [core-py#111](https://github.com/InKCre/core-py/pull/111) 实现。
+当前状态见 [packet](packet.md)，实现合同见
+[Agent Query Sink TDD](../../../../docs/30-unit-tdd/agent-query-sink.md)，验收结果见
+[implementation-evidence](implementation-evidence.md)。下文的设计期状态不代表当前授权或交付状态。
 
 产品范围、实例配置、启停与 REST 受理边界见 [D-611–D-620](../../decisions/D611-D620.md)，结果和实例 endpoint 见
-[D-621–D-623](../../decisions/D621-D630.md)。实现接合仍在设计，不授权源码修改。
+[D-621–D-623](../../decisions/D621-D630.md)。
 
 ## 执行与配置的 owner
 

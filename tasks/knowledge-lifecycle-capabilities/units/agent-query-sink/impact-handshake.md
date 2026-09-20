@@ -1,5 +1,9 @@
 # Impact Handshake
 
+本文是实施授权前的历史快照。此后 Sir 已授权实现、验收、提交、推送与 draft PR，仍未授权合并。
+实际实现与 Preview 证据见 [implementation-evidence](implementation-evidence.md)；当前授权和阶段以
+[packet](packet.md) 为准，下文保留当时的复核内容与授权状态。
+
 2026-09-20。设计依据更新至 D-631，D-628 的四条产品验收旅程保留，关键 preflight 与设计修正核对已完成。
 Sir 已授权本次 task packet 提交；尚未授权源码实施、推送或发布。
 

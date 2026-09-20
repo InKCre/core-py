@@ -56,7 +56,54 @@ Relations 1–2 均为本轮 Preview 数据。
 修正提交 `2dbbfce` 的 repository、portable database、CLI 与 Preview deploy checks 全部通过；最终代码镜像
 `/readyz`、migration `d41cc84db0c5`、catalog、roles、privileges 与动态 query schema 均就绪。Job 17 未在预算内
 提交结果，按合同明确 failed；缩小已知材料后的 Job 18 读取 Block 6、交付准确回答与真实引用并 finished，证明
-新镜像的完整受理、执行和结果链路。当前剩余提交只更新本 evidence，不改变已验收代码路径。
+新镜像的完整受理、执行和结果链路。`f8fb1af` 只更新 evidence；后续 review 修正单独记录如下。
+
+## PR #111 维护性 review 修正
+
+Sir 提供的五条 finding 均有依据，处理范围保持在当前 unit：
+
+1. 恢复 Resolver schema 的说明并区分 `method_schema` 与 `provider_schema`。未采用 `validation_schema`
+   命名，因为动态模型只覆盖公开 schema；runtime 先验证 dispatch envelope，方法参数再由 Resolver owner
+   逐调用验证。以旧实现生成 schema 对照，新旧完全一致。
+2. 独立进程已复现：仅调用 `register_core_agent_tools()` 时缺少 `submit_query_result`。现在显式导入
+   Sink delivery controller；保留 decorator 注册与 Python import cache，不增加另一套 Sink/Job 注册框架。
+   冷启动得到完整 17 个工具，重复 bootstrap 不改变 registry。
+3. `project_json()` 的 bytes 错误改为通用 Agent Tool JSON 表示边界，不再误称为 Resolver 错误。
+4. 为实际 route ownership、无 await 的挂载区间和 OpenAPI 缓存补充注释。当前 FastAPI 0.139.2 创建
+   included-router wrapper，并非复制 `router.routes`。MCP 则直接持有自己的 Mount；两者保留各自小型实现，
+   目前不抽 DynamicRoutes。两实例 HTTP/ASGI smoke 覆盖独立关闭、重启、404/422 与 schema 更新，无 DB/model I/O。
+5. 技术设计、实施计划、Impact Handshake 和 preflight 标明历史快照；验收合同链接到执行结果，parent
+   packet 移除“当前只调查”的过期状态。稳定合同仍在 Unit TDD，当前阶段仍由 packet 持有。
+
+另为 `_last_query_result()` 写明 Thread 原子追加相邻 Assistant/ToolResult batch 及 ToolCall 顺序的依赖；
+后续失败提交不会覆盖前面的成功结果。没有改变结果选择算法。
+
+Job schema duplication 保留为架构观察项：`AgentQueryJobParameters.model_json_schema()` 与 hermetic
+`BUILTIN_JOB_TYPES_BY_ID` 当前严格一致，但手写 profile 与 runtime model 仍需同步维护。未来若治理整个
+profile，应在 database-contract owner 内解决生成/派生关系；本次不引入新的生成框架或重复 schema gate。
+
+本轮 `pdm run check` 通过（14 passed、60 skipped）。以下为可手动重跑的冷启动检查；必须从 repository root
+启动新进程，不提前 import Sink 或 REST routes。它不连接数据库，也未纳入自动化测试：
+
+```bash
+pdm run python - <<'PY'
+import os
+import sys
+os.environ['DATABASE_URL'] = 'postgresql+psycopg://review:review@127.0.0.1:1/review'
+os.environ['JWT_SECRET'] = 'local-review-only-not-a-deployment-secret'
+from app.business.agent import AgentManager, register_core_agent_tools
+assert 'app.business.sink.agent_query' not in sys.modules
+register_core_agent_tools()
+first = AgentManager.list_tools()[0]
+assert {
+    'retrieve', 'get_entities', 'resolver', 'get_entity_neighborhood',
+    'find_path', 'get_connected_components', 'submit_query_result',
+} <= {tool['id'] for tool in first}
+register_core_agent_tools()
+assert AgentManager.list_tools()[0] == first
+print('Core Agent Tool bootstrap passed')
+PY
+```
 
 ## 尚待
 

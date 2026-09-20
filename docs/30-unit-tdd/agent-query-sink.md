@@ -67,5 +67,8 @@ The generic read tools are controllers beside their semantic owners. They adapt 
 domain services; they do not move retrieval, Resolver, or graph behavior into Agent Query. `submit_query_result` alone is
 Sink-owned because delivery is the Sink's behavior.
 
+`submit_query_result` participates in the explicit `register_core_agent_tools()` bootstrap. It is available before any
+Sink instance is enabled, and registration does not depend on importing Sink REST routes.
+
 The first version reads text/JSON and already-derived media text. It does not invoke raw multimodal interpretation, create a
 second query/result store, persist Thread history, or add a new Peer capability.

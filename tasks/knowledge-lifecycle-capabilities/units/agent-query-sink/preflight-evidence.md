@@ -1,5 +1,8 @@
 # Preflight 实测记录
 
+本文保留实施前实验的历史证据，不代表当前工作树或交付状态。后续实现与 Preview 验收见
+[implementation-evidence](implementation-evidence.md)，当前阶段见 [packet](packet.md)。
+
 2026-09-20，基线 676886a4d2242be2f14465523c3267a126b60fd3；git ls-remote 确认 origin/main 仍为同一
 SHA。当前工作树只有本 task packet 改动。隔离脚本在忽略目录 `.runtime/agent-query-preflight.kj5RQX/`，
 不作为新增自动化测试或发布源码。PDM 2.28.0；本机 FastAPI 0.139.2、Pydantic 2.13.4、HTTPX 0.28.1。

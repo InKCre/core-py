@@ -114,14 +114,20 @@ class AgentQuerySink(
       background.add_task(JobManager.notify_worker)
       return job
 
+    # include_router adds app-owned objects (included-router wrappers in FastAPI
+    # 0.139), not router.routes themselves. Capture those exact objects without
+    # relying on their private type; this synchronous section cannot interleave.
     existing = {id(route) for route in app.router.routes}
     app.include_router(router)
     self._routes = tuple(route for route in app.router.routes if id(route) not in existing)
+    # CLI schema discovery must reflect enable/disable, not a cached route set.
     app.openapi_schema = None
     self._app = app
 
   async def on_close(self) -> None:
     if self._app is not None and self._routes:
+      # Identity removes only this instance's publication, never another route
+      # sharing a path. MCPSink owns its directly appended Mount the same way.
       owned = {id(route) for route in self._routes}
       self._app.router.routes[:] = [
         route for route in self._app.router.routes if id(route) not in owned
@@ -191,7 +197,12 @@ class AgentQueryJobHandler(
 def _last_query_result(
   messages: typing.Iterable[typing.Any],
 ) -> dict[str, JSONValue] | None:
-  """Read the last successful submission from closed Assistant/ToolResult pairs."""
+  """Read the last successful submission from closed Assistant/ToolResult pairs.
+
+  Thread._execute_turn atomically appends the Assistant and its complete results
+  as adjacent messages, in ToolCall order. The last successful submit in that
+  order wins; a later failed submit never replaces an earlier successful result.
+  """
   sequence = tuple(messages)
   selected: dict[str, JSONValue] | None = None
   for index, message in enumerate(sequence[:-1]):

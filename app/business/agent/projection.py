@@ -14,7 +14,7 @@ _JSON_ADAPTER = pydantic.TypeAdapter(JSONValue)
 def project_json(value: typing.Any) -> JSONValue:
   """Project ordinary domain values without admitting binary Tool results."""
   if _contains_bytes(value):
-    raise TypeError("Binary Resolver values are unavailable through this Agent Tool")
+    raise TypeError("Binary values are unavailable through JSON Agent Tools")
   if isinstance(value, pydantic.BaseModel):
     projected = value.model_dump(mode="json")
   elif dataclasses.is_dataclass(value) and not isinstance(value, type):

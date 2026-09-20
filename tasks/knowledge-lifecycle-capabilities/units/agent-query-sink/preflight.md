@@ -1,5 +1,8 @@
 # Preflight：实施前结论
 
+本文为实施前的历史快照；以下状态截至当时基线。后续实现、Preview 验收和 review 修正见
+[implementation-evidence](implementation-evidence.md)，当前阶段见 [packet](packet.md)。
+
 状态：2026-09-20，关键源码调查与隔离实验已完成，可以进入 Impact Handshake；新功能尚未实现或验收。
 D-629–D-631 的修正已补充源码与文档核对：保留普通 Tool controller，注册机制无需扩展；移动后的
 冷启动验证和文档 authority 纠正已纳入 P1/P4。其它运行证据保持有效。
