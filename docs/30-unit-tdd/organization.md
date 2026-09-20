@@ -58,19 +58,16 @@ keyed by exact text plus exact source basis; the ordinary Block identity rule is
 
 ## Reading and Agent boundary
 
-Exploratory behavior definitions compose the following read tools:
+Exploratory behavior definitions select the following owner-provided read tools:
 
-- `retrieve(query, mode)` combines lexical/semantic entry without hiding their separate results;
-- `get_entities(entities, random_count)` reads ordinary persisted records in request order; each reference carries its own
-  `type` and `id`, missing records return null, and an empty reference list selects random Blocks;
-- `resolver` describes or invokes typed public `get_*`/`read_*` methods through `ResolverManager`;
-- `get_entity_neighborhood`, `find_path`, and `get_connected_components` directly expose the small, stable query set owned by
-  `GraphNavigationRetrievalManager`.
+- info-base owns `retrieve` and `get_entities`;
+- the Resolver domain owns `resolver` discovery and invocation;
+- Graph Navigation owns `get_entity_neighborhood`, `find_path`, and `get_connected_components`.
 
-Common Resolver reads are visible in the invocation schema; additional methods are discoverable. ResolverManager owns method
-contracts and invocation validation. An invalid invocation returns its error and available contract without discarding other
-calls in the batch. Agent adapters serialize values and reject binary projection; they do not replace Resolver or Graph
-Navigation APIs. MCP Sink consumes the same Resolver-owned reflection contract but Organization does not depend on MCP.
+Organization owns only its behavior definitions, candidate selection, initial message, and behavior-specific mutation tools.
+The generic read contracts and Agent-facing controllers remain with their semantic owners; Organization does not redefine
+them merely because its Agents consume them. MCP Sink and Agent Query Sink may compose the same owner contracts without
+becoming dependencies of Organization.
 
 Mutation tools are behavior-specific, except the single dynamic `record_organization_candidate` tool. Agent definitions—not an
 extra runtime allowlist—select the tools appropriate to each behavior. AgentManager and AIManager remain graph-blind execution
@@ -102,10 +99,9 @@ budget exhaustion to its caller. These diagnostics use the existing application 
 
 ## Graph use
 
-`GraphNavigationRetrievalManager.get_connected_components()` partitions caller seeds by bounded undirected connectivity over
-exact requested Relation contents. It returns discovered member Blocks, spanning proof Relations, missing seeds, and a truncation
-flag. A truncated result cannot prove that separate provisional components are independent. Its first use law is counting one
-`duplicates assertion` component as one provenance occurrence.
+`get_connected_components` 的通用查询合同归 Graph Navigation。Duplicate Assertion 只拥有它的消费规则：
+一个完整的 `duplicates assertion` component 计作一个 provenance occurrence；truncated 结果不能证明临时分组
+彼此独立。这里不重复定义遍历算法或返回模型。
 
 `SupersessionBehaviorResolver.read_lineage()` follows `supersedes` relations in both directions from a focal Block and returns
 the bounded graph, current frontier, cycle detection, and truncation. A relation points from successor to predecessor:

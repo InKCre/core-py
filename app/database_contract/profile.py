@@ -358,6 +358,21 @@ BUILTIN_JOB_TYPES = (
     AUTOMATIC_ORGANIZATION_PARAMETERS_SCHEMA,
     1800,
   ),
+  JobTypeProfile(
+    "core.sink.agent-query.v1",
+    "Answer one information need through an enabled Agent Query Sink.",
+    {
+      "additionalProperties": False,
+      "properties": {
+        "query": {"minLength": 1, "title": "Query", "type": "string"},
+        "sink": {"title": "Sink", "type": "integer"},
+      },
+      "required": ["sink", "query"],
+      "title": "AgentQueryJobParameters",
+      "type": "object",
+    },
+    300,
+  ),
 )
 
 

@@ -67,6 +67,9 @@ so one stable ID has one predictable address；the shard boundary does not imply
 | [D-581–D-590](D581-D590.md) | CLI 自签 JWT、命名连接、实体/Resolver REST、内容与文件交付、Job / Source / Cron / Agent / Config 管理、AI 与 Tool 发现 |
 | [D-591–D-600](D591-D600.md) | CLI 校验边界修正、Peer / Extension、检索与 Graph REST、整理 Job、实体修改、独立项目与 PyPI 发布、查询续读 |
 | [D-601–D-610](D601-D610.md) | CLI 验收确认、Pydantic 校验边界使用指南 → 实现准备 |
+| [D-611–D-620](D611-D620.md) | Agent Query Sink 实例、Job-backed REST → 基于 info-base 回答信息需求 |
+| [D-621–D-630](D621-D630.md) | Agent Query 回答与引用 → 结果交付设计 |
+| [D-631–D-640](D631-D640.md) | Durable doc authority 与本 unit 文档纠正 |
 | [Withdrawn frames](withdrawn.md) | Explicitly rejected organizing frames and proposals |
 
 ## Register Rules
@@ -82,10 +85,11 @@ so one stable ID has one predictable address；the shard boundary does not imply
 
 ## Current Edge
 
-- Latest confirmed decision by registered ID: [D-603](D601-D610.md)。MCP sink retains D-381–D-420；Telegram extension retains
-  D-421–D-460；Organization Nowledge study retains D-461–D-570；CLI sink reserves D-571–D-610。
+- Latest confirmed decision by registered ID: [D-631](D631-D640.md)。MCP sink retains D-381–D-420；Telegram extension retains
+  D-421–D-460；Organization Nowledge study retains D-461–D-570；CLI sink retains D-571–D-610；Agent Query Sink reserves D-611–D-650。
 - MCP、Telegram 和 [organization-nowledge-study](../units/organization-nowledge-study/packet.md) 均已关闭；Organization
-  已完成 PR #100 / #101 合并及 Core 0.2.0 生产交付。当前 [CLI sink](../units/cli-sink/packet.md) 已完成完整预演，等待 Impact Handshake 后实施；
+  已完成 PR #100 / #101 合并及 Core 0.2.0 生产交付。[CLI sink](../units/cli-sink/packet.md) 已正式发布并关闭；当前
+  [Agent Query Sink](../units/agent-query-sink/packet.md) 已进入 Implementation / local acceptance，等待 draft PR preview 的真实模型验收；
   Parent task 保留其余候选与 durable-owner reconciliation。
 - Parallel placement and integration surfaces are shared peer control in the [roster](../collaboration/roster.md)；there is no
   coordinator role。

@@ -82,6 +82,7 @@ from app.scheduler import drain_scheduler, scheduler, start_scheduler, with_trac
 async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   """Initialize database-backed runtime services after migrations are ready."""
   from app.business.info_base.resolver import register_core_resolvers
+  from app.business.agent import register_core_agent_tools
   from app.business.organization import register_core_organization_behaviors
   from app.business.info_base.storage import StorageManager
 
@@ -96,6 +97,7 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   # Core decoders exist independently of installed/enabled extensions.
   register_core_resolvers()
   register_core_organization_behaviors()
+  register_core_agent_tools()
 
   # Setup built-in storage instances
   await StorageManager.setup_builtin_storages_async()

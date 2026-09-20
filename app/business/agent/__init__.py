@@ -11,6 +11,7 @@ from .contracts import (
   ToolExecutionError,
 )
 from .main import AgentManager
+from .bootstrap import register_core_agent_tools
 from .persistence import (
   InMemoryThreadPersistenceBackend,
   ThreadID,
@@ -22,6 +23,7 @@ from .thread import Thread, TurnTermination
 __all__ = [
   "AgentError",
   "AgentManager",
+  "register_core_agent_tools",
   "AgentNotFoundError",
   "AgentToolBindingError",
   "AgentTurnActiveError",

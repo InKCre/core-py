@@ -2,6 +2,9 @@
 
 ## Navigation
 
+- [Agent Query 文档 authority 纠正](../units/agent-query-sink/documentation-authority.md)：D-631 纳入本 unit，
+  包括消费者越权定义、旧合同副本与长期判断准则；尚未应用，新增 Hub meta 影响面。
+
 - [Known corrections](known-corrections.md)
 - [Candidate Hub PRD batch](hub-prd.md)
 - [Candidate Hub Product TDD batch](hub-product-tdd.md)

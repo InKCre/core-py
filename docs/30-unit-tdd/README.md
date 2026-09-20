@@ -9,6 +9,7 @@ This directory owns expensive internal design truth for logical units delivered 
 | [lexical-retrieval.md](lexical-retrieval.md) | Internal lexical projection, feature extraction, maintenance, and ranking mechanics |
 | [graph-navigation-retrieval.md](graph-navigation-retrieval.md) | Internal bounded neighborhood, path, endpoint-closure, and query mechanics |
 | [mcp-sink.md](mcp-sink.md) | Persisted Sink lifecycle, MCP projection, Resource and Resolver-method mechanics |
+| [agent-query-sink.md](agent-query-sink.md) | Asynchronous Agent-composed query lifecycle, result delivery, and setup contract |
 | [mail-extension.md](mail-extension.md) | Mail identity, MIME materialization, collection, graph, and failure boundaries |
 | [memos-extension.md](memos-extension.md) | Memos adapter identity, graph grammar, persistence, and failure boundaries |
 | [rss-extension.md](rss-extension.md) | RSS adapter identity, collection lifecycle, reconciliation, and materialization |
