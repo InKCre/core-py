@@ -12,6 +12,21 @@ case "${1:-}" in
       RENDER_OWNER_ID RENDER_SERVICE_PREFIX; do require_env "$name"; done
     [[ "$RENDER_SERVICE_PREFIX" =~ ^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$ ]]
     ;;
+  validate-heroku)
+    if [ "${GITHUB_REF_TYPE:-}" != branch ]; then
+      echo "Self-host deployment must be dispatched from a branch" >&2
+      exit 1
+    fi
+    for name in CORE_DATABASE_PASSWORD HEROKU_API_KEY HEROKU_APP_PREFIX JWT_SECRET \
+      NEON_API_KEY NEON_PROJECT_ID POSTGREST_DATABASE_PASSWORD; do require_env "$name"; done
+    [[ "$HEROKU_APP_PREFIX" =~ ^[a-z][a-z0-9-]{1,16}[a-z0-9]$ ]]
+    test "${#JWT_SECRET}" -ge 32
+    test "${#CORE_DATABASE_PASSWORD}" -ge 32
+    test "${#POSTGREST_DATABASE_PASSWORD}" -ge 32
+    emit_output app_name "$HEROKU_APP_PREFIX-core"
+    emit_output deployment_profile "core-py.heroku-neon.v1:$NEON_PROJECT_ID"
+    emit_output postgrest_app_name "$HEROKU_APP_PREFIX-postgrest"
+    ;;
   resolve-neon)
     for name in NEON_API_KEY NEON_PROJECT_ID; do require_env "$name"; done
     cli=(npx --yes neonctl@2.36.0)
@@ -46,5 +61,8 @@ case "${1:-}" in
 - Admission: private JWT secret from this repository
 EOF
     ;;
-  *) echo "usage: $0 validate|resolve-neon|summarize" >&2; exit 2 ;;
+  *)
+    echo "usage: $0 validate|validate-heroku|resolve-neon|summarize" >&2
+    exit 2
+    ;;
 esac
