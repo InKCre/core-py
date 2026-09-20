@@ -1,6 +1,6 @@
 # Agent Query Sink
 
-- **阶段**：Human review follow-up。原实现的 P1–P4、本地门禁、真实模型 A1–A4 与镜像 smoke 已通过；
+- **阶段**：Human review。原实现的 P1–P4、本地门禁、真实模型 A1–A4 与镜像 smoke 已通过；
   本轮注册完整性、schema/route rationale 与历史文档状态修正已完成，冷启动/路由 smoke 与本地门禁通过。
   PR #111 保持 draft 且未合并。
   证据见 [implementation-evidence](implementation-evidence.md)。
@@ -22,7 +22,8 @@
 - **已确认结束语义**：[D-627](../../decisions/D621-D630.md)：正常 Turn 有交付则 finished，未交付则 failed；保留真实中断状态。预算只由 runtime 控制，不向 LLM 暴露。
 - **当前复核面**：[Impact Handshake](impact-handshake.md)。[四条验收旅程与交付终点](acceptance.md) 已由 D-628 确认；[实现计划](implementation-plan.md)、[preflight](preflight.md)、[实测记录](preflight-evidence.md) 与 [corpus](corpus.md) 已准备。
 - **事实依据**：[代码与边界调查](research.md)。区分读取工具可发现的方法、能够返回的内容和模型实际能够理解的输入。
-- **下一步**：推送本轮 review 修正并确认 PR #111 检查，继续供 Sir review；不合并。后续合并、版本准备、production 与 PyPI 复验需
+- **下一步**：由 Sir 继续 review PR #111 与 Hub PR #29；本轮修正提交为 `daab9d6`，最新 CI/Preview 结果以
+  PR checks 为准。后续合并、版本准备、production 与 PyPI 复验需
   单独授权后才能关闭 unit。
 - **文档修正**：D-631 已落实到领域 owner 文档；长期准则见 Hub draft PR #29，具体运行合同仍留 Core。
 
