@@ -18,8 +18,8 @@
   能力划分见 [capability-map.md](capability-map.md)，当前状态见本页下方；details stay in each unit packet and the
   [decision register](decisions/index.md)。GitHub extension 的 collection-side correction remains queued, but no longer
   blocks root-usability selection after ownership corrections merged。
-- **Next Step**: [Agent Query Sink](units/agent-query-sink/packet.md) 已实现并通过本地门禁及 Preview 真实模型 A1–A4；
-  当前等待包含验收修正与证据的新 PR HEAD 完成最终 Preview smoke，不合并。
+- **Next Step**: [Agent Query Sink](units/agent-query-sink/packet.md) 已实现并通过本地门禁、Preview 真实模型 A1–A4
+  与修正后镜像 smoke；等待 Sir review Core PR #111 与 Hub PR #29，不合并。
 
 ## Program Boundary
 
@@ -55,8 +55,8 @@ Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，新 unit 保留 D
 ## Unit 状态与选择
 
 [Agent Query Sink](units/agent-query-sink/packet.md) 为当前 active unit。D-611–D-631 的合同、工具归属、
-controller/service 与文档 authority 修正均已实现；Core PR #111 的 Preview 真实模型 A1–A4 已通过，等待最终 HEAD
-重部署 smoke。合并、发布与 production 复验尚未授权。
+controller/service 与文档 authority 修正均已实现；Core PR #111 的 Preview 真实模型 A1–A4 与修正后镜像 smoke
+均已通过。合并、发布与 production 复验尚未授权。
 
 [CLI sink](units/cli-sink/packet.md) 已关闭，公开接口、实现、四条本地旅程、跨 owner 正式交付及 PyPI 安装
 连接生产 Core 的复验均通过。研究依据包括本任务 Agent Tool 模式、xiaoland/svc 的 CLI 实践及一手公开材料。

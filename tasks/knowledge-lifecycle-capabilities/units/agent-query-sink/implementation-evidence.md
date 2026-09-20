@@ -51,9 +51,14 @@ Relations 1–2 均为本轮 Preview 数据。
 该模式下可能持续再次提交直到预算结束，D-622 的 last-successful-result 合同可保持正确结果，但存在额外模型调用
 成本；本 unit 不为单一 provider 添加 runtime 特例。
 
+## 最终镜像复验
+
+修正提交 `2dbbfce` 的 repository、portable database、CLI 与 Preview deploy checks 全部通过；最终代码镜像
+`/readyz`、migration `d41cc84db0c5`、catalog、roles、privileges 与动态 query schema 均就绪。Job 17 未在预算内
+提交结果，按合同明确 failed；缩小已知材料后的 Job 18 读取 Block 6、交付准确回答与真实引用并 finished，证明
+新镜像的完整受理、执行和结果链路。当前剩余提交只更新本 evidence，不改变已验收代码路径。
+
 ## 尚待
 
-- 本轮 evidence 与 CLI schema 错误修正会形成新的 PR HEAD；需等待 Preview 重部署后再做 readyz、动态 query schema
-  与一次真实 query smoke，确保验收对应最终 SHA。
 - Hub PR #29、Core PR #111 的合并、版本准备、production 与 PyPI 复验均需要后续明确授权；draft PR 不能写成
   unit 已关闭。
