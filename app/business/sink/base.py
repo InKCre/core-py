@@ -1,6 +1,5 @@
 """Sink type and instance lifecycle contract."""
 
-import abc
 import typing
 
 import fastapi
@@ -12,7 +11,7 @@ from app.schemas.sink import SinkModel, SinkTypeID
 ConfigT = typing.TypeVar("ConfigT", bound=pydantic.BaseModel)
 
 
-class SinkBase(abc.ABC, typing.Generic[ConfigT]):
+class SinkBase(typing.Generic[ConfigT]):
   """One persisted Sink instance realized by the current Peer."""
 
   __sinktype__: typing.ClassVar[SinkTypeID]
@@ -41,11 +40,10 @@ class SinkBase(abc.ABC, typing.Generic[ConfigT]):
     self.model = model
     self.config = typing.cast(ConfigT, self.__configcls__.model_validate(model.config))
 
-  @abc.abstractmethod
   async def on_start(self, app: fastapi.FastAPI) -> None:
     """Publish active effects for this exact instance."""
+    del app
 
-  @abc.abstractmethod
   async def on_close(self) -> None:
     """Withdraw active effects for this exact instance."""
 

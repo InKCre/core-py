@@ -10,12 +10,14 @@ from .errors import (
 )
 from .main import SinkManager
 from .mcp import MCPSink
+from .agent_query import AgentQuerySink
 
 __all__ = [
   "DuplicateSinkRegistrationError",
   "SinkBase",
   "SinkError",
   "SinkManager",
+  "AgentQuerySink",
   "MCPSink",
   "SinkNotFoundError",
   "SinkStateConflictError",

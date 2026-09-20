@@ -10,9 +10,6 @@ This unit lets a caller rank existing info-base entities by semantic similarity.
 `RelationModel` rows plus scores; it does not create transient chunks, synthesize an answer, or repair the info-base while
 reading.
 
-Rumination is included only as the minimum explicit organization path needed when a collected Block is too coarse for good
-retrieval. It remains an additive graph command, not part of retrieval or collection.
-
 ## Durable Facts And Runtime Owners
 
 ```text
@@ -72,20 +69,6 @@ When a caller explicitly targets another Peer, the same facade delegates exact c
 `core.semantic_retrieval.v1`. The provider inbound invokes `retrieve_local()` and cannot recursively delegate. Generic
 Peer routing remains payload-opaque and only fails over after proven non-execution; an uncertain post-dispatch outcome
 stops.
-
-## Rumination And Agent Boundary
-
-`RuminationBehaviorResolver.ruminate(block_id)` builds one initial message from the focal Resolver text and all direct relations
-(one hop, without relation-count truncation). A deployment config chooses a persisted Agent definition. The Agent can discover selected Resolver
-draft schemas, request a non-persisting Resolver draft, and submit one flat signed-ID `GraphForm`; only `submit_graph` may
-write.
-
-The Agent definition persists system prompt, model, Tool set, nullable tool choice, and per-turn model-call budget. Thread
-history and active Turn Tasks are currently process-local. The runtime validates Tool input once with the registered
-Pydantic model, executes one ToolCall batch concurrently, and appends only a closed Assistant/ToolResult pair.
-
-Rumination preserves the focal graph, may no-op, and may add duplicates on repeated runs. It has no periodic trigger,
-automatic retry, rollback, run record, checkpoint, freshness proof, or exactly-once layer.
 
 ## Acceptance
 

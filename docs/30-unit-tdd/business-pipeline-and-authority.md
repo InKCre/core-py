@@ -47,9 +47,10 @@ implementation direction; it must not redefine Peer wire behavior or shared capa
 - source 或 protocol adapter 负责 native shape 与 extension-owned canonical command 之间的映射，
   但不是 persistence owner。
 
-### 3. Info-Base Owns Graph Persistence
+### 3. Info-Base Owns Graph Persistence And Cross-Retrieval Reads
 
-- `InfoBaseManager` 只拥有 graph-form normalization；`commands.py` 和 `services.py` 拥有 graph 用例。
+- `InfoBaseManager` 协调 graph-form normalization、producer graph command，以及不属于某一种 retrieval
+  实现的跨模式检索和实体读取。`commands.py` 和 `services.py` 拥有具体 graph 用例与 Block/Relation CRUD。
 - producer 可以提出 recursive `StarsGraphForm` 或 flat signed-ID `GraphForm`；normalization、block/relation insert 与
   database-managed identity 由 info-base 协调。
 - 多个 graph mutation 通过必需的 GraphUnitOfWork 组合；只有 persistence 层接触 raw session。
@@ -134,6 +135,10 @@ runtime 路径禁止同步 session、scoped session 和直接驱动连接；`scr
 - `AgentManager` 把一个 persisted Agent definition（system prompt、model、Tool set、nullable tool choice、per-turn
   model-call budget）绑定为可复用的 Thread runtime。它依赖 graph-blind AIManager，但 Tool handler 的领域能力由
   调用方模块提供；Agent domain 本身不取得 organization、Resolver 或 graph authority。
+- Agent Tool handler 是语义 owner 附近的 controller：它拥有 Agent-facing input model、参数接合和 JSON
+  projection，并调用普通领域 service。领域 service 不接受 Agent message、prompt 或 Tool wire shape；Agent registry
+  只拥有 exact ID 绑定、schema 暴露和执行机制。共享 projection helper 只能内聚表示机制，不能重新形成跨领域
+  `agent_tools` 业务集合。
 - Agent Tool input 由 Agent runtime 根据 handler 的 Pydantic model 只校验一次。一个 Turn 是消息历史的唯一
   writer；并发 ToolCalls 只返回结果，完整 Assistant ToolCall + ToolResult batch 才原子追加到 Thread history。
 - Thread persistence backend 拥有完整 Thread snapshot。当前只有 process-local in-memory backend；不存在独立的
@@ -168,10 +173,10 @@ runtime 路径禁止同步 session、scoped session 和直接驱动连接；`scr
 - 每个行为拥有一个独立 automatic Job 和 `core.organization.<behavior>` deployment config。Job 只承担调度与运行管理；
   Resolver 读取候选、构造起始证据、调用所选 purpose-built Agent，并由 behavior-owned exact command 写普通 Block/Relation。
   初始 seed 不限制 Agent 后续通过 retrieval、Resolver 或 graph navigation 继续探索。
-- `retrieve` 返回候选引用与已有命中信息；`get_entities` 读取普通持久实体，`resolver` 解释内容。
-  `get_entity_neighborhood`、`find_path`、`get_connected_components` 直接投影 Graph Navigation 的少量稳定查询。
-  Resolver method reflection 由 `ResolverManager` 拥有；公共读取方法直接进入 Agent schema，额外方法按需发现。
-  MCP Sink 只投影同一 owner contract，不成为 Organization 的依赖，也不继承内部 Agent Tool 的请求包装。
+- Organization-owned Agent definitions 组合各领域提供的读取工具，而不拥有其合同。`retrieve` / `get_entities`
+  由 info-base 拥有；`get_entity_neighborhood`、`find_path`、`get_connected_components` 由 Graph Navigation
+  拥有；`resolver` 的 controller 位于 Resolver 领域，`ResolverManager` 发现与分派，exact Resolver instance
+  执行。MCP Sink 只投影同一 owner contract，不成为 Organization 的依赖，也不继承内部 Agent Tool 的请求包装。
 - 工具定义表达关系含义，字段名称保留所指实体身份；行为识别过程属于所选 Agent definition。
   Resolver 的方法参数由实际 owner 逐调用验证，错误不丢弃同批其它结果。schema 由同一方法合同投影，
   顶层分支同时显示字段形状，以兼容只从顶层 properties 推断参数类型的 provider。
@@ -222,6 +227,10 @@ runtime 路径禁止同步 session、scoped session 和直接驱动连接；`scr
   oversized/binary content 通过 live Resource URI 重新读取当前 authority，不产生 Resource table 或缓存 authority。
 - MCP 的 read-only boundary 排除 Agent-intended mutation command；Resolver `get_*` / `read_*` 仍可按其既有 contract
   lazy materialize missing derivation，因此相关 Tool 不虚假声明绝对无副作用。
+- `core.agent-query.v1` 把一个 persisted Agent definition 绑定为异步 query instance；其动态
+  `/sinks/{id}/query` 只创建 `core.sink.agent-query.v1` Job。Job handler 调用 Agent runtime，读取能力仍由各领域
+  owner 提供，`submit_query_result` 由 Agent Query Sink 拥有。回答与支持它的 Block/Relation references 写入 Job
+  state；Sink 不建立第二套 query、Thread 或 result store。
 
 ## Cross-Subtree Constraints
 

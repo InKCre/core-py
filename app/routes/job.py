@@ -6,6 +6,7 @@ import fastapi
 
 from app.business.job import JobManager, UnknownJobTypeError
 from app.business.source.main import SourceNotFoundError, UnsupportedSourceCommandError
+from app.business.sink import SinkError, SinkNotFoundError
 from app.schemas.job import JobCreateForm, JobModel, JobStatus, JobTypeModel
 
 from .validation import request_input
@@ -63,7 +64,9 @@ async def create_job(
       job = await JobManager.create(body.type, body.parameters, body.timeout_seconds)
   except SourceNotFoundError as error:
     raise fastapi.HTTPException(404, str(error)) from error
-  except (UnknownJobTypeError, UnsupportedSourceCommandError) as error:
+  except SinkNotFoundError as error:
+    raise fastapi.HTTPException(404, str(error)) from error
+  except (UnknownJobTypeError, UnsupportedSourceCommandError, SinkError) as error:
     raise fastapi.HTTPException(422, str(error)) from error
   response.headers["Location"] = str(request.url_for("get_job", job_id=job.id))
   background.add_task(JobManager.notify_worker)

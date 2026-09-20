@@ -9,12 +9,13 @@
 | `telegram-extension` | `01a04685-aa31-7682-a4a2-824727eacce5` | core-py PR #89 / `.github` PR #28 | merged as core-py `42d8527` and `.github` `f7269b9` | Closed / merged | D-421–D-460 | Telegram、repository-wide Changie→Towncrier cutover and organization guidance are complete；Unit worktrees are retired and Release PR #90 is independently owned by the release lifecycle |
 | `organization-nowledge-study` | current session | PR #100 / #101 merged；root worktree on main retains local task-control records | protected `main` `b3ccb00` | Closed / production delivered | D-461–D-570 | Core 0.2.0、production probes and stable admission complete under D-562；no active implementation ownership |
 | `cli-sink` | 当前 CLI session | `feat/cli-sink-closure` / root core-py worktree | production `4143abe`；关闭记录 PR #104 | Closed | D-571–D-610 | Sir 授权后依序合并；CLI 0.1.0 PyPI 安装与生产复验通过。无 active 源码 ownership；见 unit delivery.md |
+| `agent-query-sink` | 当前 session | PR #111 / #109 / Hub #29 merged；root worktree closing on main | production `5113490` | Closed / production delivered | D-611–D-650 | Core 0.5.0、CLI 0.2.0、production query 与 stable admission 完成；无 active 源码 ownership |
 
 ## Shared-worktree coordination
 
-MCP、Telegram 和 Organization 均已关闭；root worktree 保留 parent 生命周期内的本地 task-control 记录，
-CLI 已关闭，当前 feature branch 仅整理关闭记录。CLI 保留上一单元的本地收尾和未跟踪 skill，不将其视为
-本 unit 的修改。没有其他已登记的 active unit，也不进行 cross-session 通信。Historical task-control and operational state can still intersect：
+2026-09-20，root worktree 从干净且与 origin/main 一致的 `676886a4d2242be2f14465523c3267a126b60fd3`
+进入 Agent Query Sink 产品设计。MCP、Telegram、Organization、CLI 已关闭；旧 dirty baseline 描述不代表现状。
+没有其他已登记的 active unit，也不进行 cross-session 通信。Historical task-control and operational state can still intersect：
 
 - `mcp-sink` has no remaining implementation ownership。Its Core、Extension Runtime and production changes are authoritative
   on protected `main` at `459a6df`；the root worktree's remaining dirty state is task control，not unmerged MCP source。
