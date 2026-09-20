@@ -18,10 +18,8 @@
   能力划分见 [capability-map.md](capability-map.md)，当前状态见本页下方；details stay in each unit packet and the
   [decision register](decisions/index.md)。GitHub extension 的 collection-side correction remains queued, but no longer
   blocks root-usability selection after ownership corrections merged。
-- **Next Step**: [CLI sink / inkcre-cli](units/cli-sink/packet.md) 已于 2026-09-14 关闭。Sir 授权后按依赖
-  合并并正式发布；PyPI 0.1.0 本地安装连接生产 Core 的完整复验通过，见
-  [交付](units/cli-sink/delivery.md)与[生产验收](units/cli-sink/production-acceptance.md)。
-  Parent task 保持 active，等待 Sir 选择下一 unit，不自动扩展范围。
+- **Next Step**: [Agent Query Sink](units/agent-query-sink/packet.md) 已完成设计、验收基线与关键 preflight，
+  D-629–D-631 的工具分层与文档 authority 修正已同步到实现计划及 Handshake；获授权提交 packet，当前未修改源码。
 
 ## Program Boundary
 
@@ -43,17 +41,11 @@
 
 ## 当前 Unit 的入场
 
-2026-09-13，Sir 选择 `cli-sink`：Python 独立子项目 `inkcre-cli`，通过 pip 分发，作为操作 Core 的命令行界面。
-本轮只支持 Core REST API；它不直接访问数据库，也不参与 Peer delegation。见 [D-571](decisions/D571-D580.md)。
+2026-09-20，Sir 选择 `agent-query-sink`，由 AI 组合 info-base 原始查询，服务检索而非下游创作；见
+[D-611](decisions/D611-D620.md)。已从干净、与 origin/main 一致的 `676886a` 切出 `feat/agent-query-sink`。
+当前只调查和维护 task packet。环境入口仍为 `AGENTS.local.md` 与 `svc.local.json`。
 
-本次交接的已发布基线是 Core 0.2.0 / main `b3ccb00`；新 session 仍需检查当时的最新 main。CLI 的设计与完整
-preflight 已整理为独立提交；前一单元的本地收尾仍未提交。新 worktree 不会自动带上未提交记录，应在建分支前
-核对并保留或显式转交所需 packet，不能把旧提交里的 active 状态当作现状。环境入口是 `AGENTS.local.md` 与
-`svc.local.json`，不要复制凭据或以本机没有 Docker/PostgreSQL 推断数据库不可用。
-
-当前最新决策为 D-603；CLI 已获合并授权，正式发布与生产验收完成，unit 关闭。
-Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，不复用历史空号。
-CLI 已在 root worktree 从与 origin/main 一致的 `b3ccb00` 切出 `feat/inkcre-cli`，保留原有未提交 task-control。
+Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，新 unit 保留 D-611–D-650，不复用历史空号。
 已关闭 session 不再持有源码锁，历史授权和 deferred 项也不自动成为新 unit 的实施范围。
 
 [Organization 的 Hub 待提升项](documentation-promotion/organization.md)、语义误判与已知 SQL 性能残余继续保留，
@@ -61,6 +53,9 @@ CLI 已在 root worktree 从与 origin/main 一致的 `b3ccb00` 切出 `feat/ink
 [本地 Organization TDD](../../docs/30-unit-tdd/organization.md) 和对应最新 decision，而不是从研究稿重新猜实现。
 
 ## Unit 状态与选择
+
+[Agent Query Sink](units/agent-query-sink/packet.md) 为当前 active unit。D-611–D-628 的设计与验收基线、
+关键 preflight 已完成；D-629–D-631 已修正工具归属、controller/service 和文档 authority 的执行步骤，源码尚未实施。
 
 [CLI sink](units/cli-sink/packet.md) 已关闭，公开接口、实现、四条本地旅程、跨 owner 正式交付及 PyPI 安装
 连接生产 Core 的复验均通过。研究依据包括本任务 Agent Tool 模式、xiaoland/svc 的 CLI 实践及一手公开材料。
