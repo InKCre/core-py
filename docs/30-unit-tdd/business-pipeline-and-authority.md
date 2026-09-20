@@ -201,6 +201,9 @@ runtime 路径禁止同步 session、scoped session 和直接驱动连接；`scr
 - Business owners retain typed codecs and non-delegating local seams。Current exact inbounds are
   `core.semantic_retrieval.v1`、`core.feature_retrieval.lexical.v1`、`core.organization.rumination.v1` and exact-target
   `core.extension.management.v1`。
+- Extension management accepts exact-version `install` alongside enable, disable and config patch. It invokes the same
+  Core Host install boundary as REST, including compatibility and version-change guards; it neither enables the
+  Extension nor acquires a browser distribution. Older Peers reject the unknown action rather than routing elsewhere.
 - `core.peer.protocol.http.v1` owns normalized query/headers/body envelopes、Peer JWT and HTTP response projection。
   Generic failover occurs only after pre-dispatch failure or exact `InkCre-Peer-Execution: not-executed`；a normal domain
   response or outcome-unknown stops。

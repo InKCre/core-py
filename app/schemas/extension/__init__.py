@@ -6,6 +6,7 @@ from .main import (
   ExtensionManagementCommand,
   ExtensionModel,
   ExtensionName,
+  InstallExtensionCommand,
   PatchExtensionConfigCommand,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
   "ExtensionManagementCommand",
   "ExtensionModel",
   "ExtensionName",
+  "InstallExtensionCommand",
   "PatchExtensionConfigCommand",
 ]
