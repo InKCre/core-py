@@ -14,13 +14,13 @@
   loop。各 session 维护自己的 Unit packet，并只为本 Unit 的登记、阶段或集成结果最小更新共享 task control。
   InKCre 的长期产品事实是不建立 terminal-user、tenant
   或 per-user ownership/ACL domain；deployment 是单一 owner context，runtime nodes 称为 peers（D-033/D-109）。
-  Memos、RSS、Mail、semantic retrieval、feature/lexical retrieval 与 graph-navigation retrieval 均已关闭；
+  Memos、RSS、Mail、semantic retrieval、feature/lexical retrieval、graph-navigation retrieval 与 Agent Query Sink
+  均已关闭；
   能力划分见 [capability-map.md](capability-map.md)，当前状态见本页下方；details stay in each unit packet and the
   [decision register](decisions/index.md)。GitHub extension 的 collection-side correction remains queued, but no longer
   blocks root-usability selection after ownership corrections merged。
-- **Next Step**: [Agent Query Sink](units/agent-query-sink/packet.md) 已实现并通过 Preview 真实模型 A1–A4；
-  Sir 对 #111 的维护性 review 已落实，本轮冷启动/路由 smoke 与本地门禁通过。继续 review Core PR #111 与
-  Hub PR #29，不合并。
+- **Next Step**: [Agent Query Sink](units/agent-query-sink/packet.md) 已完成正式交付并关闭；回到下一 implementable
+  unit 选择，不从本 unit 的残余自动推导新范围。
 
 ## Program Boundary
 
@@ -44,7 +44,7 @@
 
 2026-09-20，Sir 选择 `agent-query-sink`，由 AI 组合 info-base 原始查询，服务检索而非下游创作；见
 [D-611](decisions/D611-D620.md)。已从干净、与 origin/main 一致的 `676886a` 切出 `feat/agent-query-sink`。
-当前已完成实现与 Preview 验收，Sir 对 #111 的维护性 review 已落实（`daab9d6`），继续等待复审。
+当前已完成实现、Preview、正式发布与 production 复验；Hub #29、Core #111 与 Release #109 已合并，unit 关闭。
 环境入口仍为 `AGENTS.local.md` 与 `svc.local.json`。
 
 Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，新 unit 保留 D-611–D-650，不复用历史空号。
@@ -56,9 +56,9 @@ Organization 保留 D-461–D-570，CLI 保留 D-571–D-610，新 unit 保留 D
 
 ## Unit 状态与选择
 
-[Agent Query Sink](units/agent-query-sink/packet.md) 为当前 active unit。D-611–D-631 的合同、工具归属、
-controller/service 与文档 authority 修正均已实现；Core PR #111 的 Preview 真实模型 A1–A4 与修正后镜像 smoke
-均已通过。合并、发布与 production 复验尚未授权。
+[Agent Query Sink](units/agent-query-sink/packet.md) 已关闭。D-611–D-631 的合同、工具归属、controller/service
+与文档 authority 修正均已实现；Preview A1–A4、Hub/Core/Release 合并、Core 0.5.0、CLI 0.2.0、production
+stable admission 与已发布 CLI 的有依据查询均已通过。
 
 [CLI sink](units/cli-sink/packet.md) 已关闭，公开接口、实现、四条本地旅程、跨 owner 正式交付及 PyPI 安装
 连接生产 Core 的复验均通过。研究依据包括本任务 Agent Tool 模式、xiaoland/svc 的 CLI 实践及一手公开材料。

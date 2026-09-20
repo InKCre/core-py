@@ -9,7 +9,7 @@
 | `telegram-extension` | `01a04685-aa31-7682-a4a2-824727eacce5` | core-py PR #89 / `.github` PR #28 | merged as core-py `42d8527` and `.github` `f7269b9` | Closed / merged | D-421–D-460 | Telegram、repository-wide Changie→Towncrier cutover and organization guidance are complete；Unit worktrees are retired and Release PR #90 is independently owned by the release lifecycle |
 | `organization-nowledge-study` | current session | PR #100 / #101 merged；root worktree on main retains local task-control records | protected `main` `b3ccb00` | Closed / production delivered | D-461–D-570 | Core 0.2.0、production probes and stable admission complete under D-562；no active implementation ownership |
 | `cli-sink` | 当前 CLI session | `feat/cli-sink-closure` / root core-py worktree | production `4143abe`；关闭记录 PR #104 | Closed | D-571–D-610 | Sir 授权后依序合并；CLI 0.1.0 PyPI 安装与生产复验通过。无 active 源码 ownership；见 unit delivery.md |
-| `agent-query-sink` | 当前 session | `feat/agent-query-sink` / root core-py worktree | `676886a` | Revised baseline / packet commit authorized | D-611–D-650 | 未授权源码实施；读取能力按领域 controller/service 分离，增加 Hub meta 文档准则与 Core authority 纠正；拟改 Core/CLI，共享 SinkManager 修正需回归 MCP |
+| `agent-query-sink` | 当前 session | PR #111 / #109 / Hub #29 merged；root worktree closing on main | production `5113490` | Closed / production delivered | D-611–D-650 | Core 0.5.0、CLI 0.2.0、production query 与 stable admission 完成；无 active 源码 ownership |
 
 ## Shared-worktree coordination
 

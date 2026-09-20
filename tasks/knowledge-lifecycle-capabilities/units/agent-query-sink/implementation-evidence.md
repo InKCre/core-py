@@ -105,7 +105,23 @@ print('Core Agent Tool bootstrap passed')
 PY
 ```
 
-## 尚待
+## 正式交付与生产复验
 
-- Hub PR #29、Core PR #111 的合并、版本准备、production 与 PyPI 复验均需要后续明确授权；draft PR 不能写成
-  unit 已关闭。
+2026-09-20 按依赖顺序完成交付：Hub PR #29 squash merge 为 `42f7bad`；Core PR #111 在 shared ref 跟进并重新
+通过全部 checks/Preview 后 squash merge 为 `ee6e2cf`；Release PR #109 准备 Core 0.5.0 与 CLI 0.2.0，并
+merge 为 `5113490`。Runtime artifact run
+[35508769034](https://github.com/InKCre/core-py/actions/runs/35508769034)、CLI PyPI run
+[35508769025](https://github.com/InKCre/core-py/actions/runs/35508769025) 与 production run
+[35508851500](https://github.com/InKCre/core-py/actions/runs/35508851500) 均成功，最后一项完成生产收敛、probe 与
+stable admission。
+
+从 PyPI 在独立 virtualenv 安装 `inkcre-cli==0.2.0`，使用默认 `production` connection 读取在线 Peer、17 个
+Agent Tools 与 Agent Query 动态 schema。production 配置 Alibaba Model Studio / `qwen3.5-omni-flash`、推荐
+Agent definition 与启用的 Agent Query Sink；Block 6–7 经 lexical maintenance Job 4 建立 projection。
+开放式 Job 5–7 均如实以 `completed without submit_query_result` / `max_model_calls` 失败，证明增加预算不能掩盖
+provider 选择残余。收窄到已知材料后，Job 8 读取 Block 6，准确回答 Agent Tool controller/domain owner 边界，
+返回 `block:6` 引用并以 `finished` 收尾；其 `termination=max_model_calls` 同时验证最后一次成功提交被保留。
+验收后恢复 durable 文档推荐的完整七工具 Agent 配置，保留生产 Sink 作为可用 demo capability。
+
+上述证据满足已确认交付终点；本 unit 关闭。开放式问题下模型可能不提交结果仍是可观察的 provider/Agent
+配置残余，不扩大为本 unit 的 runtime 特例。
