@@ -90,6 +90,19 @@ serve `registry-docs-{snapshot}.inkcre.dev`; Registry then enforces the exact Ho
 returns 421 for other wildcard matches. Core deployment and Extension packages must not encode that
 production DNS compromise or treat DNS/TLS success as proof that a documentation set exists.
 
+`.github/workflows/extension-documentation-publish.yml` is the protected manual publication lane
+for first-party producer documentation. It builds every scope under the selected producer with the
+pinned shared VitePress toolchain, reads the current scope ETags, and saves complete Toolkit
+candidates before any Registry write. The publish job restores those exact candidates, revalidates
+their source against current `main`, publishes them, and checks their public snapshot origins.
+Recovery reruns only the failed publish job; rerunning all jobs is rejected because it would create
+new snapshot identities. Candidate artifacts are retained for 90 days.
+
+Official production publication and deployment jobs require
+`github.repository == 'InKCre/core-py'`. A fork may build and test normally, but it cannot enter the
+official production environment merely because its `main` branch published an artifact. Fork
+owners deploy through the explicit Render or Heroku self-host workflow instead.
+
 
 ## Async Host compatibility window
 

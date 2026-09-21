@@ -1,0 +1,130 @@
+name: Publish first-party Extension documentation
+
+on:
+  workflow_dispatch:
+    inputs:
+      extension:
+        description: Exact first-party Extension producer
+        required: true
+        default: memos
+        type: string
+      confirmation:
+        description: Confirm a new immutable documentation candidate
+        required: true
+        type: choice
+        options:
+          - PUBLISH
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-first-party-extension-documentation
+  cancel-in-progress: false
+
+env:
+  ARTIFACT_NAME: extension-documentation-${{ inputs.extension }}-${{ github.run_id }}
+  CANDIDATE_ROOT: ${{ github.workspace }}/.extension-documentation-candidate
+  EXTENSION: ${{ inputs.extension }}
+  INKCRE_EXTENSION_REGISTRY_URL: >-
+    ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://registry.inkcre.dev' }}
+
+jobs:
+  prepare:
+    name: Prepare immutable documentation candidate
+    if: github.repository == 'InKCre/core-py'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject candidate reconstruction
+        if: github.run_attempt != 1
+        run: |
+          echo "Do not re-run all jobs; re-run only the failed publish job." >&2
+          exit 1
+
+      - name: Checkout exact main source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up project Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version-file: .python-version
+
+      - name: Set up frozen publisher
+        uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
+        with:
+          python-version-file: .python-version
+          version: 2.28.0
+          cache: true
+
+      - name: Install frozen publisher
+        run: pdm install --no-default --group extension-publisher --frozen-lockfile
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          package_json_file: docs/_shared/website/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.22.3
+          cache: pnpm
+          cache-dependency-path: docs/_shared/website/pnpm-lock.yaml
+
+      - name: Install frozen documentation toolchain
+        run: pnpm --dir docs/_shared/website --ignore-workspace install --frozen-lockfile
+
+      - name: Build and save documentation candidates
+        run: bash scripts/automation/extension_documentation.sh prepare
+
+      - name: Retain exact candidates for recovery
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.CANDIDATE_ROOT }}
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: Publish saved documentation candidate
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      INKCRE_EXTENSION_REGISTRY_TOKEN: ${{ secrets.INKCRE_EXTENSION_REGISTRY_TOKEN }}
+    steps:
+      - name: Checkout exact main source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up frozen publisher
+        uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
+        with:
+          python-version-file: .python-version
+          version: 2.28.0
+          cache: true
+
+      - name: Install frozen publisher
+        run: pdm install --no-default --group extension-publisher --frozen-lockfile
+
+      - name: Restore exact documentation candidates
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.CANDIDATE_ROOT }}
+
+      - name: Revalidate source before Registry mutation
+        run: bash scripts/automation/extension_documentation.sh revalidate
+
+      - name: Publish exact candidates
+        run: bash scripts/automation/extension_documentation.sh publish
+
+      - name: Verify public documentation
+        run: bash scripts/automation/extension_documentation.sh verify
