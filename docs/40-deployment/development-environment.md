@@ -27,6 +27,8 @@ tracked files never own a hostname, user, key, or machine path.
 The SSH provider sends an allowlisted build context and one bounded Compose payload to the
 remote host. Remote services publish dynamic remote-loopback ports and an instance-owned
 OpenSSH control tunnel maps independent local-loopback ports to them.
+The descriptor keeps the absolute control-socket path, while SSH runs from its parent directory
+with the short socket name so long worktree paths do not exceed Unix-domain socket limits.
 
 Runtime state is written to `.runtime/database/<core-svc-instance>/`. Its `runtime.json`,
 `profile.json`, and `readiness.json` record:

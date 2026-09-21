@@ -418,11 +418,12 @@ def database_access_ready(
       (
         "ssh",
         "-S",
-        control_socket_path,
+        Path(control_socket_path).name,
         "-O",
         "check",
         provider.target,
       ),
+      cwd=Path(control_socket_path).parent,
       timeout=5,
     )
   except (OSError, subprocess.SubprocessError):
@@ -461,7 +462,7 @@ def open_database_access(
       "ssh",
       "-M",
       "-S",
-      str(socket_path),
+      socket_path.name,
       "-fnNT",
       "-o",
       "BatchMode=yes",
@@ -470,6 +471,8 @@ def open_database_access(
       *forwards,
       provider.target,
     ),
+    # OpenSSH appends a temporary suffix; absolute worktree paths can exceed AF_UNIX limits.
+    cwd=socket_path.parent,
     timeout=15,
   )
   return str(socket_path)
@@ -487,11 +490,12 @@ def close_database_access(
       (
         "ssh",
         "-S",
-        control_socket_path,
+        Path(control_socket_path).name,
         "-O",
         "exit",
         provider.target,
       ),
+      cwd=Path(control_socket_path).parent,
       timeout=5,
     )
   except (OSError, subprocess.SubprocessError):

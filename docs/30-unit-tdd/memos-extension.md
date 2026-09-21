@@ -50,11 +50,30 @@ Memos adapter 在 root 内组合：
 
 PAT 是 nullable ordinary extension config：`memos_pat_` 加 32 个 ASCII alphanumeric。它属于当前
 deployment trust boundary，不建立 session、refresh token、PAT table 或 terminal-user record。比较在
-request time 执行，因此有效 config update 后 replace/revoke 立即生效，无需重建 routes。
+request time 执行。每个受保护请求通过现有 `EXTENSION_HOST.get` 读取 canonical config，再恢复
+`MemosConfig` 类型，不使用启动时的配置快照。因此有效保存完成后发起的请求采用新 PAT；撤销后
+旧 PAT 被拒绝，无需重建 routes。已通过鉴权的请求不会被追溯取消。读取失败不回退旧缓存，
+invalid config 拒绝鉴权且不回显配置内容。这是一次短数据库读取，不建立配置同步或缓存机制。
 
 ExtensionHost 的通用 config pipeline 先把 patch 与 current config shallow-merge，再用 `config_cls`
 验证 complete next value，随后写 DB 并替换 live config。invalid config 不改变 durable/runtime state；
 disabled extension 可以预配置 PAT。
+
+Web 等已准入 Peer 也可通过普通数据库配置入口保存，不必将事实写入改成 Core 命令委派。
+上述 Memos 请求时读取覆盖这条正常顺序路径，不承诺所有 Extension 的内存资源都会自动重建。
+
+## Connection Preparation
+
+运行中的 Memos 发布 `memos.connection.v1`，固定 GET `/memos/connection`，使用 Peer JWT，
+返回仅含 `server_url` 的对象。地址由 Core 进程内 `app.http.get_public_http_base_url()` 和 Memos
+自有挂载路径组成；Core-owned 配置仍是唯一公共基址权威，路径前缀保留，未配置时返回 409。
+Web 不解释 Peer config 或从 management advertisement 猜测 Memos 地址。该读取不返回 PAT，
+不修改配置，也不是运行证明或外部客户端可达性检查；disable 随 Extension 生命周期撤销入口。
+
+初始化沿用浏览器生成/复用 PAT、既有 patch_config 保存、尚未 enabled 才启用的顺序。
+在线 Peer + enabled 是用户流程的 best-effort 运行假设，不新增 running 状态或重复启用门槛。
+地址读取失败只报告该次失败，不撤销已保存配置或 enabled。外部 Memos API 仍使用 PAT，
+Peer JWT 不因此成为 Memos 客户端凭据。
 
 Enable/start 发布一个 retained extension-owned route set；disable/close 直接从 FastAPI dispatch 与
 OpenAPI surface 撤销这组 routes。Re-enable 重新发布同一 ownership surface，不重复注册。close cleanup

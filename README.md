@@ -21,14 +21,15 @@ Developer setup and shared-skill notes: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Browser-Only Self-Hosting
 
-A repository owner can deploy their own InKCre instance to Neon and two Render Docker
-services without cloning this repository. Forking is the onboarding mechanism; the deployed
-instance is independent from InKCre's canonical production environment. Configure the six
-documented GitHub Secrets/Variables, then run the checked-in `Deploy self-hosted InKCre`
-workflow. The JWT signing secret remains private and grants full Peer authority.
+A repository owner can deploy their own InKCre instance to Neon and either Render or Heroku
+without cloning this repository. Forking is the onboarding mechanism; the deployed instance is
+independent from InKCre's canonical production environment. Configure the provider profile's
+documented GitHub Secrets/Variables, then run its checked-in self-host workflow. The JWT signing
+secret remains private and grants full Peer authority.
 
 Exact onboarding steps, runtime limits, and cleanup:
-[Self-Hosting On Render And Neon](docs/40-deployment/render-neon-self-host.md).
+[Render and Neon](docs/40-deployment/render-neon-self-host.md) or
+[Heroku and Neon](docs/40-deployment/heroku-neon-self-host.md).
 
 ## Security
 

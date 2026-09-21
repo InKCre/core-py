@@ -237,6 +237,8 @@ def affected_projects(base: str) -> set[str]:
   for path in paths:
     parts = path.split("/")
     if len(parts) >= 2 and parts[0] == "extensions" and parts[1] in extension_keys:
+      if len(parts) >= 3 and parts[2] == "docs":
+        continue
       if FRAGMENTS_NAME not in parts and parts[-1] != CHANGELOG_NAME:
         affected.add(parts[1])
     elif path.startswith(core_prefixes) or path in core_files:

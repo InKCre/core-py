@@ -28,7 +28,7 @@ rss = "extensions.rss:Extension"
 name = "inkcre/rss"
 nickname = "RSS/Atom Feeds"
 host-sdk = "core-py"
-host-sdk-version = ">=0.2.0 <0.3.0"
+host-sdk-version = ">=0.2.0 <0.4.0"
 
 [tool.setuptools]
 packages = ["extensions.rss"]

@@ -16,6 +16,7 @@ GitHub workflow and composite-action YAML owns only GitHub event selection, perm
 - [runtime-orchestration.md](runtime-orchestration.md)
 - [mcp-sink.md](mcp-sink.md)
 - [render-neon-self-host.md](render-neon-self-host.md)
+- [heroku-neon-self-host.md](heroku-neon-self-host.md)
 
 ## Checked-In Runtime Anchors
 
@@ -40,6 +41,7 @@ GitHub workflow and composite-action YAML owns only GitHub event selection, perm
 - `.github/workflows/preview-deploy.yml`
 - `.github/workflows/production-deploy.yml`
 - `.github/workflows/self-host-render-neon.yml`
+- `.github/workflows/self-host-heroku-neon.yml`
 - `scripts/deploy_render_neon.py`
 - `scripts/generate-openapi.py`
 - `docs/openapi.json`

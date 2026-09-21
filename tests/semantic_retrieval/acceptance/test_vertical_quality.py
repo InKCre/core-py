@@ -207,6 +207,7 @@ def _memos_client() -> TestClient:
   return publish_extension(
     MemosExtension,
     {"personal_access_token": PAT},
+    persist_config=True,
   ).client
 
 

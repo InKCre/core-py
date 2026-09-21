@@ -19,6 +19,7 @@ from app.schemas.extension import (
   DisableExtensionCommand,
   EnableExtensionCommand,
   ExtensionManagementCommand,
+  InstallExtensionCommand,
   PatchExtensionConfigCommand,
 )
 from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
@@ -218,6 +219,8 @@ class ExtensionHost:
     command: ExtensionManagementCommand,
   ) -> InstalledExtension:
     """Execute one already-validated command without entering delegation."""
+    if isinstance(command, InstallExtensionCommand):
+      return await self.install(command.extension, command.version)
     if isinstance(command, EnableExtensionCommand):
       return await self.enable(command.extension)
     if isinstance(command, DisableExtensionCommand):

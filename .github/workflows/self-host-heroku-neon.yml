@@ -1,0 +1,120 @@
+name: Deploy self-hosted InKCre to Heroku
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-host-heroku-neon-${{ github.repository }}
+  cancel-in-progress: false
+
+env:
+  CORE_DATABASE_PASSWORD: ${{ secrets.CORE_DATABASE_PASSWORD }}
+  HEAD_SHA: ${{ github.sha }}
+  HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+  IMAGE_TAG: inkcre-self-host-schema:${{ github.sha }}
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+  NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+  POSTGREST_DATABASE_PASSWORD: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
+  SOURCE_REVISION: ${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Converge Heroku and Neon deployment
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: >-
+          pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
+        env:
+          POSTGRES_DB: inkcre
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d inkcre"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout exact selected commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate required fork settings
+        id: settings
+        env:
+          HEROKU_APP_PREFIX: ${{ vars.HEROKU_APP_PREFIX }}
+        run: bash scripts/automation/self_host.sh validate-heroku
+
+      - name: Build exact service and transport images
+        run: |
+          bash scripts/automation/runtime_artifact.sh build-schema-source
+          bash scripts/automation/runtime_contract.sh export
+          bash scripts/automation/runtime_artifact.sh stage-schema-evidence
+          bash scripts/automation/runtime_contract.sh restore
+          docker build --platform linux/amd64 --provenance=false \
+            --build-arg "SOURCE_REVISION=$HEAD_SHA" --target service \
+            --tag "inkcre-production-web:$HEAD_SHA" .
+          bash scripts/automation/runtime_artifact.sh build-production-transports
+
+      - name: Install pinned Heroku CLI
+        run: npm install --global heroku@11.8.1
+
+      - name: Resolve the Neon default branch owner coordinates
+        id: neon
+        run: bash scripts/automation/self_host.sh resolve-neon
+
+      - name: Resolve self-hosted Heroku apps
+        id: heroku
+        env:
+          EXPECTED_DEPLOYMENT_PROFILE: ${{ steps.settings.outputs.deployment_profile }}
+          HEROKU_APP_NAME: ${{ steps.settings.outputs.app_name }}
+          POSTGREST_APP_NAME: ${{ steps.settings.outputs.postgrest_app_name }}
+        run: bash scripts/automation/production_delivery.sh resolve-apps
+
+      - name: Converge the self-hosted database contract
+        id: database
+        env:
+          DATABASE_ENVIRONMENT: runtime
+          MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.migration_database_url }}
+          POOLED_OWNER_DATABASE_URL: ${{ steps.neon.outputs.source_database_url }}
+        run: bash scripts/automation/production_delivery.sh converge-database
+
+      - name: Push and release self-hosted peer processes
+        id: release
+        env:
+          APP_NAME: ${{ steps.heroku.outputs.app_name }}
+          DATABASE_URL: ${{ steps.database.outputs.core_database_url }}
+          INKCRE_DEPLOYMENT_PROFILE: ${{ steps.settings.outputs.deployment_profile }}
+          PEER_NAME: ${{ steps.heroku.outputs.app_name }}
+          POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
+          POSTGREST_DATABASE_URL: ${{ steps.database.outputs.postgrest_database_url }}
+        run: bash scripts/automation/production_delivery.sh release
+
+      - name: Converge self-hosted Peer advertisement
+        env:
+          APP_NAME: ${{ steps.heroku.outputs.app_name }}
+          DATABASE_URL: ${{ steps.database.outputs.core_database_url }}
+          WEB_URL: ${{ steps.heroku.outputs.web_url }}
+        run: bash scripts/automation/production_delivery.sh advertise
+
+      - name: Probe self-hosted peers
+        env:
+          APP_NAME: ${{ steps.heroku.outputs.app_name }}
+          CORE_IMAGE_DIGEST: ${{ steps.release.outputs.core_local_image_id }}
+          CORE_IMAGE_LABEL: Exact local image ID
+          CORE_LOCAL_IMAGE_ID: ${{ steps.release.outputs.core_local_image_id }}
+          DEPLOYMENT_SUMMARY_TITLE: Self-hosted InKCre on Heroku + Neon
+          POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
+          POSTGREST_RELEASE: ${{ steps.release.outputs.postgrest_release }}
+          POSTGREST_URL: ${{ steps.heroku.outputs.postgrest_url }}
+          WEB_RELEASE: ${{ steps.release.outputs.web_release }}
+          WEB_URL: ${{ steps.heroku.outputs.web_url }}
+        run: bash scripts/automation/production_delivery.sh probe

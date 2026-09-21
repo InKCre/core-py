@@ -20,9 +20,17 @@ class Extension(
 
   @classmethod
   def _register_apis(cls, router: fastapi.APIRouter):
+    from .connection import register_connection_route
     from .products.memos.v0_29_1 import register_backend
 
+    register_connection_route(router)
     register_backend(router)
+
+  @classmethod
+  def peer_inbounds(cls):
+    from .connection import MEMOS_CONNECTION_INBOUND
+
+    return (MEMOS_CONNECTION_INBOUND,)
 
   @classmethod
   def _init_resolvers(cls):

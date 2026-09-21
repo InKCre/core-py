@@ -19,6 +19,14 @@ EXTENSION_SEMVER_PATTERN = (
 )
 
 
+class InstallExtensionCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["install"]
+  extension: ExtensionName
+  version: str = pydantic.Field(pattern=EXTENSION_SEMVER_PATTERN)
+
+
 class EnableExtensionCommand(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
@@ -42,7 +50,10 @@ class PatchExtensionConfigCommand(pydantic.BaseModel):
 
 
 ExtensionManagementCommand: typing.TypeAlias = typing.Annotated[
-  EnableExtensionCommand | DisableExtensionCommand | PatchExtensionConfigCommand,
+  InstallExtensionCommand
+  | EnableExtensionCommand
+  | DisableExtensionCommand
+  | PatchExtensionConfigCommand,
   pydantic.Field(discriminator="action"),
 ]
 
