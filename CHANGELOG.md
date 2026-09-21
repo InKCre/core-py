@@ -4,6 +4,19 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.6.0 - 2026-09-21
+
+### Added
+
+- Core Host SDK 0.3 提供公共 HTTP 基址读取接口，服务包版本仍由独立发行流程管理。
+- 支持通过 GitHub Actions 将自托管实例部署到 Heroku 与 Neon。
+
+### Fixed
+
+- 修复 Web 无法通过所选 Core Host 安装 Python-only Extension 的接入缺口，复用既有精确版本安装与兼容性校验，不改变 Extension Host SDK 契约。
+- 修复深层 worktree 路径下开发数据库 SSH control socket 超长导致启动失败的问题，保留实例独立的 tunnel 与清理归属。
+
+
 ## 0.5.0 - 2026-09-20
 
 ### Added

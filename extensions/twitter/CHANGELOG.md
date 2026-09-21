@@ -5,6 +5,13 @@ association. New entries are rendered from project-local fragments by [Towncrier
 
 <!-- towncrier release notes start -->
 
+## 0.4.1 - 2026-09-21
+
+### Changed
+
+- 声明兼容 Core Host SDK 0.3，保留 SDK 0.2 支持；不改变插件功能。
+
+
 ## 0.4.0 - 2026-09-19
 
 ### Removed
