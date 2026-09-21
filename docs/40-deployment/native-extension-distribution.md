@@ -95,9 +95,17 @@ Registry-origin database reads finish before Registry HTTP and wheel acquisition
 blocking artifact clients run in a worker without a database session. Startup failure or cancellation
 withdraws the current publication and releases its runtime claim.
 
-First-party producer metadata targets >=0.2.0 <0.3.0. These changes require new immutable Extension
+Core Host SDK 0.3 adds `app.http.get_public_http_base_url()` without changing the async lifecycle
+or persistence API. Its authority is `app/version.py`, independently of the Core service package
+version in `pyproject.toml`; preparing a service Release PR does not change the Host SDK version.
+
+GitHub, Learn English, Mail, RSS, Telegram, and Twitter retain their SDK 0.2 lower bound and support
+SDK 0.3 through `>=0.2.0 <0.4.0`. Memos uses the new HTTP address API and requires
+`>=0.3.0 <0.4.0`. Compatibility metadata changes require new immutable Extension
 releases; an old wheel's range must not be widened. Before upgrading a deployment, disable affected
 old Extensions, adopt the matching Core/Extension releases, restart where a loaded wheel was replaced,
 and then enable them. A persisted old enabled[] intent is not silently removed on failed cold restore.
-The migration PR remains unreleasable until the complete runtime migration and compatible artifacts
-are ready.
+For Extensions with both Python and Module Federation distributions, prepare both at the same new
+Extension version, even when the browser code is unchanged. Do not upgrade only the Python
+association and lose the browser distribution required by the installed Extension. Compatible
+artifacts must be available before the deployment upgrade.

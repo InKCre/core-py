@@ -1,3 +1,3 @@
-"""Single source of truth for the Core and Core Extension Host SDK version."""
+"""Core Extension Host SDK version, independent of the service package version."""
 
-CORE_VERSION = "0.2.0"
+CORE_VERSION = "0.3.0"
