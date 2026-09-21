@@ -22,7 +22,7 @@ memos = "extensions.memos:Extension"
 name = "inkcre/memos"
 nickname = "Memos"
 host-sdk = "core-py"
-host-sdk-version = ">=0.2.0 <0.3.0"
+host-sdk-version = ">=0.3.0 <0.4.0"
 
 [tool.setuptools]
 packages = [

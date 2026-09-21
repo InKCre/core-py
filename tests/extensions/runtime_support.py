@@ -2,6 +2,7 @@
 
 import asyncio
 from dataclasses import dataclass
+import os
 import typing
 
 import fastapi
@@ -53,10 +54,26 @@ def publish_extension(
   *,
   app: fastapi.FastAPI | None = None,
   raise_server_exceptions: bool = True,
+  persist_config: bool = False,
 ) -> PublishedExtension:
   runtime_app = app or fastapi.FastAPI()
   runtime_config = dict(config or {})
   runtime_state: dict[str, typing.Any] = {}
+
+  if persist_config:
+    if not os.getenv("INKCRE_TEST_DATABASE_URL"):
+      raise RuntimeError("Persisted Extension setup requires an explicit test database")
+    from app.schemas.extension import ExtensionModel
+    from tests.database import TestSession
+
+    with TestSession() as session:
+      name = f"inkcre/{extension.__extid__}"
+      installed = session.get(ExtensionModel, name)
+      if installed is None:
+        installed = ExtensionModel(name=name, version="0.0.0")
+      installed.config = runtime_config
+      session.add(installed)
+      session.commit()
 
   extension.unpublish()
   extension.unbind()

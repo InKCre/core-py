@@ -21,8 +21,8 @@ token (PAT). Neither is your PostgREST connection setting, and the PAT is not th
 2. Select the Core that should provide the service if more than one is available. If the public
    address is missing, configure that Core's Public HTTP Base URL in **Clients → Config**, then
    refresh the setup page. Use an address reachable from your phone or other client device.
-3. If no PAT is saved, select **Generate PAT**, then **Save PAT and enable Memos**. A generated value
-   is only a draft until saved. If a PAT already exists, the wizard keeps it; enable Core if needed.
+3. Select **Prepare connection**. If no PAT is saved, the page generates and saves one. If a PAT
+   already exists, it keeps it. Memos is enabled on the selected Core only if needed.
 4. Copy the displayed **Server URL** and **Personal Access Token**. Keep the token private. The page
    confirms that connection information is ready, not that an external app has connected.
 
@@ -36,9 +36,9 @@ capability, then enable `inkcre/memos` on the intended Core. The value must be `
 by 32 ASCII letters or digits, generated with a cryptographic random generator. Do not reuse a JWT
 or another service's password.
 
-The configuration belongs to the deployment's existing Extension record. Do not write directly to
-the database and assume a running Core has reloaded it. Obtain the Core's public base address and
-append `/memos`, preserving any existing base path. Do not append `/api/v1`.
+The configuration belongs to the deployment's existing Extension record. After enabling Memos,
+read its complete Server URL using the `memos.connection.v1` capability on the selected Core.
+Do not substitute a PostgREST URL or append `/api/v1`.
 
 </template>
 </InterfaceGuide>
@@ -65,6 +65,9 @@ If client sign-in fails, first check that the device can reach the Core address 
 enabled there. A browser and a phone may have different network access. Also check the client's
 version against the supported baseline; do not add API paths to the URL to guess around an error.
 
-To replace or revoke the PAT, explicitly change Extension Config through Core. Replacing it affects
+To replace or revoke the PAT, explicitly change Extension Config. Replacing it affects
 every client using the old PAT; update those clients manually. Disabling Memos on Core removes its
 API routes. Closing the setup page does not disable the service or revoke its token.
+
+Configuration saved successfully applies to subsequent protected Memos requests, without a Core
+restart. Requests that already passed authentication are not cancelled by a later revocation.

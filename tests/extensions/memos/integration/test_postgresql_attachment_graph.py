@@ -94,6 +94,7 @@ def memo_client():
     Extension,
     {"personal_access_token": "memos_pat_" + "A" * 32},
     raise_server_exceptions=False,
+    persist_config=True,
   )
   with published.client as client:
     try:
@@ -102,6 +103,73 @@ def memo_client():
       assert client.portal is not None
       client.portal.call(ASYNC_DB_ENGINE.dispose)
       published.unpublish()
+
+
+def test_saved_pat_replacement_and_revocation_apply_without_restart(memo_client):
+  """An admitted Peer can edit config without invoking the running Host."""
+  from app.schemas.extension import ExtensionModel
+
+  old_token = "memos_pat_" + "A" * 32
+  new_token = "memos_pat_" + "B" * 32
+
+  def authenticate(token: str):
+    return memo_client.get(
+      "/memos/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+
+  def save(token: str | None):
+    with TestSession() as session:
+      installed = session.get(ExtensionModel, "inkcre/memos")
+      assert installed is not None
+      installed.config = {"personal_access_token": token}
+      session.add(installed)
+      session.commit()
+
+  assert authenticate(old_token).status_code == 200
+  save(new_token)
+  assert authenticate(old_token).status_code == 401
+  assert authenticate(new_token).status_code == 200
+  save(None)
+  assert authenticate(new_token).status_code == 401
+  assert memo_client.get("/memos/api/v1/instance/profile").status_code == 200
+
+
+def test_connection_address_preserves_public_prefix_and_requires_peer_auth(memo_client):
+  from app.business.peer import PeerManager
+  from app.middleware import create_peer_jwt
+  from app.schemas.peer import PeerModel
+  from app.settings import settings
+
+  client = memo_client
+  assert client.portal is not None
+  client.portal.call(PeerManager.register_self)
+  with TestSession() as session:
+    peer = session.get(PeerModel, settings.peer_id)
+    assert peer is not None
+    peer.config = {"http_public_base_url": "https://example.test/inkcre/"}
+    session.add(peer)
+    session.commit()
+
+  assert client.get("/memos/connection").status_code == 401
+  assert (
+    client.get(
+      "/memos/connection",
+      headers={"Authorization": "Bearer memos_pat_" + "A" * 32},
+    ).status_code
+    == 401
+  )
+  headers = {"Authorization": f"Bearer {create_peer_jwt(settings.jwt_secret)}"}
+  response = client.get("/memos/connection", headers=headers)
+  assert response.status_code == 200
+  assert response.json() == {"server_url": "https://example.test/inkcre/memos"}
+
+  with TestSession() as session:
+    peer = session.get(PeerModel, settings.peer_id)
+    assert peer is not None
+    peer.config = {}
+    session.add(peer)
+    session.commit()
+  assert client.get("/memos/connection", headers=headers).status_code == 409
 
 
 @pytest.mark.parametrize(

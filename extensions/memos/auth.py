@@ -3,18 +3,27 @@
 import secrets
 
 import fastapi
+import pydantic
+
+from app.business.extension import EXTENSION_HOST
+from .config import MemosConfig
 
 
-def require_memos_pat(request: fastapi.Request) -> None:
+async def require_memos_pat(request: fastapi.Request) -> None:
   """Require the currently configured deployment-scoped Memos PAT."""
-  from . import Extension
-
   auth_header = request.headers.get("Authorization")
   if not auth_header or not auth_header.startswith("Bearer "):
     raise _unauthorized()
 
   presented = auth_header[7:]
-  configured = Extension.config.personal_access_token
+  # Other admitted Peers can save configuration directly. Read its authority
+  # here so replacing or revoking a PAT does not require restarting this Host.
+  installed = await EXTENSION_HOST.get("inkcre/memos")
+  try:
+    configured = MemosConfig.model_validate(installed.config).personal_access_token
+  except pydantic.ValidationError:
+    # Validation details may echo credentials from an invalid direct DB write.
+    raise _unauthorized() from None
   if configured is None or not secrets.compare_digest(presented, configured):
     raise _unauthorized()
 
