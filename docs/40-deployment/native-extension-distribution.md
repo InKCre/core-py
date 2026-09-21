@@ -82,6 +82,14 @@ descriptors intentionally omit private producer provenance, a new workflow run c
 resume an existing version: recovery must rerun the original Extension publication run so its
 stable `github.run_id` build identity is preserved.
 
+First-party global and Python documentation are static publication artifacts for the same exact
+Release, not Core HTTP routes or wheel contents. Producer tooling obtains documentation addresses
+from Registry and must not construct snapshot hosts from the Registry origin. The public deployment
+currently routes a broad `*.inkcre.dev` wildcard to Registry so Heroku ACM's wildcard certificate can
+serve `registry-docs-{snapshot}.inkcre.dev`; Registry then enforces the exact Host template and
+returns 421 for other wildcard matches. Core deployment and Extension packages must not encode that
+production DNS compromise or treat DNS/TLS success as proof that a documentation set exists.
+
 
 ## Async Host compatibility window
 
