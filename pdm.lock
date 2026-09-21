@@ -5,7 +5,7 @@
 groups = ["default", "dev", "extension-preview", "extension-publisher"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:fe8ae56c10a1bff6b80ca8cf78249b5a0ad958bd645c28e2e6422215979309cb"
+content_hash = "sha256:1c5c63a79fb7fd28d9fa2337a1a7ef1c0690c2f81dcf1ac360b667ce1dec0ee0"
 
 [[metadata.targets]]
 requires_python = ">=3.12,<3.13"
@@ -849,9 +849,9 @@ files = [
 
 [[package]]
 name = "inkcre-extension-toolkit"
-version = "0.2.1"
+version = "0.3.0"
 requires_python = "<3.14,>=3.12"
-url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.2.1/inkcre_extension_toolkit-0.2.1-py3-none-any.whl"
+url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.3.0/inkcre_extension_toolkit-0.3.0-py3-none-any.whl"
 summary = "Developer and delivery tooling for InKCre Extensions"
 groups = ["extension-preview", "extension-publisher"]
 dependencies = [
@@ -860,25 +860,25 @@ dependencies = [
     "semantic-version<3,>=2.10",
 ]
 files = [
-    {file = "inkcre_extension_toolkit-0.2.1-py3-none-any.whl", hash = "sha256:fffaad86db43d998731bfee69e992fa02d18ea2b428fdd00bda5ed6e311bf3de"},
+    {file = "inkcre_extension_toolkit-0.3.0-py3-none-any.whl", hash = "sha256:e6031f5e35ed92c9cff8df07d2b37c8aa792fb00250cc526a7b95cfe1d7270e9"},
 ]
 
 [[package]]
 name = "inkcre-extension-toolkit"
-version = "0.2.1"
+version = "0.3.0"
 extras = ["cli"]
 requires_python = "<3.14,>=3.12"
-url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.2.1/inkcre_extension_toolkit-0.2.1-py3-none-any.whl"
+url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.3.0/inkcre_extension_toolkit-0.3.0-py3-none-any.whl"
 summary = "Developer and delivery tooling for InKCre Extensions"
 groups = ["extension-preview", "extension-publisher"]
 dependencies = [
     "httpx<0.29,>=0.28",
-    "inkcre-extension-toolkit @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.2.1/inkcre_extension_toolkit-0.2.1-py3-none-any.whl",
+    "inkcre-extension-toolkit @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.3.0/inkcre_extension_toolkit-0.3.0-py3-none-any.whl",
     "typer<0.22,>=0.21",
     "wheel<0.48,>=0.46",
 ]
 files = [
-    {file = "inkcre_extension_toolkit-0.2.1-py3-none-any.whl", hash = "sha256:fffaad86db43d998731bfee69e992fa02d18ea2b428fdd00bda5ed6e311bf3de"},
+    {file = "inkcre_extension_toolkit-0.3.0-py3-none-any.whl", hash = "sha256:e6031f5e35ed92c9cff8df07d2b37c8aa792fb00250cc526a7b95cfe1d7270e9"},
 ]
 
 [[package]]
