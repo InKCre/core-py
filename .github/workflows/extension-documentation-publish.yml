@@ -24,7 +24,7 @@ concurrency:
 
 env:
   ARTIFACT_NAME: extension-documentation-${{ inputs.extension }}-${{ github.run_id }}
-  CANDIDATE_ROOT: ${{ github.workspace }}/.extension-documentation-candidate
+  CANDIDATE_ROOT: ${{ github.workspace }}/extension-documentation-candidate
   EXTENSION: ${{ inputs.extension }}
   INKCRE_EXTENSION_REGISTRY_URL: >-
     ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://registry.inkcre.dev' }}
