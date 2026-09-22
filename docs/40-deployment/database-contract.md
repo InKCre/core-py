@@ -76,10 +76,12 @@ Deleting a referenced `storages` catalog row is `RESTRICT`。Changing/deleting a
 
 ## Peer Discovery Protocol
 
-`peers` 持有 deployment Peer identity、owner config/schema、完整 capability/inbound snapshot 与
-`lease_expires_at`。Capability snapshot 是 runtime-owned derived projection；`labels` 不参与 routing，readiness
-不进入 advertisement。HTTP inbound 的 absolute URL 只由当前 Peer 的 `config.http_public_base_url` 与固定业务 path
-组合，Peer row 不再持有通用 `rest_api_url`。
+`peers` 持有 deployment Peer identity、应用版本、owner config/schema、完整 capability/inbound snapshot 与
+`lease_expires_at`。Peer runtime 在注册时写入自己的 `application_version`，供管理界面识别实际运行的应用；它不替代
+Extension Host SDK 的兼容性版本。旧行可以暂时为 `NULL`，Peer 再次注册后自然补齐。注册只在首次创建 identity 时写入
+默认名称，后续刷新应用版本和 schema 时保留 Human 修改的名称、配置与标签。Capability snapshot 是 runtime-owned
+derived projection；`labels` 不参与 routing，readiness 不进入 advertisement。HTTP inbound 的 absolute URL 只由当前
+Peer 的 `config.http_public_base_url` 与固定业务 path 组合，Peer row 不再持有通用 `rest_api_url`。
 
 `renew_peer_lease(peer uuid, ttl_seconds integer) -> timestamptz` 是 `SECURITY INVOKER`、database-time helper。
 调用者提供正 TTL；不存在的 Peer 或非正 TTL 明确失败。普通 Peer row update 不续租，graceful shutdown 清空 expiry，

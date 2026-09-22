@@ -510,7 +510,7 @@ def _seed_component(cursor, profile: str) -> dict[str, Any]:
     return {"status": "not_required"}
   cursor.execute(
     sql.SQL(
-      "SELECT name, labels, config, config_schema, capabilities, "
+      "SELECT name, application_version, labels, config, config_schema, capabilities, "
       "lease_expires_at, created_at, updated_at "
       "FROM {}.peers WHERE id = %s"
     ).format(sql.Identifier(PROTOCOL_SCHEMA)),
@@ -519,6 +519,7 @@ def _seed_component(cursor, profile: str) -> dict[str, Any]:
   row = cursor.fetchone()
   expected = (
     DEVELOPMENT_PEER_NAME,
+    None,
     ["development", "canonical-seed"],
     {},
     {},

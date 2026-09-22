@@ -16,14 +16,26 @@ class PeerRepository:
   def __init__(self, session: AsyncSession) -> None:
     self._session = session
 
-  async def register(self, peer_id: PeerRef, name: str, schema: dict) -> PeerModel:
+  async def register(
+    self,
+    peer_id: PeerRef,
+    name: str,
+    application_version: str,
+    schema: dict,
+  ) -> PeerModel:
     statement = insert(PeerModel).values(
-      id=peer_id, name=name, labels=[], config={}, config_schema=schema, capabilities=[]
+      id=peer_id,
+      name=name,
+      application_version=application_version,
+      labels=[],
+      config={},
+      config_schema=schema,
+      capabilities=[],
     )
     statement = statement.on_conflict_do_update(
       index_elements=["id"],
       set_={
-        "name": statement.excluded.name,
+        "application_version": statement.excluded.application_version,
         "config_schema": statement.excluded.config_schema,
       },
     ).returning(PeerModel)

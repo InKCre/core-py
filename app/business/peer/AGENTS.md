@@ -15,6 +15,6 @@
 - `route_to_peer` is a caller-local constraint and never enters payload/advertisement。
 - A normal response or outcome-unknown dispatch stops generic failover。
 - HTTP absolute URLs come only from owner config + fixed inbound paths；do not infer them from bind host or requests。
-- Browser runtimes register with an ordinary `peers` upsert whose payload contains only
-  runtime-owned `id`、`name`、`config_schema` and `capabilities`; omitted owner-authored
-  `config` and `labels` must remain unchanged.
+- Peer runtimes register with an ordinary `peers` upsert. A default `name` is inserted only for a
+  new identity; registration refreshes runtime-owned `application_version` and `config_schema`
+  without replacing Human-owned `name`、`config` or `labels`.

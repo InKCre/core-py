@@ -255,7 +255,8 @@ def development_baseline_fingerprint(
         (
           "development_peer",
           sql.SQL(
-            "SELECT id::text, name, labels, config, config_schema, capabilities, "
+            "SELECT id::text, name, application_version, labels, config, config_schema, "
+            "capabilities, "
             "EXTRACT(EPOCH FROM lease_expires_at)::bigint, "
             "EXTRACT(EPOCH FROM created_at)::bigint "
             "FROM {}.peers WHERE id = %s"

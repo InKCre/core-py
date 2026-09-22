@@ -22,6 +22,7 @@ from app.schemas.peer import (
   normalize_capability_snapshot,
 )
 from app.settings import settings
+from app.version import APPLICATION_VERSION
 
 from .contracts import (
   CapabilityDelegationUnavailable,
@@ -58,7 +59,10 @@ class PeerManager:
     """Upsert runtime-owned identity/schema without changing owner configuration."""
     async with peer_uow() as peers:
       peer = await peers.register(
-        settings.peer_id, settings.peer_name, cls._config_contract.json_schema()
+        settings.peer_id,
+        settings.peer_name,
+        APPLICATION_VERSION,
+        cls._config_contract.json_schema(),
       )
     logger.info("Peer registered", extra={"peer": str(peer.id), "name": peer.name})
     return peer
