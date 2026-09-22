@@ -251,21 +251,15 @@ class ExtensionHost:
       raise ExtensionCompatibilityError(
         f"{name}@{version} is not available for this operation"
       )
-    association = require_python_association(release)
-    return release, association
+    return release
 
   async def install(self, name: str, version: str) -> InstalledExtension:
     validate_coordinate(name, version)
     existing = await self.store.get(name)
     if existing is not None and existing.version == version:
       return existing
-    loaded_version = self._loaded_versions.get(name)
-    if loaded_version is not None and loaded_version != version:
-      raise ExtensionRestartRequiredError(
-        f"{name} {loaded_version} was already imported; restart before installing {version}"
-      )
     release_client, _ = await self._operation_consumers()
-    release, _ = await asyncio.to_thread(
+    release = await asyncio.to_thread(
       self._resolve,
       name,
       version,
@@ -323,13 +317,20 @@ class ExtensionHost:
 
   async def _acquire(self, state: InstalledExtension):
     release_client, distribution_consumer = await self._operation_consumers()
-    release, association = await asyncio.to_thread(
+    release = await asyncio.to_thread(
       self._resolve,
       state.name,
       state.version,
       allow_yanked=True,
       release_client=release_client,
     )
+    association = require_python_association(release)
+    loaded_version = self._loaded_versions.get(state.name)
+    if loaded_version is not None and loaded_version != state.version:
+      raise ExtensionRestartRequiredError(
+        f"{state.name} {loaded_version} was already imported; "
+        f"restart before enabling {state.version}"
+      )
     acquired = await asyncio.to_thread(distribution_consumer.acquire, release, association)
     return association, acquired
 
