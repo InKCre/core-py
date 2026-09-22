@@ -1,4 +1,4 @@
-# First-Party Native Extension Wheels
+# First-Party Extension Wheels
 
 > Applies to wheel producers under `extensions/`; the Core application image does not copy this source tree.
 
