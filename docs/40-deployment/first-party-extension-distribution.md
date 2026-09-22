@@ -1,4 +1,4 @@
-# Native Extension Distribution
+# First-Party Extension Distribution
 
 Core stores one deployment row per exact Extension Release in `inkcre.extensions`: `name`,
 `version`, `enabled[]`, `nickname`, `config`, and `config_schema`. Installation, peer enablement,

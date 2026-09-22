@@ -288,9 +288,6 @@ def check_release_contract(
       release_pr = any(
         _version_at(project, base) not in {None, project.version} for project in projects
       )
-    towncrier_migration = (
-      ".changie.yaml" in changed_paths and "towncrier.toml" in changed_paths
-    )
     if release_pr:
       allowed = {
         (project.directory / name).relative_to(PROJECT_ROOT).as_posix()
@@ -316,9 +313,7 @@ def check_release_contract(
       fragment_changed = _fragment_changed(project, changed_paths)
       if not release_pr and project.key in affected and not fragment_changed:
         problems.append(f"{project.key}: delivered behavior changed without a fragment")
-      if not release_pr and (
-        version_changed or (changelog_changed and not towncrier_migration)
-      ):
+      if not release_pr and (version_changed or changelog_changed):
         problems.append(f"{project.key}: feature changes cannot prepare a release")
       if not release_pr and project.key not in affected and fragment_changed:
         problems.append(f"{project.key}: fragment has no delivered project change")

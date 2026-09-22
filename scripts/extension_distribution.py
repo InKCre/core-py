@@ -1,4 +1,4 @@
-"""Build-time verification for first-party native Extension wheels."""
+"""Build-time verification for first-party Extension wheels."""
 
 from __future__ import annotations
 

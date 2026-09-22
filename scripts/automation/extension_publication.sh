@@ -48,7 +48,9 @@ PY
         )
         namespace="${coordinate%%/*}"
         name="${coordinate#*/}"
-        status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+        status="$(curl --retry 2 --retry-delay 1 --retry-all-errors \
+          --connect-timeout 10 --max-time 30 \
+          --silent --output /dev/null --write-out '%{http_code}' \
           "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version")"
         case "$status" in
           200) ;;
@@ -125,7 +127,8 @@ PY
     version="$(jq -r '.version' "$METADATA")"
     namespace="${coordinate%%/*}"
     name="${coordinate#*/}"
-    curl --fail --silent --show-error \
+    curl --retry 2 --retry-delay 1 --retry-all-errors \
+      --connect-timeout 10 --max-time 30 --fail --silent --show-error \
       "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version" |
       jq --exit-status --arg coordinate "$coordinate" --arg version "$version" \
         '.name == $coordinate and .version == $version and
