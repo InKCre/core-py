@@ -10,6 +10,7 @@ import sqlalchemy
 from app.business.peer import PeerHTTPInbound, PeerManager
 from tests.database import TestSession
 from app.schemas.peer import PEER_HTTP_PROTOCOL, PeerModel
+from app.version import APPLICATION_VERSION
 
 
 pytestmark = pytest.mark.skipif(
@@ -41,6 +42,9 @@ def test_real_snapshot_database_lease_and_candidate_filtering(monkeypatch, async
     with TestSession() as db:
       local_row = db.get(PeerModel, local)
       assert local_row is not None
+      assert local_row.application_version == APPLICATION_VERSION
+      local_row.name = "Human name"
+      local_row.application_version = "0.0.0"
       local_row.config = {"http_public_base_url": "https://local.example/root/"}
       db.add(local_row)
       now = (
@@ -83,6 +87,10 @@ def test_real_snapshot_database_lease_and_candidate_filtering(monkeypatch, async
         )
       )
       db.commit()
+
+    registered_again = async_runner.run(PeerManager.register_self())
+    assert registered_again.name == "Human name"
+    assert registered_again.application_version == APPLICATION_VERSION
 
     published = async_runner.run(PeerManager.publish_self())
     assert published.capabilities == [

@@ -111,6 +111,10 @@ class PeerModel(sqlmodel.SQLModel, table=True):
     ),
   )
   name: str = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False))
+  application_version: str | None = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=True),
+  )
   labels: list[str] = sqlmodel.Field(
     default_factory=list,
     sa_column=sqlalchemy.Column(
