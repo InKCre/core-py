@@ -4,6 +4,15 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.6.1 - 2026-09-22
+
+### Changed
+
+- Publish first-party Extension documentation from saved candidates, and keep the official production deployment inactive in forks. (#extension-documentation)
+- Extension 安装改为只确认 published Release；Python 兼容性和已加载版本保护在启用前执行。 (#extension-install-boundary)
+- Publish each running Peer's application version with its runtime identity. (#peer-runtime-identity)
+
+
 ## 0.6.0 - 2026-09-21
 
 ### Added
