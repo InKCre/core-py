@@ -20,7 +20,7 @@ class IMAPParameters(pydantic.BaseModel):
   port: int = pydantic.Field(default=993, ge=1, le=65535)
   security: typing.Literal["tls", "starttls", "plain"] = "tls"
   username: str = pydantic.Field(min_length=1)
-  password: str = pydantic.Field(min_length=1)
+  password: str = pydantic.Field(min_length=1, json_schema_extra={"format": "password"})
 
 
 class MailboxExclusionPolicy(pydantic.BaseModel):

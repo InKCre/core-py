@@ -84,7 +84,9 @@ class GitHubSourceConfig(pydantic.BaseModel):
 
   model_config = pydantic.ConfigDict(extra="forbid")
 
-  github_token: str = pydantic.Field(min_length=1)
+  github_token: str = pydantic.Field(
+    min_length=1, title="GitHub token", json_schema_extra={"format": "password"}
+  )
 
 
 class GitHubSourceState(pydantic.BaseModel):
