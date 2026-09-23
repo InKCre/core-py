@@ -55,8 +55,10 @@ class CorePeerConfig(pydantic.BaseModel):
 
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
-  http_public_base_url: str | None = None
-  extension_registry_url: str | None = None
+  http_public_base_url: str | None = pydantic.Field(default=None, title="Public HTTP URL")
+  extension_registry_url: str | None = pydantic.Field(
+    default=None, title="Extension Registry URL"
+  )
 
   @pydantic.field_validator("http_public_base_url")
   @classmethod

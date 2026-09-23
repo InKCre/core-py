@@ -26,7 +26,9 @@ class TelegramMessage(pydantic.BaseModel):
 class TelegramSourceConfig(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid")
 
-  bot_token: str = pydantic.Field(min_length=1)
+  bot_token: str = pydantic.Field(
+    min_length=1, title="Bot token", json_schema_extra={"format": "password"}
+  )
   bound_user_id: int = pydantic.Field(gt=0)
   download_attachments: bool = False
 
