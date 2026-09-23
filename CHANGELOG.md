@@ -4,6 +4,13 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.6.2 - 2026-09-23
+
+### Changed
+
+- Core Peer configuration schemas now expose readable field titles without changing stored values.
+
+
 ## 0.6.1 - 2026-09-22
 
 ### Changed

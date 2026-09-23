@@ -5,6 +5,13 @@ association. New entries are rendered from project-local fragments by [Towncrier
 
 <!-- towncrier release notes start -->
 
+## 0.3.2 - 2026-09-23
+
+### Changed
+
+- The Telegram Source configuration schema now marks its bot token for password-style rendering without changing how it is read or saved.
+
+
 ## 0.3.1 - 2026-09-21
 
 ### Changed
