@@ -12,6 +12,7 @@ from inkcre_extension_runtime_core_py import EmptyConfig
 from inkcre_extension_runtime_core_py import ExtensionBase as RuntimeExtensionBase
 import pydantic
 import jsonschema  # pyrefly: ignore[untyped-import]
+from packaging.utils import canonicalize_name
 import sqlmodel
 
 from app.business.peer import PeerManager
@@ -24,6 +25,7 @@ from app.schemas.extension import (
 )
 from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
 from app.settings import settings
+from app.version import CORE_VERSION
 from libs.obsrv.main import get_logger
 
 from .distribution import (
@@ -331,7 +333,24 @@ class ExtensionHost:
         f"{state.name} {loaded_version} was already imported; "
         f"restart before enabling {state.version}"
       )
-    acquired = await asyncio.to_thread(distribution_consumer.acquire, release, association)
+    acquired = await asyncio.to_thread(
+      AcquiredDistribution.discover, state.name, state.version, CORE_VERSION
+    )
+    if acquired is not None:
+      record = acquired.record
+      if (
+        canonicalize_name(record.python.project) != canonicalize_name(association.project)
+        or record.python.entry_point.model_dump() != association.entry_point.model_dump()
+        or (record.host_sdk.name, record.host_sdk.version)
+        != (association.host_sdk, association.host_sdk_version)
+      ):
+        raise ExtensionCompatibilityError(
+          "Installed Distribution differs from the exact Registry association"
+        )
+    else:
+      acquired = await asyncio.to_thread(
+        distribution_consumer.acquire, release, association
+      )
     return association, acquired
 
   async def _start(
@@ -531,14 +550,19 @@ class ExtensionHost:
     """Cold-restore exact enabled intent; failures never rewrite enabled[]."""
     self.fastapi_app = app
     peer_id = PeerManager.get_current_peer_ref()
+    failures: list[Exception] = []
     async with self._runtime_lock:
       for state in await self.store.list():
         if peer_id not in state.enabled:
           continue
         try:
           await self._start(app, state)
-        except Exception:
+        except Exception as error:
           LOGGER.exception("Cold restore failed for %s", state.name)
+          error.add_note(f"Cold restore failed for {state.name}@{state.version}")
+          failures.append(error)
+    if failures:
+      raise ExceptionGroup("Enabled Extensions failed to restore", failures)
 
   async def close_running(self) -> None:
     failures: list[Exception] = []

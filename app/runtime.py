@@ -20,16 +20,18 @@ class RuntimeStatus:
 
   phase: RuntimePhase = RuntimePhase.STARTING
   reason: str = "runtime_bootstrap_pending"
+  step: str | None = None
 
   @property
   def ready(self) -> bool:
     return self.phase is RuntimePhase.READY
 
-  def set(self, phase: RuntimePhase, reason: str) -> None:
+  def set(self, phase: RuntimePhase, reason: str, *, step: str | None = None) -> None:
     self.phase = phase
     self.reason = reason
+    self.step = step
 
-  def as_dict(self) -> dict[str, str]:
+  def as_dict(self) -> dict[str, str | None]:
     return asdict(self)
 
 

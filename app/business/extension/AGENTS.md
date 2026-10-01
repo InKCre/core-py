@@ -13,9 +13,9 @@
 - Registry Simple URL 必须与配置的 Registry 同源且路径精确匹配 Project。
 - runtime 只能把普通 wheel 安装到当前 Core interpreter/site-packages；禁止 `pip --target`、
   per-Extension overlay、`sys.path` 或 `extensions.__path__` 改写。
-- Core image 持有受支持的 dependency baseline。dependency preflight 只以下载的 Extension
-  wheel 为候选源；缺依赖或版本不满足时拒绝该候选，不访问 dependency index，也不变更
-  Core-owned Distribution。
+- Registry admission、已安装记录复用与 Runtime SDK 的实际依赖安装行为，以
+  [First-Party Extension Distribution](../../../docs/40-deployment/first-party-extension-distribution.md)
+  为唯一说明。不要从 Extension wheel 的下载参数推导依赖安装策略。
 - 任意 peer enabled 时拒绝 version change/rollback。已 import 的 Project 被替换后必须重启，当前进程不可热加载
   新 class；disable 也不模拟卸载 Python module。
 - 新 install/upgrade 只接受 published；已安装 exact yanked Release 可 enable/cold restore 并告警。

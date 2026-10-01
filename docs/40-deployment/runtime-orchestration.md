@@ -27,9 +27,9 @@ Current bootstrap flow in `run.py`:
 6. start restored extensions, which registers process-monotonic Source/Resolver/Sink types and publishes reversible routes、
    Peer inbounds and public claims
 7. persist registered source types
-8. persist the complete locally registered Job Handler catalog
-9. persist peer-local registered AI dialect contracts
-10. persist registered Sink types and start this Peer's enabled Sink instances
+8. persist registered Sink types and start this Peer's enabled Sink instances
+9. persist the complete locally registered Job Handler catalog
+10. persist peer-local registered AI dialect contracts
 11. publish the complete config-derived capability snapshot and renew the database-time Peer lease
 12. start the scheduler and register Peer refresh、Cron materialization and pending-Job checks
 13. report readiness as true
@@ -39,7 +39,9 @@ disabled Extension Source schemas；Extension startup publishes them before step
 
 Database waiting is retryable and does not block `/livez`. A failure after the database
 preflight moves runtime state to `failed`; it is observable through `/readyz` and is not
-silently retried because extension startup can have partial effects.
+silently retried because extension startup can have partial effects. Cold restore attempts every enabled Extension,
+then reports any failures together; durable `enabled[]` intent remains unchanged and successful instances remain owned
+by normal lifespan shutdown. Failed restore does not publish a new Peer lease or report ready.
 
 ### 2. Cron and Job are the one durable background-work path
 
@@ -56,7 +58,8 @@ Job has no implicit retry。A source may persist checkpoints as useful progress�
 
 ### 3. Pending work is drained by periodic checks
 
-- Cron occurrence and pending Job checks run every 30 seconds
+- Cron occurrence and pending Job checks run every 30 seconds. Pending Job discovery also runs immediately after
+  bootstrap, so commands accepted before this Peer became executable do not wait for the first interval.
 - the process checks abort intent for its active Job IDs every 2 seconds; the domain handler does not poll the Job table
 - Peer advertisement/lease refresh uses owner-supplied TTL and renewal interval settings；it republishes config-derived
   inbound URLs before renewing liveness
@@ -100,6 +103,9 @@ module import.
 - `/livez` and compatibility alias `/heartbeat` only prove that the web process can answer
 - `/readyz` is read-only and requires the complete role/ACL/catalog/migration contract plus
   completed runtime bootstrap
+- readiness runtime `step` names the current bootstrap operation while starting and retains the failed operation when
+  bootstrap fails; ready and stopping use `null`. Startup logs record each operation's elapsed seconds, without returning
+  configuration values or underlying exception text through the public health surface
 - health routes do not require JWT credentials and never include connection errors or
   database URLs in their payloads
 
