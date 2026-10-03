@@ -7,6 +7,10 @@ import pydantic
 from app.business.agent import AgentManager
 from app.business.agent.projection import project_json
 from app.schemas.ai import JSONValue
+from app.schemas.info_base.block import BlockModel
+from app.schemas.info_base.relation import RelationModel
+from app.schemas.lexical_retrieval import LexicalRetrievalResult
+from libs.obsrv.telemetry import emit_event
 
 from .main import InfoBaseManager
 
@@ -67,6 +71,31 @@ async def retrieve(input: RetrieveInput) -> JSONValue:
       continue
     result = branch.result
     assert result is not None
+    if isinstance(result, LexicalRetrievalResult):
+      block_ids = tuple(
+        match.block.id for match in result.matches if match.block.id is not None
+      )
+      relation_ids: tuple[int, ...] = ()
+    else:
+      block_ids = tuple(
+        match.entity.id
+        for match in result.matches
+        if match.type == "block" and match.entity.id is not None
+      )
+      relation_ids = tuple(
+        match.entity.id
+        for match in result.matches
+        if match.type == "relation" and match.entity.id is not None
+      )
+    emit_event(
+      "inkcre.retrieval.candidates",
+      {
+        "inkcre.retrieval.method": "lexical" if name == "lexical" else "semantic",
+        "inkcre.entity.block_ids": block_ids,
+        "inkcre.entity.relation_ids": relation_ids,
+        "inkcre.retrieval.candidate_count": len(result.matches),
+      },
+    )
     if name == "lexical":
       payload[name] = {
         "matches": [
@@ -102,5 +131,22 @@ async def get_entities(input: GetEntitiesInput) -> JSONValue:
   result = await InfoBaseManager.get_entities(
     tuple((reference.type, reference.id) for reference in input.entities),
     random_count=input.random_count,
+  )
+  emit_event(
+    "inkcre.entity.read",
+    {
+      "inkcre.entity.read.kind": "persisted",
+      "inkcre.entity.block_ids": tuple(
+        entity.id
+        for entity in result
+        if isinstance(entity, BlockModel) and entity.id is not None
+      ),
+      "inkcre.entity.relation_ids": tuple(
+        entity.id
+        for entity in result
+        if isinstance(entity, RelationModel) and entity.id is not None
+      ),
+      "inkcre.entity.read.count": sum(entity is not None for entity in result),
+    },
   )
   return project_json(result)

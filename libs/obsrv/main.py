@@ -76,6 +76,9 @@ def start_obsrv() -> None:
 
 async def close_obsrv() -> None:
   from .log_handler_postgresql import PostgreSQLHandler
+  from .telemetry import close_telemetry
+
+  await close_telemetry()
 
   for handler in LOGGER.handlers:
     if isinstance(handler, PostgreSQLHandler):

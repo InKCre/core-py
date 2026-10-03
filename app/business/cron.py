@@ -15,6 +15,7 @@ from app.persistence.cron.uow import cron_uow
 from app.schemas.cron import CronForm, CronID, CronModel, CronUpdateForm
 from app.schemas.job import JobModel, JobStatus
 from libs.obsrv.main import get_logger
+from libs.obsrv.telemetry import operation, emit_event
 from app.validation import input_path
 
 
@@ -87,6 +88,11 @@ class CronManager:
 
   @classmethod
   async def _materialize(cls, cron_id: CronID, timezone: ZoneInfo) -> int:
+    with operation("cron.materialize", attributes={"inkcre.cron.id": cron_id}):
+      return await cls._materialize_occurrence(cron_id, timezone)
+
+  @classmethod
+  async def _materialize_occurrence(cls, cron_id: CronID, timezone: ZoneInfo) -> int:
     async with cron_uow() as uow:
       cron = await uow.crons.get(cron_id, lock=True, skip_locked=True)
       if cron is None or not cron.enabled:
@@ -117,7 +123,8 @@ class CronManager:
       cron.last_job = job.id
       cron.last_scheduled_for = occurrence
       await uow.crons.save(cron)
-      return 1
+    emit_event("job.submitted", {"inkcre.job.id": job.id or 0, "inkcre.cron.id": cron_id})
+    return 1
 
   @classmethod
   async def run_now(cls, cron_id: CronID) -> JobModel:
@@ -132,7 +139,8 @@ class CronManager:
         cron.job_timeout_seconds,
         uow=uow,
       )
-      return job
+    emit_event("job.submitted", {"inkcre.job.id": job.id or 0, "inkcre.cron.id": cron_id})
+    return job
 
   @classmethod
   async def create(cls, form: CronForm) -> CronModel:

@@ -3,9 +3,12 @@
 from collections.abc import Sequence
 import json
 import typing
+import time
 
 from openai import AsyncStream
 from openai.types.chat import ChatCompletionChunk
+from opentelemetry import trace
+from opentelemetry.trace import INVALID_SPAN
 import pydantic
 
 from app.schemas.ai import (
@@ -21,8 +24,11 @@ from app.schemas.ai import (
   VideoContentPart,
 )
 
+from libs.obsrv.telemetry import is_enabled
+
 from ..contracts import AIOutputContractError
 from ..main import AIManager
+from ..telemetry import record_response_usage
 from .openai_compatible import OpenAICompatibleConfig, OpenAICompatibleDialect
 
 
@@ -109,6 +115,12 @@ class AlibabaModelStudioDialect(OpenAICompatibleDialect):
     if tool_choice is not None:
       arguments["tool_choice"] = self._tool_choice_param(tool_choice)
 
+    span = trace.get_current_span() if is_enabled() else INVALID_SPAN
+    span.set_attribute("gen_ai.request.stream", True)
+    started = time.monotonic()
+    usage = None
+    finish_reasons: list[str] = []
+    first_chunk = True
     try:
       stream = typing.cast(
         AsyncStream[ChatCompletionChunk],
@@ -117,8 +129,18 @@ class AlibabaModelStudioDialect(OpenAICompatibleDialect):
       text_parts: list[str] = []
       calls: dict[int, dict[str, str]] = {}
       async for chunk in stream:
+        if first_chunk:
+          span.set_attribute(
+            "gen_ai.response.time_to_first_chunk", time.monotonic() - started
+          )
+          first_chunk = False
+        # Usage-only terminal chunks have no choices. Totals replace earlier totals.
+        if chunk.usage is not None:
+          usage = chunk.usage
         if not chunk.choices:
           continue
+        if chunk.choices[0].finish_reason is not None:
+          finish_reasons = [chunk.choices[0].finish_reason]
         delta = chunk.choices[0].delta
         if isinstance(delta.content, str):
           text_parts.append(delta.content)
@@ -132,6 +154,7 @@ class AlibabaModelStudioDialect(OpenAICompatibleDialect):
             if call.function.arguments:
               current["arguments"] += call.function.arguments
     finally:
+      record_response_usage("chat", usage, finish_reasons)
       await client.close()
 
     parsed_calls: list[ToolCall] = []

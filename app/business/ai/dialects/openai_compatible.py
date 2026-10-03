@@ -28,6 +28,7 @@ from app.schemas.info_base.main import Vector
 
 from ..contracts import AIDialectAdapter, AIInputUnavailableError, AIOutputContractError
 from ..main import AIManager
+from ..telemetry import record_response_usage
 
 INLINE_MEDIA_MAX_BYTES = 7 * 1024 * 1024
 
@@ -80,6 +81,7 @@ class OpenAICompatibleDialect(AIDialectAdapter):
     dimensions: int,
   ) -> tuple[Vector, ...]:
     client = self._client_factory(self._config(config))
+    usage = None
     try:
       response = await client.embeddings.create(
         model=native_model_id,
@@ -87,7 +89,9 @@ class OpenAICompatibleDialect(AIDialectAdapter):
         dimensions=dimensions,
         encoding_format="float",
       )
+      usage = getattr(response, "usage", None)
     finally:
+      record_response_usage("embeddings", usage)
       await client.close()
 
     by_index = {item.index: tuple(item.embedding) for item in response.data}
@@ -301,12 +305,17 @@ class OpenAICompatibleDialect(AIDialectAdapter):
     if tool_choice is not None:
       arguments["tool_choice"] = self._tool_choice_param(tool_choice)
 
+    usage = None
+    finish_reasons: list[str] = []
     try:
       response = typing.cast(
         ChatCompletion,
         await client.chat.completions.create(**arguments),
       )
+      usage = response.usage
+      finish_reasons = [choice.finish_reason for choice in response.choices]
     finally:
+      record_response_usage("chat", usage, finish_reasons)
       await client.close()
 
     if not response.choices:

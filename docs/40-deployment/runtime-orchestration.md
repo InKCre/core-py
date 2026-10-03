@@ -124,6 +124,9 @@ Readiness 复用 `app/database_contract` 的同步 psycopg 检查，在 `asyncio
 关闭时先停止接受新 backend 记录，最多等待五秒排空；超时取消写入并丢弃剩余记录，之后才释放
 连接池。日志仍为 best-effort telemetry，不承诺进程崩溃后的交付。导入模块不启动 writer、不连接数据库。
 
+新增标准遥测在显式启用时，于数据库准入和 Peer 注册后初始化；PG 路径保持独立。
+元数据来源、OTLP 出口、有界关闭和浏览器认证转发见[可观测性配置](observability.md)。
+
 ### 8. Each Peer may own a scheduler
 
 APScheduler belongs to each web process. Cron row serialization, occurrence identity and the conditional pending-Job

@@ -26,6 +26,9 @@ from app.schemas.peer import (
   PeerProtocolResponse,
 )
 from app.settings import settings
+from app.observability import inject_context
+from libs.obsrv.telemetry import operation
+from opentelemetry.trace import SpanKind
 
 from .contracts import (
   PeerOutcomeUnknown,
@@ -132,41 +135,68 @@ class PeerHTTPOutbound:
     if "body" in request.model_fields_set:
       kwargs["json"] = request.body
 
-    try:
-      async with httpx.AsyncClient(
-        timeout=settings.peer_http_timeout_seconds,
-      ) as client:
-        response = await client.request(**kwargs)
-    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as error:
-      raise PeerRequestNotExecuted(f"Could not dispatch to Peer {self.peer.id}") from error
-    except httpx.RequestError as error:
-      raise PeerOutcomeUnknown(
-        f"Peer {self.peer.id} dispatch outcome is unknown"
-      ) from error
-
-    if response.headers.get(PEER_EXECUTION_HEADER, "").strip().lower() == PEER_NOT_EXECUTED:
-      raise PeerRequestNotExecuted(
-        f"Peer {self.peer.id} reported that execution did not begin"
-      )
-
-    grouped_headers: defaultdict[str, list[str]] = defaultdict(list)
-    for name, value in response.headers.multi_items():
-      if name.lower() != PEER_EXECUTION_HEADER.lower():
-        grouped_headers[name.lower()].append(value)
-
-    response_fields: dict[str, typing.Any] = {
-      "status": response.status_code,
-      "headers": grouped_headers,
-    }
-    if response.content:
+    with operation(
+      "peer.http",
+      attributes={"inkcre.peer.target_id": str(self.peer.id)},
+      kind=SpanKind.CLIENT,
+    ) as observation:
+      span = observation.span
+      propagated = inject_context()
+      if propagated:
+        # The transport owns Trace Context; business payload headers cannot duplicate it.
+        headers[:] = [
+          (key, value)
+          for key, value in headers
+          if key.lower() not in {"traceparent", "tracestate"}
+        ]
+        headers.extend(propagated.items())
       try:
-        response_fields["body"] = response.json()
-      except json.JSONDecodeError as error:
-        raise PeerProtocolError(
-          f"Peer {self.peer.id} returned a non-JSON HTTP body"
+        async with httpx.AsyncClient(
+          timeout=settings.peer_http_timeout_seconds,
+        ) as client:
+          response = await client.request(**kwargs)
+      except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as error:
+        span.set_attribute("inkcre.peer.outcome", "not_executed")
+        raise PeerRequestNotExecuted(
+          f"Could not dispatch to Peer {self.peer.id}"
         ) from error
-    normalized = PeerProtocolResponse.model_validate(response_fields)
-    return typing.cast(
-      JSONValue,
-      normalized.model_dump(mode="json", exclude_unset=True),
-    )
+      except httpx.RequestError as error:
+        span.set_attribute("inkcre.peer.outcome", "unknown")
+        raise PeerOutcomeUnknown(
+          f"Peer {self.peer.id} dispatch outcome is unknown"
+        ) from error
+
+      if (
+        response.headers.get(PEER_EXECUTION_HEADER, "").strip().lower() == PEER_NOT_EXECUTED
+      ):
+        span.set_attribute("inkcre.peer.outcome", "not_executed")
+        raise PeerRequestNotExecuted(
+          f"Peer {self.peer.id} reported that execution did not begin"
+        )
+
+      span.set_attribute("inkcre.peer.outcome", "responded")
+      span.set_attribute("http.response.status_code", response.status_code)
+      if response.status_code >= 500:
+        observation.outcome = "error"
+
+      grouped_headers: defaultdict[str, list[str]] = defaultdict(list)
+      for name, value in response.headers.multi_items():
+        if name.lower() != PEER_EXECUTION_HEADER.lower():
+          grouped_headers[name.lower()].append(value)
+
+      response_fields: dict[str, typing.Any] = {
+        "status": response.status_code,
+        "headers": grouped_headers,
+      }
+      if response.content:
+        try:
+          response_fields["body"] = response.json()
+        except json.JSONDecodeError as error:
+          raise PeerProtocolError(
+            f"Peer {self.peer.id} returned a non-JSON HTTP body"
+          ) from error
+      normalized = PeerProtocolResponse.model_validate(response_fields)
+      return typing.cast(
+        JSONValue,
+        normalized.model_dump(mode="json", exclude_unset=True),
+      )

@@ -65,6 +65,14 @@ class JobModel(sqlmodel.SQLModel, table=True):
   __table_args__ = (
     sqlalchemy.Index("jobs_status_idx", "status"),
     sqlalchemy.CheckConstraint(
+      "octet_length(submission_traceparent) <= 512",
+      name="jobs_submission_traceparent_capacity",
+    ),
+    sqlalchemy.CheckConstraint(
+      "octet_length(submission_tracestate) <= 512",
+      name="jobs_submission_tracestate_capacity",
+    ),
+    sqlalchemy.CheckConstraint(
       "timeout_seconds > 0",
       name="jobs_timeout_seconds_positive",
     ),
@@ -99,6 +107,14 @@ class JobModel(sqlmodel.SQLModel, table=True):
       nullable=False,
       server_default=sqlalchemy.text("'{}'::jsonb"),
     ),
+  )
+  submission_traceparent: str | None = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=True),
+  )
+  submission_tracestate: str | None = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=True),
   )
   state: dict[str, typing.Any] = sqlmodel.Field(
     default_factory=dict,

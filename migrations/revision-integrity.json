@@ -5,6 +5,7 @@
   "revisions": {
     "143c4f4adc85_add_sink_catalog_and_instances.py": "dc5151df7c73ec84077f7698cfb1e7fdd5596978270055de2812da539d02043d",
     "1e4c7a9b2d5f_add_block_lexical_records.py": "20cd7c361b0f822811d52beb692a255078e3842fd64d74287ee0c13d0bc8df26",
+    "3d9593b0c855_add_job_submission_trace_context.py": "60d61b798da850ea24d301db3f97cb07e0d8d9695a6c5a9763b9ef4f990d0845",
     "3f7a9c2d5e1b_merge_extension_registry_feature_retrieval.py": "a12ebb2f37a00dcc13b6dea6b7f9be0f6870d57530e8d234eb934c080d027c07",
     "50b2c08dd267_add_relation_endpoint_indexes.py": "56a0dbfd5e032fa57b125e478940ff89254c167b38fe0a7a98046498577d13e5",
     "77cd53ad8080_add_global_jobs_crons_and_source_runtime.py": "8eda54520a7099c957ee6a1b5e6e48d5ee2b3dbe18b0dea4b6a5246dbef04bd2",
