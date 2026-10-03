@@ -6,6 +6,7 @@ import math
 import typing
 
 import pydantic
+from opentelemetry.trace import SpanKind
 
 from app.database_contract.profile import BUILTIN_AI_DIALECTS_BY_ID
 from app.schemas.ai import (
@@ -29,6 +30,9 @@ from app.schemas.ai import (
 from app.schemas.info_base.main import Vector
 
 from app.persistence.ai.uow import ai_uow
+from libs.obsrv.telemetry import operation
+
+from .telemetry import model_attributes
 
 from .contracts import (
   AICapabilityUnavailableError,
@@ -258,38 +262,54 @@ class AIManager:
     dimensions: int,
   ) -> tuple[Vector, ...]:
     """Embed one ordered non-empty text batch through the selected model."""
-    if not inputs:
-      raise ValueError("embedding inputs must not be empty")
-    if dimensions <= 0:
-      raise ValueError("embedding dimensions must be positive")
-    target = await cls._load_target_async(model)
-    capability = cls._capability(target.model, "embedding")
-    cls._require_modalities(
-      target.model,
-      capability,
-      input_="text",
-      output="vector",
-    )
-    vectors = await target.adapter.embed(
-      target.config,
-      target.model.native_model_id,
-      tuple(inputs),
-      dimensions,
-    )
-    if len(vectors) != len(inputs):
-      raise AIOutputContractError(
-        f"Embedding result count {len(vectors)} does not match input count {len(inputs)}"
-      )
-    for vector in vectors:
-      if len(vector) != dimensions:
-        raise AIOutputContractError(
-          f"Embedding dimension {len(vector)} does not match requested {dimensions}"
+    with operation(
+      "ai.embed",
+      kind=SpanKind.CLIENT,
+      attributes={
+        "gen_ai.operation.name": "embeddings",
+        "inkcre.ai.model.id": model,
+        "inkcre.ai.usage.input.source": "unavailable",
+        "inkcre.ai.usage.output.source": "unavailable",
+      },
+    ) as observation:
+      span = observation.span
+      if not inputs:
+        raise ValueError("embedding inputs must not be empty")
+      if dimensions <= 0:
+        raise ValueError("embedding dimensions must be positive")
+      target = await cls._load_target_async(model)
+      span.set_attributes(
+        model_attributes(
+          target.model.native_model_id, target.provider.dialect, target.model.provider
         )
-      if not vector or not all(math.isfinite(value) for value in vector):
-        raise AIOutputContractError("Embedding vectors must be finite and non-empty")
-      if not any(value != 0 for value in vector):
-        raise AIOutputContractError("Embedding vectors must be non-zero")
-    return vectors
+      )
+      capability = cls._capability(target.model, "embedding")
+      cls._require_modalities(
+        target.model,
+        capability,
+        input_="text",
+        output="vector",
+      )
+      vectors = await target.adapter.embed(
+        target.config,
+        target.model.native_model_id,
+        tuple(inputs),
+        dimensions,
+      )
+      if len(vectors) != len(inputs):
+        raise AIOutputContractError(
+          f"Embedding result count {len(vectors)} does not match input count {len(inputs)}"
+        )
+      for vector in vectors:
+        if len(vector) != dimensions:
+          raise AIOutputContractError(
+            f"Embedding dimension {len(vector)} does not match requested {dimensions}"
+          )
+        if not vector or not all(math.isfinite(value) for value in vector):
+          raise AIOutputContractError("Embedding vectors must be finite and non-empty")
+        if not any(value != 0 for value in vector):
+          raise AIOutputContractError("Embedding vectors must be non-zero")
+      return vectors
 
   @classmethod
   async def chat(
@@ -300,60 +320,77 @@ class AIManager:
     tool_choice: ToolChoice | None = None,
   ) -> AssistantMessage:
     """Execute one provider-neutral chat model call without owning history."""
-    history = validate_message_history(messages)
-    target = await cls._load_target_async(model)
-    capability = cls._capability(target.model, "chat")
-    # System instructions, Tool schemas/results and Assistant history all travel
-    # through the textual chat channel even when the latest User turn is media-only.
-    input_modalities: set[str] = {"text"}
-    for message in history:
-      if not isinstance(message, UserMessage):
-        continue
-      for part in message.content:
-        if isinstance(part, TextContentPart):
-          input_modalities.add("text")
-        elif isinstance(part, ImageContentPart):
-          input_modalities.add("image")
-        elif isinstance(part, AudioContentPart):
-          input_modalities.add("audio")
-        elif isinstance(part, VideoContentPart):
-          input_modalities.add("video")
-    for modality in sorted(input_modalities):
-      cls._require_modalities(
-        target.model,
-        capability,
-        input_=modality,
-        output="text",
+    with operation(
+      "ai.chat",
+      kind=SpanKind.CLIENT,
+      attributes={
+        "gen_ai.operation.name": "chat",
+        "inkcre.ai.model.id": model,
+        "inkcre.ai.usage.input.source": "unavailable",
+        "inkcre.ai.usage.output.source": "unavailable",
+      },
+    ) as observation:
+      span = observation.span
+      history = validate_message_history(messages)
+      target = await cls._load_target_async(model)
+      span.set_attributes(
+        model_attributes(
+          target.model.native_model_id, target.provider.dialect, target.model.provider
+        )
       )
-      if not target.adapter.supports_input_modality("chat", modality):
-        raise AIInputUnavailableError(
-          f"AI dialect {target.provider.dialect!r} cannot convey chat modality {modality!r}"
+      capability = cls._capability(target.model, "chat")
+      # System instructions, Tool schemas/results and Assistant history all travel
+      # through the textual chat channel even when the latest User turn is media-only.
+      input_modalities: set[str] = {"text"}
+      for message in history:
+        if not isinstance(message, UserMessage):
+          continue
+        for part in message.content:
+          if isinstance(part, TextContentPart):
+            input_modalities.add("text")
+          elif isinstance(part, ImageContentPart):
+            input_modalities.add("image")
+          elif isinstance(part, AudioContentPart):
+            input_modalities.add("audio")
+          elif isinstance(part, VideoContentPart):
+            input_modalities.add("video")
+      for modality in sorted(input_modalities):
+        cls._require_modalities(
+          target.model,
+          capability,
+          input_=modality,
+          output="text",
         )
+        if not target.adapter.supports_input_modality("chat", modality):
+          raise AIInputUnavailableError(
+            f"AI dialect {target.provider.dialect!r} cannot convey "
+            f"chat modality {modality!r}"
+          )
 
-    tool_ids = tuple(tool.id for tool in tools)
-    if len(tool_ids) != len(set(tool_ids)):
-      raise ValueError("Tool IDs must be unique")
-    requires_tool_calling = bool(tools) or tool_choice is not None
-    if requires_tool_calling:
-      if "tool_calling" not in capability.features or not target.adapter.supports_feature(
-        "chat", "tool_calling"
-      ):
-        raise AIFeatureUnavailableError(
-          f"AI model {model} and dialect {target.provider.dialect!r} do not jointly "
-          "support tool_calling"
-        )
-    if tool_choice is not None:
-      if not tools:
-        raise ValueError("tool_choice requires at least one Tool")
-      if not target.adapter.supports_tool_choice(tool_choice):
-        raise AIFeatureUnavailableError(
-          f"AI dialect {target.provider.dialect!r} cannot represent tool_choice"
-        )
+      tool_ids = tuple(tool.id for tool in tools)
+      if len(tool_ids) != len(set(tool_ids)):
+        raise ValueError("Tool IDs must be unique")
+      requires_tool_calling = bool(tools) or tool_choice is not None
+      if requires_tool_calling:
+        if "tool_calling" not in capability.features or not target.adapter.supports_feature(
+          "chat", "tool_calling"
+        ):
+          raise AIFeatureUnavailableError(
+            f"AI model {model} and dialect {target.provider.dialect!r} do not jointly "
+            "support tool_calling"
+          )
+      if tool_choice is not None:
+        if not tools:
+          raise ValueError("tool_choice requires at least one Tool")
+        if not target.adapter.supports_tool_choice(tool_choice):
+          raise AIFeatureUnavailableError(
+            f"AI dialect {target.provider.dialect!r} cannot represent tool_choice"
+          )
 
-    return await target.adapter.chat(
-      target.config,
-      target.model.native_model_id,
-      history,
-      tuple(tools),
-      tool_choice,
-    )
+      return await target.adapter.chat(
+        target.config,
+        target.model.native_model_id,
+        history,
+        tuple(tools),
+        tool_choice,
+      )

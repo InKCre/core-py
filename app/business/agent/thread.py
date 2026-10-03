@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from enum import StrEnum
 import inspect
+import hashlib
 import json
 import time
 import traceback
@@ -26,6 +27,7 @@ from .contracts import AgentTurnActiveError, BoundAgentTool, ToolExecutionError
 from .persistence import ThreadID, ThreadPersistenceBackend, ThreadState
 from .debug import trace
 from libs.obsrv.main import get_logger
+from libs.obsrv.telemetry import operation
 
 
 logger = get_logger().getChild("agent.thread")
@@ -92,49 +94,61 @@ class Thread:
   async def _run_turn(self, input: UserMessage) -> TurnTermination:
     self._turn_index += 1
     self._model_calls = 0
-    started = time.monotonic()
-    await trace(
-      "agent.turn.started",
-      self.id,
-      turn=self._turn_index,
-      input=input,
-      model=self.model,
-      max_model_calls=self.max_model_calls_per_turn,
-    )
-    try:
-      outcome = await self._execute_turn(input)
-    except asyncio.CancelledError:
+    with operation(
+      "agent.turn",
+      attributes={
+        "gen_ai.conversation.id": str(self.id),
+        "inkcre.agent.turn": self._turn_index,
+      },
+    ) as observation:
+      span = observation.span
+      started = time.monotonic()
+      await trace(
+        "agent.turn.started",
+        self.id,
+        turn=self._turn_index,
+        input=input,
+        model=self.model,
+        max_model_calls=self.max_model_calls_per_turn,
+      )
+      try:
+        outcome = await self._execute_turn(input)
+      except asyncio.CancelledError:
+        span.set_attribute("inkcre.agent.outcome", "cancelled")
+        await trace(
+          "agent.turn.finished",
+          self.id,
+          turn=self._turn_index,
+          model_calls=self._model_calls,
+          outcome="cancelled",
+          elapsed_seconds=time.monotonic() - started,
+        )
+        raise
+      except Exception as error:
+        span.set_attribute("inkcre.agent.outcome", "failed")
+        await trace(
+          "agent.turn.finished",
+          self.id,
+          turn=self._turn_index,
+          model_calls=self._model_calls,
+          outcome="failed",
+          error_type=type(error).__name__,
+          error=str(error),
+          traceback=traceback.format_exc(),
+          elapsed_seconds=time.monotonic() - started,
+        )
+        raise
       await trace(
         "agent.turn.finished",
         self.id,
         turn=self._turn_index,
         model_calls=self._model_calls,
-        outcome="cancelled",
+        outcome=outcome,
         elapsed_seconds=time.monotonic() - started,
       )
-      raise
-    except Exception as error:
-      await trace(
-        "agent.turn.finished",
-        self.id,
-        turn=self._turn_index,
-        model_calls=self._model_calls,
-        outcome="failed",
-        error_type=type(error).__name__,
-        error=str(error),
-        traceback=traceback.format_exc(),
-        elapsed_seconds=time.monotonic() - started,
-      )
-      raise
-    await trace(
-      "agent.turn.finished",
-      self.id,
-      turn=self._turn_index,
-      model_calls=self._model_calls,
-      outcome=outcome,
-      elapsed_seconds=time.monotonic() - started,
-    )
-    return outcome
+      span.set_attribute("inkcre.agent.outcome", outcome.value)
+      span.set_attribute("inkcre.agent.model_calls", self._model_calls)
+      return outcome
 
   async def _execute_turn(self, input: UserMessage) -> TurnTermination:
     self._state = await self._persistence.discard_trailing_incomplete_tool_calls(self.id)
@@ -142,38 +156,46 @@ class Thread:
 
     while True:
       self._model_calls += 1
-      await trace(
-        "agent.model.started",
-        self.id,
-        turn=self._turn_index,
-        call=self._model_calls,
-      )
-      started = time.monotonic()
-      assistant = await AIManager.chat(
-        self._state.model,
-        self._state.messages,
-        self._state.tools,
-        self._state.tool_choice,
-      )
-      await trace(
-        "agent.model.completed",
-        self.id,
-        turn=self._turn_index,
-        call=self._model_calls,
-        response=assistant,
-        elapsed_seconds=time.monotonic() - started,
-      )
-      if not assistant.tool_calls:
-        self._state = await self._persistence.append(self.id, (assistant,))
-        return TurnTermination.COMPLETED
+      with operation(
+        "agent.step",
+        attributes={
+          "gen_ai.conversation.id": str(self.id),
+          "inkcre.agent.turn": self._turn_index,
+          "inkcre.agent.model_call": self._model_calls,
+        },
+      ):
+        await trace(
+          "agent.model.started",
+          self.id,
+          turn=self._turn_index,
+          call=self._model_calls,
+        )
+        started = time.monotonic()
+        assistant = await AIManager.chat(
+          self._state.model,
+          self._state.messages,
+          self._state.tools,
+          self._state.tool_choice,
+        )
+        await trace(
+          "agent.model.completed",
+          self.id,
+          turn=self._turn_index,
+          call=self._model_calls,
+          response=assistant,
+          elapsed_seconds=time.monotonic() - started,
+        )
+        if not assistant.tool_calls:
+          self._state = await self._persistence.append(self.id, (assistant,))
+          return TurnTermination.COMPLETED
 
-      results = await self._execute_tool_batch(assistant)
-      self._state = await self._persistence.append(
-        self.id,
-        (assistant, ToolResultMessage(results=results)),
-      )
-      if self._model_calls >= self._state.max_model_calls_per_turn:
-        return TurnTermination.MAX_MODEL_CALLS
+        results = await self._execute_tool_batch(assistant)
+        self._state = await self._persistence.append(
+          self.id,
+          (assistant, ToolResultMessage(results=results)),
+        )
+        if self._model_calls >= self._state.max_model_calls_per_turn:
+          return TurnTermination.MAX_MODEL_CALLS
 
   async def _execute_tool_batch(
     self,
@@ -189,37 +211,61 @@ class Thread:
     return tuple(await asyncio.gather(*tasks))
 
   async def _execute_tool_call(self, call: ToolCall) -> ToolResult:
-    await trace(
-      "agent.tool.started",
-      self.id,
-      turn=self._turn_index,
-      call=self._model_calls,
-      tool_call=call,
-    )
-    started = time.monotonic()
-    try:
-      result = await self._invoke_tool_call(call)
-    except asyncio.CancelledError:
+    with operation(
+      "agent.tool",
+      attributes={
+        "gen_ai.operation.name": "execute_tool",
+        "gen_ai.conversation.id": str(self.id),
+        "inkcre.agent.turn": self._turn_index,
+        "inkcre.agent.model_call": self._model_calls,
+        # Provider-generated IDs may contain content; retain correlation as a digest.
+        "inkcre.agent.tool_call.id_hash": hashlib.sha256(
+          call.id.encode(errors="replace")
+        ).hexdigest(),
+      },
+    ) as observation:
+      span = observation.span
+      tool = self._tools.get(call.tool)
+      if tool is not None:
+        span.set_attribute("gen_ai.tool.name", tool.definition.id)
       await trace(
-        "agent.tool.cancelled",
+        "agent.tool.started",
         self.id,
         turn=self._turn_index,
         call=self._model_calls,
-        tool_call_id=call.id,
+        tool_call=call,
+      )
+      started = time.monotonic()
+      try:
+        result = await self._invoke_tool_call(call)
+      except asyncio.CancelledError:
+        span.set_attribute("inkcre.agent.outcome", "cancelled")
+        await trace(
+          "agent.tool.cancelled",
+          self.id,
+          turn=self._turn_index,
+          call=self._model_calls,
+          tool_call_id=call.id,
+          tool=call.tool,
+          elapsed_seconds=time.monotonic() - started,
+        )
+        raise
+      await trace(
+        "agent.tool.completed",
+        self.id,
+        turn=self._turn_index,
+        call=self._model_calls,
         tool=call.tool,
+        result=result,
         elapsed_seconds=time.monotonic() - started,
       )
-      raise
-    await trace(
-      "agent.tool.completed",
-      self.id,
-      turn=self._turn_index,
-      call=self._model_calls,
-      tool=call.tool,
-      result=result,
-      elapsed_seconds=time.monotonic() - started,
-    )
-    return result
+      span.set_attribute(
+        "inkcre.agent.outcome", "error" if result.is_error else "completed"
+      )
+      if result.is_error:
+        span.set_attribute("error.type", "ToolResultError")
+        observation.outcome = "error"
+      return result
 
   async def _invoke_tool_call(self, call: ToolCall) -> ToolResult:
     tool = self._tools.get(call.tool)

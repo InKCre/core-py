@@ -50,6 +50,7 @@ from app.routes.organization import ROUTER as organization_router
 from app.routes.semantic_retrieval import PEER_INBOUND as semantic_retrieval_peer_inbound
 from app.routes.semantic_retrieval import ROUTER as semantic_retrieval_router
 from app.routes.sink import ROUTER as sink_router
+from app.routes.telemetry import ROUTER as telemetry_router
 from app.business.source import SourceManager
 from app.business.cron import CronManager
 from app.business.job import JobManager
@@ -72,6 +73,7 @@ from app.business.organization.jobs import (  # noqa: F401
   SynthesisJobHandler,
 )
 from app.middleware import LoggingMiddleware, require_peer_jwt
+from app.observability import TelemetryMiddleware, initialize_telemetry
 from app.schemas.peer import PEER_EXECUTION_HEADER
 from app.health import check_database_readiness
 from app.runtime import RUNTIME_STATUS, RuntimePhase
@@ -111,6 +113,8 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
     PeerManager.register_inbound(lexical_retrieval_peer_inbound)
     PeerManager.register_inbound(organization_peer_inbound)
     PeerManager.register_inbound(extension_peer_inbound)
+
+  await initialize_telemetry()
 
   # Core decoders exist independently of installed/enabled extensions.
   with bootstrap_step("core_registration"):
@@ -248,6 +252,7 @@ api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
 
 # 添加日志中间件
 api_app.add_middleware(LoggingMiddleware)
+api_app.add_middleware(TelemetryMiddleware)
 
 # 添加CORS中间件以支持跨域请求
 api_app.add_middleware(
@@ -309,6 +314,7 @@ core_router.include_router(organization_router)
 core_router.include_router(semantic_retrieval_router)
 core_router.include_router(lexical_retrieval_router)
 core_router.include_router(sink_router)
+core_router.include_router(telemetry_router)
 api_app.include_router(core_router)
 
 if __name__ == "__main__":

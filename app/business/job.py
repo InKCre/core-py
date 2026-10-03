@@ -13,6 +13,9 @@ from app.persistence.job.uow import JobUnitOfWork, job_uow
 from app.scheduler import scheduler, with_trace_id
 from app.schemas.job import JobID, JobModel, JobStatus, JobTypeID, JobTypeModel
 from libs.obsrv.main import get_logger
+from libs.obsrv.telemetry import emit_event, operation
+from app.observability import submission_context, submission_links
+from opentelemetry.context import Context
 
 
 LOGGER = get_logger().getChild(__name__)
@@ -161,7 +164,9 @@ class JobManager:
   ) -> JobModel:
     """Validate and persist one independent pending Job."""
     async with job_uow() as uow:
-      return await cls.create_in_uow(job_type, parameters, timeout_seconds, uow=uow)
+      job = await cls.create_in_uow(job_type, parameters, timeout_seconds, uow=uow)
+    emit_event("job.submitted", {"inkcre.job.id": job.id or 0})
+    return job
 
   @classmethod
   async def create_in_uow(
@@ -182,12 +187,21 @@ class JobManager:
     if effective_timeout <= 0:
       raise ValueError("Job timeout_seconds must be positive")
 
-    job = JobModel(
-      type=job_type,
-      parameters=normalized,
-      timeout_seconds=effective_timeout,
-    )
-    return await uow.jobs.create(job)
+    with operation("job.submit") as observation:
+      span = observation.span
+      carrier = submission_context()
+      job = JobModel(
+        type=job_type,
+        parameters=normalized,
+        timeout_seconds=effective_timeout,
+        submission_traceparent=carrier["submission_traceparent"],
+        submission_tracestate=carrier["submission_tracestate"],
+      )
+      job = await uow.jobs.create(job)
+      span.set_attribute("inkcre.job.id", job.id or 0)
+      # The composing use case still owns commit; this span only proves the flush.
+      span.set_attribute("inkcre.job.write_phase", "flushed")
+      return job
 
   @classmethod
   async def _prepare(
@@ -289,7 +303,12 @@ class JobManager:
     # Cleanup is independent of handler cancellation and cannot wait indefinitely.
     async with asyncio.timeout(10):
       async with job_uow() as uow:
-        return await uow.jobs.close(job, status)
+        closed = await uow.jobs.close(job, status)
+    if closed:
+      emit_event(
+        "job.closed", {"inkcre.job.id": job.id or 0, "inkcre.job.status": status.value}
+      )
+    return closed
 
   @classmethod
   async def run(cls, job_id: JobID) -> bool:
@@ -321,23 +340,39 @@ class JobManager:
     task = asyncio.current_task()
     assert task is not None
     cls._active[job_id] = _Execution(task)
-    try:
-      async with asyncio.timeout(claimed.timeout_seconds):
-        await handler.handle(claimed, parameters)
-    except asyncio.CancelledError:
-      LOGGER.info("Job execution aborted", extra={"job_id": job_id})
-      await cls._close(claimed, JobStatus.ABORTED)
-    except TimeoutError:
-      LOGGER.warning("Job execution timed out", extra={"job_id": job_id})
-      await cls._close(claimed, JobStatus.TIMED_OUT)
-    except Exception as error:
-      LOGGER.exception("Job execution failed", extra={"job_id": job_id})
-      claimed.state = {**claimed.state, "error": str(error)}
-      await cls._close(claimed, JobStatus.FAILED)
-    else:
-      await cls._close(claimed, JobStatus.FINISHED)
-    finally:
-      cls._active.pop(job_id, None)
+    with operation(
+      "job.execute",
+      attributes={"inkcre.job.id": job_id},
+      context=Context(),
+      links=submission_links(claimed.submission_traceparent, claimed.submission_tracestate),
+    ) as observation:
+      span = observation.span
+      emit_event("job.started", {"inkcre.job.id": job_id})
+      try:
+        async with asyncio.timeout(claimed.timeout_seconds):
+          await handler.handle(claimed, parameters)
+      except asyncio.CancelledError:
+        LOGGER.info("Job execution aborted", extra={"job_id": job_id})
+        observation.outcome = "cancelled"
+        span.set_attribute("inkcre.job.status", "aborted")
+        await cls._close(claimed, JobStatus.ABORTED)
+      except TimeoutError:
+        LOGGER.warning("Job execution timed out", extra={"job_id": job_id})
+        observation.outcome = "error"
+        span.set_attribute("inkcre.job.status", "timed_out")
+        await cls._close(claimed, JobStatus.TIMED_OUT)
+      except Exception as error:
+        LOGGER.exception("Job execution failed", extra={"job_id": job_id})
+        observation.outcome = "error"
+        span.set_attribute("error.type", type(error).__name__)
+        span.set_attribute("inkcre.job.status", "failed")
+        claimed.state = {**claimed.state, "error": str(error)}
+        await cls._close(claimed, JobStatus.FAILED)
+      else:
+        span.set_attribute("inkcre.job.status", "finished")
+        await cls._close(claimed, JobStatus.FINISHED)
+      finally:
+        cls._active.pop(job_id, None)
     return True
 
   @classmethod

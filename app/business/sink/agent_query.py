@@ -21,6 +21,7 @@ from app.schemas.ai import (
 )
 from app.schemas.job import JobModel
 from app.schemas.sink import SinkModel
+from libs.obsrv.telemetry import emit_event
 
 from .base import SinkBase
 from .errors import SinkNotFoundError, SinkStateConflictError
@@ -153,6 +154,28 @@ class AgentQuerySink(
       result = _last_query_result(thread.messages)
       if result is not None:
         job.state = {**job.state, "result": result}
+        # Emit only the closed submission selected for this Job, not every attempt.
+        references = typing.cast(list[dict[str, JSONValue]], result["references"])
+        reported = [
+          reference
+          for reference in references[:128]
+          if type(reference["id"]) is int and 0 < typing.cast(int, reference["id"]) < 2**63
+        ]
+        emit_event(
+          "inkcre.agent.query.result",
+          {
+            "inkcre.job.id": typing.cast(int, job.id),
+            "gen_ai.conversation.id": str(thread.id),
+            "inkcre.entity.block_ids": tuple(
+              typing.cast(int, ref["id"]) for ref in reported if ref["type"] == "block"
+            ),
+            "inkcre.entity.relation_ids": tuple(
+              typing.cast(int, ref["id"]) for ref in reported if ref["type"] == "relation"
+            ),
+            "inkcre.agent.reference_count": len(references),
+            "inkcre.agent.unreported_reference_count": len(references) - len(reported),
+          },
+        )
     job.state = {**job.state, "termination": termination.value}
     if result is None:
       raise AgentQueryResultMissingError(

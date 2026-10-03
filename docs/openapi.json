@@ -4252,6 +4252,47 @@
           }
         }
       }
+    },
+    "/telemetry/v1/{signal}": {
+      "post": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Export Telemetry",
+        "description": "Forward standard OTLP using this Peer's enabled private destination.\n\nThe core router requires the existing Peer JWT. The caller cannot choose an\nupstream URL or forward headers. No application payload or durable queue is created.",
+        "operationId": "export_telemetry_telemetry_v1__signal__post",
+        "parameters": [
+          {
+            "name": "signal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "traces",
+                "logs",
+                "metrics"
+              ],
+              "type": "string",
+              "title": "Signal"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5402,6 +5443,28 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Parameters"
+          },
+          "submission_traceparent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Traceparent"
+          },
+          "submission_tracestate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Tracestate"
           },
           "state": {
             "additionalProperties": true,

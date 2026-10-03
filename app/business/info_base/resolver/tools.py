@@ -9,6 +9,7 @@ from app.business.agent.projection import project_json
 from app.business.info_base.services import BlockService
 from app.schemas.ai import JSONValue
 from app.schemas.info_base.block import BlockID, ResolverType
+from libs.obsrv.telemetry import emit_event
 
 from .main import ResolverManager
 
@@ -257,6 +258,14 @@ async def resolver(input: ResolverMetaToolInput) -> JSONValue:
         }
       )
     else:
+      emit_event(
+        "inkcre.entity.read",
+        {
+          "inkcre.entity.read.kind": "resolved",
+          "inkcre.entity.block_ids": (call.block_id,),
+          "inkcre.entity.read.count": 1,
+        },
+      )
       results.append(
         {
           "index": index,

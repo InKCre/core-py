@@ -9,6 +9,11 @@ from pydantic_settings import BaseSettings
 class ObsrvSetting(BaseSettings):
   """Observability settings."""
 
+  telemetry_enabled: bool = Field(
+    default=False,
+    description="Enable optional metadata-only OpenTelemetry export for this Peer.",
+  )
+
   agent_debug: bool = Field(
     default=False,
     description="Record Agent inputs, tool contracts and execution events for development.",
