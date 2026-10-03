@@ -2,7 +2,9 @@
 
 import asyncio
 import contextlib
+import datetime
 import os
+import time
 
 import fastapi
 import uvicorn
@@ -79,6 +81,21 @@ from app.runtime import RUNTIME_STATUS, RuntimePhase
 from app.scheduler import drain_scheduler, scheduler, start_scheduler, with_trace_id
 
 
+@contextlib.contextmanager
+def bootstrap_step(step: str):
+  """Expose the current startup step and measure its actual elapsed time."""
+  RUNTIME_STATUS.step = step
+  started = time.perf_counter()
+  try:
+    yield
+  finally:
+    logger.info(
+      "Runtime bootstrap step %s finished in %.3fs",
+      step,
+      time.perf_counter() - started,
+    )
+
+
 async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   """Initialize database-backed runtime services after migrations are ready."""
   from app.business.info_base.resolver import register_core_resolvers
@@ -87,36 +104,46 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
   from app.business.info_base.storage import StorageManager
 
   # Register this Peer first so extension enablement can resolve its identity.
-  await PeerManager.register_self()
-  PeerManager.setup_builtin_outbounds()
-  PeerManager.register_inbound(semantic_retrieval_peer_inbound)
-  PeerManager.register_inbound(lexical_retrieval_peer_inbound)
-  PeerManager.register_inbound(organization_peer_inbound)
-  PeerManager.register_inbound(extension_peer_inbound)
+  with bootstrap_step("peer_registration"):
+    await PeerManager.register_self()
+    PeerManager.setup_builtin_outbounds()
+    PeerManager.register_inbound(semantic_retrieval_peer_inbound)
+    PeerManager.register_inbound(lexical_retrieval_peer_inbound)
+    PeerManager.register_inbound(organization_peer_inbound)
+    PeerManager.register_inbound(extension_peer_inbound)
 
   # Core decoders exist independently of installed/enabled extensions.
-  register_core_resolvers()
-  register_core_organization_behaviors()
-  register_core_agent_tools()
+  with bootstrap_step("core_registration"):
+    register_core_resolvers()
+    register_core_organization_behaviors()
+    register_core_agent_tools()
 
   # Setup built-in storage instances
-  await StorageManager.setup_builtin_storages_async()
+  with bootstrap_step("storages"):
+    await StorageManager.setup_builtin_storages_async()
 
   if not SKIP_EXTENSION_START:
-    await EXTENSION_HOST.start_enabled(app)
-  await SourceManager.sync_source_types_async()
+    with bootstrap_step("extensions"):
+      await EXTENSION_HOST.start_enabled(app)
+  with bootstrap_step("source_types"):
+    await SourceManager.sync_source_types_async()
 
   # Extensions may register Sink types, but persisted instances run only by intent.
-  await SinkManager.startup(app, PeerManager.get_current_peer_ref())
+  with bootstrap_step("sinks"):
+    await SinkManager.startup(app, PeerManager.get_current_peer_ref())
 
-  await JobManager.sync_job_types()
-  JobManager.start()
+  with bootstrap_step("job_types"):
+    await JobManager.sync_job_types()
+    JobManager.start()
 
-  await AIManager.sync_dialects_async()
+  with bootstrap_step("ai_dialects"):
+    await AIManager.sync_dialects_async()
 
   # Publish only after every provider route and runtime-owned capability is ready.
-  await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+  with bootstrap_step("peer_publication"):
+    await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
 
+  RUNTIME_STATUS.step = "scheduler"
   start_scheduler()
 
   # Peer-local timers only wake the database-owned Cron and Job lifecycles.
@@ -134,6 +161,7 @@ async def bootstrap_runtime(app: fastapi.FastAPI) -> None:
     with_trace_id("JobManager.check", JobManager.check, enable_backend=False),
     "interval",
     seconds=30,
+    next_run_time=datetime.datetime.now(datetime.timezone.utc),
     id="jobs.check",
     replace_existing=True,
   )
@@ -168,10 +196,13 @@ async def bootstrap_when_database_is_ready(app: fastapi.FastAPI) -> None:
     RUNTIME_STATUS.set(RuntimePhase.WAITING_FOR_DATABASE, database.reason)
     await asyncio.sleep(retry_seconds)
 
+  RUNTIME_STATUS.set(RuntimePhase.STARTING, "runtime_bootstrap_pending")
   try:
     await bootstrap_runtime(app)
   except Exception:
-    RUNTIME_STATUS.set(RuntimePhase.FAILED, "runtime_bootstrap_failed")
+    RUNTIME_STATUS.set(
+      RuntimePhase.FAILED, "runtime_bootstrap_failed", step=RUNTIME_STATUS.step
+    )
     logger.exception("Runtime bootstrap failed")
     return
 

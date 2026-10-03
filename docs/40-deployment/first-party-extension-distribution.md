@@ -9,14 +9,22 @@ or cold-restoring an already-installed exact Release may consume a yanked Releas
 blocked bytes leave the candidate unavailable without rewriting `enabled[]`.
 
 Python acquisition uses the Release's same-origin `/simple/<normalized-project>/` association.
-Core downloads one compatible exact wheel, then runs `pip install --dry-run --report` with that
-wheel as the only available package source. The Core image owns the supported dependency baseline;
-an Extension whose declared requirements are not already satisfied is rejected instead of
-resolving or mutating dependencies during an HTTP request. Core then performs a normal
-`sys.executable -m pip install` of only the Extension wheel into its virtual environment. The standard
-`inkcre.core.extensions` entry point is discovered globally and every loaded Extension module is
-verified against the installed wheel file record. There is no per-Extension target directory,
-custom ZIP loader, module search-path rewrite, or runtime dependency-index access.
+Every enable or cold restore first reads the exact Registry Release, checks its lifecycle state and
+Host SDK association, then discovers the exact record already installed in the Core interpreter.
+Core reuses that Distribution only when its Project, entry point and Host SDK match the current
+Registry association. A damaged or conflicting installed record fails; it is not silently replaced.
+A missing record enters the independently released Runtime SDK acquisition path.
+
+The frozen Runtime SDK 0.1.5 downloads one compatible exact wheel without resolving dependencies
+from Registry, then performs ordinary `sys.executable -m pip install` in the Core virtual environment.
+That install may resolve Python dependencies from pip's package index; this SDK version has no
+`--dry-run` dependency preflight or no-dependency-mutation guarantee. Exact installed-record reuse
+skips this repeated acquisition and installation but does not change the miss path's policy.
+The standard `inkcre.core.extensions` entry point is discovered globally and every loaded Extension
+module is verified against the installed wheel file record. There is no per-Extension target
+directory, custom ZIP loader or module search-path rewrite. Registry failure or a blocked Release
+still prevents restoration even when its Distribution is installed; installed yanked Releases retain
+their existing warning and admission behavior.
 
 Any version change or rollback is rejected while any peer remains in `enabled[]`. Operators first
 disable every peer, change the shared exact version, then re-enable peers. Replacing a wheel that
