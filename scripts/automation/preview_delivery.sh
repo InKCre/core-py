@@ -46,7 +46,7 @@ configure_core() {
   heroku config:set --app "$APP_NAME" \
     DATABASE_SCALE_0=true "DATABASE_URL=$DATABASE_URL" \
     "EXTENSION_REGISTRY_URL=$EXTENSION_REGISTRY_URL" INKCRE_ENV_FILE= \
-    "JWT_SECRET=$JWT_SECRET" OBSRV__LOGGING_BACKEND=none "PEER_ID=$peer_id" \
+    "JWT_SECRET=$JWT_SECRET" OBSRV__LOGGING_BACKEND=postgresql "PEER_ID=$peer_id" \
     "PEER_NAME=core-py-pr-$PR_NUMBER" SKIP_EXTENSIONS_SYNC=0 >/dev/null
   heroku config:unset CLIENT_BASE_URL CLIENT_ID CLIENT_NAME LLM_SP_AK \
     LLM_SP_BASE_URL --app "$APP_NAME" >/dev/null || true

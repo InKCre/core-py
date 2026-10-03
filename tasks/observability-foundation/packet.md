@@ -4,7 +4,7 @@
 
 ## 当前交付
 
-首批实现正在完成预览验收与按依赖合并：Python 与 client-web 使用标准 OTel/OTLP，本地开关缺省关闭，PG writer 与 Job 查询保留。Hub #33 已合并；两 Spoke 各自独立更新共享引用至 `7916312`，#124/#125 已退出 draft。core 功能合并后先走既有 Release PR 和 stable 准入，再同步客户端类型与合并。
+首批功能 #124 与 Core 0.7.0 Release #123 已合并，当前等待正式交付与客户端准入：Python 与 client-web 使用标准 OTel/OTLP，本地开关缺省关闭，PG writer 与 Job 查询保留。Hub #33 已合并；两 Spoke 各自独立更新共享引用至 `7916312`，#124/#125 已退出 draft。core 功能合并后先走既有 Release PR 和 stable 准入，再同步客户端类型与合并。
 
 | 对象 | 当前状态 |
 | --- | --- |
@@ -40,3 +40,7 @@
 PR #124 独立 Heroku/Neon 预览曾临时开启 PG 日志与 OTLP，私密值仅通过 Heroku API 写入服务端，原配置保存于忽略的恢复文件。真实 Chromium 初次读取共享配置被 1.5 秒上限取消，业务 Job 与 PG 错误日志正常；独立 HTTP 读同一合法配置耗时 2.376 秒。客户端 `b64e5eb` 将配置读取上限设为 10 秒，直发/relay exporter 分别为 10/35 秒，处理器多留 5 秒；调用方 flush/shutdown 等待仍 1.5 秒。修复后真实 Job 三信号/Link 经 Cloud 独立读回通过，Pages 预览显示业务终态与 PG 日志。配置 10 秒超时、上游拒连、再次关闭后的业务/PG 保留已验；`6026b2d` 对齐指标标签及秒分桶，Cloud 严格读回通过。真实付费模型未调用。
 
 预览运行配置与共享配置已恢复，新增私密出口变量已移除，见 `experiments/evidence/preview-restored.json`。预览原有显式 logging backend 为 none；临时 PG 日志只用于本次开关/故障验证，不修改生产配置。
+
+## 交付配置修复
+
+核对既有生产脚本和 Heroku API，正式部署显式 `OBSRV__LOGGING_BACKEND=none`，因此没有安装应用内部 PG handler。Sir 指出原要求是保留应用自身写库，并非接入 Heroku console 上传。为满足已授权的默认 PG 行为，独立分支 `codex/observability-pg-delivery` 将生产/预览交付覆盖改为 `postgresql`，console 与 OTLP 独立开关不变；复用 production delivery 的自托管部署同样采用该值。通过独立 PR 和正常 Release 发布，不直接改生产配置绕过源仓。
