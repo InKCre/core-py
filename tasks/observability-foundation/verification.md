@@ -11,7 +11,7 @@
 | V2 | 提交与另一 Peer 的 Job 执行可关联，重启不依赖内存上下文 | 提交后重启发起 Peer；另一执行 Peer 领取；核对持久提交上下文、执行 Span Link 和 Job 终态。覆盖 Python/TS 生产者与执行者、Cron、旧 Job 及开→关/关→开/关→关；关闭端创建 NULL，领取/关闭保留已有 carrier | 正式 migration、实际 Python/TS Job和mixed开关已验，关闭端保留carrier。独立迁移升级/降级/再升级及容量约束已验；生产协调升级未执行 |
 | V3 | 新增观测开关不改变现有 PG 日志能力 | 开关关闭/开启/后端中断/再次关闭时，从真实 Job 页核对当前与历史 PG 日志、job.<id>、排序分页；新诊断链接为可选，旧 writer 不自动停写，原日志 trace_id 不替换为 OTel ID | Python真实Job/PG日志在开启与关闭路径保持；客户端Job页入口保持并有UI烟测。生产历史数据分页仍待部署验收 |
 | V4 | AI 耗时、结束原因、usage 与步骤关系可信 | 对受控非流式、流式末块、usage 缺失和并行工具案例比较 provider 原始回包与导出数据；再用授权 preview 验证一个真实 provider。未知不记零，估算成本不冒充账单 | 实际 OpenAI SDK＋合成provider经生产adapter/Agent已验：31span/13HTTP请求，usage-only末块、重复累计、unknown/zero、并发错误取消。真实外部provider尚未调用 |
-| V5 | 新增 OTLP 基础模式没有意外内容副本，采集权限不等于读取/管理权限 | 合成敏感 canary 经过请求、异常、工具结果与 SQL 参数路径后，检查实际导出数据；验证采集入口及读者边界。PG 按原配置保留，不能以此宣称整个部署无原文。新增内容模式另验保留、截断、删除与 blob 访问 | 实际OTLP出口canary与受控字段已验；relayJWT、私密头、256KiB/并发4/3秒已验；SDK内部指标View/exemplar去敏已验。旧PG原文行为保持 |
+| V5 | 新增 OTLP 基础模式没有意外内容副本，采集权限不等于读取/管理权限 | 合成敏感 canary 经过请求、异常、工具结果与 SQL 参数路径后，检查实际导出数据；验证采集入口及读者边界。PG 按原配置保留，不能以此宣称整个部署无原文。新增内容模式另验保留、截断、删除与 blob 访问 | 实际OTLP出口canary与受控字段已验；relayJWT、私密头、256KiB/并发4/按信号有界超时已验；SDK内部指标View/exemplar去敏已验。旧PG原文行为保持 |
 | V6 | 遥测不可用不改变业务成功、失败、取消和资源关闭语义 | 同一受控负载对比正常与断开 SDK→SaaS 和实际存在的中间转发；检查数据库业务终态、响应、队列/内存上限、丢弃计数和恢复；不可用时不能阻止应用 ready | 正常/慢接收/拒连、真实Job成功失败取消、metrics-only已验；8项SDK故障注入通过；1024条积压产生原生 queue_full 计数；已记录SDK并发误差，不能用作精确损失账本，最后metrics回收export失败 |
 | V7 | 可更换后端并保留必要的诊断能力 | 仅改标准 endpoint/认证配置，将同一采集样本改投第二个兼容后端，业务采集/Job schema 不改；按 Job/Trace/AI 字段查询，核对 links；另做历史数据导出读回与配置迁移清单。只收到 OTLP 不能算通过 | 历史第二后端实验保留，新增实际浏览器/core三信号标准PBF已验；目标Cloud必要 Trace/Link/AI 字段、日志/metric查询及样本导出已通过；长期历史导出仍未验 |
 | V8 | 托管接入符合 scale-to-0 与当前零新增观测费，可维护和迁移 | 验 SDK 直发与短生命周期 flush/冻结、无 scrape 唤醒、应用附加计费时间；确认实际 Free、无收费依赖，量化摄取/查询/保留额度与限额失效，验删除/导出/配置重建和供应商恢复范围。自建时另验冷备与资源 | 实际stack已创建；Viewer查询API三类均200，写入认证已修正，实际三信号存储读回通过。默认无常驻Collector/scrape；真实免费套餐额度及平台freeze/终止宽限未验 |
@@ -51,3 +51,7 @@
 本次 SaaS 修订的语法、链接、证据、Hub patch 与资源检查记录在 `experiments/evidence/sentinel-saas-20261003/packet-check.json`；原报告保持历史时间边界，不覆盖前轮证据。
 
 历史 D10 阶段只做显式 opt-in、PG 保留和 vendor-agnostic 候选差异的任务包/Hub patch 静态检查；当时未运行新应用实验。当前 V0/V3 结论以本轮实现证据为准。检查见 `experiments/evidence/sentinel-saas-20261003/opt-in-packet-check.json`。
+
+## 预览交付补验
+
+真实 Chromium 业务模块→PR #124 PostgREST→Heroku Core Job 执行→Grafana 三信号已闭环，提交/执行 IDs 与 Link 经 Viewer API 独立核对，实际 Pages 预览已显示业务终态与 PG 日志。第一次 1.5 秒配置读取超时被保留为失败证据，客户端修复后通过。精确运行范围与 Free 试用状态见 [Cloud 验收](experiments/cloud-acceptance.md)。此项不冒充 Pages UI 发起 Job、真实模型、长期保留或生产平台完全验收。
