@@ -4,6 +4,17 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.7.0 - 2026-10-03
+
+### Added
+
+- 新增默认关闭的标准 OTLP 可观测性：保留 PostgreSQL 日志，关联跨 Peer Job、AI 调用与结果来源，并提供浏览器认证转发。 (#observability-foundation)
+
+### Fixed
+
+- 修复 client-web#121 涉及的 Core 运行时问题：扩展冷恢复失败明确阻止就绪并公开失败的启动步骤；启动完成后立即扫描待执行任务，并在核对 Registry 精确关联后复用已安装扩展，减少重复 wheel 获取与安装。
+
+
 ## 0.6.2 - 2026-09-23
 
 ### Changed
