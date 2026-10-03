@@ -4,6 +4,13 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.7.1 - 2026-10-03
+
+### Fixed
+
+- 修复 Heroku 交付将应用日志后端强制设为 none 的覆盖：生产、预览及复用交付命令的自托管部署恢复 PostgreSQL 写库，console 保留，OTLP 仍默认关闭。 (#observability-pg-delivery)
+
+
 ## 0.7.0 - 2026-10-03
 
 ### Added
