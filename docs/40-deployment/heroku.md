@@ -18,6 +18,10 @@ Core Heroku config contains only an `inkcre_core` URL. PostgREST config contains
 Heroku supplies compute, routing, and runtime configuration; it owns neither the build nor
 the database.
 
+正式生产、预览及复用本交付命令的自托管部署，将应用日志后端配置为 `postgresql`。
+Core 通过自身 PostgreSQL handler 写入符合原有采集条件的应用日志，同时保留 console
+输出；这与 Heroku 采集 console 无关。可选 OTLP 出口仍需 Peer 显式开启。
+
 The retired buildpack surfaces (`Procfile`, `requirements.txt`, and `app.json`) are no longer
 checked in. PDM owns dependency resolution and the OCI Dockerfiles own every deployed process,
 so leaving Heroku does not require reconstructing runtime behavior from provider-specific

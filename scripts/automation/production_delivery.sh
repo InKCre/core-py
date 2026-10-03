@@ -171,7 +171,7 @@ case "${1:-}" in
     peer_id="$(python3 -c "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, '$APP_NAME'))")"
     heroku config:set --app "$APP_NAME" \
       DATABASE_SCALE_0=true "DATABASE_URL=$DATABASE_URL" INKCRE_ENV_FILE= \
-      "JWT_SECRET=$JWT_SECRET" OBSRV__LOGGING_BACKEND=none "PEER_ID=$peer_id" \
+      "JWT_SECRET=$JWT_SECRET" OBSRV__LOGGING_BACKEND=postgresql "PEER_ID=$peer_id" \
       "PEER_NAME=${PEER_NAME:-core-py-production}" SKIP_EXTENSIONS_SYNC=0 \
       "${core_profile[@]}" >/dev/null
     heroku config:unset CLIENT_BASE_URL CLIENT_ID CLIENT_NAME LLM_SP_AK \
