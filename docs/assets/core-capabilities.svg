@@ -1,7 +1,80 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="505" viewBox="0 0 1200 505" role="img" aria-label="InKCre Core Capability Ownership"><style>
-  .canvas{fill:#fbfbfb}.surface{fill:#fff;stroke:#c7cbd2;stroke-width:1.5}.muted{fill:#f4f6f8;stroke:#c7cbd2;stroke-width:1.5}
-  .ink{fill:#15191f}.sub{fill:#525a66}.hint{fill:#6d7480}.accent{fill:#255cba}.blue{fill:#edf3ff;stroke:#255cba;stroke-width:1.5}
-  .line{fill:none;stroke:#9199a3;stroke-width:2}.active{fill:none;stroke:#255cba;stroke-width:2}.dash{fill:none;stroke:#9ca3ad;stroke-width:1.8;stroke-dasharray:5,5}
-  text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
-  .k{font-size:13px;font-weight:700;letter-spacing:1.8px}.h{font-size:25px;font-weight:650}.name{font-size:19px;font-weight:650}.body{font-size:16px}.small{font-size:14px}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px}
-</style><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M1 1 L7 4 L1 7" fill="none" stroke="#9199a3" stroke-width="1.5" /></marker></defs><rect class="canvas" width="1200" height="505"/><text class="k accent" x="44" y="45">CORE-PY / CAPABILITY BOUNDARIES</text><text class="h ink" x="44" y="85">One authoritative graph. Distinct responsibilities.</text><rect class="surface" x="240" y="116" width="720" height="145" /><text class="k accent" x="268" y="152">PERSISTED INFO-BASE</text><text class="h ink" x="268" y="192">Blocks + Relations</text><text class="small sub" x="268" y="222">PostgreSQL owns shared graph state; search indexes are derived</text><rect class="muted" x="36" y="316" width="180" height="109" /><text class="name ink" x="51" y="347">Sources</text><text class="small sub" x="51" y="376">Collect from</text><text class="small sub" x="51" y="398">outside systems</text><path class="dash" d="M126 316 V279 H600 V261"/><rect class="muted" x="231" y="316" width="180" height="109" /><text class="name ink" x="246" y="347">Resolvers</text><text class="small sub" x="246" y="376">Interpret content</text><text class="small sub" x="246" y="398">+ local graph</text><path class="dash" d="M321 316 V279 H600 V261"/><rect class="muted" x="426" y="316" width="180" height="109" /><text class="name ink" x="441" y="347">Storage</text><text class="small sub" x="441" y="376">Access content</text><text class="small sub" x="441" y="398">bytes</text><path class="dash" d="M516 316 V279 H600 V261"/><rect class="muted" x="621" y="316" width="180" height="109" /><text class="name ink" x="636" y="347">Organization</text><text class="small sub" x="636" y="376">Explicit graph</text><text class="small sub" x="636" y="398">changes</text><path class="dash" d="M711 316 V279 H600 V261"/><rect class="muted" x="816" y="316" width="180" height="109" /><text class="name ink" x="831" y="347">Retrieval</text><text class="small sub" x="831" y="376">Text · meaning ·</text><text class="small sub" x="831" y="398">graph paths</text><path class="dash" d="M906 316 V279 H600 V261"/><rect class="muted" x="1011" y="316" width="180" height="109" /><text class="name ink" x="1026" y="347">Sinks</text><text class="small sub" x="1026" y="376">Expose capability</text><text class="small sub" x="1026" y="398">to apps &amp; agents</text><path class="dash" d="M1101 316 V279 H600 V261"/><text class="small sub" x="44" y="469">Independent capability ownership; the diagram does not prescribe a fixed processing pipeline.</text></svg>
+<?xml version="1.0" encoding="utf-8" ?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink" baseProfile="full" height="910px" version="1.1" viewBox="0 0 1440 910" width="1440px">
+  <defs>
+    <marker id="arrow" markerHeight="10" markerWidth="12" orient="auto" refX="9" refY="5">
+      <path d="M1,1 L9,5 L1,9" fill="none" stroke="#9099a4" stroke-width="1.8"/>
+    </marker>
+    <marker id="arrow-blue" markerHeight="10" markerWidth="12" orient="auto" refX="9" refY="5">
+      <path d="M1,1 L9,5 L1,9" fill="none" stroke="#245db9" stroke-width="1.8"/>
+    </marker>
+  </defs>
+  <rect fill="#fafafa" height="910" width="1440" x="0" y="0"/>
+  <style type="text/css"><![CDATA[text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;fill:#181b21} .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}]]></style>
+  <text fill="#245db9" font-size="13" font-weight="700" letter-spacing="2.15" x="45" y="43">INKCRE / CORE-PY</text>
+  <text font-size="30" font-weight="700" x="45" y="89">One Python peer. Explicit capability boundaries.</text>
+  <text fill="#515966" font-size="16" font-weight="400" x="45" y="125">Shared information remains authoritative beyond any one runtime.</text>
+  <rect fill="none" height="597" stroke="#cbd0d5" stroke-width="1.8" width="1352" x="44" y="152"/>
+  <rect fill="#eff1f3" height="34" stroke="none" width="1352" x="44" y="152"/>
+  <text fill="#515966" font-size="12" font-weight="700" letter-spacing="1.5" x="62" y="175">CORE-PY  ·  PYTHON PEER</text>
+  <text fill="#68717d" font-size="12" font-weight="400" x="1030" y="175">Implementation boundary</text>
+  <rect fill="#ffffff" height="82" stroke="#cbd0d5" stroke-width="1.45" width="1282" x="79" y="210"/>
+  <rect fill="#245db9" height="82" width="5" x="79" y="210"/>
+  <text fill="#245db9" font-size="12" font-weight="700" letter-spacing="1.5" x="102" y="236">EXTENSION HOST</text>
+  <text font-size="17" font-weight="700" x="102" y="262">Registers optional Source / Protocol, Resolver, Storage and Sink implementations.</text>
+  <text fill="#515966" font-size="13" font-weight="400" x="102" y="281">Registration changes runtime capabilities; it does not transfer ownership of the persisted graph.</text>
+  <rect fill="#ffffff" height="119" stroke="#cbd0d5" stroke-width="1.45" width="304" x="79" y="341"/>
+  <text fill="#245db9" font-size="11" font-weight="700" letter-spacing="1.6" x="100" y="368">COLLECTION</text>
+  <text font-size="18" font-weight="700" x="100" y="399">Sources · Protocol adapters</text>
+  <text fill="#515966" font-size="13.5" font-weight="400" x="100" y="423">Translate external inputs into</text>
+  <text fill="#515966" font-size="13.5" font-weight="400" x="100" y="443">graph commands for persistence</text>
+  <rect fill="#ffffff" height="119" stroke="#cbd0d5" stroke-width="1.45" width="304" x="79" y="507"/>
+  <text fill="#245db9" font-size="11" font-weight="700" letter-spacing="1.6" x="100" y="534">ORGANIZATION</text>
+  <text font-size="18" font-weight="700" x="100" y="565">Explicit graph operations</text>
+  <text fill="#515966" font-size="13.5" font-weight="400" x="100" y="589">Improve existing information;</text>
+  <text fill="#515966" font-size="13.5" font-weight="400" x="100" y="609">read and write current graph</text>
+  <rect fill="#ffffff" height="177" stroke="#245db9" stroke-width="1.45" width="351" x="544" y="352"/>
+  <text fill="#245db9" font-size="12" font-weight="700" letter-spacing="1.45" x="564" y="382">INFO-BASE SERVICES</text>
+  <text font-size="19" font-weight="700" x="564" y="424">Graph operations &amp; transactions</text>
+  <text fill="#515966" font-size="16" font-weight="400" x="564" y="454">Blocks and directed Relations</text>
+  <line stroke="#d5dade" stroke-width="1" x1="565" x2="874" y1="472" y2="472"/>
+  <text fill="#515966" font-size="13" font-weight="400" x="564" y="493">Current information state is shared</text>
+  <text fill="#515966" font-size="13" font-weight="400" x="564" y="513">through PostgreSQL (below).</text>
+  <rect fill="#ffffff" height="119" stroke="#cbd0d5" stroke-width="1.45" width="304" x="1057" y="341"/>
+  <text fill="#245db9" font-size="11" font-weight="700" letter-spacing="1.6" x="1078" y="368">APPLICATION</text>
+  <text font-size="18" font-weight="700" x="1078" y="399">Retrieval &amp; use</text>
+  <text fill="#515966" font-size="13.5" font-weight="400" x="1078" y="423">Lexical, semantic and graph</text>
+  <text fill="#515966" font-size="13.5" font-weight="400" x="1078" y="443">retrieval; indexes are derived</text>
+  <rect fill="#ffffff" height="119" stroke="#cbd0d5" stroke-width="1.45" width="304" x="1057" y="507"/>
+  <text fill="#245db9" font-size="11" font-weight="700" letter-spacing="1.6" x="1078" y="534">EXPOSURE</text>
+  <text font-size="18" font-weight="700" x="1078" y="565">Sinks · Agent tool adapters</text>
+  <text fill="#515966" font-size="13.5" font-weight="400" x="1078" y="589">Project existing domain APIs to</text>
+  <text fill="#515966" font-size="13.5" font-weight="400" x="1078" y="609">clients and Agents (e.g. MCP)</text>
+  <rect fill="#f5f6f8" height="122" stroke="#cbd0d5" stroke-width="1.45" width="351" x="544" y="575"/>
+  <text fill="#245db9" font-size="11" font-weight="700" letter-spacing="1.15" x="563" y="597">CONTENT ACCESS &amp; INTERPRETATION</text>
+  <line stroke="#d5dade" stroke-width="1.5" x1="720" x2="720" y1="609" y2="683"/>
+  <text font-size="17" font-weight="700" x="562" y="632">Storage</text>
+  <text fill="#515966" font-size="13.2" font-weight="400" x="562" y="654">Pointer → bytes</text>
+  <text font-size="17" font-weight="700" x="739" y="632">Resolver</text>
+  <text fill="#515966" font-size="12.5" font-weight="400" x="739" y="654">Content + local relations</text>
+  <text fill="#515966" font-size="12.5" font-weight="400" x="739" y="674">→ derived meaning</text>
+  <path d="M383 402 H544" fill="none" marker-end="url(#arrow)" stroke="#9099a4" stroke-linecap="square" stroke-linejoin="round" stroke-width="2.1"/>
+  <text fill="#68717d" font-size="12.1" font-weight="400" x="404" y="384">graph commands</text>
+  <path d="M383 567 H447 V482 H544" fill="none" marker-end="url(#arrow-blue)" marker-start="url(#arrow-blue)" stroke="#245db9" stroke-linecap="square" stroke-linejoin="round" stroke-width="2.1"/>
+  <text fill="#68717d" font-size="12.1" font-weight="400" x="397" y="548">read / explicit write</text>
+  <path d="M895 402 H1057" fill="none" marker-end="url(#arrow)" stroke="#9099a4" stroke-linecap="square" stroke-linejoin="round" stroke-width="2.1"/>
+  <text fill="#68717d" font-size="12.1" font-weight="400" x="923" y="384">reads / derived support</text>
+  <path d="M720 529 V575" fill="none" marker-end="url(#arrow)" stroke="#9099a4" stroke-linecap="square" stroke-linejoin="round" stroke-width="2.1"/>
+  <text fill="#68717d" font-size="12.1" font-weight="400" x="741" y="559">hydration / context</text>
+  <text fill="#68717d" font-size="12" font-weight="400" x="1070" y="667">Sinks project domain capabilities;</text>
+  <text fill="#68717d" font-size="12" font-weight="400" x="1070" y="685">they own no graph facts.</text>
+  <rect fill="#eef4ff" height="91" stroke="#245db9" stroke-width="1.6" width="610" x="416" y="787"/>
+  <text fill="#245db9" font-size="12" font-weight="700" letter-spacing="1.45" x="437" y="810">SHARED POSTGRESQL</text>
+  <line stroke="#b9cde9" stroke-width="1.3" x1="720" x2="720" y1="819" y2="865"/>
+  <text font-size="17" font-weight="700" x="437" y="844">Blocks + Relations</text>
+  <text fill="#515966" font-size="12.2" font-weight="400" x="437" y="865">authoritative graph state</text>
+  <text font-size="17" font-weight="700" x="745" y="844">Retrieval records</text>
+  <text fill="#515966" font-size="12.2" font-weight="400" x="745" y="865">derived, rebuildable support</text>
+  <path d="M895 494 H982 V766 H652 V787" fill="none" marker-end="url(#arrow-blue)" marker-start="url(#arrow-blue)" stroke="#245db9" stroke-linecap="square" stroke-linejoin="round" stroke-width="2.1"/>
+  <text fill="#68717d" font-size="12.2" font-weight="400" x="773" y="758">graph reads / writes</text>
+  <text fill="#515966" font-size="12" font-weight="400" x="46" y="899">Arrows describe data effects and authority — not an obligatory collection → organization → retrieval pipeline.</text>
+</svg>
