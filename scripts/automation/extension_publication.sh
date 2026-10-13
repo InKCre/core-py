@@ -51,7 +51,7 @@ PY
         status="$(curl --retry 2 --retry-delay 1 --retry-all-errors \
           --connect-timeout 10 --max-time 30 \
           --silent --output /dev/null --write-out '%{http_code}' \
-          "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version")"
+          "$INKCRE_EXTENSION_REGISTRY_URL/v2/extensions/$namespace/$name/distributions/python/releases/$version")"
         case "$status" in
           200) ;;
           404) selected=true ;;
@@ -101,12 +101,14 @@ PY
       require_env "$name"
     done
     coordinate="$(jq -r '.coordinate' "$METADATA")"
+    distribution="$(jq -er '.distribution' "$METADATA")"
+    test "$distribution" = python
     namespace="${coordinate%%/*}"
     name="${coordinate#*/}"
     curl --fail-with-body --silent --show-error --request POST \
       --header "Authorization: Bearer $INKCRE_EXTENSION_REGISTRY_TOKEN" \
       --header "Content-Type: application/json" --data "$(jq -c '.prepare' "$METADATA")" \
-      "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases"
+      "$INKCRE_EXTENSION_REGISTRY_URL/v2/extensions/$namespace/$name/distributions/$distribution/releases"
     ;;
   publish)
     for name in INKCRE_EXTENSION_REGISTRY_TOKEN INKCRE_EXTENSION_REGISTRY_URL METADATA; do
@@ -114,25 +116,33 @@ PY
     done
     coordinate="$(jq -r '.coordinate' "$METADATA")"
     version="$(jq -r '.version' "$METADATA")"
+    distribution="$(jq -er '.distribution' "$METADATA")"
+    test "$distribution" = python
     namespace="${coordinate%%/*}"
     name="${coordinate#*/}"
     curl --fail-with-body --silent --show-error --request POST \
       --header "Authorization: Bearer $INKCRE_EXTENSION_REGISTRY_TOKEN" \
-      "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version/publish"
+      "$INKCRE_EXTENSION_REGISTRY_URL/v2/extensions/$namespace/$name/distributions/$distribution/releases/$version/publish"
     ;;
   verify)
     require_env INKCRE_EXTENSION_REGISTRY_URL
     require_env METADATA
     coordinate="$(jq -r '.coordinate' "$METADATA")"
     version="$(jq -r '.version' "$METADATA")"
+    distribution="$(jq -er '.distribution' "$METADATA")"
+    project="$(jq -er '.project' "$METADATA")"
+    test "$distribution" = python
     namespace="${coordinate%%/*}"
     name="${coordinate#*/}"
     curl --retry 2 --retry-delay 1 --retry-all-errors \
       --connect-timeout 10 --max-time 30 --fail --silent --show-error \
-      "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version" |
+      "$INKCRE_EXTENSION_REGISTRY_URL/v2/extensions/$namespace/$name/distributions/$distribution/releases/$version" |
       jq --exit-status --arg coordinate "$coordinate" --arg version "$version" \
+        --arg project "$project" \
         '.name == $coordinate and .version == $version and
-         .state == "published" and .python.host_sdk == "core-py"'
+         .distribution == "python" and .state == "published" and
+         .python.project == $project and .python.host_sdk == "core-py" and
+         .module_federation == null'
     ;;
   *) echo "unknown Extension publication command: ${1:-}" >&2; exit 2 ;;
 esac

@@ -40,7 +40,8 @@ case "${1:-}" in
     printf '%s\n' "${scopes[@]}" > "$CANDIDATE_ROOT/scopes.txt"
     pdm run inkcre-ext docs show \
       --registry-url "$INKCRE_EXTENSION_REGISTRY_URL" \
-      --name "$coordinate" --version "$version" > "$CANDIDATE_ROOT/current.json"
+      --name "$coordinate" --version "$version" \
+      --distribution python > "$CANDIDATE_ROOT/current.json"
 
     for scope in "${scopes[@]}"; do
       site="$docs_root/$scope"
@@ -52,6 +53,7 @@ case "${1:-}" in
         --name "$coordinate"
         --version "$version"
         --scope "$scope"
+        --distribution python
         --source-repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
         --source-revision "$GITHUB_SHA"
         --build-id "$GITHUB_RUN_ID"
@@ -94,7 +96,8 @@ case "${1:-}" in
     version="$(jq -r '.version' "$CANDIDATE_ROOT/$first_scope/candidate.json")"
     current="$(pdm run inkcre-ext docs show \
       --registry-url "$INKCRE_EXTENSION_REGISTRY_URL" \
-      --name "$coordinate" --version "$version")"
+      --name "$coordinate" --version "$version" \
+      --distribution python)"
     while IFS= read -r scope; do
       record="$(jq -ce --arg scope "$scope" --arg revision "$GITHUB_SHA" \
         --arg build "$GITHUB_RUN_ID" \

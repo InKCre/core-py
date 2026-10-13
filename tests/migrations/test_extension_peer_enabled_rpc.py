@@ -156,8 +156,12 @@ def legacy_migration_database(postgres_connection_info):
       "INSERT INTO inkcre.extensions "
       "(name, version, enabled, config, state, config_schema) "
       "VALUES ('inkcre/legacy', '0.7.4', '{}'::uuid[], "
-      "'{\"shared\":true}'::jsonb, '{\"progress\":4}'::jsonb, "
+      "'{\"shared\":true}'::jsonb, '{}'::jsonb, "
       '\'{"type":"object"}\'::jsonb)'
+    )
+    connection.execute(
+      "UPDATE inkcre.extensions SET state = '{\"progress\":4}'::jsonb "
+      "WHERE name = 'inkcre/legacy'"
     )
     connection.execute(
       "UPDATE inkcre.extensions SET enabled = ARRAY[%s]::uuid[] "

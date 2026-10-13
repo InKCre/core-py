@@ -75,9 +75,10 @@ passes the deterministic PR alias to Core without downloading every published fi
 bytes, bypassing caches, or waiting for edge convergence. Consumer acceptance remains a separate
 manual or black-box activity and does not block the Heroku preview from starting.
 
-`.github/workflows/extension-publish.yml` prepares the Python association with source provenance,
-finalizes the newly built wheel using the released Toolkit's `python wheel finalize` command,
-uploads through `/legacy/`, and publishes the exact Release. Automatic runs obtain `before_sha`
+`.github/workflows/extension-publish.yml` prepares the exact Python Distribution Release at
+`/v2/extensions/{namespace}/{name}/distributions/python/releases` with source provenance,
+finalizes the newly built wheel using the pinned Toolkit's `python wheel finalize` command,
+uploads through `/legacy/`, and publishes that Python Release. Automatic runs obtain `before_sha`
 from the protected-main push and select only new projects or changed project versions;
 unchanged matrix entries are explicit no-ops. The matrix and repository wheel checks consume the
 same discovery result rather than separate project lists. An unprovable lineage or immutable
@@ -109,9 +110,10 @@ production DNS compromise or treat DNS/TLS success as proof that a documentation
 
 `.github/workflows/extension-documentation-publish.yml` is the protected manual publication lane
 for first-party producer documentation. It builds every scope under the selected producer with the
-pinned shared VitePress toolchain, reads the current scope ETags, and saves complete Toolkit
-candidates before any Registry write. The publish job restores those exact candidates, revalidates
-their source against current `main`, publishes them, and checks their public snapshot origins.
+pinned shared VitePress toolchain, reads the current Python Distribution's scope ETags, and saves
+complete Toolkit candidates before any Registry write. The publish job restores those exact
+candidates, revalidates their source against current `main`, publishes them, and checks their public
+snapshot origins.
 Recovery reruns only the failed publish job; rerunning all jobs is rejected because it would create
 new snapshot identities. Candidate artifacts are retained for 90 days.
 
@@ -144,7 +146,8 @@ SDK 0.3 through `>=0.2.0 <0.4.0`. Memos uses the new HTTP address API and requir
 releases; an old wheel's range must not be widened. Before upgrading a deployment, disable affected
 old Extensions, adopt the matching Core/Extension releases, restart where a loaded wheel was replaced,
 and then enable them. A migrated exact-version legacy intent is not silently removed on failed cold restore.
-For Extensions with both Python and Module Federation distributions, prepare both at the same new
-Extension version, even when the browser code is unchanged. Do not upgrade only the Python
-association and lose the browser distribution required by the installed Extension. Compatible
-artifacts must be available before the deployment upgrade.
+Python and Module Federation Releases are versioned independently for the same Extension identity.
+Publish a new version only for the Distribution whose artifact or compatibility contract changed;
+documentation is also attached to the exact native Distribution Release. A Peer selects the
+Distribution and version it can execute, so availability of another Distribution does not imply
+that the selected one exists.
