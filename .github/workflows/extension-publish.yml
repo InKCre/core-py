@@ -27,6 +27,7 @@ concurrency:
 jobs:
   candidate:
     name: Capture complete Extension candidate
+    if: github.repository == 'InKCre/core-py'
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -65,18 +66,26 @@ jobs:
         with:
           python-version-file: core-py/.python-version
           version: 2.28.0
-          cache: true
+          cache: false
 
       - name: Install frozen publisher
         working-directory: core-py
         run: pdm install --no-default --group extension-publisher --frozen-lockfile
 
-      - name: Install the pinned pnpm release
+      - name: Record fixed Web source SHA
+        id: web
+        run: echo "revision=$(git -C client-web rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Explicit dispatch is also the supported read-only probe for the publisher's
+      # cross-repository package access, even when the requested release is already present.
+      - name: Set up Web tooling for an explicit candidate request
+        if: github.event_name == 'workflow_dispatch'
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 11.11.0
 
-      - name: Set up Web Node runtime
+      - name: Set up Web Node runtime for an explicit candidate request
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: client-web/package.json
@@ -85,15 +94,12 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: '@inkcre'
 
-      - name: Install frozen Web workspace
+      - name: Install frozen Web workspace for an explicit candidate request
+        if: github.event_name == 'workflow_dispatch'
         working-directory: client-web
         run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Record fixed Web source SHA
-        id: web
-        run: echo "revision=$(git -C client-web rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Select Core Release versions and save the plan
         id: plan
@@ -109,6 +115,35 @@ jobs:
           pdm run python scripts/assemble_extension_release.py plan
           --directory "$RUNNER_TEMP/first-party-extension-candidate"
           --web-revision "$WEB_REVISION"
+
+      - name: Install the pinned pnpm release
+        if: >-
+          github.event_name == 'push' &&
+          steps.plan.outputs.has_candidates == 'true'
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.11.0
+
+      - name: Set up Web Node runtime
+        if: >-
+          github.event_name == 'push' &&
+          steps.plan.outputs.has_candidates == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: client-web/package.json
+          cache: pnpm
+          cache-dependency-path: client-web/pnpm-lock.yaml
+          registry-url: https://npm.pkg.github.com
+          scope: '@inkcre'
+
+      - name: Install frozen Web workspace
+        if: >-
+          github.event_name == 'push' &&
+          steps.plan.outputs.has_candidates == 'true'
+        working-directory: client-web
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build every matching Web Distribution into the candidate
         if: steps.plan.outputs.has_candidates == 'true'
@@ -194,11 +229,6 @@ jobs:
       - name: Verify candidate bytes and source identity
         run: >-
           pdm run python scripts/assemble_extension_release.py check
-          --directory "$RUNNER_TEMP/first-party-extension-candidate"
-
-      - name: Revalidate inputs before the first Registry mutation
-        run: >-
-          pdm run python scripts/assemble_extension_release.py revalidate
           --directory "$RUNNER_TEMP/first-party-extension-candidate"
 
       - name: Prepare, upload all Distributions, then publish

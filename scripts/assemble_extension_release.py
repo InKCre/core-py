@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
@@ -12,15 +13,17 @@ import subprocess
 
 from build_extension_preview import _build_wheel
 from extension_distribution import read_project, verify_wheel
-from inkcre_extension_toolkit.client import RegistryClient
-from inkcre_extension_toolkit.contracts import PrepareReleaseRequest
-from inkcre_extension_toolkit.python_distribution import finalize_wheel
 from scripts.release import discover_projects
 
 
 ARTIFACT_NAME = "first-party-extension-candidate"
 SOURCE_REPOSITORY = "https://github.com/InKCre/core-py"
 WEB_REPOSITORY = "https://github.com/InKCre/client-web"
+
+
+def release_toolkit(module: str):
+  """Load optional publisher modules only for release commands that need them."""
+  return importlib.import_module(f"inkcre_extension_toolkit.{module}")
 
 
 def run(*arguments: str, env: dict[str, str] | None = None) -> str:
@@ -100,7 +103,9 @@ def build_wheels(directory: Path) -> None:
     if producer.coordinate != candidate["name"] or producer.version != candidate["version"]:
       raise ValueError("Selected Core project identity or version changed")
     raw = _build_wheel(project_directory, output / "raw")
-    wheel = finalize_wheel(project_directory / "pyproject.toml", raw, output)
+    wheel = release_toolkit("python_distribution").finalize_wheel(
+      project_directory / "pyproject.toml", raw, output
+    )
     verify_wheel(producer, wheel)
     raw.unlink()
     raw.parent.rmdir()
@@ -144,7 +149,9 @@ def check_candidate(directory: Path, registry_url: str) -> dict:
     producer = read_project(project.directory)
     if producer.coordinate != candidate["name"] or producer.version != candidate["version"]:
       raise ValueError("Candidate differs from the fixed Core producer metadata")
-    prepare = PrepareReleaseRequest.model_validate(candidate["prepare"])
+    prepare = release_toolkit("contracts").PrepareReleaseRequest.model_validate(
+      candidate["prepare"]
+    )
     if prepare.version != candidate["version"]:
       raise ValueError("Candidate version differs from prepare")
     python = candidate.get("python")
@@ -181,10 +188,12 @@ def publish(directory: Path, registry_url: str) -> None:
   plan = check_candidate(directory, registry_url)
   token = os.environ["INKCRE_EXTENSION_REGISTRY_TOKEN"]
   prepared = []
-  with RegistryClient(registry_url, token=token) as registry:
+  with release_toolkit("client").RegistryClient(registry_url, token=token) as registry:
     for candidate in plan["candidates"]:
       namespace, name = candidate["name"].split("/")
-      prepare = PrepareReleaseRequest.model_validate(candidate["prepare"])
+      prepare = release_toolkit("contracts").PrepareReleaseRequest.model_validate(
+        candidate["prepare"]
+      )
       registry.prepare(namespace, name, prepare)
       prepared.append((candidate, namespace, name, prepare))
 
@@ -218,24 +227,6 @@ def publish(directory: Path, registry_url: str) -> None:
       print(f"{candidate['name']} {candidate['version']}: complete and published")
 
 
-def revalidate(directory: Path, registry_url: str) -> None:
-  plan = check_candidate(directory, registry_url)
-  run("git", "fetch", "--no-tags", "origin", "main")
-  run("git", "merge-base", "--is-ancestor", "HEAD", "origin/main")
-  for candidate in plan["candidates"]:
-    run(
-      "python",
-      "scripts/release.py",
-      "verify-artifact-unchanged",
-      "--project",
-      candidate["directory"],
-      "--from",
-      "HEAD",
-      "--to",
-      "origin/main",
-    )
-
-
 def locate() -> None:
   pages = json.loads(
     run(
@@ -258,9 +249,7 @@ def locate() -> None:
 
 def main() -> None:
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument(
-    "command", choices=("plan", "build", "check", "revalidate", "publish", "locate")
-  )
+  parser.add_argument("command", choices=("plan", "build", "check", "publish", "locate"))
   parser.add_argument("--directory", type=Path, default=Path(".extension-delivery"))
   parser.add_argument("--web-revision")
   args = parser.parse_args()
@@ -277,8 +266,6 @@ def main() -> None:
     build_wheels(directory)
   elif args.command == "check":
     check_candidate(directory, registry_url)
-  elif args.command == "revalidate":
-    revalidate(directory, registry_url)
   else:
     publish(directory, registry_url)
 

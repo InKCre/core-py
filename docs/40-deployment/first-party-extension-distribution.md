@@ -67,13 +67,14 @@ that every declared association has matching saved bytes and provenance. The Run
 manifest remains inside `.dist-info/inkcre-extension.json`; Registry association metadata does not
 replace it.
 
-The candidate artifact is saved before Registry writes and retained for 90 days. The protected
-production job restores those exact bytes, revalidates Core artifact inputs before its first
-Registry mutation, prepares every selected Release with all of its associations, uploads all
+The candidate artifact is saved before Registry writes and retained for 90 days. Capture fixes the
+Core event revision and the Web checkout from `main` in the candidate plan. The protected production
+job restores those exact bytes, checks their source identities, workflow-run identity, associations,
+and digests, prepares every selected Release with all of its associations, uploads all
 Distributions, and only then publishes each Release. A retry reruns the publish job from the
 original workflow run and candidate; it does not rebuild from current `main` or create a second
-version decision, and it repeats Core input revalidation before writing. An expired or ambiguous
-candidate fails closed. `workflow_dispatch` remains an `INITIAL_ONLY` lane for one exact Extension
+version decision. An expired or ambiguous candidate fails closed. `workflow_dispatch` remains an
+`INITIAL_ONLY` lane for one exact Extension
 version that has not yet been published.
 
 First-party global and Python documentation are static publication artifacts for the same exact
