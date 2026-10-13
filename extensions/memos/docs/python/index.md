@@ -9,8 +9,10 @@ route. Its configuration has one nullable field, `personal_access_token`. A conf
 `memos_pat_` followed by exactly 32 ASCII letters or digits. A null value does not authorize any
 client's protected requests.
 
-Use the existing `core.extension.management.v1` capability to apply a `patch_config` command to
-`inkcre/memos`, then `enable` on the intended Core. Configuration can be saved before enablement.
+Use the `core.extension.management.v2` capability to select an exact Python distribution/version
+for `inkcre/memos`, then `patch_config` and `enable` on the intended Core. The selection and
+enabled intent belong to that Peer; shared configuration remains available to all Peers.
+Configuration can be saved before enablement.
 The Core validates the complete resulting config, persists it, and updates the live Extension.
 Memos authentication reads the current saved configuration on each protected request, including
 valid configuration saved by another admitted Peer through the ordinary Config interface.

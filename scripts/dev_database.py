@@ -49,7 +49,7 @@ PROFILE_FORMAT = 1
 OWNER_REPOSITORY = "InKCre/core-py"
 DEVELOPMENT_PEER_ID = "00000000-0000-4000-8000-000000000002"
 DEVELOPMENT_CAPABILITIES = {
-  "core.extension.management.v1": "/extension-management",
+  "core.extension.management.v2": "/extension-management/v2",
   "core.organization.rumination.v1": "/organization/ruminate",
   "core.semantic_retrieval.v1": "/semantic-retrieval",
 }

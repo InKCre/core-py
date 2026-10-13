@@ -4,7 +4,7 @@ import uuid
 
 
 CONTRACT_FORMAT = 1
-CONTRACT_REVISION = "peer-runtime-identity-v1"
+CONTRACT_REVISION = "extension-peer-participation-v2"
 
 PROTOCOL_SCHEMA = "inkcre"
 INTERNAL_SCHEMA = "inkcre_internal"
@@ -38,6 +38,7 @@ APPLICATION_TABLES = (
   "peers",
   "configs",
   "extensions",
+  "extension_peer_participations",
   "embedding_profiles",
   "crons",
   "jobs",

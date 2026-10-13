@@ -15,15 +15,8 @@ def _web() -> int:
     raise SystemExit("PORT must be an integer")
 
   os.execvp(
-    "uvicorn",
-    [
-      "uvicorn",
-      "run:api_app",
-      "--host",
-      "0.0.0.0",
-      "--port",
-      port,
-    ],
+    sys.executable,
+    [sys.executable, "scripts/web.py", "--port", port],
   )
   return 0
 

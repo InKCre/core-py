@@ -22,8 +22,8 @@ Current bootstrap flow in `run.py`:
 2. wait asynchronously until the complete runtime database contract is ready
 3. register the current Peer identity and the built-in Peer HTTP outbound/business inbounds
 4. persist registered storage types and set up built-in storage instances
-5. cold-restore this Peer's exact enabled Extension Releases through Registry-native wheel
-   acquisition and standard entry-point discovery unless `SKIP_EXTENSION_START=1`
+5. cold-restore this Peer's exact enabled native selections through installed-record
+   verification and standard entry-point discovery unless `SKIP_EXTENSION_START=1`
 6. start restored extensions, which registers process-monotonic Source/Resolver/Sink types and publishes reversible routes、
    Peer inbounds and public claims
 7. persist registered source types
@@ -40,7 +40,7 @@ disabled Extension Source schemas；Extension startup publishes them before step
 Database waiting is retryable and does not block `/livez`. A failure after the database
 preflight moves runtime state to `failed`; it is observable through `/readyz` and is not
 silently retried because extension startup can have partial effects. Cold restore attempts every enabled Extension,
-then reports any failures together; durable `enabled[]` intent remains unchanged and successful instances remain owned
+then reports any failures together; durable per-Peer enabled intent remains unchanged and successful instances remain owned
 by normal lifespan shutdown. Failed restore does not publish a new Peer lease or report ready.
 
 ### 2. Cron and Job are the one durable background-work path
@@ -83,11 +83,24 @@ same database-owned config semantics through its runtime owner.
 - a runtime that reached ready clears its Peer lease after scheduler/extension shutdown；abrupt loss relies on expiry
 - PostgreSQL logging drains after business resources close; the shared async database pool is disposed last
 
+### 5. Applying a Python Extension changes the whole Peer environment
+
+`select` stores one Peer’s exact distribution and version. If its Python wheel is missing, Core first downloads and
+validates the wheel while the Peer can still serve work. It then closes admission to new work, drains active requests,
+pauses the scheduler, drains Jobs, and closes Sinks and running Extensions before applying the wheel to the shared Core
+interpreter. Python dependencies may change, so Core does not resume in the same process or hot-load the new module.
+
+The production entrypoint `scripts/container.py web` execs `scripts/web.py`. That runner waits for Uvicorn’s graceful
+shutdown and resource cleanup, then replaces itself with a fresh Python process after an environment application.
+The new process reimports installed packages, restores exact enabled selections, and publishes readiness only after
+bootstrap succeeds. If pip application fails, Core keeps the Peer paused, reports the failure in management status,
+and does not claim that dependencies were restored. An operator must repair the environment and restart the process.
+
 Active Agent Turns are ordinary caller-owned asyncio Tasks，not scheduler jobs or deployment work records。The MVP Thread
 persistence backend is process-local memory，so process shutdown does not promise Thread resume。Cancelling an awaiting
 caller propagates to unfinished Tool tasks；already completed external/graph effects are not rolled back or compensated。
 
-### 5. OpenAPI generation is import-only
+### 6. OpenAPI generation is import-only
 
 - `pdm run python scripts/generate-openapi.py` generates `docs/openapi.json` locally
 - application lifespan does not run during schema generation, so extension synchronization
@@ -98,7 +111,7 @@ Application module import constructs routes and in-memory registries only. Datab
 registration and extension synchronization begin inside lifespan startup, never during
 module import.
 
-### 6. Health probes have separate semantics
+### 7. Health probes have separate semantics
 
 - `/livez` and compatibility alias `/heartbeat` only prove that the web process can answer
 - `/readyz` is read-only and requires the complete role/ACL/catalog/migration contract plus
@@ -114,7 +127,7 @@ Readiness 复用 `app/database_contract` 的同步 psycopg 检查，在 `asyncio
 取消 HTTP 等待不会中断已经运行的 worker，但连接仍由该 worker 的 context manager 关闭。
 业务数据库访问与日志写入均使用原生 async，不把这个例外推广到业务查询。
 
-### 7. PostgreSQL logging has a bounded async lifecycle
+### 8. PostgreSQL logging has a bounded async lifecycle
 
 同步 logging 调用只捕获 LogModel 和当时的 trace/span，再写入线程安全的有界队列。
 `lifespan` 启动单个异步 writer，每批最多 100 条，在独立事务中写入，绝不加入业务事务。
@@ -127,7 +140,7 @@ Readiness 复用 `app/database_contract` 的同步 psycopg 检查，在 `asyncio
 新增标准遥测在显式启用时，于数据库准入和 Peer 注册后初始化；PG 路径保持独立。
 元数据来源、OTLP 出口、有界关闭和浏览器认证转发见[可观测性配置](observability.md)。
 
-### 8. Each Peer may own a scheduler
+### 9. Each Peer may own a scheduler
 
 APScheduler belongs to each web process. Cron row serialization, occurrence identity and the conditional pending-Job
 claim coordinate multiple Peers through PostgreSQL; a single-replica recommendation is not the concurrency mechanism.

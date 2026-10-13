@@ -1,12 +1,15 @@
 # First-Party Extension Distribution
 
-Core stores one deployment row per exact Extension Release in `inkcre.extensions`: `name`,
-`version`, `enabled[]`, `nickname`, `config`, and `config_schema`. Installation, peer enablement,
-and process runtime remain distinct states. No first-party rows are seeded or synchronized.
+Core stores one shared Extension identity in `inkcre.extensions`: `name`, `nickname`, `config`,
+and producer-owned `state`. Each Peer stores its exact native selection and enabled intent in
+`inkcre.extension_peer_participations`, keyed by `(name, peer_id)`. A participation includes the
+distribution, exact version, enabled intent, and the config schema published by that exact release.
+Selection, enablement, and actual process runtime remain distinct states. No first-party rows are
+seeded or synchronized.
 
 For a new install or version change, Core requires an exact published Registry Release. Enabling
-or cold-restoring an already-installed exact Release may consume a yanked Release, but missing or
-blocked bytes leave the candidate unavailable without rewriting `enabled[]`.
+or cold-restoring an already-selected exact Release may consume a yanked Release, but missing or
+blocked bytes leave that Peer’s enabled intent unchanged.
 
 Python acquisition uses the Release's same-origin `/simple/<normalized-project>/` association.
 Every enable or cold restore first reads the exact Registry Release, checks its lifecycle state and
@@ -15,26 +18,32 @@ Core reuses that Distribution only when its Project, entry point and Host SDK ma
 Registry association. A damaged or conflicting installed record fails; it is not silently replaced.
 A missing record enters the independently released Runtime SDK acquisition path.
 
-The frozen Runtime SDK 0.1.5 downloads one compatible exact wheel without resolving dependencies
-from Registry, then performs ordinary `sys.executable -m pip install` in the Core virtual environment.
-That install may resolve Python dependencies from pip's package index; this SDK version has no
-`--dry-run` dependency preflight or no-dependency-mutation guarantee. Exact installed-record reuse
-skips this repeated acquisition and installation but does not change the miss path's policy.
+When the exact Distribution is absent, Core first downloads and validates its wheel without changing
+the interpreter. It then closes Peer execution, drains jobs and scheduled callbacks, closes running
+extensions, and applies the wheel with ordinary `sys.executable -m pip install` to the shared Core
+environment. Pip may resolve dependencies from its configured package index and may change packages
+used by other Extensions. After apply, Core replaces the process with a fresh one so Python imports
+cannot continue using modules loaded before the environment change. An apply failure is reported and
+leaves the Peer paused; Core does not claim package rollback. Exact installed-record reuse avoids
+this lifecycle only when the installed project, entry point, and Host SDK match the Registry record.
 The standard `inkcre.core.extensions` entry point is discovered globally and every loaded Extension
 module is verified against the installed wheel file record. There is no per-Extension target
 directory, custom ZIP loader or module search-path rewrite. Registry failure or a blocked Release
 still prevents restoration even when its Distribution is installed; installed yanked Releases retain
 their existing warning and admission behavior.
 
-Any version change or rollback is rejected while any peer remains in `enabled[]`. Operators first
-disable every peer, change the shared exact version, then re-enable peers. Replacing a wheel that
-was already imported marks the process restart-required; Core does not hot-load the new class in
-that process.
+Peers may select different versions of the same shared Extension. Changing one Peer’s exact
+selection is rejected while that Peer has the Extension enabled; other Peers’ selections do not
+block it. A changed pin clears its config schema until the selected release starts and provides a
+new schema. A process that already imported another version must restart; Core does not hot-load the
+new class. `running` and `loaded_version` report observed runtime facts and are never inferred from
+the durable enabled intent.
 
-Peer enablement is mutated only by the atomic PostgREST function
-`inkcre.set_extension_peer_enabled(p_name text, p_peer_id uuid, p_enabled boolean)`. Runtime start
-precedes enable persistence. Runtime stop precedes disable persistence; if that persistence fails,
-Core restarts the exact prior runtime while leaving durable intent unchanged.
+V2 management commands select or remove a Peer’s exact pin, enable or disable that Peer’s intent,
+and report actual runtime status. A disabled pin may be removed; an enabled participation must first
+be disabled. A legacy enabled member migrates to its exact prior version with an unresolved
+distribution. Cold restore resolves only that exact Registry version and never substitutes the
+latest release. Failed resolution preserves the old intent and reports the error.
 
 The seven first-party Extensions are independent PEP 420 wheels with the standard entry-point group
 and producer metadata in their `pyproject.toml`. That project version is the Python association's
@@ -117,8 +126,9 @@ owners deploy through the explicit Render or Heroku self-host workflow instead.
 Core Host 0.2 uses Runtime SDK async startup and persistence capabilities. Host operations and
 Extension config/state mutations must be awaited; in-memory config projection and typed mutation
 callbacks remain synchronous. ExtensionStateService owns each short business transaction;
-app/persistence/extension owns SQL and session creation. Row locks serialize state transforms, and
-the shared enabled RPC retains ownership of enabled[].
+app/persistence/extension owns SQL and session creation. Row locks serialize state transforms. A
+participation row owns only one Peer’s exact selection, enabled intent, and version-scoped config
+schema; shared Extension config and state remain deployment-wide.
 
 Registry-origin database reads finish before Registry HTTP and wheel acquisition. The existing
 blocking artifact clients run in a worker without a database session. Startup failure or cancellation
@@ -133,7 +143,7 @@ SDK 0.3 through `>=0.2.0 <0.4.0`. Memos uses the new HTTP address API and requir
 `>=0.3.0 <0.4.0`. Compatibility metadata changes require new immutable Extension
 releases; an old wheel's range must not be widened. Before upgrading a deployment, disable affected
 old Extensions, adopt the matching Core/Extension releases, restart where a loaded wheel was replaced,
-and then enable them. A persisted old enabled[] intent is not silently removed on failed cold restore.
+and then enable them. A migrated exact-version legacy intent is not silently removed on failed cold restore.
 For Extensions with both Python and Module Federation distributions, prepare both at the same new
 Extension version, even when the browser code is unchanged. Do not upgrade only the Python
 association and lose the browser distribution required by the installed Extension. Compatible

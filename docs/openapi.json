@@ -573,14 +573,15 @@
             }
           }
         }
-      },
+      }
+    },
+    "/extensions/{namespace}/{name}/selection": {
       "post": {
         "tags": [
           "extension"
         ],
-        "summary": "Install Extension",
-        "description": "Install one exact published Extension Release with no enabled peers.",
-        "operationId": "install_extension_extensions__namespace___name__post",
+        "summary": "Select Extension",
+        "operationId": "select_extension_extensions__namespace___name__selection_post",
         "parameters": [
           {
             "name": "namespace",
@@ -601,22 +602,40 @@
             }
           },
           {
-            "name": "version",
+            "name": "route_to_peer",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "Version"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Route To Peer"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectExtensionInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InstalledExtension"
+                  "$ref": "#/components/schemas/ExtensionPeerStatus"
                 }
               }
             }
@@ -637,8 +656,8 @@
         "tags": [
           "extension"
         ],
-        "summary": "Uninstall Extension",
-        "operationId": "uninstall_extension_extensions__namespace___name__delete",
+        "summary": "Unselect Extension",
+        "operationId": "unselect_extension_extensions__namespace___name__selection_delete",
         "parameters": [
           {
             "name": "namespace",
@@ -657,11 +676,35 @@
               "type": "string",
               "title": "Name"
             }
+          },
+          {
+            "name": "route_to_peer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Route To Peer"
+            }
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successful Response"
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionPeerStatus"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -850,7 +893,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InstalledExtension"
+                  "$ref": "#/components/schemas/ExtensionPeerStatus"
                 }
               }
             }
@@ -918,7 +961,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InstalledExtension"
+                  "$ref": "#/components/schemas/ExtensionPeerStatus"
                 }
               }
             }
@@ -5098,6 +5141,165 @@
         ],
         "title": "EntityReference"
       },
+      "ExtensionPeerStatus": {
+        "properties": {
+          "peer_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Peer Id"
+          },
+          "supported_distributions": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "python",
+                "module_federation"
+              ]
+            },
+            "type": "array",
+            "title": "Supported Distributions"
+          },
+          "extensions": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionPeerStatusRow"
+            },
+            "type": "array",
+            "title": "Extensions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "peer_id",
+          "supported_distributions",
+          "extensions"
+        ],
+        "title": "ExtensionPeerStatus"
+      },
+      "ExtensionPeerStatusRow": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "peer_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Peer Id"
+          },
+          "distribution": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "python",
+                  "module_federation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distribution"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "config_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Schema"
+          },
+          "supported_distributions": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "python",
+                "module_federation"
+              ]
+            },
+            "type": "array",
+            "title": "Supported Distributions"
+          },
+          "loaded_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loaded Version"
+          },
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "restart_required": {
+            "type": "boolean",
+            "title": "Restart Required"
+          },
+          "operation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "peer_id",
+          "distribution",
+          "version",
+          "enabled",
+          "config_schema",
+          "supported_distributions",
+          "loaded_version",
+          "running",
+          "restart_required",
+          "operation",
+          "error"
+        ],
+        "title": "ExtensionPeerStatusRow"
+      },
       "FunctionTool": {
         "properties": {
           "id": {
@@ -5341,19 +5543,6 @@
             "type": "string",
             "title": "Name"
           },
-          "version": {
-            "type": "string",
-            "title": "Version"
-          },
-          "enabled": {
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "type": "array",
-            "title": "Enabled",
-            "default": []
-          },
           "nickname": {
             "anyOf": [
               {
@@ -5369,27 +5558,14 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Config"
-          },
-          "config_schema": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Config Schema"
           }
         },
         "type": "object",
         "required": [
-          "name",
-          "version"
+          "name"
         ],
         "title": "InstalledExtension",
-        "description": "Stable Host-facing projection; SQLModel and table details remain private."
+        "description": "Shared Extension identity, configuration, and producer-owned state."
       },
       "JobCreateForm": {
         "properties": {
@@ -5790,6 +5966,30 @@
         ],
         "title": "RuminationRequest",
         "description": "Explicit request to reconsider one focal Block."
+      },
+      "SelectExtensionInput": {
+        "properties": {
+          "distribution": {
+            "type": "string",
+            "enum": [
+              "python",
+              "module_federation"
+            ],
+            "title": "Distribution"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)([.](0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$",
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "distribution",
+          "version"
+        ],
+        "title": "SelectExtensionInput"
       },
       "SemanticRetrievalRequest": {
         "properties": {

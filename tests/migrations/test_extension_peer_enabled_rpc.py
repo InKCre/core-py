@@ -1,34 +1,39 @@
-"""Disposable PostgreSQL proof for the shared atomic peer-enabled RPC."""
+"""Disposable PostgreSQL proof for Peer-scoped Extension participation v2."""
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterator
-import importlib
 import os
 from pathlib import Path
 import shutil
 import socket
 import subprocess
 import sys
-import threading
-import typing
 import uuid
 
 import psycopg
 import pytest
 import sqlalchemy
-from sqlalchemy.exc import ProgrammingError
+import sqlalchemy.exc
+import sqlmodel
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.business.cron import CronManager
 from app.business.extension.errors import ExtensionStateConflictError
 from app.business.extension.state import ExtensionStateService
 from app.business.job import JobManager
 from app.business.source import SOURCE_COLLECT_JOB_TYPE, SourceManager
+from app.persistence.extension import uow as extension_uow
+from app.schemas.extension import ExtensionModel, ExtensionPeerParticipationModel
+from app.schemas.peer import PeerModel
 from app.schemas.cron import CronForm
 from extensions.twitter.bookmark import Source as BookmarkSource
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CORE_PASSWORD = "core-runtime-contract-password-0001"  # noqa: S105 -- disposable test role
+POSTGREST_PASSWORD = "postgrest-contract-password-0001"  # noqa: S105 -- disposable test role
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +43,7 @@ def postgres_connection_info(tmp_path_factory) -> Iterator[dict[str, object]]:
   postgres = shutil.which("postgres")
   if initdb is None or pg_ctl is None or postgres is None:
     pytest.skip("disposable PostgreSQL binaries are unavailable")
-  root = tmp_path_factory.mktemp("extension-rpc-postgres")
+  root = tmp_path_factory.mktemp("extension-participation-postgres")
   data = root / "data"
   with socket.socket() as probe:
     probe.bind(("127.0.0.1", 0))
@@ -50,7 +55,7 @@ def postgres_connection_info(tmp_path_factory) -> Iterator[dict[str, object]]:
     text=True,
   )
   assert initialized.returncode == 0, initialized.stderr
-  started = subprocess.run(  # noqa: S603 -- resolved local test binary
+  started = subprocess.run(  # noqa: S603 -- stops only this disposable cluster
     [
       pg_ctl,
       "--pgdata",
@@ -67,9 +72,8 @@ def postgres_connection_info(tmp_path_factory) -> Iterator[dict[str, object]]:
     text=True,
   )
   assert started.returncode == 0, started.stderr
-  info: dict[str, object] = {"host": "127.0.0.1", "port": port, "dbname": "postgres"}
   try:
-    yield info
+    yield {"host": "127.0.0.1", "port": port, "dbname": "postgres"}
   finally:
     subprocess.run(  # noqa: S603 -- stops only this disposable cluster
       [pg_ctl, "--pgdata", str(data), "--wait", "stop"],
@@ -79,104 +83,31 @@ def postgres_connection_info(tmp_path_factory) -> Iterator[dict[str, object]]:
     )
 
 
-@pytest.fixture(scope="module")
-def rpc_database(postgres_connection_info, monkeypatch_module):
-  native_migration = importlib.import_module(
-    "migrations.versions.b8c1d2e3f4a5_native_extension_distribution_cutover"
-  )
-  merge_migration = importlib.import_module(
-    "migrations.versions.3f7a9c2d5e1b_merge_extension_registry_feature_retrieval"
-  )
-  setup_migration = importlib.import_module(
-    "migrations.versions.c6d7e8f9a0b1_add_extension_setup_state"
-  )
-  guard_statements: list[str] = []
-  monkeypatch_module.setattr(native_migration.op, "execute", guard_statements.append)
-  native_migration._create_extension_state_guard()
-  assert len(guard_statements) == 2
-  revoke_statements: list[str] = []
-  monkeypatch_module.setattr(native_migration.op, "execute", revoke_statements.append)
-  native_migration._create_peer_enable_rpc()
-  assert len(revoke_statements) == 2
-  merge_statements: list[object] = []
-  monkeypatch_module.setattr(merge_migration.op, "execute", merge_statements.append)
-  merge_migration.upgrade()
-  setup_guard_statements: list[str] = []
-  monkeypatch_module.setattr(
-    setup_migration.op,
-    "execute",
-    setup_guard_statements.append,
-  )
-  setup_migration._replace_state_guard(include_setup_state=True)
-  assert len(setup_guard_statements) == 1
-  with psycopg.connect(**postgres_connection_info, autocommit=True) as connection:
-    connection.execute("CREATE SCHEMA inkcre")
-    connection.execute("CREATE SCHEMA inkcre_internal")
-    connection.execute("CREATE ROLE authenticated NOLOGIN")
-    connection.execute("CREATE ROLE anonymous NOLOGIN")
-    connection.execute("CREATE TABLE inkcre.peers (id uuid PRIMARY KEY)")
-    connection.execute(
-      """
-      CREATE TABLE inkcre.extensions (
-        name text PRIMARY KEY,
-        version text NOT NULL,
-        enabled uuid[] NOT NULL DEFAULT '{}',
-        nickname text,
-        config jsonb NOT NULL DEFAULT '{}',
-        state jsonb NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(state) = 'object'),
-        config_schema jsonb
-      )
-      """
-    )
-    for statement in guard_statements:
-      connection.execute(typing.cast(typing.LiteralString, statement))
-    connection.execute(typing.cast(typing.LiteralString, setup_guard_statements[0]))
-    connection.execute(typing.cast(typing.LiteralString, merge_statements[0]))
-    connection.execute(typing.cast(typing.LiteralString, revoke_statements[1]))
-    connection.execute("GRANT USAGE ON SCHEMA inkcre TO authenticated")
-    connection.execute("GRANT SELECT ON inkcre.peers TO authenticated")
-    connection.execute("GRANT SELECT, INSERT, DELETE ON inkcre.extensions TO authenticated")
-    connection.execute(
-      "GRANT UPDATE (version, nickname, config, config_schema) "
-      "ON inkcre.extensions TO authenticated"
-    )
-    connection.execute(
-      "GRANT EXECUTE ON FUNCTION "
-      "inkcre.set_extension_peer_enabled(text, uuid, boolean) TO authenticated"
-    )
-    connection.execute("GRANT USAGE ON SCHEMA inkcre TO anonymous")
-  return postgres_connection_info
-
-
-@pytest.fixture(scope="module")
-def monkeypatch_module():
-  from _pytest.monkeypatch import MonkeyPatch
-
-  patcher = MonkeyPatch()
-  yield patcher
-  patcher.undo()
-
-
-@pytest.fixture(scope="module")
-def setup_domain_engine(postgres_connection_info):
-  database = "extension_setup_domains"
-  with psycopg.connect(**postgres_connection_info, autocommit=True) as connection:
-    connection.execute(f"CREATE DATABASE {database}")
-  database_url = (
-    f"postgresql+psycopg://127.0.0.1:{postgres_connection_info['port']}/{database}"
-  )
-  environment = {
+def _environment(database_url: str) -> dict[str, str]:
+  return {
     **os.environ,
     "INKCRE_ENV_FILE": "",
     "DATABASE_URL": database_url,
     "MIGRATION_DATABASE_URL": database_url,
-    "CORE_DATABASE_PASSWORD": "core-runtime-contract-password-0001",
-    "POSTGREST_DATABASE_PASSWORD": "postgrest-contract-password-0001",
+    "CORE_DATABASE_PASSWORD": CORE_PASSWORD,
+    "POSTGREST_DATABASE_PASSWORD": POSTGREST_PASSWORD,
   }
+
+
+def _database_url(info: dict[str, object], database: str) -> str:
+  return f"postgresql+psycopg://127.0.0.1:{info['port']}/{database}"
+
+
+@pytest.fixture(scope="module")
+def setup_domain_engine(postgres_connection_info):
+  database = "extension_participation_domains"
+  with psycopg.connect(**postgres_connection_info, autocommit=True) as connection:
+    connection.execute(f"CREATE DATABASE {database}")
+  database_url = _database_url(postgres_connection_info, database)
   migrated = subprocess.run(
     [sys.executable, "-m", "alembic", "upgrade", "head"],
     cwd=PROJECT_ROOT,
-    env=environment,
+    env=_environment(database_url),
     check=False,
     capture_output=True,
     text=True,
@@ -185,7 +116,7 @@ def setup_domain_engine(postgres_connection_info):
   provisioned = subprocess.run(
     [sys.executable, "scripts/database.py", "provision-roles"],
     cwd=PROJECT_ROOT,
-    env=environment,
+    env=_environment(database_url),
     check=False,
     capture_output=True,
     text=True,
@@ -198,230 +129,218 @@ def setup_domain_engine(postgres_connection_info):
     engine.dispose()
 
 
-def test_rpc_rejects_unknown_peer_without_mutating_row(rpc_database):
-  missing_peer = uuid.uuid4()
-  with psycopg.connect(**rpc_database, autocommit=True) as connection:
-    connection.execute(
-      "INSERT INTO inkcre.extensions (name, version) VALUES ('inkcre/test', '1.0.0')"
-    )
-    returned = connection.execute(
-      "SELECT * FROM inkcre.set_extension_peer_enabled(%s, %s, true)",
-      ("inkcre/test", missing_peer),
-    ).fetchall()
-    enabled_row = connection.execute(
-      "SELECT enabled FROM inkcre.extensions WHERE name = 'inkcre/test'"
-    ).fetchone()
-    assert enabled_row is not None
-    enabled = enabled_row[0]
-
-  assert returned == []
-  assert enabled == []
-
-
-def test_rpc_atomically_preserves_concurrent_distinct_peer_additions(rpc_database):
-  peers = (uuid.uuid4(), uuid.uuid4())
-  with psycopg.connect(**rpc_database, autocommit=True) as connection:
-    connection.execute("INSERT INTO inkcre.peers (id) VALUES (%s), (%s)", peers)
-  barrier = threading.Barrier(2)
-  failures: list[Exception] = []
-
-  def enable(peer_id: uuid.UUID) -> None:
-    try:
-      with psycopg.connect(**rpc_database) as connection:
-        barrier.wait()
-        connection.execute(
-          "SELECT * FROM inkcre.set_extension_peer_enabled(%s, %s, true)",
-          ("inkcre/test", peer_id),
-        ).fetchall()
-        connection.commit()
-    except Exception as error:
-      failures.append(error)
-
-  threads = [threading.Thread(target=enable, args=(peer,)) for peer in peers]
-  for thread in threads:
-    thread.start()
-  for thread in threads:
-    thread.join(timeout=10)
-  assert not failures
-  assert all(not thread.is_alive() for thread in threads)
-  with psycopg.connect(**rpc_database, autocommit=True) as connection:
-    enabled_row = connection.execute(
-      "SELECT enabled FROM inkcre.extensions WHERE name = 'inkcre/test'"
-    ).fetchone()
-    assert enabled_row is not None
-    enabled = enabled_row[0]
-    connection.execute(
-      "SELECT * FROM inkcre.set_extension_peer_enabled(%s, %s, true)",
-      ("inkcre/test", peers[0]),
-    ).fetchall()
-    repeated_row = connection.execute(
-      "SELECT enabled FROM inkcre.extensions WHERE name = 'inkcre/test'"
-    ).fetchone()
-    assert repeated_row is not None
-    repeated = repeated_row[0]
-
-  assert set(enabled) == set(peers)
-  assert repeated.count(peers[0]) == 1
-
-
-def test_authenticated_can_execute_but_anonymous_cannot_mutate(rpc_database):
-  peer = uuid.uuid4()
-  with psycopg.connect(**rpc_database, autocommit=True) as connection:
-    connection.execute("INSERT INTO inkcre.peers (id) VALUES (%s)", (peer,))
-    connection.execute("SET ROLE authenticated")
-    connection.execute(
-      "SELECT * FROM inkcre.set_extension_peer_enabled(%s, %s, false)",
-      ("inkcre/test", peer),
-    ).fetchall()
-    connection.execute("RESET ROLE")
-    connection.execute("SET ROLE anonymous")
-    with pytest.raises(psycopg.errors.InsufficientPrivilege):
-      connection.execute(
-        "SELECT * FROM inkcre.set_extension_peer_enabled(%s, %s, true)",
-        ("inkcre/test", peer),
-      ).fetchall()
-    connection.execute("RESET ROLE")
-    enabled_row = connection.execute(
-      "SELECT enabled FROM inkcre.extensions WHERE name = 'inkcre/test'"
-    ).fetchone()
-    assert enabled_row is not None
-    enabled = enabled_row[0]
-
-  assert peer not in enabled
-
-
-def test_authenticated_cannot_bypass_rpc_or_insert_enabled_intent(rpc_database):
-  peer = uuid.uuid4()
-  with psycopg.connect(**rpc_database, autocommit=True) as connection:
-    connection.execute("INSERT INTO inkcre.peers (id) VALUES (%s)", (peer,))
-    connection.execute("SET ROLE authenticated")
-    with pytest.raises(psycopg.errors.InsufficientPrivilege):
-      connection.execute(
-        "UPDATE inkcre.extensions SET enabled = ARRAY[%s]::uuid[] "
-        "WHERE name = 'inkcre/test'",
-        (peer,),
-      )
-    with pytest.raises(psycopg.errors.CheckViolation, match="empty on insert"):
-      connection.execute(
-        "INSERT INTO inkcre.extensions (name, version, enabled) "
-        "VALUES ('inkcre/injected', '1.0.0', ARRAY[%s]::uuid[])",
-        (peer,),
-      )
-    connection.execute(
-      "UPDATE inkcre.extensions SET config = '{\"safe\": true}'::jsonb "
-      "WHERE name = 'inkcre/test'"
-    )
-    with pytest.raises(psycopg.errors.InsufficientPrivilege):
-      connection.execute(
-        "UPDATE inkcre.extensions SET state = '{\"unsafe\": true}'::jsonb "
-        "WHERE name = 'inkcre/test'"
-      )
-    connection.execute("RESET ROLE")
-
-
-def test_database_blocks_version_change_and_delete_while_enabled(rpc_database):
-  peer = uuid.uuid4()
-  with psycopg.connect(**rpc_database, autocommit=True) as connection:
-    connection.execute("INSERT INTO inkcre.peers (id) VALUES (%s)", (peer,))
-    connection.execute(
-      "SELECT * FROM inkcre.set_extension_peer_enabled(%s, %s, true)",
-      ("inkcre/test", peer),
-    )
-    with pytest.raises(psycopg.errors.CheckViolation, match="change extension version"):
-      connection.execute(
-        "UPDATE inkcre.extensions SET version = '2.0.0' WHERE name = 'inkcre/test'"
-      )
-    with pytest.raises(psycopg.errors.CheckViolation, match="delete extension"):
-      connection.execute("DELETE FROM inkcre.extensions WHERE name = 'inkcre/test'")
-    connection.execute(
-      "SELECT * FROM inkcre.set_extension_peer_enabled(%s, %s, false)",
-      ("inkcre/test", peer),
-    )
-
-
-def test_database_state_gate_and_uninstall_boundary(rpc_database):
-  with psycopg.connect(**rpc_database, autocommit=True) as connection:
-    with pytest.raises(psycopg.errors.CheckViolation, match="state must be empty"):
-      connection.execute(
-        "INSERT INTO inkcre.extensions (name, version, state) "
-        "VALUES ('inkcre/injected-state', '1.0.0', '{\"step\": 1}'::jsonb)"
-      )
-    connection.execute(
-      "INSERT INTO inkcre.extensions (name, version) VALUES ('inkcre/stateful', '1.0.0')"
-    )
-    connection.execute(
-      "UPDATE inkcre.extensions SET state = '{\"step\": 1}'::jsonb "
-      "WHERE name = 'inkcre/stateful'"
-    )
-    with pytest.raises(psycopg.errors.CheckViolation, match="state is not empty"):
-      connection.execute(
-        "UPDATE inkcre.extensions SET version = '2.0.0' WHERE name = 'inkcre/stateful'"
-      )
-    connection.execute("DELETE FROM inkcre.extensions WHERE name = 'inkcre/stateful'")
-
-    assert connection.execute(
-      "SELECT count(*) FROM inkcre.extensions WHERE name = 'inkcre/stateful'"
-    ).fetchone() == (0,)
-
-
-def test_internal_guard_is_not_in_the_postgrest_protocol_schema(rpc_database):
-  with psycopg.connect(**rpc_database, autocommit=True) as connection:
-    functions = connection.execute(
-      "SELECT n.nspname, p.proname FROM pg_proc p "
-      "JOIN pg_namespace n ON n.oid = p.pronamespace "
-      "WHERE p.proname IN "
-      "('set_extension_peer_enabled', 'enforce_extension_state_authority') "
-      "ORDER BY n.nspname"
-    ).fetchall()
-
-  assert functions == [
-    ("inkcre", "set_extension_peer_enabled"),
-    ("inkcre_internal", "enforce_extension_state_authority"),
-  ]
-
-
-def test_concurrent_first_install_returns_semantic_conflict(rpc_database, monkeypatch):
-  name = "inkcre/concurrent"
-  database_url = (
-    f"postgresql+psycopg://127.0.0.1:{rpc_database['port']}/{rpc_database['dbname']}"
+@pytest.fixture(scope="module")
+def legacy_migration_database(postgres_connection_info):
+  database = "extension_participation_legacy"
+  with psycopg.connect(**postgres_connection_info, autocommit=True) as connection:
+    connection.execute(f"CREATE DATABASE {database}")
+  database_url = _database_url(postgres_connection_info, database)
+  environment = _environment(database_url)
+  migrated = subprocess.run(
+    [sys.executable, "-m", "alembic", "upgrade", "3d9593b0c855"],
+    cwd=PROJECT_ROOT,
+    env=environment,
+    check=False,
+    capture_output=True,
+    text=True,
   )
-  import asyncio
-  from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-  from app.persistence.extension import uow
+  assert migrated.returncode == 0, migrated.stderr
+  peer_id = uuid.uuid4()
+  with psycopg.connect(**postgres_connection_info, dbname=database) as connection:
+    connection.execute(
+      "INSERT INTO inkcre.peers (id, name) VALUES (%s, 'legacy-peer')", (peer_id,)
+    )
+    connection.execute(
+      "INSERT INTO inkcre.extensions "
+      "(name, version, enabled, config, state, config_schema) "
+      "VALUES ('inkcre/legacy', '0.7.4', ARRAY[%s]::uuid[], "
+      "'{\"shared\":true}'::jsonb, '{\"progress\":4}'::jsonb, "
+      '\'{"type":"object"}\'::jsonb)',
+      (peer_id,),
+    )
+    connection.execute(
+      "INSERT INTO inkcre.extensions (name, version, enabled) "
+      "VALUES ('inkcre/disabled', '0.2.0', '{}'::uuid[])"
+    )
+  yield postgres_connection_info, database, database_url, peer_id, environment
 
-  engine = create_async_engine(database_url)
-  monkeypatch.setattr(uow, "AsyncSessionFactory", async_sessionmaker(engine))
-  store = ExtensionStateService()
-  runner = asyncio.Runner()
-  with psycopg.connect(**rpc_database) as first:
-    first.execute(
-      "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+
+def test_upgrade_preserves_shared_state_and_exact_unresolved_legacy_pin(
+  legacy_migration_database,
+):
+  info, database, database_url, peer_id, environment = legacy_migration_database
+  migrated = subprocess.run(
+    [sys.executable, "-m", "alembic", "upgrade", "head"],
+    cwd=PROJECT_ROOT,
+    env=environment,
+    check=False,
+    capture_output=True,
+    text=True,
+  )
+  assert migrated.returncode == 0, migrated.stderr
+  with psycopg.connect(**info, dbname=database) as connection:
+    participation = connection.execute(
+      "SELECT distribution, version, enabled, config_schema "
+      "FROM inkcre.extension_peer_participations "
+      "WHERE name = 'inkcre/legacy' AND peer_id = %s",
+      (peer_id,),
+    ).fetchone()
+    legacy_snapshot_schema = connection.execute(
+      "SELECT config_schema FROM inkcre_internal.extension_legacy_snapshots "
+      "WHERE name = 'inkcre/legacy'"
+    ).fetchone()
+    shared = connection.execute(
+      "SELECT config, state FROM inkcre.extensions WHERE name = 'inkcre/legacy'"
+    ).fetchone()
+    disabled_rows = connection.execute(
+      "SELECT count(*) FROM inkcre.extension_peer_participations "
+      "WHERE name = 'inkcre/disabled'"
+    ).fetchone()
+  assert participation == (None, "0.7.4", True, None)
+  assert legacy_snapshot_schema == ({"type": "object"},)
+  assert shared == ({"shared": True}, {"progress": 4})
+  assert disabled_rows == (0,)
+  with psycopg.connect(**info, dbname=database, autocommit=True) as connection:
+    connection.execute("SET ROLE authenticated")
+    with pytest.raises(psycopg.errors.CheckViolation):
+      connection.execute(
+        "UPDATE inkcre.extension_peer_participations "
+        'SET config_schema = \'{"type":"object"}\'::jsonb '
+        "WHERE name = 'inkcre/legacy' AND peer_id = %s",
+        (peer_id,),
+      )
+
+
+def test_v2_acl_and_state_guards(setup_domain_engine, monkeypatch):
+  peer_id = uuid.uuid4()
+  name = f"inkcre/acl-{peer_id.hex}"
+  with setup_domain_engine.connect().execution_options(
+    isolation_level="AUTOCOMMIT"
+  ) as connection:
+    connection.exec_driver_sql(
+      "INSERT INTO inkcre.peers (id, name) VALUES (%s, 'participation-test')",
+      (peer_id,),
+    )
+    connection.exec_driver_sql("INSERT INTO inkcre.extensions (name) VALUES (%s)", (name,))
+    connection.exec_driver_sql("SET ROLE authenticated")
+    connection.exec_driver_sql(
+      "INSERT INTO inkcre.extension_peer_participations "
+      "(name, peer_id, distribution, version, enabled) "
+      "VALUES (%s, %s, 'python', '1.2.3', false)",
+      (name, peer_id),
+    )
+    connection.exec_driver_sql(
+      "UPDATE inkcre.extensions SET state = '{\"shared\":true}'::jsonb WHERE name = %s",
       (name,),
     )
-    first.execute(
-      "INSERT INTO inkcre.extensions (name, version, nickname) "
-      "VALUES (%s, '1.0.0', 'First')",
+    with pytest.raises(sqlalchemy.exc.IntegrityError):
+      connection.exec_driver_sql(
+        "UPDATE inkcre.extensions SET state = '[]'::jsonb WHERE name = %s",
+        (name,),
+      )
+    with pytest.raises(sqlalchemy.exc.ProgrammingError):
+      connection.exec_driver_sql(
+        "UPDATE inkcre.extensions SET name = 'inkcre/renamed' WHERE name = %s",
+        (name,),
+      )
+    with pytest.raises(sqlalchemy.exc.ProgrammingError):
+      connection.exec_driver_sql(
+        "UPDATE inkcre.extensions SET version = '2.0.0' WHERE name = %s", (name,)
+      )
+    connection.exec_driver_sql("RESET ROLE")
+    connection.exec_driver_sql("SET ROLE anonymous")
+    with pytest.raises(sqlalchemy.exc.ProgrammingError):
+      connection.exec_driver_sql(
+        "UPDATE inkcre.extensions SET state = '{\"unsafe\":true}'::jsonb WHERE name = %s",
+        (name,),
+      )
+    connection.exec_driver_sql("RESET ROLE")
+    connection.exec_driver_sql("SET ROLE inkcre_core")
+    with pytest.raises(sqlalchemy.exc.ProgrammingError):
+      connection.exec_driver_sql(
+        "UPDATE inkcre.extensions SET version = '2.0.0' WHERE name = %s", (name,)
+      )
+    connection.exec_driver_sql(
+      "UPDATE inkcre.extensions SET state = '{\"ready\":true}'::jsonb WHERE name = %s",
       (name,),
     )
-    with pytest.raises(ExtensionStateConflictError, match="already in progress"):
-      runner.run(store.install(name, "2.0.0", "Second"))
-    first.commit()
+    connection.exec_driver_sql("RESET ROLE")
+    with pytest.raises(sqlalchemy.exc.ProgrammingError):
+      connection.exec_driver_sql("DELETE FROM inkcre.extensions WHERE name = %s", (name,))
 
-  state = runner.run(store.install(name, "1.0.0", "First"))
-  assert state.version == "1.0.0"
-  runner.run(engine.dispose())
-  runner.close()
+  engine = create_async_engine(setup_domain_engine.url)
+  monkeypatch.setattr(extension_uow, "AsyncSessionFactory", async_sessionmaker(engine))
+
+  async def verify_shared_state():
+    store = ExtensionStateService()
+    assert await store.read_state(name) == {"shared": True}
+    await store.mutate_state(name, lambda state: {**state, "native": True})
+    assert await store.read_state(name) == {"shared": True, "native": True}
+
+  try:
+    with asyncio.Runner() as runner:
+      runner.run(verify_shared_state())
+  finally:
+    asyncio.run(engine.dispose())
 
 
-def test_setup_source_and_cron_use_simple_core_owned_operations(
-  setup_domain_engine,
-  monkeypatch,
+def test_selection_change_clears_schema_and_rejects_late_old_callback(
+  setup_domain_engine, monkeypatch
 ):
   import asyncio
   from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-  from app.persistence.source import uow as source_uow
-  from app.persistence.job import uow as job_uow
+
+  peer_id = uuid.uuid4()
+  name = f"inkcre/schema-{peer_id.hex}"
+  with sqlmodel.Session(setup_domain_engine) as session:
+    session.add(PeerModel(id=peer_id, name="schema-cas-test"))
+    session.add(ExtensionModel(name=name))
+    session.add(
+      ExtensionPeerParticipationModel(
+        name=name,
+        peer_id=peer_id,
+        distribution="python",
+        version="1.0.0",
+        enabled=False,
+        config_schema={"title": "old"},
+      )
+    )
+    session.commit()
+
+  engine = create_async_engine(setup_domain_engine.url)
+  monkeypatch.setattr(extension_uow, "AsyncSessionFactory", async_sessionmaker(engine))
+  store = ExtensionStateService()
+
+  async def scenario():
+    selected = await store.select_participation(peer_id, name, "python", "2.0.0")
+    assert selected.config_schema is None
+    with pytest.raises(ExtensionStateConflictError, match="selection changed"):
+      await store.update_participation_config_schema(
+        peer_id, name, "python", "1.0.0", {"title": "late old schema"}
+      )
+    current = await store.get_participation(peer_id, name)
+    assert current is not None
+    assert (current.distribution, current.version, current.config_schema) == (
+      "python",
+      "2.0.0",
+      None,
+    )
+
+  try:
+    with asyncio.Runner() as runner:
+      runner.run(scenario())
+  finally:
+    asyncio.run(engine.dispose())
+
+
+def test_setup_source_and_cron_use_simple_core_owned_operations(
+  setup_domain_engine, monkeypatch
+):
+  import asyncio
+  from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
   from app.persistence.cron import uow as cron_uow
+  from app.persistence.job import uow as job_uow
+  from app.persistence.source import uow as source_uow
 
   engine = create_async_engine(setup_domain_engine.url)
   factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -432,65 +351,23 @@ def test_setup_source_and_cron_use_simple_core_owned_operations(
     source_type = f"{BookmarkSource.__module__}.{BookmarkSource.__qualname__}"
     await SourceManager.sync_source_types_async({source_type: BookmarkSource})
     await JobManager.sync_job_types()
-
     source = await SourceManager.create(source_type, nickname="Twitter Bookmarks")
-    source_id = source.id
-    assert source_id is not None
-
+    assert source.id is not None
     form = CronForm(
       schedule="0 6 * * *",
       job_type=SOURCE_COLLECT_JOB_TYPE,
-      job_parameters={
-        "source": source_id,
-        "config": {
-          "full": False,
-          "result_limit": 40,
-        },
-      },
+      job_parameters={"source": source.id, "config": {"full": False}},
     )
     cron = await CronManager.create(form)
     assert cron.id is not None
-    first_job = await CronManager.run_now(cron.id)
-    repeated_job = await CronManager.run_now(cron.id)
-    assert repeated_job.id != first_job.id
-
+    first = await CronManager.run_now(cron.id)
+    second = await CronManager.run_now(cron.id)
+    assert second.id != first.id
     rebound = await CronManager.update(cron.id, form.model_copy(update={"enabled": False}))
     assert rebound.enabled is False
 
-  with asyncio.Runner() as runner:
-    try:
+  try:
+    with asyncio.Runner() as runner:
       runner.run(scenario())
-    finally:
-      runner.run(engine.dispose())
-
-
-def test_core_runtime_owns_state_writes_without_exposing_them_to_browser_peers(
-  setup_domain_engine,
-):
-  name = "inkcre/state-authority"
-  with setup_domain_engine.connect().execution_options(
-    isolation_level="AUTOCOMMIT"
-  ) as connection:
-    connection.exec_driver_sql(
-      "INSERT INTO inkcre.extensions (name, version) VALUES (%s, '1.0.0')",
-      (name,),
-    )
-    connection.exec_driver_sql("SET ROLE authenticated")
-    with pytest.raises(ProgrammingError):
-      connection.exec_driver_sql(
-        "UPDATE inkcre.extensions SET state = '{\"unsafe\": true}'::jsonb WHERE name = %s",
-        (name,),
-      )
-    connection.exec_driver_sql("RESET ROLE")
-    connection.exec_driver_sql("SET ROLE inkcre_core")
-    connection.exec_driver_sql(
-      "UPDATE inkcre.extensions SET state = '{\"ready\": true}'::jsonb WHERE name = %s",
-      (name,),
-    )
-    connection.exec_driver_sql("RESET ROLE")
-    state = connection.exec_driver_sql(
-      "SELECT state FROM inkcre.extensions WHERE name = %s",
-      (name,),
-    ).scalar_one()
-
-  assert state == {"ready": True}
+  finally:
+    asyncio.run(engine.dispose())

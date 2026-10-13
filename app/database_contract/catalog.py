@@ -221,7 +221,7 @@ def development_baseline_fingerprint(
         ),
         (
           "extensions",
-          sql.SQL("SELECT name, version, nickname FROM {}.extensions ORDER BY name").format(
+          sql.SQL("SELECT name, nickname FROM {}.extensions ORDER BY name").format(
             sql.Identifier(PROTOCOL_SCHEMA)
           ),
         ),

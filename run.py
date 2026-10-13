@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import datetime
 import os
+import sys
 import time
 
 import fastapi
@@ -76,11 +77,47 @@ from app.middleware import LoggingMiddleware, require_peer_jwt
 from app.observability import TelemetryMiddleware, initialize_telemetry
 from app.schemas.peer import PEER_EXECUTION_HEADER
 from app.health import check_database_readiness
-from app.runtime import RUNTIME_STATUS, RuntimePhase
+from app.runtime import (
+  RUNTIME_STATUS,
+  RuntimePhase,
+  configure_process_restart,
+  process_restart_requested,
+)
 
 
 # Import scheduler
 from app.scheduler import drain_scheduler, scheduler, start_scheduler, with_trace_id
+
+
+_CURRENT_SERVER: uvicorn.Server | None = None
+_REQUEST_CONDITION = asyncio.Condition()
+_PEER_EXECUTION_OPEN = True
+_ACTIVE_PEER_REQUESTS = 0
+
+
+def _request_uvicorn_exit() -> None:
+  if _CURRENT_SERVER is not None:
+    _CURRENT_SERVER.should_exit = True
+
+
+configure_process_restart(_request_uvicorn_exit)
+
+
+async def pause_peer_execution() -> None:
+  """Drain Core work before a shared Python environment can be changed."""
+  global _PEER_EXECUTION_OPEN
+  async with _REQUEST_CONDITION:
+    _PEER_EXECUTION_OPEN = False
+    await _REQUEST_CONDITION.wait_for(lambda: _ACTIVE_PEER_REQUESTS == 0)
+  if scheduler.running:
+    scheduler.pause()
+  await JobManager.shutdown()
+  await drain_scheduler()
+  await SinkManager.shutdown()
+  await EXTENSION_HOST.close_running_for_environment_application()
+
+
+EXTENSION_HOST.pause_peer_execution = pause_peer_execution
 
 
 @contextlib.contextmanager
@@ -250,6 +287,34 @@ async def lifespan(app: fastapi.FastAPI):
 
 api_app = fastapi.FastAPI(title="InKCre", lifespan=lifespan)
 
+
+@api_app.middleware("http")
+async def peer_execution_gate(request: fastapi.Request, call_next):
+  """Reject new work while a Python environment application is in progress."""
+  global _ACTIVE_PEER_REQUESTS
+  path = request.url.path
+  control_path = (
+    path in {"/livez", "/readyz"}
+    or path.startswith("/extension-management/")
+    or path.startswith("/extensions/")
+  )
+  if control_path:
+    return await call_next(request)
+  async with _REQUEST_CONDITION:
+    if not _PEER_EXECUTION_OPEN:
+      return JSONResponse(
+        status_code=503,
+        content={"detail": "Peer execution is paused for Python environment application"},
+      )
+    _ACTIVE_PEER_REQUESTS += 1
+  try:
+    return await call_next(request)
+  finally:
+    async with _REQUEST_CONDITION:
+      _ACTIVE_PEER_REQUESTS -= 1
+      _REQUEST_CONDITION.notify_all()
+
+
 # 添加日志中间件
 api_app.add_middleware(LoggingMiddleware)
 api_app.add_middleware(TelemetryMiddleware)
@@ -318,4 +383,13 @@ core_router.include_router(telemetry_router)
 api_app.include_router(core_router)
 
 if __name__ == "__main__":
-  uvicorn.run(api_app, host=settings.host, port=settings.port)
+
+  async def serve() -> None:
+    global _CURRENT_SERVER
+    config = uvicorn.Config(api_app, host=settings.host, port=settings.port)
+    _CURRENT_SERVER = uvicorn.Server(config)
+    await _CURRENT_SERVER.serve()
+    if process_restart_requested():
+      os.execv(sys.executable, [sys.executable, *sys.argv])
+
+  asyncio.run(serve())

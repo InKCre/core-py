@@ -14,7 +14,7 @@ case "${1:-}" in
     ;;
   inspect)
     docker run --rm --entrypoint python "$IMAGE_TAG" -c \
-      "from pathlib import Path; required=('app','libs','utils','migrations/versions','alembic.ini','scripts/container.py','scripts/database.py','scripts/verify_postgrest_contract.py'); missing=[p for p in required if not Path(p).exists()]; assert not missing, missing; assert not Path('extensions').exists(); import os,pip,site; assert all(os.access(p,os.W_OK) for p in site.getsitepackages())"
+      "from pathlib import Path; required=('app','libs','utils','migrations/versions','alembic.ini','scripts/container.py','scripts/web.py','scripts/database.py','scripts/verify_postgrest_contract.py'); missing=[p for p in required if not Path(p).exists()]; assert not missing, missing; assert not Path('extensions').exists(); import os,pip,site; assert all(os.access(p,os.W_OK) for p in site.getsitepackages())"
     ;;
   initialize)
     for name in CORE_DATABASE_PASSWORD MIGRATION_DATABASE_URL POSTGREST_DATABASE_PASSWORD; do require_env "$name"; done

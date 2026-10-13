@@ -92,8 +92,6 @@ def _reset_acceptance_database() -> None:
     if extension is None:
       extension = ExtensionModel(
         name="inkcre/mail",
-        version="0.1.0",
-        enabled=[],
         config={},
       )
     extension.config = {
