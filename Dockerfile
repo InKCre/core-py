@@ -11,8 +11,7 @@ ENV PDM_CHECK_UPDATE=false \
     PDM_VENV_IN_PROJECT=1
 WORKDIR /app
 
-RUN apt-get update \
-    && pip install --no-cache-dir "pdm==${PDM_VERSION}"
+RUN pip install --no-cache-dir "pdm==${PDM_VERSION}"
 
 COPY pyproject.toml pdm.lock README.md ./
 RUN pdm install --prod --no-editable --frozen-lockfile
