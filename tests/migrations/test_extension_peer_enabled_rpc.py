@@ -324,6 +324,13 @@ def test_selection_change_clears_schema_and_rejects_late_old_callback(
   async def scenario():
     selected = await store.select_participation(peer_id, name, "python", "2.0.0")
     assert selected.config_schema is None
+    with setup_domain_engine.connect() as connection:
+      assert connection.exec_driver_sql(
+        "SELECT config_schema IS NULL "
+        "FROM inkcre.extension_peer_participations "
+        "WHERE name = %s AND peer_id = %s",
+        (name, peer_id),
+      ).scalar_one()
     with pytest.raises(ExtensionStateConflictError, match="selection changed"):
       await store.update_participation_config_schema(
         peer_id, name, "python", "1.0.0", {"title": "late old schema"}

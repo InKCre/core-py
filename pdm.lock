@@ -5,7 +5,7 @@
 groups = ["default", "dev", "extension-preview", "extension-publisher"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:ac0e8fa460f317c910552daec453b9057ef47e7e1fca3734211c991eb206d956"
+content_hash = "sha256:f354be981268a367967673cf5222d51df31e9ce1b2b57bac80550ec036ee922e"
 
 [[metadata.targets]]
 requires_python = ">=3.12,<3.13"

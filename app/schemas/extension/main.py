@@ -212,5 +212,7 @@ class ExtensionPeerParticipationModel(sqlmodel.SQLModel, table=True):
   )
   config_schema: dict | None = sqlmodel.Field(
     default=None,
-    sa_column=sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True),
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.dialects.postgresql.JSONB(none_as_null=True), nullable=True
+    ),
   )

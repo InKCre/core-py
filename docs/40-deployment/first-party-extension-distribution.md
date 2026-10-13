@@ -88,17 +88,22 @@ Preview and production both finalize before delivering the wheel. The installed 
 `.dist-info/inkcre-extension.json`; Registry association metadata is not a replacement. The raw build output remains separate
 from the finalized upload. Repairing a published wheel requires a new project version, not overwriting an old Release.
 
-A checked commit may be older than current `main` only while it remains an ancestor. Immediately
-before the first Registry mutation, each selected job fetches `main` again and requires its
-artifact-input surface to be unchanged across `HEAD..origin/main`. A generated changelog-only or
-different-Extension commit therefore does not discard a valid build; a later change to the same
-artifact input stops the older job and leaves publication to the newer checked job.
+A checked commit may be older than current `main` only while it remains an ancestor. Before saving a
+candidate, the capture job fetches `main` again and requires that Extension's artifact-input surface
+to be unchanged across `HEAD..origin/main`. A generated changelog-only or different-Extension commit
+therefore does not discard a valid build; a later change to the same artifact input stops the older
+job before it records bytes for publication. Once capture succeeds, Registry retries use the saved
+wheel, prepare metadata, source revision, and digest without consulting moving `main` again.
 
 `workflow_dispatch` selects one exact discovered producer and is an `INITIAL_ONLY` lane for a
-version that does not yet exist. Because public
-descriptors intentionally omit private producer provenance, a new workflow run cannot safely
-resume an existing version: recovery must rerun the original Extension publication run so its
-stable `github.run_id` build identity is preserved.
+version that does not yet exist. Because public descriptors intentionally omit private producer
+provenance, a new workflow run cannot safely resume an existing version: recovery must rerun the
+original Extension publication run so its stable `github.run_id` build identity is preserved. The
+capture job stores the complete candidate before the publisher receives Registry credentials.
+Recovery reruns only the failed publish job, which locates and restores that run's unique artifact;
+the artifact's source revision and wheel digest are checked before any Registry call. If the artifact
+is missing or expired, recovery stops and requires investigation rather than rebuilding different
+bytes under the same version. Candidate artifacts are retained for 90 days.
 
 First-party global and Python documentation are static publication artifacts for the same exact
 Release, not Core HTTP routes or wheel contents. Producer tooling obtains documentation addresses
