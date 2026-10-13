@@ -11,7 +11,11 @@ ENV PDM_CHECK_UPDATE=false \
     PDM_VENV_IN_PROJECT=1
 WORKDIR /app
 
-RUN pip install --no-cache-dir "pdm==${PDM_VERSION}"
+# PDM installs the exact Git-pinned Runtime SDK from the frozen lock.
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir "pdm==${PDM_VERSION}"
 
 COPY pyproject.toml pdm.lock README.md ./
 RUN pdm install --prod --no-editable --frozen-lockfile
