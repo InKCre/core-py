@@ -1,4 +1,4 @@
-name: Publish first-party Extension wheels
+name: Publish first-party Extensions
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       extension:
-        description: Exact first-party Extension project to publish initially
+        description: Exact first-party Extension to publish initially
         required: true
         type: string
       initial_publication:
-        description: Type INITIAL_ONLY; recovery must rerun the original publication run
+        description: Type INITIAL_ONLY; recovery must rerun the original publish job
         required: true
         type: choice
         options:
@@ -25,16 +25,144 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  discover:
-    name: Discover first-party Extensions
+  candidate:
+    name: Capture complete Extension candidate
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: read
     outputs:
-      projects: ${{ steps.projects.outputs.projects }}
+      has_candidates: ${{ steps.plan.outputs.has_candidates }}
+    env:
+      INKCRE_EXTENSION_REGISTRY_URL: >-
+        ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://registry.inkcre.dev' }}
+      SOURCE_DATE_EPOCH: "315532800"
     steps:
-      - name: Checkout exact main source
+      - name: Checkout exact Core source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: core-py
+
+      - name: Checkout Web producer source once
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: InKCre/client-web
+          ref: main
+          persist-credentials: false
+          path: client-web
+
+      - name: Set up project Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version-file: core-py/.python-version
+
+      - name: Set up frozen publisher
+        uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
+        with:
+          python-version-file: core-py/.python-version
+          version: 2.28.0
+          cache: true
+
+      - name: Install frozen publisher
+        working-directory: core-py
+        run: pdm install --no-default --group extension-publisher --frozen-lockfile
+
+      - name: Install the pinned pnpm release
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.11.0
+
+      - name: Set up Web Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: client-web/package.json
+          cache: pnpm
+          cache-dependency-path: client-web/pnpm-lock.yaml
+          registry-url: https://npm.pkg.github.com
+          scope: '@inkcre'
+
+      - name: Install frozen Web workspace
+        working-directory: client-web
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Record fixed Web source SHA
+        id: web
+        run: echo "revision=$(git -C client-web rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Select Core Release versions and save the plan
+        id: plan
+        working-directory: core-py
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+          EXTENSION: ${{ inputs.extension }}
+          INITIAL_PUBLICATION: ${{ inputs.initial_publication }}
+          REQUESTED_EXTENSION: ${{ inputs.extension }}
+          WEB_REVISION: ${{ steps.web.outputs.revision }}
+        run: >-
+          pdm run python scripts/assemble_extension_release.py plan
+          --directory "$RUNNER_TEMP/first-party-extension-candidate"
+          --web-revision "$WEB_REVISION"
+
+      - name: Build every matching Web Distribution into the candidate
+        if: steps.plan.outputs.has_candidates == 'true'
+        working-directory: client-web
+        run: >-
+          node scripts/build-native-extension-candidates.mjs consume-plan
+          --plan "$RUNNER_TEMP/first-party-extension-candidate/plan.json"
+          --output "$RUNNER_TEMP/first-party-extension-candidate"
+
+      - name: Build and verify every Core wheel
+        if: steps.plan.outputs.has_candidates == 'true'
+        working-directory: core-py
+        run: >-
+          pdm run python scripts/assemble_extension_release.py build
+          --directory "$RUNNER_TEMP/first-party-extension-candidate"
+
+      - name: Verify all saved bytes and associations
+        if: steps.plan.outputs.has_candidates == 'true'
+        working-directory: core-py
+        run: >-
+          pdm run python scripts/assemble_extension_release.py check
+          --directory "$RUNNER_TEMP/first-party-extension-candidate"
+
+      - name: Save the complete immutable candidate
+        if: steps.plan.outputs.has_candidates == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: first-party-extension-candidate
+          path: ${{ runner.temp }}/first-party-extension-candidate
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: Prepare, upload, and publish saved candidate
+    needs: candidate
+    if: >-
+      needs.candidate.outputs.has_candidates == 'true' &&
+      github.repository == 'InKCre/core-py' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      INKCRE_EXTENSION_REGISTRY_TOKEN: ${{ secrets.INKCRE_EXTENSION_REGISTRY_TOKEN }}
+      INKCRE_EXTENSION_REGISTRY_URL: >-
+        ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://registry.inkcre.dev' }}
+    steps:
+      - name: Checkout exact Core source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up project Python
@@ -42,60 +170,7 @@ jobs:
         with:
           python-version-file: .python-version
 
-      - name: Discover exact producer set
-        id: projects
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          REQUESTED_EXTENSION: ${{ inputs.extension }}
-        run: bash scripts/automation/extension_publication.sh discover
-
-  publish:
-    name: Publish ${{ matrix.extension }}
-    needs: discover
-    if: needs.discover.result == 'success'
-    runs-on: ubuntu-latest
-    environment: production
-    strategy:
-      fail-fast: false
-      matrix:
-        extension: ${{ fromJSON(needs.discover.outputs.projects) }}
-    env:
-      INKCRE_EXTENSION_REGISTRY_TOKEN: ${{ secrets.INKCRE_EXTENSION_REGISTRY_TOKEN }}
-      INKCRE_EXTENSION_REGISTRY_URL: >-
-        ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://registry.inkcre.dev' }}
-      SOURCE_DATE_EPOCH: "315532800"
-    steps:
-      - name: Checkout exact main source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Verify source belongs to current main history
-        run: bash scripts/automation/extension_publication.sh verify-main-history
-
-      - name: Set up release selector Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version-file: .python-version
-
-      - name: Select new Extension version
-        id: selection
-        env:
-          BEFORE_SHA: ${{ github.event.before }}
-          EVENT_NAME: ${{ github.event_name }}
-          EXTENSION: ${{ matrix.extension }}
-          INITIAL_PUBLICATION: ${{ inputs.initial_publication }}
-          REQUESTED_EXTENSION: ${{ inputs.extension }}
-        run: bash scripts/automation/extension_publication.sh select
-
-      - name: Record unchanged Extension no-op
-        if: steps.selection.outputs.selected != 'true'
-        run: echo "No new ${{ matrix.extension }} version; publication is a no-op."
-
       - name: Set up frozen publisher
-        if: steps.selection.outputs.selected == 'true'
         uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
         with:
           python-version-file: .python-version
@@ -103,45 +178,29 @@ jobs:
           cache: true
 
       - name: Install frozen publisher
-        if: steps.selection.outputs.selected == 'true'
+        run: pdm install --no-default --group extension-publisher --frozen-lockfile
+
+      - name: Locate the original saved candidate
+        id: candidate
+        run: pdm run python scripts/assemble_extension_release.py locate
+
+      - name: Restore exact candidate bytes
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ steps.candidate.outputs.artifact_id }}
+          path: ${{ runner.temp }}/first-party-extension-candidate
+
+      - name: Verify candidate bytes and source identity
         run: >-
-          pdm install --no-default --group extension-publisher --frozen-lockfile
+          pdm run python scripts/assemble_extension_release.py check
+          --directory "$RUNNER_TEMP/first-party-extension-candidate"
 
-      - name: Build and verify native wheel
-        if: steps.selection.outputs.selected == 'true'
-        id: wheel
-        env:
-          EXTENSION: ${{ matrix.extension }}
-        run: bash scripts/automation/extension_publication.sh build
-
-      - name: Revalidate Extension artifact input before remote mutation
-        if: steps.selection.outputs.selected == 'true'
-        env:
-          EXTENSION: ${{ matrix.extension }}
-        run: bash scripts/automation/extension_publication.sh revalidate
-
-      - name: Prepare exact native Release association
-        if: steps.selection.outputs.selected == 'true'
-        env:
-          METADATA: ${{ steps.wheel.outputs.metadata }}
-        run: bash scripts/automation/extension_publication.sh prepare
-
-      - name: Upload wheel through native PyPI protocol
-        if: steps.selection.outputs.selected == 'true'
+      - name: Revalidate inputs before the first Registry mutation
         run: >-
-          pdm run uv publish
-          --publish-url "$INKCRE_EXTENSION_REGISTRY_URL/legacy/"
-          --token "$INKCRE_EXTENSION_REGISTRY_TOKEN"
-          "${{ steps.wheel.outputs.wheel }}"
+          pdm run python scripts/assemble_extension_release.py revalidate
+          --directory "$RUNNER_TEMP/first-party-extension-candidate"
 
-      - name: Publish exact Release
-        if: steps.selection.outputs.selected == 'true'
-        env:
-          METADATA: ${{ steps.wheel.outputs.metadata }}
-        run: bash scripts/automation/extension_publication.sh publish
-
-      - name: Verify anonymous exact Release descriptor
-        if: steps.selection.outputs.selected == 'true'
-        env:
-          METADATA: ${{ steps.wheel.outputs.metadata }}
-        run: bash scripts/automation/extension_publication.sh verify
+      - name: Prepare, upload all Distributions, then publish
+        run: >-
+          pdm run python scripts/assemble_extension_release.py publish
+          --directory "$RUNNER_TEMP/first-party-extension-candidate"

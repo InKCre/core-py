@@ -36,59 +36,44 @@ Peer enablement is mutated only by the atomic PostgREST function
 precedes enable persistence. Runtime stop precedes disable persistence; if that persistence fails,
 Core restarts the exact prior runtime while leaving durable intent unchanged.
 
-The seven first-party Extensions are independent PEP 420 wheels with the standard entry-point group
-and producer metadata in their `pyproject.toml`. That project version is the Python association's
-Release authority and must equal the Extension Release Version shared by its Distribution
-associations. Feature pull requests carry project-local Towncrier fragments and leave versions and
-changelogs unchanged. After checked `main`, one generated Release PR consumes pending fragments,
-applies each project's independent SemVer bump, and renders its changelog without publishing.
-Repository orchestration owns project impact and next-version calculation；Towncrier owns fragment
-validation and rendering。
+The seven first-party Extensions remain independent PEP 420 wheels with the standard entry-point
+group and producer metadata in their `pyproject.toml`. Feature pull requests carry project-local
+Towncrier fragments and leave versions and changelogs unchanged. After checked `main`, one generated
+Release PR consumes pending fragments, applies each project's independent SemVer bump, and renders
+its changelog without publishing. `scripts/release.py`, Towncrier, and the Extension `pyproject.toml`
+remain the version authority. Web producer metadata is generated from that Core version when the
+candidate is captured; Web Changesets continue to own the app and SDK versions.
 
-The initial feature merge also wakes the publisher, but no project version has changed yet, so its
+The initial feature merge wakes the publisher, but no Extension version has changed yet, so the
 selection is a no-op. The Release PR merge runs repository checks against the generated release
-state; only that checked `main` revision gives the existing publisher a new version to select and
-publish. Leaving the Release PR open defers publication while later fragments update the same plan。
+state; only that checked `main` revision gives the publisher a new version to select. Leaving the
+Release PR open defers publication while later fragments update the same plan. Publication never
+runs from the Release PR.
 
-Repository CI discovers the producer set and rejects missing or invalid project intent。Publication
-never runs from the Release PR。
+The trusted pull-request preview controller continues to build and verify the discovered Core wheel
+set and deploy its static sibling Registry. The facade exposes only exact Release reads, PEP 503
+Simple HTML, wheels, and PEP 658 metadata. It adds no Registry runtime, mutable lifecycle, token, or
+Core-hosted static route. Preview delivery passes the deterministic PR alias to Core; consumer
+acceptance remains a separate browser or black-box activity.
 
-The trusted pull-request preview controller reuses that same discovered producer set. Its dedicated
-PDM `extension-preview` tooling group builds and verifies all seven wheels, then the released
-`inkcre-extension-toolkit` projects one explicit Python inventory into a static sibling Registry.
-The exact-head workflow run deploys that tree directly to the dedicated Cloudflare Pages project;
-required checks neither upload nor hand off wheels or deployable Registry output. The facade exposes
-only exact Release reads, PEP 503 Simple HTML, wheels, and PEP 658 metadata. It adds no Registry
-runtime, mutable lifecycle, token, or Core-hosted static route.
+`.github/workflows/extension-publish.yml` selects changed Core Extension versions, checks the exact
+Core source, and checks out Web `main` once to fix its source SHA. It saves one plan containing both
+SHAs, the selected versions, and every full `PrepareReleaseRequest`. Web's candidate builder matches
+those Release names against its own producer manifests, writes the agreed version into each matching
+Web package, builds and verifies the Module Federation snapshot, and saves the ZIP and digest into
+the same candidate. A matching Web producer must produce its snapshot successfully; an Extension
+without a Web producer remains Python-only. Core builds and verifies finalized wheels, then checks
+that every declared association has matching saved bytes and provenance. The Runtime SDK install
+manifest remains inside `.dist-info/inkcre-extension.json`; Registry association metadata does not
+replace it.
 
-Preview delivery treats a successful Pages deployment command as sufficient delivery evidence. It
-passes the deterministic PR alias to Core without downloading every published file, comparing
-bytes, bypassing caches, or waiting for edge convergence. Consumer acceptance remains a separate
-manual or black-box activity and does not block the Heroku preview from starting.
-
-`.github/workflows/extension-publish.yml` prepares the Python association with source provenance,
-finalizes the newly built wheel using the released Toolkit's `python wheel finalize` command,
-uploads through `/legacy/`, and publishes the exact Release. Automatic runs obtain `before_sha`
-from the protected-main push and select only new projects or changed project versions;
-unchanged matrix entries are explicit no-ops. The matrix and repository wheel checks consume the
-same discovery result rather than separate project lists. An unprovable lineage or immutable
-prepare conflict fails the job.
-
-Preview and production both finalize before delivering the wheel. The installed runtime manifest belongs inside
-`.dist-info/inkcre-extension.json`; Registry association metadata is not a replacement. The raw build output remains separate
-from the finalized upload. Repairing a published wheel requires a new project version, not overwriting an old Release.
-
-A checked commit may be older than current `main` only while it remains an ancestor. Immediately
-before the first Registry mutation, each selected job fetches `main` again and requires its
-artifact-input surface to be unchanged across `HEAD..origin/main`. A generated changelog-only or
-different-Extension commit therefore does not discard a valid build; a later change to the same
-artifact input stops the older job and leaves publication to the newer checked job.
-
-`workflow_dispatch` selects one exact discovered producer and is an `INITIAL_ONLY` lane for a
-version that does not yet exist. Because public
-descriptors intentionally omit private producer provenance, a new workflow run cannot safely
-resume an existing version: recovery must rerun the original Extension publication run so its
-stable `github.run_id` build identity is preserved.
+The candidate artifact is saved before Registry writes and retained for 90 days. The protected
+production job restores those exact bytes, revalidates Core artifact inputs before its first
+Registry mutation, prepares every selected Release with all of its associations, uploads all
+Distributions, and only then publishes each Release. A retry reruns the publish job from the
+original workflow run and candidate; it does not rebuild from current `main` or create a second
+version decision. An expired or ambiguous candidate fails closed. `workflow_dispatch` remains an
+`INITIAL_ONLY` lane for one exact Extension version that has not yet been published.
 
 First-party global and Python documentation are static publication artifacts for the same exact
 Release, not Core HTTP routes or wheel contents. Producer tooling obtains documentation addresses
