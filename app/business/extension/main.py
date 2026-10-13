@@ -655,6 +655,20 @@ class ExtensionHost:
     self._loaded_versions[state.name] = selection.version
     return running
 
+  async def _get_current_enabled_selection(
+    self,
+    peer_id: typing.Any,
+    selection: ExtensionParticipation,
+  ) -> ExtensionParticipation | None:
+    current = await self.store.get_participation(peer_id, selection.name)
+    if current is None or (
+      current.distribution,
+      current.version,
+      current.enabled,
+    ) != (selection.distribution, selection.version, True):
+      return None
+    return current
+
   async def _stop(self, running: RunningExtension) -> None:
     await running.extension_class.on_close()
     running.extension_class.unpublish()
@@ -711,22 +725,42 @@ class ExtensionHost:
         raise ExtensionStateConflictError(
           f"{name} has unresolved legacy distribution; select its exact distribution first"
         )
-      running = await self._start(runtime_app, state, selection)
-      if selection.enabled:
-        return selection
+      if not selection.enabled:
+        selection = await self.store.set_participation_enabled(peer_id, name, True)
+      current = await self._get_current_enabled_selection(peer_id, selection)
+      if current is None:
+        raise ExtensionStateConflictError(
+          f"{name} selection or enabled intent changed before startup"
+        )
+      selection = current
       try:
-        persisted = await self.store.set_participation_enabled(peer_id, name, True)
-      except BaseException as persistence_error:
+        running = await self._start(runtime_app, state, selection)
+      except Exception as error:
+        self._operations[name] = (None, str(error))
+        raise
+      publishes_peer_inbounds = bool(running.extension_class.peer_inbounds())
+      if publishes_peer_inbounds:
+        await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+      current = await self._get_current_enabled_selection(peer_id, selection)
+      if current is None:
         failures = await self._force_stop(running)
+        if publishes_peer_inbounds:
+          try:
+            await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+          except Exception as error:
+            failures.append(error)
+        conflict = ExtensionStateConflictError(
+          f"{name} selection or enabled intent changed while startup was running"
+        )
+        self._operations[name] = (None, str(conflict))
         if failures:
           raise BaseExceptionGroup(
-            "Enable persistence and runtime compensation failed",
-            [persistence_error, *failures],
-          ) from persistence_error
-        raise
-      if running.extension_class.peer_inbounds():
-        await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
-      return persisted
+            "Extension startup intent changed and runtime cleanup failed",
+            [conflict, *failures],
+          )
+        raise conflict
+      self._operations[name] = (None, None)
+      return current
 
   async def disable(self, name: str, *, peer_id: typing.Any) -> ExtensionParticipation:
     validate_coordinate(name)
@@ -759,6 +793,8 @@ class ExtensionHost:
         if not selection.enabled:
           continue
         try:
+          if await self._get_current_enabled_selection(peer_id, selection) is None:
+            continue
           if selection.distribution is None:
             resolver, _ = await self._operation_consumers()
             legacy_release = await asyncio.to_thread(
@@ -776,7 +812,15 @@ class ExtensionHost:
             raise ExtensionCompatibilityError(
               f"Core cannot cold restore {selection.name} {selection.distribution}"
             )
-          await self._start(app, await self.get(selection.name), selection)
+          running = await self._start(app, await self.get(selection.name), selection)
+          if await self._get_current_enabled_selection(peer_id, selection) is None:
+            cleanup_failures = await self._force_stop(running)
+            if cleanup_failures:
+              raise ExceptionGroup(
+                f"Cold restore intent changed and cleanup failed for {selection.name}",
+                cleanup_failures,
+              )
+            continue
           self._operations[selection.name] = (None, None)
         except Exception as error:
           self._operations[selection.name] = (None, str(error))
