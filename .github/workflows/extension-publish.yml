@@ -66,7 +66,8 @@ jobs:
         with:
           python-version-file: core-py/.python-version
           version: 2.28.0
-          cache: false
+          cache: true
+          cache-dependency-path: core-py/pdm.lock
 
       - name: Install frozen publisher
         working-directory: core-py
