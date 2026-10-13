@@ -2,6 +2,7 @@
 
 from dataclasses import asdict, dataclass
 from enum import StrEnum
+from collections.abc import Callable
 
 
 class RuntimePhase(StrEnum):
@@ -36,3 +37,23 @@ class RuntimeStatus:
 
 
 RUNTIME_STATUS = RuntimeStatus()
+
+_PROCESS_RESTART_REQUESTED = False
+_PROCESS_RESTART_CALLBACK: Callable[[], None] | None = None
+
+
+def configure_process_restart(callback: Callable[[], None]) -> None:
+  global _PROCESS_RESTART_CALLBACK
+  _PROCESS_RESTART_CALLBACK = callback
+
+
+def request_process_restart() -> None:
+  """Ask the entrypoint to replace this process after graceful shutdown."""
+  global _PROCESS_RESTART_REQUESTED
+  _PROCESS_RESTART_REQUESTED = True
+  if _PROCESS_RESTART_CALLBACK is not None:
+    _PROCESS_RESTART_CALLBACK()
+
+
+def process_restart_requested() -> bool:
+  return _PROCESS_RESTART_REQUESTED

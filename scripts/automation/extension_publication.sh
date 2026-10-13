@@ -51,7 +51,7 @@ PY
         status="$(curl --retry 2 --retry-delay 1 --retry-all-errors \
           --connect-timeout 10 --max-time 30 \
           --silent --output /dev/null --write-out '%{http_code}' \
-          "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version")"
+          "$INKCRE_EXTENSION_REGISTRY_URL/v2/extensions/$namespace/$name/distributions/python/releases/$version")"
         case "$status" in
           200) ;;
           404) selected=true ;;
@@ -89,6 +89,85 @@ PY
     emit_output metadata "$metadata"
     emit_output wheel "$wheel"
     ;;
+  save-candidate)
+    for name in CANDIDATE_ROOT EXTENSION GITHUB_RUN_ID GITHUB_SHA SELECTED; do
+      require_env "$name"
+    done
+    mkdir -p "$CANDIDATE_ROOT"
+    if [ -n "$(find "$CANDIDATE_ROOT" -mindepth 1 -print -quit)" ]; then
+      echo "Candidate directory is not empty; refusing to replace saved release bytes." >&2
+      exit 1
+    fi
+    if [ "$SELECTED" != true ]; then
+      jq -n --arg extension "$EXTENSION" --arg run_id "$GITHUB_RUN_ID" \
+        --arg source_revision "$GITHUB_SHA" \
+        '{selected:false,extension:$extension,run_id:$run_id,source_revision:$source_revision}' \
+        > "$CANDIDATE_ROOT/candidate.json"
+      exit 0
+    fi
+    for name in METADATA WHEEL; do require_env "$name"; done
+    test -f "$METADATA"
+    test -f "$WHEEL"
+    source_revision="$(jq -er '.prepare.python.source_revision' "$METADATA")"
+    build_id="$(jq -er '.prepare.python.build_id' "$METADATA")"
+    test "$source_revision" = "$GITHUB_SHA"
+    test "$build_id" = "$GITHUB_RUN_ID"
+    wheel_name="$(basename "$WHEEL")"
+    cp "$METADATA" "$CANDIDATE_ROOT/metadata.json"
+    cp "$WHEEL" "$CANDIDATE_ROOT/$wheel_name"
+    wheel_sha256="$(shasum -a 256 "$CANDIDATE_ROOT/$wheel_name" | cut -d ' ' -f 1)"
+    printf '%s\n' "$wheel_sha256" > "$CANDIDATE_ROOT/wheel.sha256"
+    jq -n --arg extension "$EXTENSION" --arg run_id "$GITHUB_RUN_ID" \
+      --arg source_revision "$source_revision" --arg wheel "$wheel_name" \
+      --arg wheel_sha256 "$wheel_sha256" \
+      '{selected:true,extension:$extension,run_id:$run_id,source_revision:$source_revision,wheel:$wheel,wheel_sha256:$wheel_sha256,metadata:"metadata.json"}' \
+      > "$CANDIDATE_ROOT/candidate.json"
+    ;;
+  locate-artifact)
+    for name in ARTIFACT_NAME GH_TOKEN GITHUB_REPOSITORY GITHUB_RUN_ID; do
+      require_env "$name"
+    done
+    artifact_ids="$(gh api \
+      --paginate \
+      "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+      --jq '.artifacts[] | select(.name == env.ARTIFACT_NAME and .expired == false) | .id')"
+    count="$(printf '%s\n' "$artifact_ids" | sed '/^$/d' | wc -l | tr -d ' ')"
+    if [ "$count" != 1 ]; then
+      echo "Expected one unexpired saved candidate artifact named $ARTIFACT_NAME; found $count. Do not rebuild this release." >&2
+      exit 1
+    fi
+    emit_output artifact_id "$artifact_ids"
+    ;;
+  restore-candidate)
+    for name in CANDIDATE_ROOT EXTENSION GITHUB_RUN_ID GITHUB_SHA; do
+      require_env "$name"
+    done
+    manifest="$CANDIDATE_ROOT/candidate.json"
+    test -f "$manifest"
+    test "$(jq -er '.extension' "$manifest")" = "$EXTENSION"
+    test "$(jq -er '.run_id' "$manifest")" = "$GITHUB_RUN_ID"
+    test "$(jq -er '.source_revision' "$manifest")" = "$GITHUB_SHA"
+    selected="$(jq -er '.selected' "$manifest")"
+    emit_output selected "$selected"
+    if [ "$selected" != true ]; then exit 0; fi
+
+    wheel_name="$(jq -er '.wheel' "$manifest")"
+    metadata_name="$(jq -er '.metadata' "$manifest")"
+    expected_sha256="$(jq -er '.wheel_sha256' "$manifest")"
+    [[ "$wheel_name" =~ ^[A-Za-z0-9_.+-]+\.whl$ ]]
+    [[ "$expected_sha256" =~ ^[0-9a-f]{64}$ ]]
+    test -f "$CANDIDATE_ROOT/$wheel_name"
+    test -f "$CANDIDATE_ROOT/$metadata_name"
+    actual_sha256="$(shasum -a 256 "$CANDIDATE_ROOT/$wheel_name" | cut -d ' ' -f 1)"
+    test "$actual_sha256" = "$expected_sha256"
+    metadata_revision="$(jq -er '.prepare.python.source_revision' "$CANDIDATE_ROOT/$metadata_name")"
+    metadata_build_id="$(jq -er '.prepare.python.build_id' "$CANDIDATE_ROOT/$metadata_name")"
+    test "$metadata_revision" = "$GITHUB_SHA"
+    test "$metadata_build_id" = "$GITHUB_RUN_ID"
+    test "$(jq -er '.distribution' "$CANDIDATE_ROOT/$metadata_name")" = python
+    emit_output wheel "$CANDIDATE_ROOT/$wheel_name"
+    emit_output metadata "$CANDIDATE_ROOT/$metadata_name"
+    ;;
   revalidate)
     require_env EXTENSION
     git fetch --no-tags origin main
@@ -101,12 +180,14 @@ PY
       require_env "$name"
     done
     coordinate="$(jq -r '.coordinate' "$METADATA")"
+    distribution="$(jq -er '.distribution' "$METADATA")"
+    test "$distribution" = python
     namespace="${coordinate%%/*}"
     name="${coordinate#*/}"
     curl --fail-with-body --silent --show-error --request POST \
       --header "Authorization: Bearer $INKCRE_EXTENSION_REGISTRY_TOKEN" \
       --header "Content-Type: application/json" --data "$(jq -c '.prepare' "$METADATA")" \
-      "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases"
+      "$INKCRE_EXTENSION_REGISTRY_URL/v2/extensions/$namespace/$name/distributions/$distribution/releases"
     ;;
   publish)
     for name in INKCRE_EXTENSION_REGISTRY_TOKEN INKCRE_EXTENSION_REGISTRY_URL METADATA; do
@@ -114,25 +195,33 @@ PY
     done
     coordinate="$(jq -r '.coordinate' "$METADATA")"
     version="$(jq -r '.version' "$METADATA")"
+    distribution="$(jq -er '.distribution' "$METADATA")"
+    test "$distribution" = python
     namespace="${coordinate%%/*}"
     name="${coordinate#*/}"
     curl --fail-with-body --silent --show-error --request POST \
       --header "Authorization: Bearer $INKCRE_EXTENSION_REGISTRY_TOKEN" \
-      "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version/publish"
+      "$INKCRE_EXTENSION_REGISTRY_URL/v2/extensions/$namespace/$name/distributions/$distribution/releases/$version/publish"
     ;;
   verify)
     require_env INKCRE_EXTENSION_REGISTRY_URL
     require_env METADATA
     coordinate="$(jq -r '.coordinate' "$METADATA")"
     version="$(jq -r '.version' "$METADATA")"
+    distribution="$(jq -er '.distribution' "$METADATA")"
+    project="$(jq -er '.project' "$METADATA")"
+    test "$distribution" = python
     namespace="${coordinate%%/*}"
     name="${coordinate#*/}"
     curl --retry 2 --retry-delay 1 --retry-all-errors \
       --connect-timeout 10 --max-time 30 --fail --silent --show-error \
-      "$INKCRE_EXTENSION_REGISTRY_URL/v1/extensions/$namespace/$name/releases/$version" |
+      "$INKCRE_EXTENSION_REGISTRY_URL/v2/extensions/$namespace/$name/distributions/$distribution/releases/$version" |
       jq --exit-status --arg coordinate "$coordinate" --arg version "$version" \
+        --arg project "$project" \
         '.name == $coordinate and .version == $version and
-         .state == "published" and .python.host_sdk == "core-py"'
+         .distribution == "python" and .state == "published" and
+         .python.project == $project and .python.host_sdk == "core-py" and
+         .module_federation == null'
     ;;
   *) echo "unknown Extension publication command: ${1:-}" >&2; exit 2 ;;
 esac

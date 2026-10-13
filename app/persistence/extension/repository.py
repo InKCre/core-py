@@ -6,8 +6,7 @@ import sqlalchemy
 import sqlmodel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database_contract.constants import PROTOCOL_SCHEMA
-from app.schemas.extension import ExtensionModel
+from app.schemas.extension import ExtensionModel, ExtensionPeerParticipationModel
 
 
 class ExtensionRepository:
@@ -40,12 +39,34 @@ class ExtensionRepository:
   async def delete(self, row: ExtensionModel) -> None:
     await self._session.delete(row)
 
-  async def set_peer_enabled(self, name: str, peer_id: uuid.UUID, enabled: bool):
-    result = await self._session.execute(
-      sqlalchemy.text(
-        f"SELECT * FROM {PROTOCOL_SCHEMA}.set_extension_peer_enabled("
-        ":p_name, :p_peer_id, :p_enabled)"
-      ),
-      {"p_name": name, "p_peer_id": peer_id, "p_enabled": enabled},
+  async def list_participations(self, peer_id: uuid.UUID):
+    rows = await self._session.scalars(
+      sqlmodel.select(ExtensionPeerParticipationModel)
+      .where(ExtensionPeerParticipationModel.peer_id == peer_id)
+      .order_by(ExtensionPeerParticipationModel.name)
     )
-    return result.mappings().one_or_none()
+    return tuple(rows)
+
+  async def list_participations_for_extension(self, name: str):
+    rows = await self._session.scalars(
+      sqlmodel.select(ExtensionPeerParticipationModel).where(
+        ExtensionPeerParticipationModel.name == name
+      )
+    )
+    return tuple(rows)
+
+  async def get_participation(self, name: str, peer_id: uuid.UUID, *, lock: bool = False):
+    statement = sqlmodel.select(ExtensionPeerParticipationModel).where(
+      ExtensionPeerParticipationModel.name == name,
+      ExtensionPeerParticipationModel.peer_id == peer_id,
+    )
+    if lock:
+      statement = statement.with_for_update()
+    return (await self._session.scalars(statement)).one_or_none()
+
+  async def save_participation(self, row: ExtensionPeerParticipationModel) -> None:
+    self._session.add(row)
+    await self._session.flush()
+
+  async def delete_participation(self, row: ExtensionPeerParticipationModel) -> None:
+    await self._session.delete(row)

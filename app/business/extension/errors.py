@@ -18,10 +18,15 @@ class ExtensionRestartRequiredError(ExtensionStateConflictError):
   """The loaded Distribution can only be replaced after process restart."""
 
 
+class ExtensionEnvironmentApplicationRequiredError(ExtensionStateConflictError):
+  """The selected exact Python release is absent from this Peer environment."""
+
+
 __all__ = [
   "ExtensionAcquisitionError",
   "ExtensionCompatibilityError",
   "ExtensionEntryPointError",
+  "ExtensionEnvironmentApplicationRequiredError",
   "ExtensionHostError",
   "ExtensionLifecycleError",
   "ExtensionNotInstalledError",

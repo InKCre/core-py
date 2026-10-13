@@ -10,6 +10,7 @@ __all__ = [
   "JobModel",
   "CronModel",
   "ExtensionModel",
+  "ExtensionPeerParticipationModel",
   "AIDialectModel",
   "AIProviderModel",
   "AIModelModel",
@@ -39,7 +40,7 @@ from .info_base.relation import RelationModel
 from .source import SourceModel
 from .job import JobModel, JobTypeModel
 from .cron import CronModel
-from .extension.main import ExtensionModel
+from .extension.main import ExtensionModel, ExtensionPeerParticipationModel
 from .ai import (
   AIDialectModel,
   AIModelModel,

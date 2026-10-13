@@ -49,22 +49,29 @@ jobs:
           REQUESTED_EXTENSION: ${{ inputs.extension }}
         run: bash scripts/automation/extension_publication.sh discover
 
-  publish:
-    name: Publish ${{ matrix.extension }}
+  capture:
+    name: Capture ${{ matrix.extension }} candidate
     needs: discover
-    if: needs.discover.result == 'success'
+    if: >-
+      github.repository == 'InKCre/core-py' &&
+      needs.discover.result == 'success'
     runs-on: ubuntu-latest
-    environment: production
     strategy:
       fail-fast: false
       matrix:
         extension: ${{ fromJSON(needs.discover.outputs.projects) }}
     env:
-      INKCRE_EXTENSION_REGISTRY_TOKEN: ${{ secrets.INKCRE_EXTENSION_REGISTRY_TOKEN }}
       INKCRE_EXTENSION_REGISTRY_URL: >-
         ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://registry.inkcre.dev' }}
       SOURCE_DATE_EPOCH: "315532800"
+      CANDIDATE_ROOT: ${{ github.workspace }}/extension-candidate
     steps:
+      - name: Reject candidate reconstruction
+        if: github.run_attempt != 1
+        run: |
+          echo "Do not re-run candidate capture; retry only the saved publish job." >&2
+          exit 1
+
       - name: Checkout exact main source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -114,34 +121,112 @@ jobs:
           EXTENSION: ${{ matrix.extension }}
         run: bash scripts/automation/extension_publication.sh build
 
-      - name: Revalidate Extension artifact input before remote mutation
+      - name: Revalidate source before candidate capture
         if: steps.selection.outputs.selected == 'true'
         env:
           EXTENSION: ${{ matrix.extension }}
         run: bash scripts/automation/extension_publication.sh revalidate
 
-      - name: Prepare exact native Release association
-        if: steps.selection.outputs.selected == 'true'
+      - name: Save immutable candidate files
         env:
+          EXTENSION: ${{ matrix.extension }}
           METADATA: ${{ steps.wheel.outputs.metadata }}
+          SELECTED: ${{ steps.selection.outputs.selected }}
+          WHEEL: ${{ steps.wheel.outputs.wheel }}
+        run: bash scripts/automation/extension_publication.sh save-candidate
+
+      - name: Retain exact candidate for recovery
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: extension-python-${{ github.run_id }}-${{ matrix.extension }}
+          path: ${{ env.CANDIDATE_ROOT }}
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: Publish saved ${{ matrix.extension }} candidate
+    needs: [capture, discover]
+    if: >-
+      github.repository == 'InKCre/core-py' &&
+      needs.capture.result == 'success' && needs.discover.result == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        extension: ${{ fromJSON(needs.discover.outputs.projects) }}
+    env:
+      INKCRE_EXTENSION_REGISTRY_TOKEN: ${{ secrets.INKCRE_EXTENSION_REGISTRY_TOKEN }}
+      INKCRE_EXTENSION_REGISTRY_URL: >-
+        ${{ vars.INKCRE_EXTENSION_REGISTRY_URL || 'https://registry.inkcre.dev' }}
+      CANDIDATE_ROOT: ${{ github.workspace }}/extension-candidate
+      EXTENSION: ${{ matrix.extension }}
+      ARTIFACT_NAME: extension-python-${{ github.run_id }}-${{ matrix.extension }}
+
+    steps:
+      - name: Checkout exact source used by the candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Locate unique saved candidate artifact
+        id: artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/automation/extension_publication.sh locate-artifact
+
+      - name: Restore exact candidate files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ steps.artifact.outputs.artifact_id }}
+          path: ${{ env.CANDIDATE_ROOT }}
+          merge-multiple: true
+
+      - name: Verify saved candidate identity and digest
+        id: candidate
+        env:
+          EXTENSION: ${{ matrix.extension }}
+        run: bash scripts/automation/extension_publication.sh restore-candidate
+
+      - name: Set up frozen publisher
+        if: steps.candidate.outputs.selected == 'true'
+        uses: pdm-project/setup-pdm@973541a5febeafcfdadf8a51211435be6ecfd90f # v4.5
+        with:
+          python-version-file: .python-version
+          version: 2.28.0
+          cache: true
+
+      - name: Install frozen publisher
+        if: steps.candidate.outputs.selected == 'true'
+        run: >-
+          pdm install --no-default --group extension-publisher --frozen-lockfile
+
+      - name: Prepare exact native Release association
+        if: steps.candidate.outputs.selected == 'true'
+        env:
+          METADATA: ${{ steps.candidate.outputs.metadata }}
         run: bash scripts/automation/extension_publication.sh prepare
 
       - name: Upload wheel through native PyPI protocol
-        if: steps.selection.outputs.selected == 'true'
+        if: steps.candidate.outputs.selected == 'true'
         run: >-
           pdm run uv publish
           --publish-url "$INKCRE_EXTENSION_REGISTRY_URL/legacy/"
           --token "$INKCRE_EXTENSION_REGISTRY_TOKEN"
-          "${{ steps.wheel.outputs.wheel }}"
+          "${{ steps.candidate.outputs.wheel }}"
 
       - name: Publish exact Release
-        if: steps.selection.outputs.selected == 'true'
+        if: steps.candidate.outputs.selected == 'true'
         env:
-          METADATA: ${{ steps.wheel.outputs.metadata }}
+          METADATA: ${{ steps.candidate.outputs.metadata }}
         run: bash scripts/automation/extension_publication.sh publish
 
       - name: Verify anonymous exact Release descriptor
-        if: steps.selection.outputs.selected == 'true'
+        if: steps.candidate.outputs.selected == 'true'
         env:
-          METADATA: ${{ steps.wheel.outputs.metadata }}
+          METADATA: ${{ steps.candidate.outputs.metadata }}
         run: bash scripts/automation/extension_publication.sh verify

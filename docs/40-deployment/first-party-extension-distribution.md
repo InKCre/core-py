@@ -1,12 +1,15 @@
 # First-Party Extension Distribution
 
-Core stores one deployment row per exact Extension Release in `inkcre.extensions`: `name`,
-`version`, `enabled[]`, `nickname`, `config`, and `config_schema`. Installation, peer enablement,
-and process runtime remain distinct states. No first-party rows are seeded or synchronized.
+Core stores one shared Extension identity in `inkcre.extensions`: `name`, `nickname`, `config`,
+and producer-owned `state`. Each Peer stores its exact native selection and enabled intent in
+`inkcre.extension_peer_participations`, keyed by `(name, peer_id)`. A participation includes the
+distribution, exact version, enabled intent, and the config schema published by that exact release.
+Selection, enablement, and actual process runtime remain distinct states. No first-party rows are
+seeded or synchronized.
 
 For a new install or version change, Core requires an exact published Registry Release. Enabling
-or cold-restoring an already-installed exact Release may consume a yanked Release, but missing or
-blocked bytes leave the candidate unavailable without rewriting `enabled[]`.
+or cold-restoring an already-selected exact Release may consume a yanked Release, but missing or
+blocked bytes leave that Peer’s enabled intent unchanged.
 
 Python acquisition uses the Release's same-origin `/simple/<normalized-project>/` association.
 Every enable or cold restore first reads the exact Registry Release, checks its lifecycle state and
@@ -15,26 +18,32 @@ Core reuses that Distribution only when its Project, entry point and Host SDK ma
 Registry association. A damaged or conflicting installed record fails; it is not silently replaced.
 A missing record enters the independently released Runtime SDK acquisition path.
 
-The frozen Runtime SDK 0.1.5 downloads one compatible exact wheel without resolving dependencies
-from Registry, then performs ordinary `sys.executable -m pip install` in the Core virtual environment.
-That install may resolve Python dependencies from pip's package index; this SDK version has no
-`--dry-run` dependency preflight or no-dependency-mutation guarantee. Exact installed-record reuse
-skips this repeated acquisition and installation but does not change the miss path's policy.
+When the exact Distribution is absent, Core first downloads and validates its wheel without changing
+the interpreter. It then closes Peer execution, drains jobs and scheduled callbacks, closes running
+extensions, and applies the wheel with ordinary `sys.executable -m pip install` to the shared Core
+environment. Pip may resolve dependencies from its configured package index and may change packages
+used by other Extensions. After apply, Core replaces the process with a fresh one so Python imports
+cannot continue using modules loaded before the environment change. An apply failure is reported and
+leaves the Peer paused; Core does not claim package rollback. Exact installed-record reuse avoids
+this lifecycle only when the installed project, entry point, and Host SDK match the Registry record.
 The standard `inkcre.core.extensions` entry point is discovered globally and every loaded Extension
 module is verified against the installed wheel file record. There is no per-Extension target
 directory, custom ZIP loader or module search-path rewrite. Registry failure or a blocked Release
 still prevents restoration even when its Distribution is installed; installed yanked Releases retain
 their existing warning and admission behavior.
 
-Any version change or rollback is rejected while any peer remains in `enabled[]`. Operators first
-disable every peer, change the shared exact version, then re-enable peers. Replacing a wheel that
-was already imported marks the process restart-required; Core does not hot-load the new class in
-that process.
+Peers may select different versions of the same shared Extension. Changing one Peer’s exact
+selection is rejected while that Peer has the Extension enabled; other Peers’ selections do not
+block it. A changed pin clears its config schema until the selected release starts and provides a
+new schema. A process that already imported another version must restart; Core does not hot-load the
+new class. `running` and `loaded_version` report observed runtime facts and are never inferred from
+the durable enabled intent.
 
-Peer enablement is mutated only by the atomic PostgREST function
-`inkcre.set_extension_peer_enabled(p_name text, p_peer_id uuid, p_enabled boolean)`. Runtime start
-precedes enable persistence. Runtime stop precedes disable persistence; if that persistence fails,
-Core restarts the exact prior runtime while leaving durable intent unchanged.
+V2 management commands select or remove a Peer’s exact pin, enable or disable that Peer’s intent,
+and report actual runtime status. A disabled pin may be removed; an enabled participation must first
+be disabled. A legacy enabled member migrates to its exact prior version with an unresolved
+distribution. Cold restore resolves only that exact Registry version and never substitutes the
+latest release. Failed resolution preserves the old intent and reports the error.
 
 The seven first-party Extensions are independent PEP 420 wheels with the standard entry-point group
 and producer metadata in their `pyproject.toml`. That project version is the Python association's
@@ -66,9 +75,10 @@ passes the deterministic PR alias to Core without downloading every published fi
 bytes, bypassing caches, or waiting for edge convergence. Consumer acceptance remains a separate
 manual or black-box activity and does not block the Heroku preview from starting.
 
-`.github/workflows/extension-publish.yml` prepares the Python association with source provenance,
-finalizes the newly built wheel using the released Toolkit's `python wheel finalize` command,
-uploads through `/legacy/`, and publishes the exact Release. Automatic runs obtain `before_sha`
+`.github/workflows/extension-publish.yml` prepares the exact Python Distribution Release at
+`/v2/extensions/{namespace}/{name}/distributions/python/releases` with source provenance,
+finalizes the newly built wheel using the pinned Toolkit's `python wheel finalize` command,
+uploads through `/legacy/`, and publishes that Python Release. Automatic runs obtain `before_sha`
 from the protected-main push and select only new projects or changed project versions;
 unchanged matrix entries are explicit no-ops. The matrix and repository wheel checks consume the
 same discovery result rather than separate project lists. An unprovable lineage or immutable
@@ -78,17 +88,24 @@ Preview and production both finalize before delivering the wheel. The installed 
 `.dist-info/inkcre-extension.json`; Registry association metadata is not a replacement. The raw build output remains separate
 from the finalized upload. Repairing a published wheel requires a new project version, not overwriting an old Release.
 
-A checked commit may be older than current `main` only while it remains an ancestor. Immediately
-before the first Registry mutation, each selected job fetches `main` again and requires its
-artifact-input surface to be unchanged across `HEAD..origin/main`. A generated changelog-only or
-different-Extension commit therefore does not discard a valid build; a later change to the same
-artifact input stops the older job and leaves publication to the newer checked job.
+A checked commit may be older than current `main` only while it remains an ancestor. Before saving a
+candidate, the capture job fetches `main` again and requires that Extension's artifact-input surface
+to be unchanged across `HEAD..origin/main`. A generated changelog-only or different-Extension commit
+therefore does not discard a valid build; a later change to the same artifact input stops the older
+job before it records bytes for publication. Once capture succeeds, Registry retries use the saved
+wheel, prepare metadata, source revision, and digest without consulting moving `main` again.
 
 `workflow_dispatch` selects one exact discovered producer and is an `INITIAL_ONLY` lane for a
-version that does not yet exist. Because public
-descriptors intentionally omit private producer provenance, a new workflow run cannot safely
-resume an existing version: recovery must rerun the original Extension publication run so its
-stable `github.run_id` build identity is preserved.
+version that does not yet exist. Because public descriptors intentionally omit private producer
+provenance, a new workflow run cannot safely resume an existing version: recovery must rerun the
+original Extension publication run so its stable `github.run_id` build identity is preserved. The
+capture job stores the complete candidate before the publisher receives Registry credentials.
+Recovery reruns only the failed publish job, which locates and restores that run's unique artifact;
+the artifact's source revision and wheel digest are checked before any Registry call. A full-workflow
+rerun enters capture and fails explicitly at `Reject candidate reconstruction`, while publish is
+skipped because capture did not succeed. This prevents a green run that silently does no work. If the
+artifact is missing or expired, recovery stops and requires investigation rather than rebuilding
+different bytes under the same version. Candidate artifacts are retained for 90 days.
 
 First-party global and Python documentation are static publication artifacts for the same exact
 Release, not Core HTTP routes or wheel contents. Producer tooling obtains documentation addresses
@@ -100,9 +117,10 @@ production DNS compromise or treat DNS/TLS success as proof that a documentation
 
 `.github/workflows/extension-documentation-publish.yml` is the protected manual publication lane
 for first-party producer documentation. It builds every scope under the selected producer with the
-pinned shared VitePress toolchain, reads the current scope ETags, and saves complete Toolkit
-candidates before any Registry write. The publish job restores those exact candidates, revalidates
-their source against current `main`, publishes them, and checks their public snapshot origins.
+pinned shared VitePress toolchain, reads the current Python Distribution's scope ETags, and saves
+complete Toolkit candidates before any Registry write. The publish job restores those exact
+candidates, revalidates their source against current `main`, publishes them, and checks their public
+snapshot origins.
 Recovery reruns only the failed publish job; rerunning all jobs is rejected because it would create
 new snapshot identities. Candidate artifacts are retained for 90 days.
 
@@ -117,8 +135,9 @@ owners deploy through the explicit Render or Heroku self-host workflow instead.
 Core Host 0.2 uses Runtime SDK async startup and persistence capabilities. Host operations and
 Extension config/state mutations must be awaited; in-memory config projection and typed mutation
 callbacks remain synchronous. ExtensionStateService owns each short business transaction;
-app/persistence/extension owns SQL and session creation. Row locks serialize state transforms, and
-the shared enabled RPC retains ownership of enabled[].
+app/persistence/extension owns SQL and session creation. Row locks serialize state transforms. A
+participation row owns only one Peer’s exact selection, enabled intent, and version-scoped config
+schema; shared Extension config and state remain deployment-wide.
 
 Registry-origin database reads finish before Registry HTTP and wheel acquisition. The existing
 blocking artifact clients run in a worker without a database session. Startup failure or cancellation
@@ -133,8 +152,9 @@ SDK 0.3 through `>=0.2.0 <0.4.0`. Memos uses the new HTTP address API and requir
 `>=0.3.0 <0.4.0`. Compatibility metadata changes require new immutable Extension
 releases; an old wheel's range must not be widened. Before upgrading a deployment, disable affected
 old Extensions, adopt the matching Core/Extension releases, restart where a loaded wheel was replaced,
-and then enable them. A persisted old enabled[] intent is not silently removed on failed cold restore.
-For Extensions with both Python and Module Federation distributions, prepare both at the same new
-Extension version, even when the browser code is unchanged. Do not upgrade only the Python
-association and lose the browser distribution required by the installed Extension. Compatible
-artifacts must be available before the deployment upgrade.
+and then enable them. A migrated exact-version legacy intent is not silently removed on failed cold restore.
+Python and Module Federation Releases are versioned independently for the same Extension identity.
+Publish a new version only for the Distribution whose artifact or compatibility contract changed;
+documentation is also attached to the exact native Distribution Release. A Peer selects the
+Distribution and version it can execute, so availability of another Distribution does not imply
+that the selected one exists.

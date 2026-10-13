@@ -65,29 +65,6 @@ PROTOCOL_FUNCTIONS: dict[str, dict[str, object]] = {
     "returns_set": False,
     "volatility": "volatile",
   },
-  "set_extension_peer_enabled": {
-    "arguments": [
-      {
-        "name": "p_name",
-        "type": {"kind": "string"},
-      },
-      {
-        "name": "p_peer_id",
-        "type": {"kind": "string", "format": "uuid"},
-      },
-      {
-        "name": "p_enabled",
-        "type": {"kind": "boolean"},
-      },
-    ],
-    "returns": {
-      "kind": "relation",
-      "relation": "extensions",
-      "database_type": "inkcre.extensions",
-    },
-    "returns_set": True,
-    "volatility": "volatile",
-  },
 }
 
 

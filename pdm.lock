@@ -5,7 +5,7 @@
 groups = ["default", "dev", "extension-preview", "extension-publisher"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:a35a2bf8c4d178b0ddeea60b4c4256e1817073eb6c137e80f8c1bfbf1c1154a4"
+content_hash = "sha256:6383c5e30a7c10f73e15d96f0171e647efad371329f752d22bd0fc2cf9b04b9f"
 
 [[metadata.targets]]
 requires_python = ">=3.12,<3.13"
@@ -255,7 +255,7 @@ files = [
 [[package]]
 name = "build"
 version = "1.5.0"
-requires_python = ">=3.10"
+requires_python = ">= 3.10"
 summary = "A simple, correct Python build frontend"
 groups = ["dev", "extension-preview", "extension-publisher"]
 dependencies = [
@@ -431,7 +431,7 @@ files = [
 [[package]]
 name = "cryptography"
 version = "50.0.0"
-requires_python = "!=3.9.0,!=3.9.1,>=3.9"
+requires_python = ">=3.9, !=3.9.0, !=3.9.1"
 summary = "cryptography is a package which provides cryptographic recipes and primitives to Python developers."
 groups = ["default"]
 dependencies = [
@@ -845,9 +845,9 @@ files = [
 
 [[package]]
 name = "inkcre-extension-runtime-core-py"
-version = "0.1.5"
+version = "0.2.0"
 requires_python = "<3.14,>=3.12"
-url = "https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.1.5/inkcre_extension_runtime_core_py-0.1.5-py3-none-any.whl"
+url = "https://github.com/InKCre/ext-reg/releases/download/runtime-core-py-v0.2.0/inkcre_extension_runtime_core_py-0.2.0-py3-none-any.whl"
 summary = "InKCre Core Python Extension Host Runtime"
 groups = ["default"]
 dependencies = [
@@ -858,14 +858,14 @@ dependencies = [
     "semantic-version<3,>=2.10",
 ]
 files = [
-    {file = "inkcre_extension_runtime_core_py-0.1.5-py3-none-any.whl", hash = "sha256:12d73c2757cc97a4137b6f326ee66ea6b289478f9d49e7a8244f736de124c71e"},
+    {file = "inkcre_extension_runtime_core_py-0.2.0-py3-none-any.whl", hash = "sha256:b85b6fdeb363e8d3e6de1cdf4f3c6fd1c342163f22aac3bde3460006bf1e2bf8"},
 ]
 
 [[package]]
 name = "inkcre-extension-toolkit"
-version = "0.3.0"
+version = "0.5.0"
 requires_python = "<3.14,>=3.12"
-url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.3.0/inkcre_extension_toolkit-0.3.0-py3-none-any.whl"
+url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.5.0/inkcre_extension_toolkit-0.5.0-py3-none-any.whl"
 summary = "Developer and delivery tooling for InKCre Extensions"
 groups = ["extension-preview", "extension-publisher"]
 dependencies = [
@@ -874,25 +874,25 @@ dependencies = [
     "semantic-version<3,>=2.10",
 ]
 files = [
-    {file = "inkcre_extension_toolkit-0.3.0-py3-none-any.whl", hash = "sha256:e6031f5e35ed92c9cff8df07d2b37c8aa792fb00250cc526a7b95cfe1d7270e9"},
+    {file = "inkcre_extension_toolkit-0.5.0-py3-none-any.whl", hash = "sha256:f690aefd4bfc61862c468ed73e9518057bd86453042f05ebb0394b7003015f82"},
 ]
 
 [[package]]
 name = "inkcre-extension-toolkit"
-version = "0.3.0"
+version = "0.5.0"
 extras = ["cli"]
 requires_python = "<3.14,>=3.12"
-url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.3.0/inkcre_extension_toolkit-0.3.0-py3-none-any.whl"
+url = "https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.5.0/inkcre_extension_toolkit-0.5.0-py3-none-any.whl"
 summary = "Developer and delivery tooling for InKCre Extensions"
 groups = ["extension-preview", "extension-publisher"]
 dependencies = [
     "httpx<0.29,>=0.28",
-    "inkcre-extension-toolkit @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.3.0/inkcre_extension_toolkit-0.3.0-py3-none-any.whl",
+    "inkcre-extension-toolkit @ https://github.com/InKCre/ext-reg/releases/download/toolkit-v0.5.0/inkcre_extension_toolkit-0.5.0-py3-none-any.whl",
     "typer<0.22,>=0.21",
     "wheel<0.48,>=0.46",
 ]
 files = [
-    {file = "inkcre_extension_toolkit-0.3.0-py3-none-any.whl", hash = "sha256:e6031f5e35ed92c9cff8df07d2b37c8aa792fb00250cc526a7b95cfe1d7270e9"},
+    {file = "inkcre_extension_toolkit-0.5.0-py3-none-any.whl", hash = "sha256:f690aefd4bfc61862c468ed73e9518057bd86453042f05ebb0394b7003015f82"},
 ]
 
 [[package]]
@@ -1270,7 +1270,7 @@ files = [
 [[package]]
 name = "nodeenv"
 version = "1.10.0"
-requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
+requires_python = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*"
 summary = "Node.js virtual environment builder"
 groups = ["dev"]
 files = [
@@ -2201,7 +2201,7 @@ files = [
 [[package]]
 name = "six"
 version = "1.17.0"
-requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 summary = "Python 2 and 3 compatibility utilities"
 groups = ["default"]
 files = [
@@ -2425,7 +2425,7 @@ files = [
 [[package]]
 name = "truststore"
 version = "0.10.4"
-requires_python = ">=3.10"
+requires_python = ">= 3.10"
 summary = "Verify certificates using native system trust stores"
 groups = ["default"]
 marker = "sys_platform != \"emscripten\""

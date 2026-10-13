@@ -233,6 +233,7 @@ def affected_projects(base: str) -> set[str]:
     "scripts/automation/runtime_artifact.sh",
     "scripts/automation/runtime_contract.sh",
     "scripts/container.py",
+    "scripts/web.py",
   }
   for path in paths:
     parts = path.split("/")

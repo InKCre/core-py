@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass
+from pathlib import Path
+import tempfile
 import typing
 
 import fastapi
@@ -19,13 +21,18 @@ from app.business.peer import PeerManager
 from app.schemas.extension import (
   DisableExtensionCommand,
   EnableExtensionCommand,
+  ExtensionPeerStatus,
+  ExtensionPeerStatusRow,
   ExtensionManagementCommand,
-  InstallExtensionCommand,
+  ExtensionStatusCommand,
   PatchExtensionConfigCommand,
+  SelectExtensionCommand,
+  UnselectExtensionCommand,
 )
 from app.schemas.peer import PeerProtocolRequest, PeerProtocolResponse, PeerRef
 from app.settings import settings
 from app.version import CORE_VERSION
+from app.runtime import request_process_restart
 from libs.obsrv.main import get_logger
 
 from .distribution import (
@@ -37,6 +44,7 @@ from .distribution import (
 from .config import resolve_extension_registry_origin
 from .errors import (
   ExtensionCompatibilityError,
+  ExtensionEnvironmentApplicationRequiredError,
   ExtensionHostError,
   ExtensionNotInstalledError,
   ExtensionRestartRequiredError,
@@ -56,11 +64,16 @@ from .runtime import (
   ExtensionRuntimeClaim,
   ExtensionRuntimeClaimConflictError,
 )
-from .state import ExtensionStore, InstalledExtension, ExtensionStateService
+from .state import (
+  ExtensionParticipation,
+  ExtensionStore,
+  InstalledExtension,
+  ExtensionStateService,
+)
 
 
 LOGGER = get_logger().getChild(__name__)
-EXTENSION_MANAGEMENT_CAPABILITY = "core.extension.management.v1"
+EXTENSION_MANAGEMENT_CAPABILITY = "core.extension.management.v2"
 
 
 class ExtensionDelegationError(RuntimeError):
@@ -107,7 +120,9 @@ class _ActiveExtensionModel:
   name: str
   config: dict[str, typing.Any]
   store: ExtensionStore
-  persist_schema: bool = True
+  peer_id: typing.Any
+  distribution: str
+  version: str
 
   async def _refresh_async(self) -> _ActiveExtensionModel:
     self.config = await self.store.read_config(self.name)
@@ -123,10 +138,9 @@ class _ActiveExtensionModel:
   async def update_config_schema_async(
     self, schema: dict[str, typing.Any]
   ) -> _ActiveExtensionModel:
-    if not self.persist_schema:
-      return await self._refresh_async()
-    persisted = await self.store.update_config_schema(self.name, schema)
-    self.config = dict(persisted.config)
+    await self.store.update_participation_config_schema(
+      self.peer_id, self.name, self.distribution, self.version, schema
+    )
     return self
 
   async def read_state_async(self) -> dict[str, typing.Any]:
@@ -161,7 +175,7 @@ class RunningExtension:
 
 
 class ExtensionHost:
-  """Canonical install/config/enable/disable/uninstall facade for Core."""
+  """Core’s Python-only runtime over shared identities and Peer selections."""
 
   def __init__(
     self,
@@ -181,27 +195,94 @@ class ExtensionHost:
     self.fastapi_app: fastapi.FastAPI | None = None
     self._loaded_versions: dict[str, str] = {}
     self._runtime_lock = asyncio.Lock()
+    self._operations: dict[str, tuple[str | None, str | None]] = {}
+    self._environment_application_pending = False
+    self.pause_peer_execution: typing.Callable[[], typing.Awaitable[None]] | None = None
 
   async def list(self) -> tuple[InstalledExtension, ...]:
     return await self.store.list()
+
+  async def get(self, name: str) -> InstalledExtension:
+    validate_coordinate(name)
+    state = await self.store.get(name)
+    if state is None:
+      raise ExtensionNotInstalledError(f"{name} is not installed")
+    return state
+
+  async def status(
+    self,
+    peer_id: typing.Any,
+    extension: str | None = None,
+  ) -> ExtensionPeerStatus:
+    if extension is not None:
+      validate_coordinate(extension)
+    names = (extension,) if extension is not None else None
+    shared = await self.store.list()
+    if names is not None:
+      shared = tuple(row for row in shared if row.name == names[0])
+    participations = {
+      row.name: row for row in await self.store.list_participations(peer_id)
+    }
+    supported = ("python",)
+    rows = []
+    for state in shared:
+      selected = participations.get(state.name)
+      running = self.running.get(state.name)
+      operation, error = self._operations.get(state.name, (None, None))
+      restart_required = operation in {"applying", "restarting"} or (
+        operation == "failed" and self._environment_application_pending
+      )
+      if selected is not None and selected.distribution == "python":
+        restart_required = restart_required or (
+          self._loaded_versions.get(state.name) not in (None, selected.version)
+        )
+        if not restart_required:
+          try:
+            installed = await asyncio.to_thread(
+              AcquiredDistribution.discover,
+              state.name,
+              selected.version,
+              CORE_VERSION,
+            )
+            restart_required = installed is None
+          except Exception as failure:
+            error = str(failure)
+      rows.append(
+        ExtensionPeerStatusRow(
+          name=state.name,
+          peer_id=peer_id,
+          distribution=selected.distribution if selected else None,
+          version=selected.version if selected else None,
+          enabled=selected.enabled if selected else False,
+          config_schema=selected.config_schema if selected else None,
+          supported_distributions=supported,
+          loaded_version=(
+            running.version if running else self._loaded_versions.get(state.name)
+          ),
+          running=running is not None,
+          restart_required=restart_required,
+          operation=operation,
+          error=error,
+        )
+      )
+    return ExtensionPeerStatus(
+      peer_id=peer_id,
+      supported_distributions=supported,
+      extensions=tuple(rows),
+    )
 
   async def manage(
     self,
     command: ExtensionManagementCommand,
     *,
     route_to_peer: PeerRef,
-  ) -> InstalledExtension:
-    """Execute one Extension command on one exact Peer."""
+  ) -> ExtensionPeerStatus:
     if route_to_peer == PeerManager.get_current_peer_ref():
       return await self.manage_local(command)
-
     request = PeerProtocolRequest(body=command.model_dump(mode="json"))
     result = await PeerManager.delegate(
       EXTENSION_MANAGEMENT_CAPABILITY,
-      typing.cast(
-        typing.Any,
-        request.model_dump(mode="json", exclude_unset=True),
-      ),
+      typing.cast(typing.Any, request.model_dump(mode="json", exclude_unset=True)),
       route_to_peer=route_to_peer,
     )
     try:
@@ -210,33 +291,31 @@ class ExtensionHost:
         raise ExtensionDelegationError(
           f"Extension management Peer returned HTTP {response.status}"
         )
-      return InstalledExtension.model_validate(response.body)
+      return ExtensionPeerStatus.model_validate(response.body)
     except pydantic.ValidationError as error:
       raise ExtensionDelegationError(
         "Extension management Peer returned an invalid response"
       ) from error
 
-  async def manage_local(
-    self,
-    command: ExtensionManagementCommand,
-  ) -> InstalledExtension:
-    """Execute one already-validated command without entering delegation."""
-    if isinstance(command, InstallExtensionCommand):
-      return await self.install(command.extension, command.version)
-    if isinstance(command, EnableExtensionCommand):
-      return await self.enable(command.extension)
-    if isinstance(command, DisableExtensionCommand):
-      return await self.disable(command.extension)
-    if isinstance(command, PatchExtensionConfigCommand):
-      return await self.patch_config(command.extension, command.patch)
-    typing.assert_never(command)
-
-  async def get(self, name: str) -> InstalledExtension:
-    validate_coordinate(name)
-    state = await self.store.get(name)
-    if state is None:
-      raise ExtensionNotInstalledError(f"{name} is not installed")
-    return state
+  async def manage_local(self, command: ExtensionManagementCommand) -> ExtensionPeerStatus:
+    peer_id = PeerManager.get_current_peer_ref()
+    if isinstance(command, ExtensionStatusCommand):
+      return await self.status(peer_id, command.extension)
+    if isinstance(command, SelectExtensionCommand):
+      await self.select(
+        command.extension, command.distribution, command.version, peer_id=peer_id
+      )
+    elif isinstance(command, EnableExtensionCommand):
+      await self.enable(command.extension, peer_id=peer_id)
+    elif isinstance(command, DisableExtensionCommand):
+      await self.disable(command.extension, peer_id=peer_id)
+    elif isinstance(command, UnselectExtensionCommand):
+      await self.unselect(command.extension, peer_id=peer_id)
+    elif isinstance(command, PatchExtensionConfigCommand):
+      await self.patch_config(command.extension, command.patch, peer_id=peer_id)
+    else:
+      typing.assert_never(command)
+    return await self.status(peer_id, command.extension)
 
   def _resolve(
     self,
@@ -248,19 +327,42 @@ class ExtensionHost:
   ):
     release = release_client.get(name, version)
     if release.state is ReleaseState.yanked and allow_yanked:
-      LOGGER.warning("Using yanked exact installed Release %s@%s", name, version)
+      LOGGER.warning("Using yanked exact Release %s@%s", name, version)
     elif release.state is not ReleaseState.published:
       raise ExtensionCompatibilityError(
         f"{name}@{version} is not available for this operation"
       )
     return release
 
-  async def install(self, name: str, version: str) -> InstalledExtension:
+  async def select(
+    self,
+    name: str,
+    distribution: str,
+    version: str,
+    *,
+    peer_id: typing.Any,
+  ) -> ExtensionParticipation:
+    async with self._runtime_lock:
+      return await self._select_locked(name, distribution, version, peer_id=peer_id)
+
+  async def _select_locked(
+    self,
+    name: str,
+    distribution: str,
+    version: str,
+    *,
+    peer_id: typing.Any,
+  ) -> ExtensionParticipation:
+    if self._environment_application_pending:
+      raise ExtensionStateConflictError(
+        "The Peer is paused while its Python environment is being applied"
+      )
     validate_coordinate(name, version)
-    existing = await self.store.get(name)
-    if existing is not None and existing.version == version:
-      return existing
-    release_client, _ = await self._operation_consumers()
+    if distribution != "python":
+      raise ExtensionCompatibilityError(
+        "This Core Peer supports only Python Extension distributions"
+      )
+    release_client, consumer = await self._operation_consumers()
     release = await asyncio.to_thread(
       self._resolve,
       name,
@@ -268,28 +370,149 @@ class ExtensionHost:
       allow_yanked=False,
       release_client=release_client,
     )
-    return await self.store.install(name, version, release.nickname)
+    association = require_python_association(release)
+    installed = await asyncio.to_thread(
+      AcquiredDistribution.discover, name, version, CORE_VERSION
+    )
+    install_required = installed is None
+    loaded_version = self._loaded_versions.get(name)
+    restart_required = loaded_version not in (None, version)
+    if installed is not None:
+      self._validate_installed_association(installed, association)
+    if install_required:
+      if self.pause_peer_execution is None:
+        raise ExtensionEnvironmentApplicationRequiredError(
+          f"{name}@{version} must be applied while the Peer is paused; "
+          "the process restart lifecycle is unavailable"
+        )
+      try:
+        self._operations[name] = ("downloading", None)
+        with tempfile.TemporaryDirectory(prefix="inkcre-extension-wheel-") as directory:
+          extension_wheel = await asyncio.to_thread(
+            consumer.download,
+            release,
+            association,
+            CORE_VERSION,
+            Path(directory),
+          )
+          if self._environment_application_pending:
+            raise ExtensionStateConflictError(
+              "Another Extension operation is already applying a Python environment"
+            )
+          self._environment_application_pending = True
+          self._operations[name] = ("applying", None)
+          await self.pause_peer_execution()
+          acquired = await asyncio.to_thread(
+            consumer.apply, extension_wheel, release, association, CORE_VERSION
+          )
+          self._validate_installed_association(acquired, association)
+      except Exception as error:
+        # Once application starts, package managers may partially change shared
+        # dependencies. Keep the Peer paused; never claim environment rollback.
+        self._operations[name] = ("failed", str(error))
+        raise ExtensionEnvironmentApplicationRequiredError(
+          f"Preparing or applying {name}@{version} failed; "
+          f"the Peer remains paused if application had started: {error}"
+        ) from error
+    try:
+      await self.store.ensure(name, release.nickname)
+      selected = await self.store.select_participation(peer_id, name, "python", version)
+    except Exception as error:
+      if install_required:
+        self._operations[name] = ("failed", str(error))
+        request_process_restart()
+        raise ExtensionEnvironmentApplicationRequiredError(
+          f"Applied {name}@{version}, but could not save the Peer selection; "
+          f"the process is restarting to reload the changed environment: {error}"
+        ) from error
+      raise
+    if install_required or restart_required:
+      self._environment_application_pending = True
+      self._operations[name] = ("restarting", None)
+      request_process_restart()
+    else:
+      self._operations[name] = (None, None)
+    return selected
 
-  async def uninstall(self, name: str) -> None:
+  @staticmethod
+  def _validate_installed_association(
+    acquired: AcquiredDistribution,
+    association: PythonReleaseDescriptor,
+  ) -> None:
+    record = acquired.record
+    if (
+      canonicalize_name(record.python.project) != canonicalize_name(association.project)
+      or record.python.entry_point.model_dump() != association.entry_point.model_dump()
+      or (record.host_sdk.name, record.host_sdk.version)
+      != (association.host_sdk, association.host_sdk_version)
+    ):
+      raise ExtensionCompatibilityError(
+        "Installed Distribution differs from the exact Registry association"
+      )
+
+  async def uninstall(self, name: str, *, peer_id: typing.Any) -> None:
     validate_coordinate(name)
+    if self._environment_application_pending:
+      raise ExtensionStateConflictError(
+        "The Peer is paused while its Python environment is being applied"
+      )
     if name in self.running:
       raise ExtensionStateConflictError(f"Cannot uninstall running Extension {name}")
-    await self.store.uninstall(name)
+    await self.store.remove_participation(peer_id, name)
+    try:
+      await self.store.uninstall(name)
+    except ExtensionStateConflictError:
+      # Other Peers still select this shared identity; only this Peer’s pin was removed.
+      return
+
+  async def unselect(self, name: str, *, peer_id: typing.Any) -> None:
+    validate_coordinate(name)
+    async with self._runtime_lock:
+      if self._environment_application_pending:
+        raise ExtensionStateConflictError(
+          "The Peer is paused while its Python environment is being applied"
+        )
+      if name in self.running:
+        raise ExtensionStateConflictError(f"Cannot remove running Extension {name}")
+      await self.store.remove_participation(peer_id, name)
 
   async def update_config(
     self,
     name: str,
     config: dict[str, typing.Any],
+    *,
+    peer_id: typing.Any,
   ) -> InstalledExtension:
+    async with self._runtime_lock:
+      return await self._update_config_locked(name, config, peer_id=peer_id)
+
+  async def _update_config_locked(
+    self,
+    name: str,
+    config: dict[str, typing.Any],
+    *,
+    peer_id: typing.Any,
+  ) -> InstalledExtension:
+    if self._environment_application_pending:
+      raise ExtensionStateConflictError(
+        "The Peer is paused while its Python environment is being applied"
+      )
     state = await self.get(name)
+    participation = await self.store.get_participation(peer_id, name)
     running = self.running.get(name)
     if running is None:
-      if state.config_schema is not None:
-        jsonschema.Draft202012Validator(state.config_schema).validate(config)
+      if participation and participation.config_schema is not None:
+        jsonschema.Draft202012Validator(participation.config_schema).validate(config)
       return await self.store.update_config(name, config)
+    if participation is None or (
+      participation.distribution,
+      participation.version,
+    ) != ("python", running.version):
+      raise ExtensionRestartRequiredError(
+        f"{name} is running {running.version}, which differs from this Peer’s selection"
+      )
     config_class = typing.cast(
-      type[sqlmodel.SQLModel],
-      getattr(running.extension_class, "__configcls__"),
+      type[sqlmodel.SQLModel], getattr(running.extension_class, "__configcls__")
     )
     validated = config_class(**config)
     await running.extension_class.update_config_async(validated)
@@ -299,10 +522,18 @@ class ExtensionHost:
     self,
     name: str,
     patch: dict[str, typing.Any],
+    *,
+    peer_id: typing.Any,
   ) -> InstalledExtension:
-    """Apply one shallow config patch through the canonical update path."""
-    current = await self.get(name)
-    return await self.update_config(name, {**current.config, **patch})
+    async with self._runtime_lock:
+      if self._environment_application_pending:
+        raise ExtensionStateConflictError(
+          "The Peer is paused while its Python environment is being applied"
+        )
+      current = await self.get(name)
+      return await self._update_config_locked(
+        name, {**current.config, **patch}, peer_id=peer_id
+      )
 
   async def _operation_consumers(
     self,
@@ -311,72 +542,66 @@ class ExtensionHost:
       return self.release_client, self.distribution_consumer
     origin = await self.registry_origin_resolver()
     release_client = self.release_client or RegistryReleaseClient(
-      origin,
-      settings.extension_registry_timeout_seconds,
+      origin, settings.extension_registry_timeout_seconds
     )
-    distribution_consumer = self.distribution_consumer or PipDistributionConsumer(origin)
-    return release_client, distribution_consumer
+    consumer = self.distribution_consumer or PipDistributionConsumer(origin)
+    return release_client, consumer
 
-  async def _acquire(self, state: InstalledExtension):
-    release_client, distribution_consumer = await self._operation_consumers()
+  async def _acquire(self, state: InstalledExtension, selection: ExtensionParticipation):
+    if selection.distribution != "python":
+      raise ExtensionCompatibilityError(
+        f"{state.name} is selected for an unsupported Distribution"
+      )
+    release_client, _consumer = await self._operation_consumers()
     release = await asyncio.to_thread(
       self._resolve,
       state.name,
-      state.version,
+      selection.version,
       allow_yanked=True,
       release_client=release_client,
     )
     association = require_python_association(release)
     loaded_version = self._loaded_versions.get(state.name)
-    if loaded_version is not None and loaded_version != state.version:
+    if loaded_version is not None and loaded_version != selection.version:
       raise ExtensionRestartRequiredError(
-        f"{state.name} {loaded_version} was already imported; "
-        f"restart before enabling {state.version}"
+        f"{state.name} {loaded_version} was already imported; restart before "
+        f"enabling {selection.version}"
       )
     acquired = await asyncio.to_thread(
-      AcquiredDistribution.discover, state.name, state.version, CORE_VERSION
+      AcquiredDistribution.discover, state.name, selection.version, CORE_VERSION
     )
-    if acquired is not None:
-      record = acquired.record
-      if (
-        canonicalize_name(record.python.project) != canonicalize_name(association.project)
-        or record.python.entry_point.model_dump() != association.entry_point.model_dump()
-        or (record.host_sdk.name, record.host_sdk.version)
-        != (association.host_sdk, association.host_sdk_version)
-      ):
-        raise ExtensionCompatibilityError(
-          "Installed Distribution differs from the exact Registry association"
-        )
-    else:
-      acquired = await asyncio.to_thread(
-        distribution_consumer.acquire, release, association
+    if acquired is None:
+      raise ExtensionEnvironmentApplicationRequiredError(
+        f"{state.name}@{selection.version} is selected but absent from this "
+        "Peer’s Python environment; "
+        "apply the exact distribution while this Peer is paused, then start a new process"
       )
+    self._validate_installed_association(acquired, association)
     return association, acquired
 
   async def _start(
     self,
     app: fastapi.FastAPI,
     state: InstalledExtension,
+    selection: ExtensionParticipation,
   ) -> RunningExtension:
     existing = self.running.get(state.name)
     if existing is not None:
-      if existing.version != state.version:
+      if existing.version != selection.version:
         raise ExtensionRestartRequiredError(
           f"A different Release of {state.name} is already running"
         )
       return existing
-
-    association, acquired = await self._acquire(state)
-    return await self._start_acquired(app, state, association, acquired)
+    association, acquired = await self._acquire(state, selection)
+    return await self._start_acquired(app, state, selection, association, acquired)
 
   async def _start_acquired(
     self,
     app: fastapi.FastAPI,
     state: InstalledExtension,
+    selection: ExtensionParticipation,
     association: PythonReleaseDescriptor,
     acquired: AcquiredDistribution,
-    *,
-    persist_schema: bool = True,
   ) -> RunningExtension:
     try:
       claim = ExtensionRuntimeClaim.acquire(association.entry_point.name)
@@ -388,7 +613,6 @@ class ExtensionHost:
       claim.release()
       raise
     extension_class: type[ExtensionBase] | None = None
-
     try:
       extension_class = typing.cast(type[ExtensionBase], modules.load(ExtensionBase))
       if extension_class.__extid__ != association.entry_point.name:
@@ -400,7 +624,9 @@ class ExtensionHost:
           name=state.name,
           config=dict(state.config),
           store=self.store,
-          persist_schema=persist_schema,
+          peer_id=selection.peer_id,
+          distribution=typing.cast(str, selection.distribution),
+          version=selection.version,
         )
       )
       await extension_class.on_start_async(app)
@@ -417,18 +643,31 @@ class ExtensionHost:
           extension_class.release_runtime()
       claim.release()
       raise
-
     running = RunningExtension(
       name=state.name,
-      version=state.version,
+      version=selection.version,
       association=association,
       acquired=acquired,
       extension_class=extension_class,
       claim=claim,
     )
     self.running[state.name] = running
-    self._loaded_versions[state.name] = state.version
+    self._loaded_versions[state.name] = selection.version
     return running
+
+  async def _get_current_enabled_selection(
+    self,
+    peer_id: typing.Any,
+    selection: ExtensionParticipation,
+  ) -> ExtensionParticipation | None:
+    current = await self.store.get_participation(peer_id, selection.name)
+    if current is None or (
+      current.distribution,
+      current.version,
+      current.enabled,
+    ) != (selection.distribution, selection.version, True):
+      return None
+    return current
 
   async def _stop(self, running: RunningExtension) -> None:
     await running.extension_class.on_close()
@@ -461,117 +700,151 @@ class ExtensionHost:
     self,
     name: str,
     *,
+    peer_id: typing.Any,
     app: fastapi.FastAPI | None = None,
-  ) -> InstalledExtension:
+  ) -> ExtensionParticipation:
     validate_coordinate(name)
+    if self._environment_application_pending:
+      raise ExtensionStateConflictError(
+        "The Peer is paused while its Python environment is being applied"
+      )
     runtime_app = app or self.fastapi_app
     if runtime_app is None:
       raise ExtensionRuntimeError("FastAPI app is required to enable an Extension")
     self.fastapi_app = runtime_app
-    peer_id = PeerManager.get_current_peer_ref()
     async with self._runtime_lock:
+      if self._environment_application_pending:
+        raise ExtensionStateConflictError(
+          "The Peer is paused while its Python environment is being applied"
+        )
       state = await self.get(name)
-      running = await self._start(runtime_app, state)
-      if peer_id in state.enabled:
-        return state
+      selection = await self.store.get_participation(peer_id, name)
+      if selection is None:
+        raise ExtensionNotInstalledError(f"{name} has no selection on this Peer")
+      if selection.distribution is None:
+        raise ExtensionStateConflictError(
+          f"{name} has unresolved legacy distribution; select its exact distribution first"
+        )
+      if not selection.enabled:
+        selection = await self.store.set_participation_enabled(peer_id, name, True)
+      current = await self._get_current_enabled_selection(peer_id, selection)
+      if current is None:
+        raise ExtensionStateConflictError(
+          f"{name} selection or enabled intent changed before startup"
+        )
+      selection = current
       try:
-        persisted = await self.store.set_peer_enabled(name, peer_id, True)
-      except BaseException as persistence_error:
+        running = await self._start(runtime_app, state, selection)
+      except Exception as error:
+        self._operations[name] = (None, str(error))
+        raise
+      publishes_peer_inbounds = bool(running.extension_class.peer_inbounds())
+      if publishes_peer_inbounds:
+        await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+      current = await self._get_current_enabled_selection(peer_id, selection)
+      if current is None:
         failures = await self._force_stop(running)
+        if publishes_peer_inbounds:
+          try:
+            await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
+          except Exception as error:
+            failures.append(error)
+        conflict = ExtensionStateConflictError(
+          f"{name} selection or enabled intent changed while startup was running"
+        )
+        self._operations[name] = (None, str(conflict))
         if failures:
           raise BaseExceptionGroup(
-            "Enable persistence and runtime compensation failed",
-            [persistence_error, *failures],
-          ) from persistence_error
-        raise
-      if persisted.version == running.version:
-        if running.extension_class.peer_inbounds():
-          await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
-        return persisted
+            "Extension startup intent changed and runtime cleanup failed",
+            [conflict, *failures],
+          )
+        raise conflict
+      self._operations[name] = (None, None)
+      return current
 
-      conflict = ExtensionStateConflictError(
-        f"{name} changed from {running.version} to {persisted.version} during enable"
-      )
-      compensation_failures: list[Exception] = []
-      try:
-        await self.store.set_peer_enabled(name, peer_id, False)
-      except Exception as error:
-        compensation_failures.append(error)
-      compensation_failures.extend(await self._force_stop(running))
-      if compensation_failures:
-        raise ExceptionGroup(
-          "Concurrent version change and enable compensation failed",
-          [conflict, *compensation_failures],
-        ) from conflict
-      raise conflict
-
-  async def disable(self, name: str) -> InstalledExtension:
+  async def disable(self, name: str, *, peer_id: typing.Any) -> ExtensionParticipation:
     validate_coordinate(name)
-    peer_id = PeerManager.get_current_peer_ref()
     async with self._runtime_lock:
-      state = await self.get(name)
-      if peer_id not in state.enabled:
-        return state
+      if self._environment_application_pending:
+        raise ExtensionStateConflictError(
+          "The Peer is paused while its Python environment is being applied"
+        )
+      selection = await self.store.get_participation(peer_id, name)
+      if selection is None:
+        raise ExtensionNotInstalledError(f"{name} has no selection on this Peer")
+      if not selection.enabled:
+        return selection
       running = self.running.get(name)
-      published_peer_inbounds = (
-        bool(running.extension_class.peer_inbounds()) if running is not None else False
-      )
+      published = bool(running and running.extension_class.peer_inbounds())
       if running is not None:
         await self._stop(running)
-      try:
-        persisted = await self.store.set_peer_enabled(name, peer_id, False)
-      except BaseException as persistence_error:
-        if running is None:
-          raise
-        runtime_app = self.fastapi_app
-        if runtime_app is None:
-          raise ExtensionRuntimeError(
-            "FastAPI app is unavailable for disable compensation"
-          ) from persistence_error
-        try:
-          await self._start_acquired(
-            runtime_app,
-            state,
-            running.association,
-            running.acquired,
-            persist_schema=False,
-          )
-        except Exception as restart_error:
-          raise BaseExceptionGroup(
-            "Disable persistence and runtime restart failed",
-            [persistence_error, restart_error],
-          ) from persistence_error
-        raise
-      if published_peer_inbounds:
+      persisted = await self.store.set_participation_enabled(peer_id, name, False)
+      if published:
         await PeerManager.refresh_self(settings.peer_lease_ttl_seconds)
       return persisted
 
   async def start_enabled(self, app: fastapi.FastAPI) -> None:
-    """Cold-restore exact enabled intent; failures never rewrite enabled[]."""
+    """Cold restore exact Python selections; never install packages in this process."""
     self.fastapi_app = app
     peer_id = PeerManager.get_current_peer_ref()
     failures: list[Exception] = []
     async with self._runtime_lock:
-      for state in await self.store.list():
-        if peer_id not in state.enabled:
+      for selection in await self.store.list_participations(peer_id):
+        if not selection.enabled:
           continue
         try:
-          await self._start(app, state)
+          if await self._get_current_enabled_selection(peer_id, selection) is None:
+            continue
+          if selection.distribution is None:
+            resolver, _ = await self._operation_consumers()
+            legacy_release = await asyncio.to_thread(
+              self._resolve,
+              selection.name,
+              selection.version,
+              allow_yanked=True,
+              release_client=resolver,
+            )
+            require_python_association(legacy_release)
+            selection = await self.store.select_participation(
+              peer_id, selection.name, "python", selection.version
+            )
+          if selection.distribution != "python":
+            raise ExtensionCompatibilityError(
+              f"Core cannot cold restore {selection.name} {selection.distribution}"
+            )
+          running = await self._start(app, await self.get(selection.name), selection)
+          if await self._get_current_enabled_selection(peer_id, selection) is None:
+            cleanup_failures = await self._force_stop(running)
+            if cleanup_failures:
+              raise ExceptionGroup(
+                f"Cold restore intent changed and cleanup failed for {selection.name}",
+                cleanup_failures,
+              )
+            continue
+          self._operations[selection.name] = (None, None)
         except Exception as error:
-          LOGGER.exception("Cold restore failed for %s", state.name)
-          error.add_note(f"Cold restore failed for {state.name}@{state.version}")
+          self._operations[selection.name] = (None, str(error))
+          LOGGER.exception("Cold restore failed for %s", selection.name)
+          error.add_note(f"Cold restore failed for {selection.name}@{selection.version}")
           failures.append(error)
     if failures:
       raise ExceptionGroup("Enabled Extensions failed to restore", failures)
 
   async def close_running(self) -> None:
-    failures: list[Exception] = []
     async with self._runtime_lock:
-      for running in tuple(self.running.values()):
-        try:
-          await self._stop(running)
-        except Exception as error:
-          failures.append(error)
+      await self._close_running_locked()
+
+  async def close_running_for_environment_application(self) -> None:
+    """Close extensions while select owns the lock and fences other mutations."""
+    await self._close_running_locked()
+
+  async def _close_running_locked(self) -> None:
+    failures: list[Exception] = []
+    for running in tuple(self.running.values()):
+      try:
+        await self._stop(running)
+      except Exception as error:
+        failures.append(error)
     if len(failures) == 1:
       raise failures[0]
     if failures:

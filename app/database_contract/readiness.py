@@ -41,7 +41,7 @@ TABLE_PRIVILEGES = {
   "UPDATE",
 }
 EXTENSIONS_TABLE_PRIVILEGES = TABLE_PRIVILEGES - {"UPDATE"}
-EXTENSIONS_UPDATE_COLUMNS = {"config", "config_schema", "nickname", "version"}
+EXTENSIONS_UPDATE_COLUMNS = {"config", "nickname", "state"}
 CORE_EXTENSIONS_UPDATE_COLUMNS = {"state"}
 SEQUENCE_PRIVILEGES = {"SELECT", "UPDATE", "USAGE"}
 
@@ -349,22 +349,6 @@ def _privilege_component(cursor, owner_role: str) -> dict[str, Any]:
     for denied in ("PUBLIC", ANONYMOUS_ROLE, AUTHENTICATOR_ROLE):
       if protocol_functions.get((function_name, denied)):
         problems.append(f"function_acl:{function_name}:{denied}")
-
-  cursor.execute(
-    """
-    SELECT
-      procedure.provolatile = 'v',
-      procedure.proisstrict,
-      procedure.prosecdef,
-      pg_get_function_result(procedure.oid) = 'SETOF inkcre.extensions',
-      procedure.proconfig = ARRAY['search_path=pg_catalog, inkcre']::text[]
-    FROM pg_proc AS procedure
-    WHERE procedure.oid =
-      to_regprocedure('inkcre.set_extension_peer_enabled(text,uuid,boolean)')
-    """
-  )
-  if cursor.fetchone() != (True, True, True, True, True):
-    problems.append("set_extension_peer_enabled_signature")
 
   cursor.execute(
     """

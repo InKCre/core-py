@@ -52,9 +52,20 @@ production、missing/unknown identity 均拒绝。Development seed只含 fixed p
 checks、trigger helpers 与其他 non-protocol mechanics。Internal helper 不得为了让 peer EXECUTE 而泄漏进 public
 schema。
 
-Current admitted application relations包括 blocks/relations、extensions、sources/jobs、storage catalog、
+Current admitted application relations包括 blocks/relations、extensions、
+`extension_peer_participations`、sources/jobs、storage catalog、
 `storage_blobs` 与 embeddings。`storage_blobs` 是 PostgreSQL binary storage 的 bytes backing relation，不是
 storage type、block kind 或 MIME authority。
+
+`extensions` owns shared Extension identity, config, and producer-owned state. A row in
+`extension_peer_participations` owns one Peer’s exact native distribution/version, enabled intent,
+and config schema for that exact selection. The v2 migration snapshots the former deployment-wide
+version, enabled-peer array, and config schema privately, then creates unresolved exact-version
+participations for the old enabled peers. Their config schema remains only in the private snapshot
+until a Host resolves the exact Distribution and version. The old `set_extension_peer_enabled` RPC
+and global Extension version/enable/schema columns are removed. Both native `inkcre_core` and
+authenticated PostgREST Peers can read and update the shared state object; anonymous callers cannot.
+Participation writes use the authenticated peer role under the same JWT boundary.
 
 ## PostgreSQL Binary Storage Protocol
 

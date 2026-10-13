@@ -5,8 +5,9 @@
 
 ## 稳定边界
 
-- 一个 canonical `extensions` row 表示 deployment 安装的 exact Release；`installed`、
-  `enabled[]`、`running` 不可混用。
+- `extensions` 表示共享的 Extension identity/config/state；
+  `extension_peer_participations(name, peer_id)` 保存每个 Peer 的精确分发、版本、enabled intent 与该版本的 config schema。
+  Selection、enabled intent、loaded version、running 必须分别报告。
 - `ExtensionBase` 保持配置校验、`on_start_async`、`on_close` 与 active-effect publication。Route、Peer inbound
   和 public claim 可逆；已 import 的 Source/Resolver/Sink class registration 在当前进程内单调保留。
 - Extension wheel 直接 import Core 模块；Host 只接受标准 `inkcre.core.extensions` entry point。
@@ -16,12 +17,14 @@
 - Registry admission、已安装记录复用与 Runtime SDK 的实际依赖安装行为，以
   [First-Party Extension Distribution](../../../docs/40-deployment/first-party-extension-distribution.md)
   为唯一说明。不要从 Extension wheel 的下载参数推导依赖安装策略。
-- 任意 peer enabled 时拒绝 version change/rollback。已 import 的 Project 被替换后必须重启，当前进程不可热加载
-  新 class；disable 也不模拟卸载 Python module。
+- 只在该 Peer 已 enabled 时拒绝替换它自己的 selection，其他 Peer 不锁住该 Peer 的版本。已 import 的 Project
+  被替换后必须重启，当前进程不可热加载新 class；disable 也不模拟卸载 Python module。
 - 新 install/upgrade 只接受 published；已安装 exact yanked Release 可 enable/cold restore 并告警。
-- enable 先启动 runtime，再调用 atomic enabled RPC；返回 version 不一致时移除 peer 并停止旧 runtime。
-- disable 先停止 runtime，再调用 RPC；RPC 失败时重启 exact prior runtime，durable intent 不变。
-- cold restore 失败不得删除 `enabled[]`；bootstrap/readiness 明确报告 durable intent 尚未运行。
+- 选择缺失的 Python wheel 时先下载并验证；暂停 Peer、排空任务并关闭 Extension 后，才把 wheel 安装到共享解释器。
+  应用失败时保留暂停与明确错误，不声称回滚。应用完成后必须以新进程重载 Python 模块。
+- enable 只允许启动当前 Peer 已选中的 exact installed Distribution，不隐式安装 pip 包。disable 先停止 runtime
+  再保存 intent；冷启动只恢复该 Peer 的精确选择。
+- 未解析的旧 enabled member 保留原版本与 enabled intent，必须精确解析该版本；失败不得删 intent，也不得回退到 latest。
 - `ExtensionBase` 向 Extension 提供 fresh validated config 读写与 typed deployment-wide state
   mutation；Extension 不接触 SQLModel，数据库行锁与并发语义仍由 Core store 实现。
 - Extension-specific setup 通过 running Extension 发布的 typed Peer inbound 实现；Host 不提供
@@ -31,10 +34,8 @@
 
 ## 权限和持久化
 
-`state.py` 拥有异步持久化用例与 state/config 规则；SQL 和 session-bound repository 位于
+`state.py` 拥有异步持久化用例与 shared state/config 规则；SQL 和 session-bound repository 位于
 `app/persistence/extension/`，UoW 工厂使用原生异步事务。`extensions.state` 是 deployment-wide Extension-produced state；
-`enabled[]` 只能通过
-`inkcre.set_extension_peer_enabled(p_name text,p_peer_id uuid,p_enabled boolean)` 变更，禁止
-read-modify-write。SQLModel 不应泄露成 Host 的稳定接口。
+`extension_peer_participations` 保存 Peer-local selection、enabled intent 与精确版本 config schema。SQLModel 不应泄露成 Host 的稳定接口。
 
 Extension authoring 与 wheel metadata 规则见 `extensions/AGENTS.md`。

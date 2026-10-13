@@ -27,6 +27,29 @@ class InstallExtensionCommand(pydantic.BaseModel):
   version: str = pydantic.Field(pattern=EXTENSION_SEMVER_PATTERN)
 
 
+class SelectExtensionCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["select"]
+  extension: ExtensionName
+  distribution: typing.Literal["python", "module_federation"]
+  version: str = pydantic.Field(pattern=EXTENSION_SEMVER_PATTERN)
+
+
+class ExtensionStatusCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["status"]
+  extension: ExtensionName | None = None
+
+
+class UnselectExtensionCommand(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  action: typing.Literal["unselect"]
+  extension: ExtensionName
+
+
 class EnableExtensionCommand(pydantic.BaseModel):
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
@@ -49,8 +72,42 @@ class PatchExtensionConfigCommand(pydantic.BaseModel):
   patch: dict[str, typing.Any]
 
 
+class ExtensionPeerStatusRow(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  name: ExtensionName
+  peer_id: uuid.UUID
+  distribution: typing.Literal["python", "module_federation"] | None
+  version: str | None
+  enabled: bool
+  config_schema: dict[str, typing.Any] | None
+  supported_distributions: tuple[typing.Literal["python", "module_federation"], ...]
+  loaded_version: str | None
+  running: bool
+  restart_required: bool
+  operation: str | None
+  error: str | None
+
+
+class ExtensionPeerStatus(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  peer_id: uuid.UUID
+  supported_distributions: tuple[typing.Literal["python", "module_federation"], ...]
+  extensions: tuple[ExtensionPeerStatusRow, ...]
+
+
+class SelectExtensionInput(pydantic.BaseModel):
+  model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
+
+  distribution: typing.Literal["python", "module_federation"]
+  version: str = pydantic.Field(pattern=EXTENSION_SEMVER_PATTERN)
+
+
 ExtensionManagementCommand: typing.TypeAlias = typing.Annotated[
-  InstallExtensionCommand
+  SelectExtensionCommand
+  | ExtensionStatusCommand
+  | UnselectExtensionCommand
   | EnableExtensionCommand
   | DisableExtensionCommand
   | PatchExtensionConfigCommand,
@@ -59,17 +116,13 @@ ExtensionManagementCommand: typing.TypeAlias = typing.Annotated[
 
 
 class ExtensionModel(sqlmodel.SQLModel, table=True):
-  """Private persistence model for one exact deployment Extension Release."""
+  """Shared Extension identity, configuration, and producer-owned state."""
 
   __tablename__: str = "extensions"  # type: ignore
   __table_args__ = (
     sqlalchemy.CheckConstraint(
       f"name ~ '{EXTENSION_NAME_PATTERN}'",
       name="extensions_name_canonical",
-    ),
-    sqlalchemy.CheckConstraint(
-      f"version ~ '{EXTENSION_SEMVER_PATTERN}'",
-      name="extensions_version_canonical",
     ),
     sqlalchemy.CheckConstraint(
       "jsonb_typeof(state) = 'object'",
@@ -79,19 +132,6 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
 
   name: ExtensionName = sqlmodel.Field(
     sa_column=sqlalchemy.Column(sqlalchemy.Text, primary_key=True)
-  )
-  version: str = sqlmodel.Field(
-    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
-  )
-  enabled: list[uuid.UUID] = sqlmodel.Field(
-    default_factory=list,
-    sa_column=sqlalchemy.Column(
-      sqlalchemy.dialects.postgresql.ARRAY(
-        sqlalchemy.dialects.postgresql.UUID(as_uuid=True)
-      ),
-      server_default=sqlalchemy.text("'{}'::uuid[]"),
-      nullable=False,
-    ),
   )
   nickname: str | None = sqlmodel.Field(
     default=None,
@@ -113,10 +153,66 @@ class ExtensionModel(sqlmodel.SQLModel, table=True):
       nullable=False,
     ),
   )
+
+
+class ExtensionPeerParticipationModel(sqlmodel.SQLModel, table=True):
+  """One Peer’s exact native distribution selection and enable intent."""
+
+  __tablename__: str = "extension_peer_participations"  # type: ignore
+  __table_args__ = (
+    sqlalchemy.CheckConstraint(
+      f"name ~ '{EXTENSION_NAME_PATTERN}'",
+      name="extension_peer_participations_name_canonical",
+    ),
+    sqlalchemy.CheckConstraint(
+      f"version ~ '{EXTENSION_SEMVER_PATTERN}'",
+      name="extension_peer_participations_version_canonical",
+    ),
+    sqlalchemy.CheckConstraint(
+      "distribution IS NULL OR distribution IN ('python', 'module_federation')",
+      name="extension_peer_participations_distribution_valid",
+    ),
+    sqlalchemy.CheckConstraint(
+      "config_schema IS NULL OR jsonb_typeof(config_schema) = 'object'",
+      name="extension_peer_participations_config_schema_object",
+    ),
+    sqlalchemy.CheckConstraint(
+      "distribution IS NOT NULL OR config_schema IS NULL",
+      name="extension_peer_participations_unresolved_schema_null",
+    ),
+    sqlalchemy.ForeignKeyConstraint(
+      ["name"], ["inkcre.extensions.name"], ondelete="CASCADE"
+    ),
+    sqlalchemy.ForeignKeyConstraint(["peer_id"], ["inkcre.peers.id"], ondelete="CASCADE"),
+    sqlalchemy.PrimaryKeyConstraint(
+      "name", "peer_id", name="extension_peer_participations_pkey"
+    ),
+  )
+
+  name: ExtensionName = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+  )
+  peer_id: uuid.UUID = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.dialects.postgresql.UUID(as_uuid=True), nullable=False
+    )
+  )
+  distribution: str | None = sqlmodel.Field(
+    default=None,
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=True),
+  )
+  version: str = sqlmodel.Field(
+    sa_column=sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+  )
+  enabled: bool = sqlmodel.Field(
+    default=False,
+    sa_column=sqlalchemy.Column(
+      sqlalchemy.Boolean, nullable=False, server_default=sqlalchemy.false()
+    ),
+  )
   config_schema: dict | None = sqlmodel.Field(
     default=None,
     sa_column=sqlalchemy.Column(
-      sqlalchemy.dialects.postgresql.JSONB,
-      nullable=True,
+      sqlalchemy.dialects.postgresql.JSONB(none_as_null=True), nullable=True
     ),
   )

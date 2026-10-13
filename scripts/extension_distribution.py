@@ -169,6 +169,7 @@ def main() -> int:
       json.dumps(
         {
           "coordinate": project.coordinate,
+          "distribution": "python",
           "version": project.version,
           "project": project.project,
           "prepare": project.prepare_document(

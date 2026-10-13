@@ -223,9 +223,7 @@ def _reconcile_object_privileges(cursor) -> None:
     )
   )
   cursor.execute(
-    sql.SQL(
-      "GRANT UPDATE (version, nickname, config, config_schema) ON TABLE {}.extensions TO {}"
-    ).format(
+    sql.SQL("GRANT UPDATE (nickname, config) ON TABLE {}.extensions TO {}").format(
       sql.Identifier(PROTOCOL_SCHEMA),
       sql.Identifier(AUTHENTICATED_ROLE),
     )
@@ -234,6 +232,12 @@ def _reconcile_object_privileges(cursor) -> None:
     sql.SQL("GRANT UPDATE (state) ON TABLE {}.extensions TO {}").format(
       sql.Identifier(PROTOCOL_SCHEMA),
       sql.Identifier(CORE_RUNTIME_ROLE),
+    )
+  )
+  cursor.execute(
+    sql.SQL("GRANT UPDATE (state) ON TABLE {}.extensions TO {}").format(
+      sql.Identifier(PROTOCOL_SCHEMA),
+      sql.Identifier(AUTHENTICATED_ROLE),
     )
   )
   cursor.execute(

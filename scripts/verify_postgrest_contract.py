@@ -128,25 +128,94 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
     token=valid_token,
     document={
       "name": PROBE_EXTENSION_NAME,
-      "version": "1.0.0",
-      "enabled": [],
       "config": {},
     },
   )
   _expect(checks["extension_insert"], 201, "Extension insert")
-  checks["enabled_direct_update_denied"], _ = _call(
+  checks["shared_config_update"], _ = _call(
     base_url,
     f"extensions?name=eq.{escaped_extension}",
     method="PATCH",
     token=valid_token,
-    document={"enabled": [str(PROBE_PEER_ID)]},
+    document={"config": {"probe": True}},
   )
-  _expect(
-    checks["enabled_direct_update_denied"],
-    403,
-    "direct enabled update",
+  _expect(checks["shared_config_update"], 200, "shared config update")
+  checks["shared_state_update"], _ = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="PATCH",
+    token=valid_token,
+    document={"state": {"shared": True}},
   )
-  checks["enabled_rpc"], enabled_body = _call(
+  _expect(checks["shared_state_update"], 200, "shared state update")
+  checks["shared_state_read"], state_body = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}&select=state",
+    token=valid_token,
+  )
+  _expect(checks["shared_state_read"], 200, "shared state read")
+  state_rows = json.loads(state_body)
+  if not state_rows or state_rows[0].get("state") != {"shared": True}:
+    raise RuntimeError("shared state read returned an unexpected value")
+  checks["non_object_state_rejected"], _ = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="PATCH",
+    token=valid_token,
+    document={"state": []},
+  )
+  _expect(checks["non_object_state_rejected"], 400, "non-object state update")
+  checks["identity_update_denied"], _ = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="PATCH",
+    token=valid_token,
+    document={"name": "inkcre/renamed-probe"},
+  )
+  _expect(checks["identity_update_denied"], 403, "Extension identity update")
+  checks["anonymous_state_write_denied"], _ = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="PATCH",
+    document={"state": {"unauthorized": True}},
+  )
+  _expect(checks["anonymous_state_write_denied"], 401, "anonymous state write")
+  checks["removed_legacy_selection_fields"], _ = _call(
+    base_url,
+    f"extensions?name=eq.{escaped_extension}",
+    method="PATCH",
+    token=valid_token,
+    document={"version": "2.0.0"},
+  )
+  if checks["removed_legacy_selection_fields"] not in (400, 403):
+    raise RuntimeError(
+      "legacy Extension version field was not rejected: "
+      f"HTTP {checks['removed_legacy_selection_fields']}"
+    )
+  checks["participation_insert"], participation_body = _call(
+    base_url,
+    "extension_peer_participations",
+    method="POST",
+    token=valid_token,
+    document={
+      "name": PROBE_EXTENSION_NAME,
+      "peer_id": str(PROBE_PEER_ID),
+      "distribution": "python",
+      "version": "1.0.0",
+      "enabled": True,
+    },
+  )
+  _expect(checks["participation_insert"], 201, "Peer participation insert")
+  participation_rows = json.loads(participation_body)
+  if (
+    not participation_rows
+    or participation_rows[0].get("peer_id") != str(PROBE_PEER_ID)
+    or participation_rows[0].get("distribution") != "python"
+    or participation_rows[0].get("version") != "1.0.0"
+    or participation_rows[0].get("enabled") is not True
+  ):
+    raise RuntimeError("participation insert returned an unexpected record")
+  checks["legacy_enabled_rpc_removed"], _ = _call(
     base_url,
     "rpc/set_extension_peer_enabled",
     method="POST",
@@ -157,30 +226,14 @@ def verify(base_url: str, secret: str, wrong_secret: str) -> dict[str, object]:
       "p_enabled": True,
     },
   )
-  _expect(checks["enabled_rpc"], 200, "enabled RPC")
-  enabled_rows = json.loads(enabled_body)
-  if not enabled_rows or enabled_rows[0].get("enabled") != [str(PROBE_PEER_ID)]:
-    raise RuntimeError("enabled RPC returned an unexpected Extension record")
-  checks["enabled_delete_denied"], _ = _call(
+  _expect(checks["legacy_enabled_rpc_removed"], 404, "removed enabled RPC")
+  checks["participation_cleanup"], _ = _call(
     base_url,
-    f"extensions?name=eq.{escaped_extension}",
+    f"extension_peer_participations?name=eq.{escaped_extension}&peer_id=eq.{escaped_id}",
     method="DELETE",
     token=valid_token,
   )
-  # The database guard reports SQLSTATE 23514, which PostgREST maps to HTTP 400.
-  _expect(checks["enabled_delete_denied"], 400, "enabled Extension delete")
-  checks["disabled_rpc"], _ = _call(
-    base_url,
-    "rpc/set_extension_peer_enabled",
-    method="POST",
-    token=valid_token,
-    document={
-      "p_name": PROBE_EXTENSION_NAME,
-      "p_peer_id": str(PROBE_PEER_ID),
-      "p_enabled": False,
-    },
-  )
-  _expect(checks["disabled_rpc"], 200, "disabled RPC")
+  _expect(checks["participation_cleanup"], 204, "participation cleanup")
   checks["extension_cleanup"], _ = _call(
     base_url,
     f"extensions?name=eq.{escaped_extension}",

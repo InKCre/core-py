@@ -148,7 +148,7 @@ def test_failed_cold_restore_preserves_intent_and_reports_not_ready(monkeypatch)
   from fastapi.testclient import TestClient
 
   import run
-  from app.schemas.extension import ExtensionModel
+  from app.schemas.extension import ExtensionModel, ExtensionPeerParticipationModel
 
   peer = uuid.uuid4()
   name = f"issue121/missing-{peer.hex}"
@@ -162,11 +162,16 @@ def test_failed_cold_restore_preserves_intent_and_reports_not_ready(monkeypatch)
         config={"extension_registry_url": "http://127.0.0.1:1"},
       )
     )
-    db.add(ExtensionModel(name=name, version="0.0.0"))
     db.flush()
-    db.connection().execute(
-      sqlalchemy.text("SELECT inkcre.set_extension_peer_enabled(:name, :peer, true)"),
-      {"name": name, "peer": peer},
+    db.add(ExtensionModel(name=name))
+    db.add(
+      ExtensionPeerParticipationModel(
+        name=name,
+        peer_id=peer,
+        distribution="python",
+        version="0.0.0",
+        enabled=True,
+      )
     )
     db.commit()
   try:
@@ -187,16 +192,12 @@ def test_failed_cold_restore_preserves_intent_and_reports_not_ready(monkeypatch)
       }
       assert client.get("/livez").status_code == 200
       with TestSession() as db:
-        installed = db.get(ExtensionModel, name)
-        assert installed is not None and peer in installed.enabled
+        participation = db.get(ExtensionPeerParticipationModel, (name, peer))
+        assert participation is not None and participation.enabled
         registered = db.get(PeerModel, peer)
         assert registered is not None and registered.lease_expires_at is None
   finally:
     with TestSession() as db:
-      db.connection().execute(
-        sqlalchemy.text("SELECT inkcre.set_extension_peer_enabled(:name, :peer, false)"),
-        {"name": name, "peer": peer},
-      )
       db.connection().execute(
         sqlalchemy.text("DELETE FROM inkcre.extensions WHERE name = :name"),
         {"name": name},

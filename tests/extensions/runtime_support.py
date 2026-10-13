@@ -70,7 +70,7 @@ def publish_extension(
       name = f"inkcre/{extension.__extid__}"
       installed = session.get(ExtensionModel, name)
       if installed is None:
-        installed = ExtensionModel(name=name, version="0.0.0")
+        installed = ExtensionModel(name=name)
       installed.config = runtime_config
       session.add(installed)
       session.commit()
