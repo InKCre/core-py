@@ -72,8 +72,9 @@ production job restores those exact bytes, revalidates Core artifact inputs befo
 Registry mutation, prepares every selected Release with all of its associations, uploads all
 Distributions, and only then publishes each Release. A retry reruns the publish job from the
 original workflow run and candidate; it does not rebuild from current `main` or create a second
-version decision. An expired or ambiguous candidate fails closed. `workflow_dispatch` remains an
-`INITIAL_ONLY` lane for one exact Extension version that has not yet been published.
+version decision, and it repeats Core input revalidation before writing. An expired or ambiguous
+candidate fails closed. `workflow_dispatch` remains an `INITIAL_ONLY` lane for one exact Extension
+version that has not yet been published.
 
 First-party global and Python documentation are static publication artifacts for the same exact
 Release, not Core HTTP routes or wheel contents. Producer tooling obtains documentation addresses
