@@ -148,14 +148,20 @@ def legacy_migration_database(postgres_connection_info):
   peer_id = uuid.uuid4()
   with psycopg.connect(**postgres_connection_info, dbname=database) as connection:
     connection.execute(
-      "INSERT INTO inkcre.peers (id, name) VALUES (%s, 'legacy-peer')", (peer_id,)
+      "INSERT INTO inkcre.peers (id, name, config_schema) "
+      "VALUES (%s, 'legacy-peer', '{}'::jsonb)",
+      (peer_id,),
     )
     connection.execute(
       "INSERT INTO inkcre.extensions "
       "(name, version, enabled, config, state, config_schema) "
-      "VALUES ('inkcre/legacy', '0.7.4', ARRAY[%s]::uuid[], "
+      "VALUES ('inkcre/legacy', '0.7.4', '{}'::uuid[], "
       "'{\"shared\":true}'::jsonb, '{\"progress\":4}'::jsonb, "
-      '\'{"type":"object"}\'::jsonb)',
+      '\'{"type":"object"}\'::jsonb)'
+    )
+    connection.execute(
+      "UPDATE inkcre.extensions SET enabled = ARRAY[%s]::uuid[] "
+      "WHERE name = 'inkcre/legacy'",
       (peer_id,),
     )
     connection.execute(
