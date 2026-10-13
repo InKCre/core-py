@@ -214,7 +214,9 @@ class ExtensionHost:
     peer_id: typing.Any,
     extension: str | None = None,
   ) -> ExtensionPeerStatus:
-    names = (validate_coordinate(extension),) if extension is not None else None
+    if extension is not None:
+      validate_coordinate(extension)
+    names = (extension,) if extension is not None else None
     shared = await self.store.list()
     if names is not None:
       shared = tuple(row for row in shared if row.name == names[0])
@@ -263,8 +265,6 @@ class ExtensionHost:
           error=error,
         )
       )
-    if names is not None and not rows:
-      raise ExtensionNotInstalledError(f"{extension} is not installed")
     return ExtensionPeerStatus(
       peer_id=peer_id,
       supported_distributions=supported,
