@@ -54,7 +54,7 @@ jobs:
     needs: discover
     if: >-
       github.repository == 'InKCre/core-py' &&
-      needs.discover.result == 'success' && github.run_attempt == 1
+      needs.discover.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

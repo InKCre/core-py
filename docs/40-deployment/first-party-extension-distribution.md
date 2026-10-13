@@ -101,9 +101,11 @@ provenance, a new workflow run cannot safely resume an existing version: recover
 original Extension publication run so its stable `github.run_id` build identity is preserved. The
 capture job stores the complete candidate before the publisher receives Registry credentials.
 Recovery reruns only the failed publish job, which locates and restores that run's unique artifact;
-the artifact's source revision and wheel digest are checked before any Registry call. If the artifact
-is missing or expired, recovery stops and requires investigation rather than rebuilding different
-bytes under the same version. Candidate artifacts are retained for 90 days.
+the artifact's source revision and wheel digest are checked before any Registry call. A full-workflow
+rerun enters capture and fails explicitly at `Reject candidate reconstruction`, while publish is
+skipped because capture did not succeed. This prevents a green run that silently does no work. If the
+artifact is missing or expired, recovery stops and requires investigation rather than rebuilding
+different bytes under the same version. Candidate artifacts are retained for 90 days.
 
 First-party global and Python documentation are static publication artifacts for the same exact
 Release, not Core HTTP routes or wheel contents. Producer tooling obtains documentation addresses
