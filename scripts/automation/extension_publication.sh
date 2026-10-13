@@ -147,7 +147,13 @@ PY
     test "$(jq -er '.extension' "$manifest")" = "$EXTENSION"
     test "$(jq -er '.run_id' "$manifest")" = "$GITHUB_RUN_ID"
     test "$(jq -er '.source_revision' "$manifest")" = "$GITHUB_SHA"
-    selected="$(jq -er '.selected' "$manifest")"
+    selected="$(jq -er '
+      if (.selected | type) == "boolean" then
+        .selected | tostring
+      else
+        error("candidate selected must be a boolean")
+      end
+    ' "$manifest")"
     emit_output selected "$selected"
     if [ "$selected" != true ]; then exit 0; fi
 
