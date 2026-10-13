@@ -13,7 +13,7 @@ import subprocess
 
 from build_extension_preview import _build_wheel
 from extension_distribution import read_project, verify_wheel
-from scripts.release import discover_projects
+from release import discover_projects  # pyrefly: ignore[missing-module-attribute]
 
 
 ARTIFACT_NAME = "first-party-extension-candidate"
