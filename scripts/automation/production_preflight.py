@@ -338,6 +338,23 @@ def collect_database_inventory(connection, core_peer_id: uuid.UUID) -> dict:
     }
 
 
+def quiescence_conflicts(inventory: dict, core_peer_id: uuid.UUID) -> list[str]:
+  """Return observed work that blocks a maintenance migration after app shutdown."""
+  conflicts = []
+  external_peers = [
+    peer
+    for peer in inventory["peers"]
+    if peer["id"] != str(core_peer_id) and peer["lease_active"]
+  ]
+  if external_peers:
+    conflicts.append("another Peer still has an active database lease")
+  if any(job["status"] == "running" for job in inventory["active_jobs"]):
+    conflicts.append("a database Job is still running")
+  if inventory["database_sessions"]:
+    conflicts.append("database sessions remain after the configured apps were stopped")
+  return conflicts
+
+
 def main() -> int:
   database_url = os.environ.get("MIGRATION_DATABASE_URL")
   app_database_identity_url = os.environ.get("APP_DATABASE_IDENTITY_URL")
@@ -398,6 +415,14 @@ def main() -> int:
       summary.write("### Core production read-only inventory\n\n```json\n")
       summary.write(rendered)
       summary.write("\n```\n")
+  if os.environ.get("REQUIRE_QUIESCENT_DATABASE") == "true":
+    conflicts = quiescence_conflicts(inventory, parsed_peer_id)
+    if conflicts:
+      print(
+        "Database is not quiescent for migration: " + "; ".join(conflicts),
+        file=sys.stderr,
+      )
+      return 1
   return 0
 
 

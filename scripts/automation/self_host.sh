@@ -17,8 +17,13 @@ case "${1:-}" in
       echo "Self-host deployment must be dispatched from a branch" >&2
       exit 1
     fi
-    for name in CORE_DATABASE_PASSWORD HEROKU_API_KEY HEROKU_APP_PREFIX JWT_SECRET \
-      NEON_API_KEY NEON_PROJECT_ID POSTGREST_DATABASE_PASSWORD; do require_env "$name"; done
+    for name in CORE_DATABASE_PASSWORD DATABASE_MAINTENANCE_CONFIRMED HEROKU_API_KEY \
+      HEROKU_APP_PREFIX JWT_SECRET NEON_API_KEY NEON_PROJECT_ID \
+      POSTGREST_DATABASE_PASSWORD; do require_env "$name"; done
+    if [ "$DATABASE_MAINTENANCE_CONFIRMED" != true ]; then
+      echo "Confirm the target Neon branch is empty or existing writers are stopped and its data is backed up" >&2
+      exit 1
+    fi
     [[ "$HEROKU_APP_PREFIX" =~ ^[a-z][a-z0-9-]{1,16}[a-z0-9]$ ]]
     test "${#JWT_SECRET}" -ge 32
     test "${#CORE_DATABASE_PASSWORD}" -ge 32

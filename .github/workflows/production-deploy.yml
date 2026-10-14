@@ -6,7 +6,6 @@ on:
       - Publish runtime artifact
     types:
       - completed
-  workflow_dispatch:
 
 permissions:
   checks: read
@@ -24,9 +23,7 @@ jobs:
       github.repository == 'InKCre/core-py' &&
       ((github.event_name == 'workflow_run' &&
           github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.head_branch == 'main') ||
-        (github.event_name == 'workflow_dispatch' &&
-          github.ref == 'refs/heads/main'))
+          github.event.workflow_run.head_branch == 'main'))
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -38,16 +35,12 @@ jobs:
           fetch-depth: 2
           persist-credentials: false
 
-      - name: Select normal Core release or manual recovery
+      - name: Select version-changing Core release
         id: selection
         env:
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "$EVENT_NAME" = workflow_dispatch ]; then
-            echo "selected=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "selected=$(python3 scripts/release.py version-changed --project core --base HEAD^)" >> "$GITHUB_OUTPUT"
-          fi
+          echo "selected=$(python3 scripts/release.py version-changed --project core --base HEAD^)" >> "$GITHUB_OUTPUT"
 
       - name: Record unchanged Core no-op
         if: steps.selection.outputs.selected != 'true'

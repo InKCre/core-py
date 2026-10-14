@@ -8,6 +8,7 @@ import pytest
 from scripts.automation.production_preflight import (
   checked_in_production_profile,
   collect_database_inventory,
+  quiescence_conflicts,
   verify_app_configuration,
 )
 
@@ -85,6 +86,33 @@ def test_database_inventory_is_read_only_and_distinguishes_legacy_pins(
     for statement in connection.fake_cursor.statements
   )
   assert "does not prove" in inventory["observation_limit"]
+
+
+def test_quiescence_gate_rejects_observed_peers_jobs_and_sessions() -> None:
+  inventory = {
+    "peers": [
+      {"id": str(CORE_PEER_ID), "lease_active": True},
+      {"id": str(uuid.uuid4()), "lease_active": True},
+    ],
+    "active_jobs": [{"status": "running"}],
+    "database_sessions": [{"user": "authenticator"}],
+  }
+
+  assert quiescence_conflicts(inventory, CORE_PEER_ID) == [
+    "another Peer still has an active database lease",
+    "a database Job is still running",
+    "database sessions remain after the configured apps were stopped",
+  ]
+
+
+def test_quiescence_gate_allows_only_core_lease_and_pending_jobs() -> None:
+  inventory = {
+    "peers": [{"id": str(CORE_PEER_ID), "lease_active": True}],
+    "active_jobs": [{"status": "pending"}],
+    "database_sessions": [],
+  }
+
+  assert quiescence_conflicts(inventory, CORE_PEER_ID) == []
 
 
 def test_app_configuration_check_redacts_secrets_and_matches_roles_and_branch() -> None:

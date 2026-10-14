@@ -1,0 +1,195 @@
+name: Core production schema maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      external_writers_quiescent:
+        description: Confirm that every non-Core/PostgREST Peer and direct database writer is stopped
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-application
+  cancel-in-progress: false
+
+jobs:
+  migrate-and-release:
+    name: Quiesce, snapshot, migrate, and probe production
+    if: github.repository == 'InKCre/core-py' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Require a fresh run and external-writer acknowledgement
+        env:
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          EXTERNAL_WRITERS_QUIESCENT: ${{ inputs.external_writers_quiescent }}
+        run: |
+          test "$RUN_ATTEMPT" = 1 || {
+            echo "Maintenance runs cannot be rerun. Inspect the current database and start a new approved run." >&2
+            exit 1
+          }
+          test "$EXTERNAL_WRITERS_QUIESCENT" = true || {
+            echo "Confirm that all non-Core/PostgREST writers are stopped before maintenance." >&2
+            exit 1
+          }
+
+      - name: Checkout exact main source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact current main source
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: bash scripts/automation/runtime_artifact.sh verify-main-source
+
+      - name: Install pinned Heroku CLI
+        run: npm install --global heroku@11.8.1
+
+      - name: Resolve the exact existing production apps
+        id: apps
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+          POSTGREST_APP_NAME: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
+          REQUIRE_EXISTING_APPS: "true"
+        run: bash scripts/automation/production_delivery.sh resolve-apps
+
+      - name: Resolve the configured Neon production branch
+        id: neon
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: bash scripts/automation/production_delivery.sh resolve-neon
+
+      - name: Pull the immutable image for this exact main source
+        id: core
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: bash scripts/automation/runtime_artifact.sh pull-production
+
+      - name: Build the exact release and PostgREST images
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: bash scripts/automation/runtime_artifact.sh build-production-transports
+
+      - name: Record the pre-maintenance read-only inventory
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+          POSTGREST_APP_NAME: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
+          MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.direct_owner_database_url }}
+          APP_DATABASE_IDENTITY_URL: ${{ steps.neon.outputs.pooled_owner_database_url }}
+          CORE_IMAGE_DIGEST: ${{ steps.core.outputs.digest_ref }}
+          HEAD_SHA: ${{ github.sha }}
+        run: bash scripts/automation/production_maintenance.sh read-only-inventory
+
+      - name: Transfer exact candidate images before service shutdown
+        env:
+          APP_NAME: ${{ steps.apps.outputs.app_name }}
+          HEAD_SHA: ${{ github.sha }}
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          POSTGREST_APP_NAME: ${{ steps.apps.outputs.postgrest_app_name }}
+        run: bash scripts/automation/production_delivery.sh transfer-images
+
+      - name: Stop Core and PostgREST and verify zero Heroku dynos
+        id: stop
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+          POSTGREST_APP_NAME: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
+        run: bash scripts/automation/production_maintenance.sh stop-services
+
+      - name: Require the observed database session, Job, and Peer inventory to be quiescent
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+          POSTGREST_APP_NAME: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
+          MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.direct_owner_database_url }}
+          APP_DATABASE_IDENTITY_URL: ${{ steps.neon.outputs.pooled_owner_database_url }}
+          CORE_IMAGE_DIGEST: ${{ steps.core.outputs.digest_ref }}
+          HEAD_SHA: ${{ github.sha }}
+          REQUIRE_QUIESCENT_DATABASE: "true"
+        run: bash scripts/automation/production_maintenance.sh read-only-inventory
+
+      - name: Create and verify a named Neon snapshot
+        id: snapshot
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: bash scripts/automation/production_maintenance.sh snapshot
+
+      - name: Migrate, release, and probe exact production images
+        id: delivery
+        uses: ./.github/actions/production-delivery
+        with:
+          core_database_password: ${{ secrets.CORE_DATABASE_PASSWORD }}
+          core_image_digest: ${{ steps.core.outputs.digest_ref }}
+          head_sha: ${{ github.sha }}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ${{ vars.HEROKU_APP_NAME }}
+          jwt_secret: ${{ secrets.JWT_SECRET }}
+          neon_api_key: ${{ secrets.NEON_API_KEY }}
+          neon_branch_id: ${{ vars.NEON_BRANCH_ID }}
+          neon_project_id: ${{ vars.NEON_PROJECT_ID }}
+          postgrest_app_name: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
+          postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
+          maintenance_window: "true"
+          images_already_transferred: "true"
+
+      - name: Promote the probed image to the stable channel
+        id: stable
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.sha }}
+          IMMUTABLE_CORE_IMAGE: ${{ steps.core.outputs.digest_ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: bash scripts/automation/runtime_artifact.sh promote-stable
+
+      - name: Summarize maintenance outcome
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          HEAD_SHA: ${{ github.sha }}
+          IMAGE_DIGEST: ${{ steps.core.outputs.digest_ref }}
+          SNAPSHOT_ID: ${{ steps.snapshot.outputs.snapshot_id }}
+          STOP_RESULT: ${{ steps.stop.outcome }}
+          SNAPSHOT_RESULT: ${{ steps.snapshot.outcome }}
+          DELIVERY_RESULT: ${{ steps.delivery.outcome }}
+          STABLE_RESULT: ${{ steps.stable.outcome }}
+        run: |
+          {
+            echo "### Core production maintenance result"
+            echo
+            echo "Job state: \`$JOB_STATUS\`"
+            echo "Source: \`$HEAD_SHA\`"
+            echo "Immutable image: \`${IMAGE_DIGEST:-not pulled}\`"
+            echo "Heroku stop: \`${STOP_RESULT:-not run}\`"
+            echo "Neon snapshot: \`${SNAPSHOT_RESULT:-not run}\` / \`${SNAPSHOT_ID:-not confirmed}\`"
+            echo "Migration and runtime probe: \`${DELIVERY_RESULT:-not run}\`"
+            echo "Stable channel: \`${STABLE_RESULT:-not run}\`"
+            echo
+            if [ "$DELIVERY_RESULT" = failure ]; then
+              echo "Delivery or runtime probe failed. The probe attempts to stop both apps again; verify their actual formations and inspect the database and snapshot before recovery."
+            elif [ "$DELIVERY_RESULT" = success ] && [ "$STABLE_RESULT" != success ]; then
+              echo "The migrated service passed its runtime probe and remains online, but stable promotion did not complete. Verify the live releases and stable channel separately."
+            elif [ "$STOP_RESULT" = success ] && [ "$DELIVERY_RESULT" != success ]; then
+              echo "Maintenance stopped the apps but did not complete a healthy runtime probe. Inspect both formations and the database before recovery."
+            else
+              echo "Do not rerun this workflow or restore an old image against a migrated database; inspect the observed database and snapshot first."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

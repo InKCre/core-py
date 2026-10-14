@@ -35,6 +35,14 @@ inputs:
   postgrest_database_password:
     description: Production PostgREST authenticator role password
     required: true
+  maintenance_window:
+    description: True only when called by the protected, confirmed maintenance workflow
+    required: false
+    default: "false"
+  images_already_transferred:
+    description: Exact candidate process images were pushed before the maintenance window
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -62,6 +70,16 @@ runs:
         REQUIRE_EXISTING_APPS: "true"
       run: bash scripts/automation/production_delivery.sh resolve-apps
 
+    - name: Require the live database to satisfy the candidate contract already
+      if: inputs.maintenance_window != 'true'
+      shell: bash
+      env:
+        HEAD_SHA: ${{ inputs.head_sha }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.direct_owner_database_url }}
+      run: |
+        docker run --rm --env MIGRATION_DATABASE_URL "inkcre-production-web:$HEAD_SHA" \
+          python scripts/container.py db ready --profile runtime --json
+
     - name: Converge the production database contract
       id: database
       shell: bash
@@ -82,6 +100,7 @@ runs:
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         JWT_SECRET: ${{ inputs.jwt_secret }}
+        IMAGES_ALREADY_TRANSFERRED: ${{ inputs.images_already_transferred }}
         POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
         POSTGREST_DATABASE_URL: ${{ steps.database.outputs.postgrest_database_url }}
       run: bash scripts/automation/production_delivery.sh release
@@ -107,6 +126,7 @@ runs:
         POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
         POSTGREST_RELEASE: ${{ steps.release.outputs.postgrest_release }}
         POSTGREST_URL: ${{ steps.heroku.outputs.postgrest_url }}
+        MAINTENANCE_WINDOW: ${{ inputs.maintenance_window }}
         WEB_RELEASE: ${{ steps.release.outputs.web_release }}
         WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: bash scripts/automation/production_delivery.sh probe

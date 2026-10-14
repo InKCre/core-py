@@ -100,7 +100,7 @@ $result
 | --- | --- |
 | 源码声明的 Core 版本 | \`$core_version\` |
 | 源码提交 | \`$HEAD_SHA\` |
-| 触发方式 | \`$EVENT_NAME\`（workflow_dispatch 为手动恢复） |
+| 触发方式 | \`$EVENT_NAME\` |
 | Job 状态 | \`$JOB_STATUS\` |
 | 发布选择 | \`$SELECTION_RESULT\` / selected=\`${SELECTED:-未取得}\` |
 | 候选不可变镜像 | \`${IMAGE_DIGEST:-未取得}\` |

@@ -64,7 +64,118 @@ wait_if_changed() {
   printf '%s' "${after:-$before}"
 }
 
+transfer_process_images() {
+  for name in APP_NAME HEROKU_API_KEY HEAD_SHA POSTGREST_APP_NAME; do
+    require_env "$name"
+  done
+
+  for attempt in $(seq 1 5); do
+    if printf '%s' "$HEROKU_API_KEY" |
+      docker login --username=_ --password-stdin registry.heroku.com; then
+      break
+    fi
+    test "$attempt" -lt 5
+    sleep "$((attempt * 2))"
+  done
+  docker tag "inkcre-production-web:$HEAD_SHA" "registry.heroku.com/$APP_NAME/web"
+  docker tag "inkcre-production-release:$HEAD_SHA" "registry.heroku.com/$APP_NAME/release"
+  docker tag "inkcre-production-postgrest:$HEAD_SHA" \
+    "registry.heroku.com/$POSTGREST_APP_NAME/web"
+  push_and_verify_image "inkcre-production-web:$HEAD_SHA" \
+    "registry.heroku.com/$APP_NAME/web"
+  push_and_verify_image "inkcre-production-release:$HEAD_SHA" \
+    "registry.heroku.com/$APP_NAME/release"
+  push_and_verify_image "inkcre-production-postgrest:$HEAD_SHA" \
+    "registry.heroku.com/$POSTGREST_APP_NAME/web"
+}
+
+verify_registry_image() {
+  local source_image="$1"
+  local registry_image="$2"
+  local source_id remote_id
+  source_id="$(docker image inspect --format='{{.Id}}' "$source_image")"
+  docker pull "$registry_image" >/dev/null
+  remote_id="$(docker image inspect --format='{{.Id}}' "$registry_image")"
+  if [ "$source_id" != "$remote_id" ]; then
+    echo "Heroku registry image $registry_image does not match source image $source_image" >&2
+    return 1
+  fi
+  printf '%s registry image matches source image ID %s.\n' "$registry_image" "$remote_id"
+}
+
+push_and_verify_image() {
+  local source_image="$1"
+  local registry_image="$2"
+  local attempt
+  for attempt in $(seq 1 5); do
+    if docker push "$registry_image" && verify_registry_image "$source_image" "$registry_image"; then
+      return 0
+    fi
+    if [ "$attempt" -lt 5 ]; then sleep "$((attempt * 2))"; fi
+  done
+  echo "Could not verify Heroku registry image $registry_image against its source" >&2
+  return 1
+}
+
+require_transferred_process_images() {
+  require_env HEAD_SHA
+  for pair in \
+    "inkcre-production-web:$HEAD_SHA registry.heroku.com/$APP_NAME/web" \
+    "inkcre-production-release:$HEAD_SHA registry.heroku.com/$APP_NAME/release" \
+    "inkcre-production-postgrest:$HEAD_SHA registry.heroku.com/$POSTGREST_APP_NAME/web"; do
+    read -r source_image registry_image <<<"$pair"
+    verify_registry_image "$source_image" "$registry_image"
+  done
+}
+
+stop_maintenance_apps_after_failed_probe() {
+  for app_name in "$APP_NAME" "$POSTGREST_APP_NAME"; do
+    app_json="$(heroku apps:info --app "$app_name" --json)"
+    jq -e --arg expected "$app_name" '.app.name == $expected' \
+      <<<"$app_json" >/dev/null
+    heroku ps:scale web=0 --app "$app_name"
+    stopped=false
+    for _ in $(seq 1 60); do
+      dynos="$(heroku ps --app "$app_name" --json)"
+      if jq -e 'type == "array" and length == 0' <<<"$dynos" >/dev/null; then
+        stopped=true
+        break
+      fi
+      sleep 5
+    done
+    if [ "$stopped" != true ]; then
+      echo "Could not confirm that maintenance app $app_name stopped after probe failure" >&2
+      return 1
+    fi
+  done
+  append_summary <<'EOF'
+Maintenance probe failed; both apps were scaled to zero and verified with no remaining dynos.
+EOF
+}
+
 case "${1:-}" in
+  transfer-images)
+    transfer_process_images
+    ;;
+  verify-transferred-images)
+    for name in APP_NAME HEAD_SHA POSTGREST_APP_NAME; do require_env "$name"; done
+    require_transferred_process_images
+    ;;
+  require-stopped-apps)
+    for name in HEROKU_API_KEY APP_NAME POSTGREST_APP_NAME; do
+      require_env "$name"
+    done
+    for app_name in "$APP_NAME" "$POSTGREST_APP_NAME"; do
+      app_json="$(heroku apps:info --app "$app_name" --json)"
+      jq -e --arg expected "$app_name" '.app.name == $expected' \
+        <<<"$app_json" >/dev/null
+      dynos="$(heroku ps --app "$app_name" --json)"
+      if ! jq -e 'type == "array" and length == 0' <<<"$dynos" >/dev/null; then
+        echo "Refusing database changes while Heroku app $app_name still has dynos" >&2
+        exit 1
+      fi
+    done
+    ;;
   resolve-neon)
     require_env NEON_API_KEY
     require_env NEON_BRANCH_ID
@@ -220,21 +331,11 @@ case "${1:-}" in
       "PGRST_JWT_SECRET=$JWT_SECRET" "${postgrest_profile[@]}" >/dev/null
     wait_if_changed "$POSTGREST_APP_NAME" "$before" >/dev/null
 
-    for attempt in $(seq 1 5); do
-      if printf '%s' "$HEROKU_API_KEY" |
-        docker login --username=_ --password-stdin registry.heroku.com; then
-        break
-      fi
-      test "$attempt" -lt 5
-      sleep "$((attempt * 2))"
-    done
-    docker tag "inkcre-production-web:$HEAD_SHA" "registry.heroku.com/$APP_NAME/web"
-    docker tag "inkcre-production-release:$HEAD_SHA" "registry.heroku.com/$APP_NAME/release"
-    docker tag "inkcre-production-postgrest:$HEAD_SHA" \
-      "registry.heroku.com/$POSTGREST_APP_NAME/web"
-    retry_command 5 docker push "registry.heroku.com/$APP_NAME/web"
-    retry_command 5 docker push "registry.heroku.com/$APP_NAME/release"
-    retry_command 5 docker push "registry.heroku.com/$POSTGREST_APP_NAME/web"
+    if [ "${IMAGES_ALREADY_TRANSFERRED:-false}" = true ]; then
+      require_transferred_process_images
+    else
+      transfer_process_images
+    fi
 
     before="$(latest_release "$APP_NAME")"
     heroku container:release release --app "$APP_NAME"
@@ -290,12 +391,15 @@ EOF
       fi
       sleep 5
     done
-    heroku logs --num 200 --app "$APP_NAME"
-    heroku logs --num 200 --app "$POSTGREST_APP_NAME"
+    heroku logs --num 200 --app "$APP_NAME" || true
+    heroku logs --num 200 --app "$POSTGREST_APP_NAME" || true
+    if [ "${MAINTENANCE_WINDOW:-false}" = true ]; then
+      stop_maintenance_apps_after_failed_probe
+    fi
     exit 1
     ;;
   *)
-    echo "usage: $0 resolve-neon|resolve-apps|converge-database|release|advertise|probe" >&2
+    echo "usage: $0 resolve-neon|resolve-apps|require-stopped-apps|transfer-images|verify-transferred-images|converge-database|release|advertise|probe" >&2
     exit 2
     ;;
 esac
