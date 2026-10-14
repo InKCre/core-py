@@ -159,8 +159,12 @@ requires a fresh dispatch plus explicit acknowledgement that every non-Core/Post
 direct database writer has stopped. It first records a read-only inventory, then transfers the
 exact candidate Core, release, and PostgREST images to the Heroku registry before the maintenance
 window. It stops both configured Heroku apps and verifies that no dynos remain, then takes another
-inventory and blocks on observed active
-Peer leases, running Jobs, or database sessions. Those observations do not prove that unknown or
+inventory and blocks on observed active Peer leases, running Jobs, or database sessions except
+idle client backends without open transactions. This narrow exception handles pooled connections
+that remain idle after both apps stop; it does not depend on an application-name allowlist. Active
+sessions, idle-in-transaction sessions (including aborted transactions), non-null transaction
+starts, and unknown backend or session states still block. The inventory retains every session.
+Those observations do not prove that unknown or
 external writers are absent; the acknowledgement remains an operational responsibility. After the
 stopped-service inventory passes, the job reads the production branch's flushed WAL LSN through
 the exact candidate image and creates a named Neon child branch at that LSN. The request omits
