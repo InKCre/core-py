@@ -350,7 +350,13 @@ def quiescence_conflicts(inventory: dict, core_peer_id: uuid.UUID) -> list[str]:
     conflicts.append("another Peer still has an active database lease")
   if any(job["status"] == "running" for job in inventory["active_jobs"]):
     conflicts.append("a database Job is still running")
-  if inventory["database_sessions"]:
+  idle_sessions = all(
+    session.get("backend_type") == "client backend"
+    and session.get("state") == "idle"
+    and session.get("transaction_started_at") is None
+    for session in inventory["database_sessions"]
+  )
+  if not idle_sessions:
     conflicts.append("database sessions remain after the configured apps were stopped")
   return conflicts
 

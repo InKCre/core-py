@@ -1,8 +1,12 @@
 import json
 from contextlib import nullcontext
+from concurrent.futures import ThreadPoolExecutor
+import os
 from pathlib import Path
+import time
 import uuid
 
+import psycopg
 import pytest
 
 from scripts.automation.production_preflight import (
@@ -114,6 +118,135 @@ def test_quiescence_gate_allows_only_core_lease_and_pending_jobs() -> None:
   }
 
   assert quiescence_conflicts(inventory, CORE_PEER_ID) == []
+
+
+def test_quiescence_gate_allows_idle_client_backends_without_transactions() -> None:
+  inventory = {
+    "peers": [{"id": str(CORE_PEER_ID), "lease_active": True}],
+    "active_jobs": [{"status": "pending"}],
+    "database_sessions": [
+      {
+        "user": "inkcre_core",
+        "application": "pgbouncer",
+        "backend_type": "client backend",
+        "state": "idle",
+        "transaction_started_at": None,
+      },
+    ],
+  }
+
+  assert quiescence_conflicts(inventory, CORE_PEER_ID) == []
+
+
+@pytest.mark.parametrize(
+  "session",
+  [
+    {
+      "backend_type": "client backend",
+      "state": "active",
+      "transaction_started_at": None,
+    },
+    {
+      "backend_type": "client backend",
+      "state": "idle in transaction",
+      "transaction_started_at": "2026-10-14T05:00:00Z",
+    },
+    {
+      "backend_type": "client backend",
+      "state": "idle in transaction (aborted)",
+      "transaction_started_at": "2026-10-14T05:00:00Z",
+    },
+    {
+      "backend_type": "client backend",
+      "state": "idle",
+      "transaction_started_at": "2026-10-14T05:00:00Z",
+    },
+    {
+      "backend_type": "background worker",
+      "state": "idle",
+      "transaction_started_at": None,
+    },
+    {"state": "disabled"},
+  ],
+)
+def test_quiescence_gate_rejects_non_idle_or_unknown_database_sessions(
+  session: dict,
+) -> None:
+  inventory = {
+    "peers": [{"id": str(CORE_PEER_ID), "lease_active": True}],
+    "active_jobs": [],
+    "database_sessions": [session],
+  }
+
+  assert quiescence_conflicts(inventory, CORE_PEER_ID) == [
+    "database sessions remain after the configured apps were stopped",
+  ]
+
+
+def test_quiescence_gate_tracks_real_postgresql_session_states() -> None:
+  database_url = os.environ.get("PRODUCTION_PREFLIGHT_TEST_DATABASE_URL")
+  if not database_url:
+    pytest.skip("a disposable PostgreSQL URL is not configured")
+
+  inventory = {
+    "peers": [{"id": str(CORE_PEER_ID), "lease_active": True}],
+    "active_jobs": [],
+    "database_sessions": [],
+  }
+  with (
+    psycopg.connect(database_url, autocommit=True) as subject,
+    psycopg.connect(database_url, autocommit=True) as observer,
+  ):
+    subject_pid = subject.info.backend_pid
+
+    def observe_subject() -> dict:
+      row = observer.execute(
+        """
+        SELECT backend_type, state, xact_start
+        FROM pg_stat_activity
+        WHERE pid = %s
+        """,
+        (subject_pid,),
+      ).fetchone()
+      assert row is not None
+      return {
+        "backend_type": row[0],
+        "state": row[1],
+        "transaction_started_at": row[2],
+      }
+
+    inventory["database_sessions"] = [observe_subject()]
+    assert quiescence_conflicts(inventory, CORE_PEER_ID) == []
+
+    subject.execute("BEGIN")
+    inventory["database_sessions"] = [observe_subject()]
+    assert inventory["database_sessions"][0]["state"] == "idle in transaction"
+    assert inventory["database_sessions"][0]["transaction_started_at"] is not None
+    assert quiescence_conflicts(inventory, CORE_PEER_ID) == [
+      "database sessions remain after the configured apps were stopped",
+    ]
+    subject.execute("ROLLBACK")
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+      query = executor.submit(subject.execute, "SELECT pg_sleep(2)")
+      deadline = time.monotonic() + 5
+      while time.monotonic() < deadline:
+        session = observe_subject()
+        if session["state"] == "active":
+          inventory["database_sessions"] = [session]
+          assert quiescence_conflicts(inventory, CORE_PEER_ID) == [
+            "database sessions remain after the configured apps were stopped",
+          ]
+          break
+        time.sleep(0.02)
+      else:
+        pytest.fail("could not observe the disposable PostgreSQL query as active")
+      query.result(timeout=5)
+
+    inventory["database_sessions"] = [observe_subject()]
+    assert inventory["database_sessions"][0]["state"] == "idle"
+    assert inventory["database_sessions"][0]["transaction_started_at"] is None
+    assert quiescence_conflicts(inventory, CORE_PEER_ID) == []
 
 
 def test_flush_lsn_is_read_only_and_validates_the_database_value() -> None:

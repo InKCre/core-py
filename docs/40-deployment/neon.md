@@ -61,7 +61,8 @@ before any PR child is created.
 ## Manual Recovery Evidence
 
 Production schema maintenance uses a native Neon branch as its recovery point. After both
-application services are stopped and the database inventory reports no remaining sessions,
+application services are stopped and the database inventory has no active Peer lease, running
+Job, or database session other than idle client backends without open transactions,
 the protected workflow reads `pg_current_wal_flush_lsn()` in a read-only transaction. It creates
 a child of the exact configured production branch at that LSN, with no compute endpoint and no
 expiration, and verifies the parent, LSN, branch identity, default mapping, and absence of an
