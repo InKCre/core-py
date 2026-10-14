@@ -60,7 +60,51 @@ before any PR child is created.
 
 ## Manual Recovery Evidence
 
-When an operator performs a backup/restore or branch cutover that needs preservation evidence：
+Production schema maintenance uses a native Neon branch as its recovery point. After both
+application services are stopped and the database inventory reports no remaining sessions,
+the protected workflow reads `pg_current_wal_flush_lsn()` in a read-only transaction. It creates
+a child of the exact configured production branch at that LSN, with no compute endpoint and no
+expiration, and verifies the parent, LSN, branch identity, default mapping, and absence of an
+endpoint before allowing migration. The branch quota check reserves one slot for this backup
+and one more for a preserved recovery branch. If the provider reports less capacity, maintenance
+stops before migration. Neon documents [`parent_id` and `parent_lsn` for branch creation](https://api-docs.neon.tech/reference/createprojectbranch)
+and requires `preserve_under_name` when [restoring a branch that has children](https://api-docs.neon.tech/reference/restoreprojectbranch).
+
+The recovery branch captures database data and SQL-level roles, memberships, and grants at the
+chosen LSN. Neon role passwords are control-plane state: restoring branch data does not restore
+an earlier password. Keep the current configured production credentials authoritative and
+verify them against the restored branch before starting either service. Do not place credentials
+in a branch receipt or database manifest.
+
+If migration has changed production and recovery is required, stop both services and restore the
+existing production branch from the confirmed backup branch at its current head. Production
+already has child branches, including retained previews and backups, so Neon requires
+`preserve_under_name`; this saves the failed current state under a new branch and moves its
+children there. Verify the production branch ID, default status, endpoint IDs, parent relationship,
+and preserved child list after restore. Do not start an old image until the schema has been
+verified compatible with it. Keep both the recovery branch and preserved failed-state branch
+until the recovery window is closed.
+
+The restore request targets the existing production branch ID and names the backup branch as its
+source. Omit `source_lsn` to restore the backup branch's current head, and provide a unique
+`preserve_under_name`, for example:
+
+```json
+{
+  "source_branch_id": "br-maintenance-backup",
+  "preserve_under_name": "core-py-failed-state-<run-id>"
+}
+```
+
+The isolated recovery qualification exercised a branch created at a fixed parent LSN, then restored
+its parent while preserving a child-bearing target. The restored target returned to the backup data
+point, while the preserved branch retained the later data point. Role names, membership, table
+ACLs, and SELECT behavior matched across source, restored target, and preserved state. The separate
+3d-to-e6 migration qualification preserved all 23 pre-existing application-table hashes, the
+legacy selection snapshot, and the role/membership manifest. These checks do not claim password
+rollback; credentials remain a separate control-plane invariant.
+
+For other operator-led backup/restore or branch cutovers that need portable archive evidence：
 
 1. create the intended backup or Neon checkpoint from the live branch;
 2. stream a PostgreSQL custom archive directly into encryption without writing plaintext;
@@ -71,7 +115,7 @@ When an operator performs a backup/restore or branch cutover that needs preserva
    row count;
 6. require an empty provider schema diff and a passing checked-in readiness command.
 
-For a Neon snapshot restore qualification, keep the restore unfinalized and inspect the new
+For an isolated Neon snapshot restore qualification, keep the restore unfinalized and inspect the new
 branch returned by the restore operation. Record the production branch and endpoint identities
 before the request, then verify the restored branch and its compute belong to the new branch and
 the production mappings remain unchanged. Do not target or finalize the production branch during
