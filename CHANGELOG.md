@@ -4,6 +4,20 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.7.2 - 2026-10-14
+
+### Changed
+
+- Extensions can now use independent, exact distribution selections and enabled intent per Peer while sharing extension identity, configuration, and state. (#129)
+
+### Fixed
+
+- Canonical production delivery now stops when either configured Heroku app cannot be read or does not match its expected identity, instead of treating lookup failures as permission to create an app. (#132)
+- Before a new Core web process starts, it restores only this Peer’s enabled exact Python pins through Registry validation and fails startup if restoration would change existing Core, Runtime SDK, or base package versions. (#133)
+- Cold startup resolves an enabled legacy extension only after verifying its exact Python release, preserving the pin and enabled intent while recording the distribution. (#135)
+- Core production schema changes now use an explicitly confirmed maintenance workflow that stops configured services, transfers exact process images before downtime, checks observed database activity, and confirms a branch snapshot before migration. (#137)
+
+
 ## 0.7.1 - 2026-10-03
 
 ### Fixed
