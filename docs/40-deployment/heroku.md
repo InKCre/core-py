@@ -96,6 +96,23 @@ the exact current `main` SHA, or by a main-only recovery dispatch. It pulls the 
 GHCR service image, verifies its embedded schema evidence, and builds only the no-op release
 guard and separate PostgREST adapter before receiving deployment inputs.
 
+`.github/workflows/production-readonly-preflight.yml` is a separate protected-main manual entry
+for reviewing the configured production targets. It reuses the existing strict Heroku app
+resolver and Neon connection resolver, verifies the exact Neon branch with a read-only API call,
+and reads the matching immutable Core image. Its database inventory runs in a read-only,
+repeatable-read transaction and records the migration/contract revision, Peer leases, exact
+Extension selections (including unresolved legacy distribution), pending/running Jobs, relevant
+database roles and table privileges, and the visible database-session snapshot. It also compares
+the Heroku Core and PostgREST database hosts, database names, roles, and JWT configuration without
+printing their values. The configured Core Peer ID must equal the official deployment resolver's
+deterministic ID for that Heroku app. The report includes the checked-in non-secret production
+profile separately so stale declarations are visible rather than treated as live state.
+
+This report is an observation for maintenance planning. Active Peer leases, Jobs, and database
+sessions describe only the snapshot taken during the job; they do not prove that every external
+Peer or direct database writer has stopped. The report never runs migrations, changes app config,
+changes formation, releases an image, or starts application code.
+
 Production delivery follows one convergence path：resolve role-specific URLs from the configured Neon branch ID，run
 `db init` and `db ready` from the exact candidate image，configure and release core plus PostgREST，converge the Peer
 advertisement，then probe both public runtimes。Images and config releases are polled to a terminal state；registry login and

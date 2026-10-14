@@ -1,0 +1,142 @@
+name: Core production read-only preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: production-application
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Inspect configured production without mutation
+    if: github.repository == 'InKCre/core-py' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout exact main source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify source is current main
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: bash scripts/automation/runtime_artifact.sh verify-main-source
+
+      - name: Install pinned Heroku CLI
+        run: npm install --global heroku@11.8.1
+
+      - name: Resolve existing production applications
+        id: apps
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+          POSTGREST_APP_NAME: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
+          REQUIRE_EXISTING_APPS: "true"
+        run: bash scripts/automation/production_delivery.sh resolve-apps
+
+      - name: Resolve the configured Neon branch connections
+        id: neon
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: bash scripts/automation/production_delivery.sh resolve-neon
+
+      - name: Verify Neon branch identity with a read-only API request
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          branch_json="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID")"
+          jq -e --arg branch "$NEON_BRANCH_ID" '.branch.id == $branch' \
+            <<<"$branch_json" >/dev/null
+          echo "Neon returned the configured project/branch identity."
+
+      - name: Read existing releases, formations, and config presence
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+          POSTGREST_APP_NAME: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
+        run: |
+          for app_name in "$HEROKU_APP_NAME" "$POSTGREST_APP_NAME"; do
+            releases="$(heroku releases --app "$app_name" --json)"
+            dynos="$(heroku ps --app "$app_name" --json)"
+            config="$(heroku config --app "$app_name" --json)"
+            jq -e 'type == "array" and length > 0' <<<"$releases" >/dev/null
+            jq -e 'type == "array"' <<<"$dynos" >/dev/null
+            jq -e 'type == "object"' <<<"$config" >/dev/null
+            release="$(jq -r '.[0] | "v\(.version) \(.status)"' <<<"$releases")"
+            formation="$(jq -c '[group_by(.type)[] | {type: .[0].type, count: length, states: (group_by(.state) | map({state: .[0].state, count: length}))}]' <<<"$dynos")"
+            printf '%s latest release: %s\n%s current formation: %s\n' \
+              "$app_name" "$release" "$app_name" "$formation" \
+              >> "$GITHUB_STEP_SUMMARY"
+            profile_state="unset"
+            if jq -e 'has("INKCRE_DEPLOYMENT_PROFILE")' <<<"$config" >/dev/null; then
+              profile_state="configured"
+            fi
+            printf '%s deployment profile: %s\n' "$app_name" "$profile_state" \
+              >> "$GITHUB_STEP_SUMMARY"
+            if [ "$app_name" = "$HEROKU_APP_NAME" ]; then
+              jq -e 'has("DATABASE_URL") and has("JWT_SECRET") and has("PEER_ID")' \
+                <<<"$config" >/dev/null
+            else
+              jq -e 'has("PGRST_DB_URI") and has("PGRST_JWT_SECRET")' \
+                <<<"$config" >/dev/null
+            fi
+          done
+
+      - name: Pull the immutable image for this exact main source
+        id: core
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: bash scripts/automation/runtime_artifact.sh pull-production
+
+      - name: Record read-only database and Peer inventory
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+          MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.direct_owner_database_url }}
+          APP_DATABASE_IDENTITY_URL: ${{ steps.neon.outputs.pooled_owner_database_url }}
+          CORE_IMAGE_DIGEST: ${{ steps.core.outputs.digest_ref }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          core_config="$(heroku config --app "$HEROKU_APP_NAME" --json)"
+          postgrest_config="$(heroku config --app "${{ vars.POSTGREST_HEROKU_APP_NAME }}" --json)"
+          production_profile="$(cat deploy/profiles/production.json)"
+          while IFS= read -r secret_value; do
+            printf '::add-mask::%s\n' "$secret_value"
+          done < <(jq -r '[.DATABASE_URL, .JWT_SECRET] | .[] | select(type == "string" and length > 0)' <<<"$core_config")
+          while IFS= read -r secret_value; do
+            printf '::add-mask::%s\n' "$secret_value"
+          done < <(jq -r '[.PGRST_DB_URI, .PGRST_JWT_SECRET] | .[] | select(type == "string" and length > 0)' <<<"$postgrest_config")
+          export CORE_CONFIG_JSON="$core_config"
+          export POSTGREST_CONFIG_JSON="$postgrest_config"
+          export PRODUCTION_PROFILE_JSON="$production_profile"
+          core_peer_id="$(jq -r '.PEER_ID' <<<"$core_config")"
+          export CORE_PEER_ID="$core_peer_id"
+          docker run --rm \
+            --env MIGRATION_DATABASE_URL \
+            --env APP_DATABASE_IDENTITY_URL \
+            --env HEROKU_APP_NAME \
+            --env CORE_PEER_ID \
+            --env CORE_CONFIG_JSON \
+            --env POSTGREST_CONFIG_JSON \
+            --env PRODUCTION_PROFILE_JSON \
+            --env HEAD_SHA \
+            --env CORE_IMAGE_DIGEST \
+            "inkcre-production-web:$HEAD_SHA" \
+            python scripts/automation/production_preflight.py
