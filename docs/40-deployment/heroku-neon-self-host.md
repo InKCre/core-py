@@ -56,8 +56,9 @@ key or another password as the JWT secret.
 The workflow validates the explicit database-change confirmation and all settings before provider
 mutation, builds the exact selected commit, resolves the Neon default branch owner coordinates,
 creates missing Heroku apps, and refuses an existing app unless its deployment profile matches the
-same Neon project. It then initializes the database contract, stores only role-specific URLs in
-Heroku config, releases both images, converges the Core Peer's public address, and verifies Core
+same Neon project. It transfers the exact process images before database initialization, then
+initializes the database contract, stores only role-specific URLs in Heroku config, releases the
+transferred images, converges the Core Peer's public address, and verifies Core
 readiness plus the authenticated PostgREST read/write/deny contract.
 
 The Neon owner URL exists only in the GitHub Actions job. It is never placed in either Heroku app.

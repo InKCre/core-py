@@ -86,6 +86,13 @@ jobs:
           POSTGREST_APP_NAME: ${{ steps.settings.outputs.postgrest_app_name }}
         run: bash scripts/automation/production_delivery.sh resolve-apps
 
+      - name: Transfer exact candidate images before database changes
+        env:
+          APP_NAME: ${{ steps.heroku.outputs.app_name }}
+          HEAD_SHA: ${{ github.sha }}
+          POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
+        run: bash scripts/automation/production_delivery.sh transfer-images
+
       - name: Converge the self-hosted database contract
         id: database
         env:
@@ -99,6 +106,7 @@ jobs:
         env:
           APP_NAME: ${{ steps.heroku.outputs.app_name }}
           DATABASE_URL: ${{ steps.database.outputs.core_database_url }}
+          IMAGES_ALREADY_TRANSFERRED: "true"
           INKCRE_DEPLOYMENT_PROFILE: ${{ steps.settings.outputs.deployment_profile }}
           PEER_NAME: ${{ steps.heroku.outputs.app_name }}
           POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}

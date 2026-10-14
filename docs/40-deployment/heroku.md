@@ -153,13 +153,15 @@ step; no repository-owned summary command could run.
 `.github/workflows/production-maintenance.yml` is the only production path that applies a new
 database contract. It runs from current `main` in the protected `production` environment and
 requires a fresh dispatch plus explicit acknowledgement that every non-Core/PostgREST Peer and
-direct database writer has stopped. It records a read-only inventory, stops both configured Heroku
-apps and verifies that no dynos remain, then takes another inventory and blocks on observed active
+direct database writer has stopped. It first records a read-only inventory, then transfers the
+exact candidate Core, release, and PostgREST images to the Heroku registry before the maintenance
+window. It stops both configured Heroku apps and verifies that no dynos remain, then takes another
+inventory and blocks on observed active
 Peer leases, running Jobs, or database sessions. Those observations do not prove that unknown or
 external writers are absent; the acknowledgement remains an operational responsibility. The job
 creates and verifies a named Neon snapshot for the exact configured branch without requesting
-automatic expiry, then runs `db init`, readiness, app release, and runtime probes from the
-immutable candidate image. The workflow does not delete the snapshot; cleanup remains an explicit
+automatic expiry, then runs `db init`, readiness, app release from the already transferred images, and runtime probes from
+the immutable candidate image. The workflow does not delete the snapshot; cleanup remains an explicit
 operator action after the recovery window closes. Stable promotion follows only a successful probe.
 
 Maintenance runs refuse GitHub Actions reruns because a failed network response can leave the

@@ -95,6 +95,14 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: bash scripts/automation/production_maintenance.sh read-only-inventory
 
+      - name: Transfer exact candidate images before service shutdown
+        env:
+          APP_NAME: ${{ steps.apps.outputs.app_name }}
+          HEAD_SHA: ${{ github.sha }}
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          POSTGREST_APP_NAME: ${{ steps.apps.outputs.postgrest_app_name }}
+        run: bash scripts/automation/production_delivery.sh transfer-images
+
       - name: Stop Core and PostgREST and verify zero Heroku dynos
         id: stop
         env:
@@ -140,6 +148,7 @@ jobs:
           postgrest_app_name: ${{ vars.POSTGREST_HEROKU_APP_NAME }}
           postgrest_database_password: ${{ secrets.POSTGREST_DATABASE_PASSWORD }}
           maintenance_window: "true"
+          images_already_transferred: "true"
 
       - name: Promote the probed image to the stable channel
         id: stable

@@ -64,7 +64,41 @@ wait_if_changed() {
   printf '%s' "${after:-$before}"
 }
 
+transfer_process_images() {
+  for name in APP_NAME HEROKU_API_KEY HEAD_SHA POSTGREST_APP_NAME; do
+    require_env "$name"
+  done
+
+  for attempt in $(seq 1 5); do
+    if printf '%s' "$HEROKU_API_KEY" |
+      docker login --username=_ --password-stdin registry.heroku.com; then
+      break
+    fi
+    test "$attempt" -lt 5
+    sleep "$((attempt * 2))"
+  done
+  docker tag "inkcre-production-web:$HEAD_SHA" "registry.heroku.com/$APP_NAME/web"
+  docker tag "inkcre-production-release:$HEAD_SHA" "registry.heroku.com/$APP_NAME/release"
+  docker tag "inkcre-production-postgrest:$HEAD_SHA" \
+    "registry.heroku.com/$POSTGREST_APP_NAME/web"
+  retry_command 5 docker push "registry.heroku.com/$APP_NAME/web"
+  retry_command 5 docker push "registry.heroku.com/$APP_NAME/release"
+  retry_command 5 docker push "registry.heroku.com/$POSTGREST_APP_NAME/web"
+}
+
+require_transferred_process_images() {
+  for image in \
+    "registry.heroku.com/$APP_NAME/web" \
+    "registry.heroku.com/$APP_NAME/release" \
+    "registry.heroku.com/$POSTGREST_APP_NAME/web"; do
+    docker image inspect "$image" >/dev/null
+  done
+}
+
 case "${1:-}" in
+  transfer-images)
+    transfer_process_images
+    ;;
   resolve-neon)
     require_env NEON_API_KEY
     require_env NEON_BRANCH_ID
@@ -220,21 +254,11 @@ case "${1:-}" in
       "PGRST_JWT_SECRET=$JWT_SECRET" "${postgrest_profile[@]}" >/dev/null
     wait_if_changed "$POSTGREST_APP_NAME" "$before" >/dev/null
 
-    for attempt in $(seq 1 5); do
-      if printf '%s' "$HEROKU_API_KEY" |
-        docker login --username=_ --password-stdin registry.heroku.com; then
-        break
-      fi
-      test "$attempt" -lt 5
-      sleep "$((attempt * 2))"
-    done
-    docker tag "inkcre-production-web:$HEAD_SHA" "registry.heroku.com/$APP_NAME/web"
-    docker tag "inkcre-production-release:$HEAD_SHA" "registry.heroku.com/$APP_NAME/release"
-    docker tag "inkcre-production-postgrest:$HEAD_SHA" \
-      "registry.heroku.com/$POSTGREST_APP_NAME/web"
-    retry_command 5 docker push "registry.heroku.com/$APP_NAME/web"
-    retry_command 5 docker push "registry.heroku.com/$APP_NAME/release"
-    retry_command 5 docker push "registry.heroku.com/$POSTGREST_APP_NAME/web"
+    if [ "${IMAGES_ALREADY_TRANSFERRED:-false}" = true ]; then
+      require_transferred_process_images
+    else
+      transfer_process_images
+    fi
 
     before="$(latest_release "$APP_NAME")"
     heroku container:release release --app "$APP_NAME"
@@ -295,7 +319,7 @@ EOF
     exit 1
     ;;
   *)
-    echo "usage: $0 resolve-neon|resolve-apps|converge-database|release|advertise|probe" >&2
+    echo "usage: $0 resolve-neon|resolve-apps|transfer-images|converge-database|release|advertise|probe" >&2
     exit 2
     ;;
 esac

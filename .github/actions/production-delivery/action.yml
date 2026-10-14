@@ -39,6 +39,10 @@ inputs:
     description: True only when called by the protected, confirmed maintenance workflow
     required: false
     default: "false"
+  images_already_transferred:
+    description: Exact candidate process images were pushed before the maintenance window
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -96,6 +100,7 @@ runs:
         HEAD_SHA: ${{ inputs.head_sha }}
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         JWT_SECRET: ${{ inputs.jwt_secret }}
+        IMAGES_ALREADY_TRANSFERRED: ${{ inputs.images_already_transferred }}
         POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
         POSTGREST_DATABASE_URL: ${{ steps.database.outputs.postgrest_database_url }}
       run: bash scripts/automation/production_delivery.sh release
