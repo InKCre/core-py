@@ -23,8 +23,12 @@ def test_snapshot_requires_completed_operation_and_exact_branch(
     "args = sys.argv[1:]\n"
     "method = args[args.index('--request') + 1] if '--request' in args else 'GET'\n"
     "url = args[-1]\n"
+    "output_file = args[args.index('--output') + 1] if '--output' in args else None\n"
+    "headers = [args[index + 1] for index, value in enumerate(args[:-1]) "
+    "if value == '--header']\n"
     "with Path(os.environ['NEON_CALLS']).open('a') as calls:\n"
-    "  calls.write(json.dumps({'method': method, 'url': url}) + '\\n')\n"
+    "  record = {'method': method, 'url': url, 'headers': headers}\n"
+    "  calls.write(json.dumps(record) + '\\n')\n"
     "if url.endswith('/snapshots'):\n"
     "  body = {'snapshots': []}\n"
     "elif '/snapshot?' in url:\n"
@@ -37,7 +41,11 @@ def test_snapshot_requires_completed_operation_and_exact_branch(
     "'source_branch_id': 'br-production'}}\n"
     "else:\n"
     "  raise SystemExit('unexpected Neon API request')\n"
-    "print(json.dumps(body))\n",
+    "if output_file:\n"
+    "  Path(output_file).write_text(json.dumps(body))\n"
+    "  print('200')\n"
+    "else:\n"
+    "  print(json.dumps(body))\n",
     encoding="utf-8",
   )
   curl.chmod(0o755)
@@ -67,8 +75,56 @@ def test_snapshot_requires_completed_operation_and_exact_branch(
   ]
   post_requests = [request for request in requests if request["method"] == "POST"]
   assert len(post_requests) == 1
-  assert "expires_at=" not in post_requests[0]["url"]
+  assert post_requests[0]["url"].endswith(
+    "/branches/br-production/snapshot?name=core-py-maintenance-41"
+  )
   assert any(request["url"].endswith("/operations/op-1") for request in requests)
   assert any(request["url"].endswith("/snapshots/snapshot-1") for request in requests)
   assert "snapshot_id=snapshot-1" in output_path.read_text(encoding="utf-8")
   assert "snapshot-1" in summary_path.read_text(encoding="utf-8")
+
+
+def test_snapshot_reports_neon_http_error_without_exposing_request_credentials(
+  tmp_path: Path,
+) -> None:
+  bin_directory = tmp_path / "bin"
+  bin_directory.mkdir()
+  curl = bin_directory / "curl"
+  curl.write_text(
+    "#!/usr/bin/env python3\n"
+    "import json, sys\n"
+    "from pathlib import Path\n"
+    "args = sys.argv[1:]\n"
+    "url = args[-1]\n"
+    "output_file = args[args.index('--output') + 1] if '--output' in args else None\n"
+    "if url.endswith('/snapshots'):\n"
+    "  print(json.dumps({'snapshots': []}))\n"
+    "elif output_file:\n"
+    "  Path(output_file).write_text(json.dumps({'code': 'invalid_snapshot', "
+    "'message': 'snapshot request rejected'}))\n"
+    "  print('422')\n"
+    "else:\n"
+    "  raise SystemExit('unexpected Neon API request')\n",
+    encoding="utf-8",
+  )
+  curl.chmod(0o755)
+  result = subprocess.run(  # noqa: S603 - execute the checked-in script with a local API stub.
+    ["bash", str(SCRIPT), "snapshot"],
+    check=False,
+    capture_output=True,
+    text=True,
+    env={
+      **os.environ,
+      "PATH": f"{bin_directory}:{os.environ['PATH']}",
+      "NEON_API_KEY": "test-only-secret",
+      "NEON_BRANCH_ID": "br-production",
+      "NEON_PROJECT_ID": "project-1",
+      "GITHUB_RUN_ID": "42",
+    },
+  )
+
+  assert result.returncode == 1
+  assert "HTTP 422" in result.stderr
+  assert "invalid_snapshot" in result.stderr
+  assert "snapshot request rejected" in result.stderr
+  assert "test-only-secret" not in result.stderr

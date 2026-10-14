@@ -85,10 +85,36 @@ case "${1:-}" in
         exit 1
       fi
     else
-      created="$(curl --fail --silent --show-error --request POST \
+      response_file="$(mktemp)"
+      trap 'rm -f "$response_file"' EXIT
+      curl_exit=0
+      http_status="$(curl --silent --show-error --output "$response_file" \
+        --write-out '%{http_code}' --request POST \
         --header "Authorization: Bearer $NEON_API_KEY" \
         --header 'Accept: application/json' \
-        "$api/branches/$NEON_BRANCH_ID/snapshot?name=$snapshot_name")"
+        "$api/branches/$NEON_BRANCH_ID/snapshot?name=$snapshot_name")" || curl_exit=$?
+      if [ "$curl_exit" -ne 0 ]; then
+        echo "Neon snapshot request failed before receiving an HTTP response (curl exit $curl_exit)" >&2
+        exit "$curl_exit"
+      fi
+      case "$http_status" in
+        2[0-9][0-9]) ;;
+        *)
+          provider_error="$(jq -r '
+            [
+              (.code // .error.code // empty | tostring),
+              (.message // .error.message // .detail // .error // "no provider message"
+               | if type == "string" then . else tojson end)
+            ]
+            | map(select(length > 0) | gsub("[\\r\\n\\t]"; " ") | .[0:500])
+            | join(": ")
+          ' "$response_file" 2>/dev/null || printf 'non-JSON error response')"
+          printf 'Neon snapshot request returned HTTP %s: %s\n' \
+            "$http_status" "$provider_error" >&2
+          exit 1
+          ;;
+      esac
+      created="$(cat "$response_file")"
       jq -e --arg name "$snapshot_name" --arg branch "$NEON_BRANCH_ID" \
         '.snapshot.name == $name and .snapshot.source_branch_id == $branch and
          (.snapshot.id | type == "string" and length > 0)' \
