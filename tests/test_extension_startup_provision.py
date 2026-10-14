@@ -44,11 +44,15 @@ def release(name: str, version: str) -> NativeReleaseRecord:
 
 class SelectionStore:
   def __init__(self, *selections: ExtensionParticipation) -> None:
-    self.selections = selections
+    self.selections = list(selections)
 
   async def list_participations(self, peer_id: uuid.UUID):
     assert peer_id == PEER_ID
-    return self.selections
+    return tuple(self.selections)
+
+  async def get_participation(self, peer_id: uuid.UUID, name: str):
+    assert peer_id == PEER_ID
+    return next((row for row in self.selections if row.name == name), None)
 
 
 class ReleaseReader:
@@ -67,10 +71,14 @@ class DistributionConsumer:
     self.download_dirs: list[Path] = []
     self.applications: list[tuple[str, str]] = []
     self.installed: dict[tuple[str, str], typing.Any] = {}
+    self.on_download = None
+    self.on_apply = None
 
   def download(self, descriptor, _association, _host_version, wheel_dir: Path) -> Path:
     self.downloads.append((descriptor.name, descriptor.version))
     self.download_dirs.append(wheel_dir)
+    if self.on_download is not None:
+      self.on_download(descriptor)
     return wheel_dir / f"{descriptor.name.rsplit('/', 1)[-1]}-{descriptor.version}.whl"
 
   def apply(self, _wheel, descriptor, _association, _host_version):
@@ -78,6 +86,8 @@ class DistributionConsumer:
     self.applications.append(key)
     acquired = acquired_distribution(descriptor)
     self.installed[key] = acquired
+    if self.on_apply is not None:
+      self.on_apply(descriptor)
     return acquired
 
 
@@ -161,7 +171,43 @@ def test_startup_provisions_only_enabled_exact_python_selections(
   assert resolver.lookups == [("inkcre/mail", "0.3.3"), ("inkcre/mail", "0.3.3")]
   assert consumer.downloads == [("inkcre/mail", "0.3.3")]
   assert consumer.applications == [("inkcre/mail", "0.3.3")]
-  assert store.selections == (selected, disabled)
+  assert store.selections == [selected, disabled]
+
+
+@pytest.mark.parametrize("change_during", ["download", "apply"])
+def test_startup_stops_when_exact_enabled_pin_changes_during_restore(
+  async_runner,
+  monkeypatch: pytest.MonkeyPatch,
+  change_during: typing.Literal["download", "apply"],
+) -> None:
+  selected = participation("inkcre/mail", "0.3.3", enabled=True)
+  replacement = participation("inkcre/mail", "0.3.2", enabled=True)
+  store = SelectionStore(selected)
+  consumer = DistributionConsumer()
+  setattr(
+    consumer,
+    f"on_{change_during}",
+    lambda _descriptor: store.selections.__setitem__(0, replacement),
+  )
+  resolver = ReleaseReader({("inkcre/mail", "0.3.3"): release("inkcre/mail", "0.3.3")})
+  host = ExtensionHost(
+    store=typing.cast(ExtensionStore, store),
+    release_client=typing.cast(typing.Any, resolver),
+    distribution_consumer=typing.cast(typing.Any, consumer),
+  )
+  monkeypatch.setattr(
+    extension_main.AcquiredDistribution,
+    "discover",
+    lambda name, version, _host_version: consumer.installed.get((name, version)),
+  )
+
+  with pytest.raises(extension_main.ExtensionStateConflictError, match="changed"):
+    async_runner.run(host.provision_enabled_distributions())
+
+  assert store.selections == [replacement]
+  assert consumer.applications == (
+    [] if change_during == "download" else [("inkcre/mail", "0.3.3")]
+  )
 
 
 def test_startup_rejects_enabled_module_federation_without_mutation(async_runner) -> None:
@@ -178,7 +224,7 @@ def test_startup_rejects_enabled_module_federation_without_mutation(async_runner
   with pytest.raises(ExtensionCompatibilityError, match="module_federation"):
     async_runner.run(host.provision_enabled_distributions())
 
-  assert store.selections == (selected,)
+  assert store.selections == [selected]
 
 
 def test_startup_downloads_multiple_pins_into_isolated_directories(

@@ -404,12 +404,8 @@ class ExtensionHost:
           self._environment_application_pending = True
           self._operations[name] = ("applying", None)
           await self.pause_peer_execution()
-          environment_before = self._environment_package_versions()
           acquired = await asyncio.to_thread(
             consumer.apply, extension_wheel, release, association, CORE_VERSION
-          )
-          self._assert_environment_packages_preserved(
-            environment_before, association.project
           )
           self._validate_installed_association(acquired, association)
       except Exception as error:
@@ -605,6 +601,7 @@ class ExtensionHost:
       tuple[ExtensionParticipation, ExtensionReleaseDescriptor, PythonReleaseDescriptor]
     ] = []
     for selection in selections:
+      await self._require_current_enabled_selection(peer_id, selection)
       release = await asyncio.to_thread(
         self._resolve,
         selection.name,
@@ -625,6 +622,18 @@ class ExtensionHost:
       pending.append((selection, release, association))
 
     if not pending:
+      current_selections = tuple(
+        row for row in await self.store.list_participations(peer_id) if row.enabled
+      )
+      if {(row.name, row.distribution, row.version) for row in current_selections} != {
+        (row.name, row.distribution, row.version) for row in selections
+      }:
+        raise ExtensionStateConflictError(
+          "Peer selections changed while enabled distributions were being restored; "
+          "restart startup against the current pins"
+        )
+      for selection in current_selections:
+        await self._require_current_enabled_selection(peer_id, selection)
       return
 
     # Download every exact wheel before pip can change the shared environment.
@@ -641,6 +650,7 @@ class ExtensionHost:
         ]
       ] = []
       for index, (selection, release, association) in enumerate(pending):
+        await self._require_current_enabled_selection(peer_id, selection)
         selection_wheel_dir = wheel_dir / str(index)
         selection_wheel_dir.mkdir()
         wheel = await asyncio.to_thread(
@@ -649,21 +659,36 @@ class ExtensionHost:
         wheels.append((selection, release, association, wheel))
 
       for selection, release, association, wheel in wheels:
+        await self._require_current_enabled_selection(peer_id, selection)
         environment_before = self._environment_package_versions()
         acquired = await asyncio.to_thread(
           consumer.apply, wheel, release, association, CORE_VERSION
         )
         self._assert_environment_packages_preserved(environment_before, association.project)
         self._validate_installed_association(acquired, association)
+        await self._require_current_enabled_selection(peer_id, selection)
         LOGGER.info(
           "Restored enabled Extension distribution %s@%s before process startup",
           selection.name,
           selection.version,
         )
 
+    # Re-read intent after package-manager work. Do not continue on a stale plan.
+    current_selections = tuple(
+      row for row in await self.store.list_participations(peer_id) if row.enabled
+    )
+    if {(row.name, row.distribution, row.version) for row in current_selections} != {
+      (row.name, row.distribution, row.version) for row in selections
+    }:
+      raise ExtensionStateConflictError(
+        "Peer selections changed while enabled distributions were being restored; "
+        "restart startup against the current pins"
+      )
+
     # Later installs may alter shared dependencies, so verify every selected
     # project again after the complete plan has been applied.
-    for selection in selections:
+    for selection in current_selections:
+      await self._require_current_enabled_selection(peer_id, selection)
       release = await asyncio.to_thread(
         self._resolve,
         selection.name,
@@ -684,6 +709,19 @@ class ExtensionHost:
           "leave its exact distribution installed"
         )
       self._validate_installed_association(acquired, association)
+
+  async def _require_current_enabled_selection(
+    self,
+    peer_id: typing.Any,
+    selection: ExtensionParticipation,
+  ) -> ExtensionParticipation:
+    current = await self._get_current_enabled_selection(peer_id, selection)
+    if current is None:
+      raise ExtensionStateConflictError(
+        f"Peer selection for {selection.name}@{selection.version} changed during "
+        "startup restoration"
+      )
+    return current
 
   async def _acquire(self, state: InstalledExtension, selection: ExtensionParticipation):
     if selection.distribution != "python":
