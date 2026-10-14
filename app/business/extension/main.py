@@ -981,8 +981,8 @@ class ExtensionHost:
               release_client=resolver,
             )
             require_python_association(legacy_release)
-            selection = await self.store.select_participation(
-              peer_id, selection.name, "python", selection.version
+            selection = await self.store.resolve_legacy_python_participation(
+              peer_id, selection.name, selection.version
             )
           if selection.distribution != "python":
             raise ExtensionCompatibilityError(
