@@ -165,10 +165,14 @@ the immutable candidate image. The workflow does not delete the snapshot; cleanu
 operator action after the recovery window closes. Stable promotion follows only a successful probe.
 
 Maintenance runs refuse GitHub Actions reruns because a failed network response can leave the
-actual migration state uncertain. A failure before the first scale operation leaves the existing service running; a failure once
-shutdown starts can leave one or both apps stopped, so inspect both formations and the database.
-Do not rerun the same execution or start the old image against a database that may have migrated. Recover from the observed
-database and confirmed snapshot under a new approved maintenance run.
+actual migration state uncertain. A failure before the first scale operation leaves the existing
+service running; a failure once shutdown starts can leave one or both apps stopped, so inspect both
+formations and the database. If the workflow logs confirm that `db init` did not start, verify that
+the schema still matches the recorded pre-maintenance inventory before manually restoring the
+previous formation. Once `db init` starts, the database may be partially migrated: keep both apps
+stopped, inspect the live schema, then repair forward or restore the confirmed snapshot. Never start
+the old image against a database that may have migrated. Do not rerun the same execution; use a new
+approved maintenance run only after the observed state and recovery point are understood.
 
 ## PostgREST Runtime Contract
 
