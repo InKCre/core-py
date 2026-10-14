@@ -1,8 +1,10 @@
 """Provider-neutral process contract for the OCI artifact."""
 
+import asyncio
 import os
 from pathlib import Path
 import sys
+import time
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +15,20 @@ def _web() -> int:
   port = os.getenv("PORT", "8000")
   if not port.isdigit():
     raise SystemExit("PORT must be an integer")
+
+  from app.database_contract.readiness import check_database_contract
+
+  retry_seconds = float(os.getenv("RUNTIME_BOOTSTRAP_RETRY_SECONDS", "5"))
+  while True:
+    readiness = check_database_contract()
+    if readiness.ready:
+      break
+    print(f"Waiting for database contract: {readiness.reason}", flush=True)
+    time.sleep(retry_seconds)
+
+  from app.business.extension.main import EXTENSION_HOST
+
+  asyncio.run(EXTENSION_HOST.provision_enabled_distributions())
 
   os.execvp(
     sys.executable,

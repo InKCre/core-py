@@ -1,0 +1,330 @@
+from pathlib import Path
+import typing
+import uuid
+
+import pytest
+from inkcre_extension_runtime_core_py.generated.registry import (
+  Distribution,
+  NativeReleaseRecord,
+  State,
+)
+
+from app.business.extension import main as extension_main
+from app.business.extension.errors import ExtensionCompatibilityError
+from app.business.extension.main import ExtensionHost
+from app.business.extension.state import ExtensionParticipation, ExtensionStore
+
+
+PEER_ID = uuid.UUID("00000000-0000-4000-8000-000000000118")
+
+
+def release(name: str, version: str) -> NativeReleaseRecord:
+  leaf = name.rsplit("/", 1)[-1].replace("-", "_")
+  project = f"inkcre-ext-{leaf.replace('_', '-')}"
+  module = f"inkcre_ext_{leaf}"
+  return NativeReleaseRecord(
+    name=name,
+    nickname=leaf.title(),
+    version=version,
+    state=State.published,
+    distribution=Distribution.python,
+    python={
+      "project": project,
+      "host_sdk": "core-py",
+      "host_sdk_version": ">=0.2.0 <0.4.0",
+      "entry_point": {
+        "group": "inkcre.core.extensions",
+        "name": leaf,
+        "object": f"{module}:{leaf.title()}",
+      },
+      "simple_url": f"https://registry.example/simple/{project}/",
+    },
+  )
+
+
+class SelectionStore:
+  def __init__(self, *selections: ExtensionParticipation) -> None:
+    self.selections = list(selections)
+
+  async def list_participations(self, peer_id: uuid.UUID):
+    assert peer_id == PEER_ID
+    return tuple(self.selections)
+
+  async def get_participation(self, peer_id: uuid.UUID, name: str):
+    assert peer_id == PEER_ID
+    return next((row for row in self.selections if row.name == name), None)
+
+
+class ReleaseReader:
+  def __init__(self, releases: dict[tuple[str, str], NativeReleaseRecord]) -> None:
+    self.releases = releases
+    self.lookups: list[tuple[str, str]] = []
+
+  def get(self, name: str, version: str) -> NativeReleaseRecord:
+    self.lookups.append((name, version))
+    return self.releases[(name, version)]
+
+
+class DistributionConsumer:
+  def __init__(self) -> None:
+    self.downloads: list[tuple[str, str]] = []
+    self.download_dirs: list[Path] = []
+    self.applications: list[tuple[str, str]] = []
+    self.installed: dict[tuple[str, str], typing.Any] = {}
+    self.on_download = None
+    self.on_apply = None
+
+  def download(self, descriptor, _association, _host_version, wheel_dir: Path) -> Path:
+    self.downloads.append((descriptor.name, descriptor.version))
+    self.download_dirs.append(wheel_dir)
+    if self.on_download is not None:
+      self.on_download(descriptor)
+    return wheel_dir / f"{descriptor.name.rsplit('/', 1)[-1]}-{descriptor.version}.whl"
+
+  def apply(self, _wheel, descriptor, _association, _host_version):
+    key = (descriptor.name, descriptor.version)
+    self.applications.append(key)
+    acquired = acquired_distribution(descriptor)
+    self.installed[key] = acquired
+    if self.on_apply is not None:
+      self.on_apply(descriptor)
+    return acquired
+
+
+def acquired_distribution(descriptor):
+  association = descriptor.python
+  return typing.cast(
+    typing.Any,
+    type(
+      "Acquired",
+      (),
+      {
+        "record": type(
+          "InstalledRecord",
+          (),
+          {
+            "python": association,
+            "host_sdk": type(
+              "HostSdk",
+              (),
+              {"name": "core-py", "version": association.host_sdk_version},
+            )(),
+          },
+        )(),
+      },
+    )(),
+  )
+
+
+def participation(
+  name: str,
+  version: str,
+  *,
+  enabled: bool,
+  distribution: typing.Literal["python", "module_federation"] | None = "python",
+) -> ExtensionParticipation:
+  return ExtensionParticipation(
+    name=name,
+    peer_id=PEER_ID,
+    distribution=distribution,
+    version=version,
+    enabled=enabled,
+  )
+
+
+@pytest.fixture(autouse=True)
+def current_peer(monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.setattr(
+    extension_main.PeerManager,
+    "get_current_peer_ref",
+    staticmethod(lambda: PEER_ID),
+  )
+
+
+@pytest.mark.parametrize("distribution", ["python", None])
+def test_startup_provisions_only_enabled_exact_python_selections(
+  async_runner,
+  monkeypatch: pytest.MonkeyPatch,
+  distribution: typing.Literal["python"] | None,
+) -> None:
+  selected = participation("inkcre/mail", "0.3.3", enabled=True, distribution=distribution)
+  disabled = participation("inkcre/rss", "0.2.2", enabled=False)
+  resolver = ReleaseReader(
+    {
+      ("inkcre/mail", "0.3.3"): release("inkcre/mail", "0.3.3"),
+    }
+  )
+  consumer = DistributionConsumer()
+  store = SelectionStore(selected, disabled)
+  host = ExtensionHost(
+    store=typing.cast(ExtensionStore, store),
+    release_client=typing.cast(typing.Any, resolver),
+    distribution_consumer=typing.cast(typing.Any, consumer),
+  )
+
+  def discover(name: str, version: str, _host_version: str):
+    return consumer.installed.get((name, version))
+
+  monkeypatch.setattr(extension_main.AcquiredDistribution, "discover", discover)
+  async_runner.run(host.provision_enabled_distributions())
+
+  assert resolver.lookups == [("inkcre/mail", "0.3.3"), ("inkcre/mail", "0.3.3")]
+  assert consumer.downloads == [("inkcre/mail", "0.3.3")]
+  assert consumer.applications == [("inkcre/mail", "0.3.3")]
+  assert store.selections == [selected, disabled]
+
+
+@pytest.mark.parametrize("change_during", ["download", "apply"])
+def test_startup_stops_when_exact_enabled_pin_changes_during_restore(
+  async_runner,
+  monkeypatch: pytest.MonkeyPatch,
+  change_during: typing.Literal["download", "apply"],
+) -> None:
+  selected = participation("inkcre/mail", "0.3.3", enabled=True)
+  replacement = participation("inkcre/mail", "0.3.2", enabled=True)
+  store = SelectionStore(selected)
+  consumer = DistributionConsumer()
+  setattr(
+    consumer,
+    f"on_{change_during}",
+    lambda _descriptor: store.selections.__setitem__(0, replacement),
+  )
+  resolver = ReleaseReader({("inkcre/mail", "0.3.3"): release("inkcre/mail", "0.3.3")})
+  host = ExtensionHost(
+    store=typing.cast(ExtensionStore, store),
+    release_client=typing.cast(typing.Any, resolver),
+    distribution_consumer=typing.cast(typing.Any, consumer),
+  )
+  monkeypatch.setattr(
+    extension_main.AcquiredDistribution,
+    "discover",
+    lambda name, version, _host_version: consumer.installed.get((name, version)),
+  )
+
+  with pytest.raises(extension_main.ExtensionStateConflictError, match="changed"):
+    async_runner.run(host.provision_enabled_distributions())
+
+  assert store.selections == [replacement]
+  assert consumer.applications == (
+    [] if change_during == "download" else [("inkcre/mail", "0.3.3")]
+  )
+
+
+def test_startup_rejects_enabled_module_federation_without_mutation(async_runner) -> None:
+  selected = participation(
+    "inkcre/mail", "0.3.3", enabled=True, distribution="module_federation"
+  )
+  store = SelectionStore(selected)
+  host = ExtensionHost(
+    store=typing.cast(ExtensionStore, store),
+    release_client=typing.cast(typing.Any, ReleaseReader({})),
+    distribution_consumer=typing.cast(typing.Any, DistributionConsumer()),
+  )
+
+  with pytest.raises(ExtensionCompatibilityError, match="module_federation"):
+    async_runner.run(host.provision_enabled_distributions())
+
+  assert store.selections == [selected]
+
+
+def test_startup_downloads_multiple_pins_into_isolated_directories(
+  async_runner, monkeypatch
+):
+  mail = participation("inkcre/mail", "0.3.3", enabled=True)
+  rss = participation("inkcre/rss", "0.2.2", enabled=True)
+  resolver = ReleaseReader(
+    {
+      ("inkcre/mail", "0.3.3"): release("inkcre/mail", "0.3.3"),
+      ("inkcre/rss", "0.2.2"): release("inkcre/rss", "0.2.2"),
+    }
+  )
+  consumer = DistributionConsumer()
+  host = ExtensionHost(
+    store=typing.cast(ExtensionStore, SelectionStore(mail, rss)),
+    release_client=typing.cast(typing.Any, resolver),
+    distribution_consumer=typing.cast(typing.Any, consumer),
+  )
+  monkeypatch.setattr(
+    extension_main.AcquiredDistribution,
+    "discover",
+    lambda name, version, _host_version: consumer.installed.get((name, version)),
+  )
+
+  async_runner.run(host.provision_enabled_distributions())
+
+  assert consumer.downloads == [
+    ("inkcre/mail", "0.3.3"),
+    ("inkcre/rss", "0.2.2"),
+  ]
+  assert len(set(consumer.download_dirs)) == 2
+  assert consumer.applications == consumer.downloads
+
+
+def test_container_web_provisions_before_exec_and_keeps_ready_read_only(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  import app.database_contract.readiness as readiness
+  import scripts.container as container
+  from app.business.extension.main import EXTENSION_HOST
+
+  events: list[str] = []
+
+  class Ready:
+    ready = True
+    reason = "ready"
+
+  async def provision() -> None:
+    events.append("provision")
+
+  def exec_process(_executable: str, _arguments: list[str]) -> None:
+    events.append("exec")
+    raise RuntimeError("process replaced")
+
+  def check_ready() -> Ready:
+    events.append("ready")
+    return Ready()
+
+  monkeypatch.setattr(readiness, "check_database_contract", check_ready)
+  monkeypatch.setattr(EXTENSION_HOST, "provision_enabled_distributions", provision)
+  monkeypatch.setattr(container.os, "execvp", exec_process)
+  monkeypatch.setenv("PORT", "8000")
+
+  with pytest.raises(RuntimeError, match="process replaced"):
+    container._web()
+
+  assert events == ["ready", "provision", "exec"]
+
+
+def test_startup_provision_does_not_touch_database_when_no_pins(async_runner) -> None:
+  host = ExtensionHost(store=typing.cast(ExtensionStore, SelectionStore()))
+  async_runner.run(host.provision_enabled_distributions())
+
+
+def test_environment_application_rejects_core_runtime_or_base_downgrade(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  snapshots = iter(
+    [
+      {
+        "inkcre-core": "0.7.2",
+        "inkcre-extension-runtime-core-py": "0.2.0",
+        "fastapi": "0.139.2",
+      },
+      {
+        "inkcre-core": "0.7.2",
+        "inkcre-extension-runtime-core-py": "0.1.5",
+        "fastapi": "0.139.2",
+        "inkcre-ext-mail": "0.3.3",
+      },
+    ]
+  )
+  monkeypatch.setattr(
+    ExtensionHost,
+    "_environment_package_versions",
+    classmethod(lambda _cls: next(snapshots)),
+  )
+
+  with pytest.raises(ExtensionCompatibilityError, match="inkcre-extension-runtime-core-py"):
+    ExtensionHost._assert_environment_packages_preserved(
+      ExtensionHost._environment_package_versions(), "inkcre-ext-mail"
+    )
