@@ -89,6 +89,10 @@ class ExtensionStore(typing.Protocol):
     version: str,
   ) -> ExtensionParticipation: ...
 
+  async def resolve_legacy_python_participation(
+    self, peer_id: uuid.UUID, name: str, version: str
+  ) -> ExtensionParticipation: ...
+
   async def set_participation_enabled(
     self, peer_id: uuid.UUID, name: str, enabled: bool
   ) -> ExtensionParticipation: ...
@@ -274,6 +278,25 @@ class ExtensionStateService:
         row.distribution = distribution
         row.version = version
         row.config_schema = None
+      await repository.save_participation(row)
+      return self._participation(row)
+
+  async def resolve_legacy_python_participation(
+    self, peer_id: uuid.UUID, name: str, version: str
+  ) -> ExtensionParticipation:
+    """Resolve an enabled legacy pin after its exact Python release was verified."""
+    async with extension_uow() as repository:
+      row = await repository.get_participation(name, peer_id, lock=True)
+      if row is None or (row.distribution, row.version, row.enabled) != (
+        None,
+        version,
+        True,
+      ):
+        raise ExtensionStateConflictError(
+          f"{name} legacy selection changed before its Python distribution was resolved"
+        )
+      row.distribution = "python"
+      row.config_schema = None
       await repository.save_participation(row)
       return self._participation(row)
 

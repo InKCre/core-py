@@ -221,6 +221,90 @@ def test_upgrade_preserves_shared_state_and_exact_unresolved_legacy_pin(
       )
 
 
+def test_enabled_legacy_resolution_preserves_exact_pin_and_null_schema(
+  setup_domain_engine, monkeypatch
+):
+  import asyncio
+  from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+  peer_id = uuid.uuid4()
+  name = f"inkcre/legacy-{peer_id.hex}"
+  with sqlmodel.Session(setup_domain_engine) as session:
+    session.add(PeerModel(id=peer_id, name="legacy-resolution-test"))
+    session.add(
+      ExtensionModel(
+        name=name,
+        config={"shared": True},
+        state={"progress": 4},
+      )
+    )
+    session.add(
+      ExtensionPeerParticipationModel(
+        name=name,
+        peer_id=peer_id,
+        distribution=None,
+        version="0.7.4",
+        enabled=True,
+        config_schema=None,
+      )
+    )
+    session.commit()
+  with setup_domain_engine.begin() as connection:
+    connection.exec_driver_sql(
+      "INSERT INTO inkcre_internal.extension_legacy_snapshots "
+      "(name, version, enabled, config_schema) "
+      "VALUES (%s, '0.7.4', ARRAY[%s]::uuid[], %s)",
+      (name, peer_id, '{"type":"object"}'),
+    )
+
+  engine = create_async_engine(setup_domain_engine.url)
+  monkeypatch.setattr(extension_uow, "AsyncSessionFactory", async_sessionmaker(engine))
+  store = ExtensionStateService()
+
+  async def scenario():
+    resolved = await store.resolve_legacy_python_participation(peer_id, name, "0.7.4")
+    assert (resolved.distribution, resolved.version, resolved.enabled) == (
+      "python",
+      "0.7.4",
+      True,
+    )
+    assert resolved.config_schema is None
+    with setup_domain_engine.connect() as connection:
+      assert connection.exec_driver_sql(
+        "SELECT distribution, version, enabled, config_schema IS NULL "
+        "FROM inkcre.extension_peer_participations "
+        "WHERE name = %s AND peer_id = %s",
+        (name, peer_id),
+      ).one() == ("python", "0.7.4", True, True)
+      assert connection.exec_driver_sql(
+        "SELECT config, state FROM inkcre.extensions WHERE name = %s",
+        (name,),
+      ).one() == ({"shared": True}, {"progress": 4})
+      assert connection.exec_driver_sql(
+        "SELECT version, enabled, config_schema "
+        "FROM inkcre_internal.extension_legacy_snapshots WHERE name = %s",
+        (name,),
+      ).one() == ("0.7.4", [peer_id], {"type": "object"})
+
+    with pytest.raises(ExtensionStateConflictError, match="legacy selection changed"):
+      await store.resolve_legacy_python_participation(peer_id, name, "0.7.3")
+    with pytest.raises(ExtensionStateConflictError, match="Cannot change"):
+      await store.select_participation(peer_id, name, "module_federation", "0.7.4")
+    current = await store.get_participation(peer_id, name)
+    assert current is not None
+    assert (current.distribution, current.version, current.enabled) == (
+      "python",
+      "0.7.4",
+      True,
+    )
+
+  try:
+    with asyncio.Runner() as runner:
+      runner.run(scenario())
+  finally:
+    asyncio.run(engine.dispose())
+
+
 def test_v2_acl_and_state_guards(setup_domain_engine, monkeypatch):
   peer_id = uuid.uuid4()
   name = f"inkcre/acl-{peer_id.hex}"

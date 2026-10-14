@@ -12,7 +12,11 @@ from inkcre_extension_runtime_core_py.generated.registry import (
 from app.business.extension import main as extension_main
 from app.business.extension.errors import ExtensionCompatibilityError
 from app.business.extension.main import ExtensionHost
-from app.business.extension.state import ExtensionParticipation, ExtensionStore
+from app.business.extension.state import (
+  ExtensionParticipation,
+  ExtensionStore,
+  InstalledExtension,
+)
 
 
 PEER_ID = uuid.UUID("00000000-0000-4000-8000-000000000118")
@@ -53,6 +57,25 @@ class SelectionStore:
   async def get_participation(self, peer_id: uuid.UUID, name: str):
     assert peer_id == PEER_ID
     return next((row for row in self.selections if row.name == name), None)
+
+  async def get(self, name: str):
+    return InstalledExtension(name=name)
+
+  async def resolve_legacy_python_participation(
+    self, peer_id: uuid.UUID, name: str, version: str
+  ):
+    assert peer_id == PEER_ID
+    for index, row in enumerate(self.selections):
+      if row.name != name:
+        continue
+      if (row.distribution, row.version, row.enabled) != (None, version, True):
+        raise extension_main.ExtensionStateConflictError(
+          f"{name} legacy selection changed before its Python distribution was resolved"
+        )
+      resolved = row.model_copy(update={"distribution": "python", "config_schema": None})
+      self.selections[index] = resolved
+      return resolved
+    raise extension_main.ExtensionStateConflictError(f"{name} selection disappeared")
 
 
 class ReleaseReader:
@@ -208,6 +231,41 @@ def test_startup_stops_when_exact_enabled_pin_changes_during_restore(
   assert consumer.applications == (
     [] if change_during == "download" else [("inkcre/mail", "0.3.3")]
   )
+
+
+def test_cold_restore_resolves_only_the_exact_enabled_legacy_pin(
+  async_runner,
+) -> None:
+  selected = participation("inkcre/mail", "0.3.3", enabled=True, distribution=None)
+  store = SelectionStore(selected)
+  resolver = ReleaseReader({("inkcre/mail", "0.3.3"): release("inkcre/mail", "0.3.3")})
+  host = ExtensionHost(
+    store=typing.cast(ExtensionStore, store),
+    release_client=typing.cast(typing.Any, resolver),
+    distribution_consumer=typing.cast(typing.Any, DistributionConsumer()),
+  )
+  started: list[ExtensionParticipation] = []
+
+  async def start(_app, _extension, selection):
+    started.append(selection)
+    return typing.cast(typing.Any, object())
+
+  typing.cast(typing.Any, host)._start = start
+  async_runner.run(host.start_enabled(typing.cast(typing.Any, object())))
+
+  assert resolver.lookups == [("inkcre/mail", "0.3.3")]
+  assert len(started) == 1
+  assert (started[0].distribution, started[0].version, started[0].enabled) == (
+    "python",
+    "0.3.3",
+    True,
+  )
+  assert len(store.selections) == 1
+  assert (
+    store.selections[0].distribution,
+    store.selections[0].version,
+    store.selections[0].enabled,
+  ) == ("python", "0.3.3", True)
 
 
 def test_startup_rejects_enabled_module_federation_without_mutation(async_runner) -> None:
