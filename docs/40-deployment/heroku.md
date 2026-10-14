@@ -92,9 +92,11 @@ Peers discover their non-secret connection contract through
 enter that profile.
 
 `.github/workflows/production-deploy.yml` runs only after `artifact-publish.yml` succeeds for
-the exact current `main` SHA, or by a main-only recovery dispatch. It pulls the SHA-addressed
-GHCR service image, verifies its embedded schema evidence, and builds only the no-op release
-guard and separate PostgREST adapter before receiving deployment inputs.
+the exact current `main` SHA. It pulls the SHA-addressed GHCR service image, verifies its
+embedded schema evidence, and builds only the no-op release guard and separate PostgREST
+adapter before receiving deployment inputs. Before database convergence, this lane requires the
+existing production database to already satisfy the candidate contract. A schema change therefore
+fails closed here and must use the separate, protected maintenance workflow below.
 
 `.github/workflows/production-readonly-preflight.yml` is a separate protected-main manual entry
 for reviewing the configured production targets. It reuses the existing strict Heroku app
@@ -113,10 +115,11 @@ sessions describe only the snapshot taken during the job; they do not prove that
 Peer or direct database writer has stopped. The report never runs migrations, changes app config,
 changes formation, releases an image, or starts application code.
 
-Production delivery follows one convergence path：resolve role-specific URLs from the configured Neon branch ID，run
-`db init` and `db ready` from the exact candidate image，configure and release core plus PostgREST，converge the Peer
-advertisement，then probe both public runtimes。Images and config releases are polled to a terminal state；registry login and
-transfer alone receive bounded retries。
+Normal production delivery resolves role-specific URLs from the configured Neon branch ID,
+confirms that `db ready` already passes for the exact candidate image, configures and releases
+Core plus PostgREST, converges the Peer advertisement, and probes both public runtimes. Database
+convergence is reserved for the explicit maintenance workflow. Images and config releases are
+polled to a terminal state; registry login and transfer alone receive bounded retries.
 
 The production probe records the GHCR digest, transferred local image ID, and Heroku release
 identities. Registry manifest digests may differ after transfer, so the guarantee is one local
@@ -146,6 +149,23 @@ version is not evidence of the currently deployed version. A failed delivery may
 changed production, and the summary does not imply rollback. The existing detailed probe summary
 retains Heroku release identities and transport checks. If checkout itself failed, inspect that
 step; no repository-owned summary command could run.
+
+`.github/workflows/production-maintenance.yml` is the only production path that applies a new
+database contract. It runs from current `main` in the protected `production` environment and
+requires a fresh dispatch plus explicit acknowledgement that every non-Core/PostgREST Peer and
+direct database writer has stopped. It records a read-only inventory, stops both configured Heroku
+apps and verifies that no dynos remain, then takes another inventory and blocks on observed active
+Peer leases, running Jobs, or database sessions. Those observations do not prove that unknown or
+external writers are absent; the acknowledgement remains an operational responsibility. The job
+creates and verifies a named, 30-day Neon snapshot for the exact configured branch before it runs
+`db init`, readiness, app release, and runtime probes from the immutable candidate image. Stable
+promotion follows only a successful probe.
+
+Maintenance runs refuse GitHub Actions reruns because a failed network response can leave the
+actual migration state uncertain. A failure before the first scale operation leaves the existing service running; a failure once
+shutdown starts can leave one or both apps stopped, so inspect both formations and the database.
+Do not rerun the same execution or start the old image against a database that may have migrated. Recover from the observed
+database and confirmed snapshot under a new approved maintenance run.
 
 ## PostgREST Runtime Contract
 

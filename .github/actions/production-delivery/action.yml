@@ -35,6 +35,10 @@ inputs:
   postgrest_database_password:
     description: Production PostgREST authenticator role password
     required: true
+  maintenance_window:
+    description: True only when called by the protected, confirmed maintenance workflow
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -61,6 +65,16 @@ runs:
         POSTGREST_APP_NAME: ${{ inputs.postgrest_app_name }}
         REQUIRE_EXISTING_APPS: "true"
       run: bash scripts/automation/production_delivery.sh resolve-apps
+
+    - name: Require the live database to satisfy the candidate contract already
+      if: inputs.maintenance_window != 'true'
+      shell: bash
+      env:
+        HEAD_SHA: ${{ inputs.head_sha }}
+        MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.direct_owner_database_url }}
+      run: |
+        docker run --rm --env MIGRATION_DATABASE_URL "inkcre-production-web:$HEAD_SHA" \
+          python scripts/container.py db ready --profile runtime --json
 
     - name: Converge the production database contract
       id: database
