@@ -139,4 +139,4 @@ jobs:
             --env HEAD_SHA \
             --env CORE_IMAGE_DIGEST \
             "inkcre-production-web:$HEAD_SHA" \
-            python scripts/automation/production_preflight.py
+            python -m scripts.automation.production_preflight
