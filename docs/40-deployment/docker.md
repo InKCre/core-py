@@ -26,10 +26,12 @@ Heroku's shell-based `CMD` behavior explicit. Call other supported commands with
   [database-contract.md](database-contract.md)
 - `python scripts/container.py ready`: compatibility entry point for runtime-profile readiness
 
-The image never embeds Extension code. During enable or cold restore, the Core
-Extension Host resolves the Registry Release, selects its wheel through the same-origin Simple
-index, rejects dependency plans that replace Core-owned Distributions, and installs the wheel
-into `/app/.venv` with ordinary `pip`. Entry points are discovered through
+The image never embeds Extension code. Before a web process starts, Core resolves each enabled
+Peer selection at its exact Registry version and restores missing Python wheels through the same
+Runtime consumer used by extension management. The separate readiness command and `/readyz` remain
+read-only. During enable or cold restore, the Core Extension Host resolves the Registry Release,
+selects its wheel through the same-origin Simple index, rejects dependency plans that replace
+Core-owned Distributions, and installs the wheel into `/app/.venv` with ordinary `pip`. Entry points are discovered through
 `importlib.metadata`; there is no target overlay or `sys.path` mutation.
 
 The canonical service contains `curl` for Heroku release logging and uses the same full default

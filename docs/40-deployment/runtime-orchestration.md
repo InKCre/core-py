@@ -90,7 +90,15 @@ validates the wheel while the Peer can still serve work. It then closes admissio
 pauses the scheduler, drains Jobs, and closes Sinks and running Extensions before applying the wheel to the shared Core
 interpreter. Python dependencies may change, so Core does not resume in the same process or hot-load the new module.
 
-The production entrypoint `scripts/container.py web` execs `scripts/web.py`. That runner waits for Uvicorn’s graceful
+The production entrypoint `scripts/container.py web` first waits for the read-only database contract check, then reads
+this Peer’s enabled exact selections and restores any missing Python distributions through the same Registry resolver,
+wheel validator, and consumer used by `select`. This pre-start step never changes the selected version or enabled intent,
+and never installs disabled or newer releases. It must finish before the web process starts because each Heroku dyno
+starts from an image without Extension wheels and its writable environment is not shared with another dyno. An enabled
+distribution that cannot be resolved, downloaded, applied, or verified prevents that dyno from starting. The separate
+`ready` command and HTTP `/readyz` remain read-only and never provision packages.
+
+The web process starts only after pre-start restoration succeeds. The `scripts/web.py` runner waits for Uvicorn’s graceful
 shutdown and resource cleanup, then replaces itself with a fresh Python process after an environment application.
 The new process reimports installed packages, restores exact enabled selections, and publishes readiness only after
 bootstrap succeeds. If pip application fails, Core keeps the Peer paused, reports the failure in management status,

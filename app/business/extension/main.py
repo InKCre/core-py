@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass
+import importlib.metadata
 from pathlib import Path
 import tempfile
 import typing
@@ -52,6 +53,7 @@ from .errors import (
   ExtensionStateConflictError,
 )
 from .release import (
+  ExtensionReleaseDescriptor,
   PythonReleaseDescriptor,
   RegistryReleaseClient,
   ReleaseState,
@@ -402,8 +404,12 @@ class ExtensionHost:
           self._environment_application_pending = True
           self._operations[name] = ("applying", None)
           await self.pause_peer_execution()
+          environment_before = self._environment_package_versions()
           acquired = await asyncio.to_thread(
             consumer.apply, extension_wheel, release, association, CORE_VERSION
+          )
+          self._assert_environment_packages_preserved(
+            environment_before, association.project
           )
           self._validate_installed_association(acquired, association)
       except Exception as error:
@@ -433,6 +439,33 @@ class ExtensionHost:
     else:
       self._operations[name] = (None, None)
     return selected
+
+  @staticmethod
+  def _environment_package_versions() -> dict[str, str]:
+    return {
+      canonicalize_name(name): distribution.version
+      for distribution in importlib.metadata.distributions()
+      if (name := distribution.metadata.get("Name"))
+    }
+
+  @classmethod
+  def _assert_environment_packages_preserved(
+    cls,
+    before: dict[str, str],
+    allowed_project: str,
+  ) -> None:
+    after = cls._environment_package_versions()
+    allowed = canonicalize_name(allowed_project)
+    changed = sorted(
+      name
+      for name, version in before.items()
+      if name != allowed and after.get(name) != version
+    )
+    if changed:
+      raise ExtensionCompatibilityError(
+        "Applying an Extension changed existing Peer environment distributions: "
+        + ", ".join(changed)
+      )
 
   @staticmethod
   def _validate_installed_association(
@@ -546,6 +579,111 @@ class ExtensionHost:
     )
     consumer = self.distribution_consumer or PipDistributionConsumer(origin)
     return release_client, consumer
+
+  async def provision_enabled_distributions(self) -> None:
+    """Apply missing exact enabled Python pins before this process starts serving."""
+    peer_id = PeerManager.get_current_peer_ref()
+    selections = tuple(
+      row for row in await self.store.list_participations(peer_id) if row.enabled
+    )
+    if not selections:
+      return
+
+    unsupported = tuple(
+      row for row in selections if row.distribution not in (None, "python")
+    )
+    if unsupported:
+      identities = ", ".join(
+        f"{row.name}@{row.version} ({row.distribution})" for row in unsupported
+      )
+      raise ExtensionCompatibilityError(
+        f"This Core process cannot restore enabled distributions: {identities}"
+      )
+
+    release_client, consumer = await self._operation_consumers()
+    pending: list[
+      tuple[ExtensionParticipation, ExtensionReleaseDescriptor, PythonReleaseDescriptor]
+    ] = []
+    for selection in selections:
+      release = await asyncio.to_thread(
+        self._resolve,
+        selection.name,
+        selection.version,
+        allow_yanked=True,
+        release_client=release_client,
+      )
+      association = require_python_association(release)
+      installed = await asyncio.to_thread(
+        AcquiredDistribution.discover,
+        selection.name,
+        selection.version,
+        CORE_VERSION,
+      )
+      if installed is not None:
+        self._validate_installed_association(installed, association)
+        continue
+      pending.append((selection, release, association))
+
+    if not pending:
+      return
+
+    # Download every exact wheel before pip can change the shared environment.
+    # The process has not imported extension modules yet; it will be exec'd fresh
+    # after all applications complete.
+    with tempfile.TemporaryDirectory(prefix="inkcre-enabled-extensions-") as directory:
+      wheel_dir = Path(directory)
+      wheels: list[
+        tuple[
+          ExtensionParticipation,
+          ExtensionReleaseDescriptor,
+          PythonReleaseDescriptor,
+          Path,
+        ]
+      ] = []
+      for index, (selection, release, association) in enumerate(pending):
+        selection_wheel_dir = wheel_dir / str(index)
+        selection_wheel_dir.mkdir()
+        wheel = await asyncio.to_thread(
+          consumer.download, release, association, CORE_VERSION, selection_wheel_dir
+        )
+        wheels.append((selection, release, association, wheel))
+
+      for selection, release, association, wheel in wheels:
+        environment_before = self._environment_package_versions()
+        acquired = await asyncio.to_thread(
+          consumer.apply, wheel, release, association, CORE_VERSION
+        )
+        self._assert_environment_packages_preserved(environment_before, association.project)
+        self._validate_installed_association(acquired, association)
+        LOGGER.info(
+          "Restored enabled Extension distribution %s@%s before process startup",
+          selection.name,
+          selection.version,
+        )
+
+    # Later installs may alter shared dependencies, so verify every selected
+    # project again after the complete plan has been applied.
+    for selection in selections:
+      release = await asyncio.to_thread(
+        self._resolve,
+        selection.name,
+        selection.version,
+        allow_yanked=True,
+        release_client=release_client,
+      )
+      association = require_python_association(release)
+      acquired = await asyncio.to_thread(
+        AcquiredDistribution.discover,
+        selection.name,
+        selection.version,
+        CORE_VERSION,
+      )
+      if acquired is None:
+        raise ExtensionEnvironmentApplicationRequiredError(
+          f"Applying the enabled pin {selection.name}@{selection.version} did not "
+          "leave its exact distribution installed"
+        )
+      self._validate_installed_association(acquired, association)
 
   async def _acquire(self, state: InstalledExtension, selection: ExtensionParticipation):
     if selection.distribution != "python":
