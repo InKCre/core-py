@@ -231,7 +231,13 @@ def test_enabled_legacy_resolution_preserves_exact_pin_and_null_schema(
   name = f"inkcre/legacy-{peer_id.hex}"
   with sqlmodel.Session(setup_domain_engine) as session:
     session.add(PeerModel(id=peer_id, name="legacy-resolution-test"))
-    session.add(ExtensionModel(name=name))
+    session.add(
+      ExtensionModel(
+        name=name,
+        config={"shared": True},
+        state={"progress": 4},
+      )
+    )
     session.add(
       ExtensionPeerParticipationModel(
         name=name,
@@ -243,6 +249,13 @@ def test_enabled_legacy_resolution_preserves_exact_pin_and_null_schema(
       )
     )
     session.commit()
+  with setup_domain_engine.begin() as connection:
+    connection.exec_driver_sql(
+      "INSERT INTO inkcre_internal.extension_legacy_snapshots "
+      "(name, version, enabled, config_schema) "
+      "VALUES (%s, '0.7.4', ARRAY[%s]::uuid[], %s)",
+      (name, peer_id, '{"type":"object"}'),
+    )
 
   engine = create_async_engine(setup_domain_engine.url)
   monkeypatch.setattr(extension_uow, "AsyncSessionFactory", async_sessionmaker(engine))
@@ -263,6 +276,15 @@ def test_enabled_legacy_resolution_preserves_exact_pin_and_null_schema(
         "WHERE name = %s AND peer_id = %s",
         (name, peer_id),
       ).one() == ("python", "0.7.4", True, True)
+      assert connection.exec_driver_sql(
+        "SELECT config, state FROM inkcre.extensions WHERE name = %s",
+        (name,),
+      ).one() == ({"shared": True}, {"progress": 4})
+      assert connection.exec_driver_sql(
+        "SELECT version, enabled, config_schema "
+        "FROM inkcre_internal.extension_legacy_snapshots WHERE name = %s",
+        (name,),
+      ).one() == ("0.7.4", [peer_id], {"type": "object"})
 
     with pytest.raises(ExtensionStateConflictError, match="legacy selection changed"):
       await store.resolve_legacy_python_participation(peer_id, name, "0.7.3")
