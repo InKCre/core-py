@@ -41,9 +41,6 @@ def test_snapshot_requires_completed_operation_and_exact_branch(
     encoding="utf-8",
   )
   curl.chmod(0o755)
-  date = bin_directory / "date"
-  date.write_text("#!/bin/sh\nprintf '2026-11-13T00:00:00Z\n'\n", encoding="utf-8")
-  date.chmod(0o755)
   output_path = tmp_path / "github-output.txt"
   summary_path = tmp_path / "summary.md"
   result = subprocess.run(  # noqa: S603 - execute the checked-in script with a local API stub.
