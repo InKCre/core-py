@@ -111,7 +111,6 @@ jobs:
           HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
           MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.direct_owner_database_url }}
           APP_DATABASE_IDENTITY_URL: ${{ steps.neon.outputs.pooled_owner_database_url }}
-          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
           CORE_IMAGE_DIGEST: ${{ steps.core.outputs.digest_ref }}
           HEAD_SHA: ${{ github.sha }}
         run: |
