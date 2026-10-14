@@ -11,7 +11,7 @@ on:
 
 permissions:
   contents: read
-  packages: read
+  packages: write
 
 concurrency:
   group: production-application
@@ -183,5 +183,13 @@ jobs:
             echo "Migration and runtime probe: \`${DELIVERY_RESULT:-not run}\`"
             echo "Stable channel: \`${STABLE_RESULT:-not run}\`"
             echo
-            echo "A failure after shutdown leaves production in maintenance. Do not rerun this workflow or restore an old image against a migrated database; inspect the observed database and snapshot first."
+            if [ "$DELIVERY_RESULT" = failure ]; then
+              echo "Delivery or runtime probe failed. The probe attempts to stop both apps again; verify their actual formations and inspect the database and snapshot before recovery."
+            elif [ "$DELIVERY_RESULT" = success ] && [ "$STABLE_RESULT" != success ]; then
+              echo "The migrated service passed its runtime probe and remains online, but stable promotion did not complete. Verify the live releases and stable channel separately."
+            elif [ "$STOP_RESULT" = success ] && [ "$DELIVERY_RESULT" != success ]; then
+              echo "Maintenance stopped the apps but did not complete a healthy runtime probe. Inspect both formations and the database before recovery."
+            else
+              echo "Do not rerun this workflow or restore an old image against a migrated database; inspect the observed database and snapshot first."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

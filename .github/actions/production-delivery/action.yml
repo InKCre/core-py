@@ -126,6 +126,7 @@ runs:
         POSTGREST_APP_NAME: ${{ steps.heroku.outputs.postgrest_app_name }}
         POSTGREST_RELEASE: ${{ steps.release.outputs.postgrest_release }}
         POSTGREST_URL: ${{ steps.heroku.outputs.postgrest_url }}
+        MAINTENANCE_WINDOW: ${{ inputs.maintenance_window }}
         WEB_RELEASE: ${{ steps.release.outputs.web_release }}
         WEB_URL: ${{ steps.heroku.outputs.web_url }}
       run: bash scripts/automation/production_delivery.sh probe

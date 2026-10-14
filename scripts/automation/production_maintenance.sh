@@ -33,7 +33,7 @@ case "${1:-}" in
       --env CORE_IMAGE_DIGEST \
       --env REQUIRE_QUIESCENT_DATABASE \
       "inkcre-production-web:$HEAD_SHA" \
-      python scripts/automation/production_preflight.py
+      python -m scripts.automation.production_preflight
     ;;
   stop-services)
     for name in HEROKU_API_KEY HEROKU_APP_NAME POSTGREST_APP_NAME; do

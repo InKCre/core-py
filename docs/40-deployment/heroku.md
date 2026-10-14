@@ -121,9 +121,10 @@ Core plus PostgREST, converges the Peer advertisement, and probes both public ru
 convergence is reserved for the explicit maintenance workflow. Images and config releases are
 polled to a terminal state; registry login and transfer alone receive bounded retries.
 
-The production probe records the GHCR digest, transferred local image ID, and Heroku release
-identities. Registry manifest digests may differ after transfer, so the guarantee is one local
-config/layer lineage and source SHA, not textual equality between registry digest strings.
+The production delivery records the GHCR digest, the local image ID matched against each image pulled
+back from the exact Heroku registry tag, and the Heroku release identities. Registry manifest
+digests may differ after transfer, so the transfer check compares Docker's content-addressed image
+configuration IDs rather than requiring textual equality between registry digest strings.
 
 The acceptance probe requires:
 
@@ -134,9 +135,11 @@ The acceptance probe requires:
 - anonymous HTTP 401;
 - both formations remaining Eco.
 
-A failed probe reports both application logs and leaves the observed deployment state intact for a corrected exact-main
-rerun。The workflow does not pretend that rolling back only the web image can reverse a database migration，and it never runs
-an Alembic downgrade。
+A failed ordinary production probe reports both application logs and leaves the observed deployment
+state intact for inspection. During an explicit maintenance run, a failed probe also attempts to
+scale both apps back to zero and verifies that no dynos remain; if that containment fails, inspect
+the actual formations. The workflow does not pretend that rolling back only the web image can
+reverse a database migration, and it never runs an Alembic downgrade.
 
 The mutable GHCR `stable` tag advances only after this probe succeeds. Publication without
 production admission leaves `stable` unchanged。
@@ -160,15 +163,19 @@ inventory and blocks on observed active
 Peer leases, running Jobs, or database sessions. Those observations do not prove that unknown or
 external writers are absent; the acknowledgement remains an operational responsibility. The job
 creates and verifies a named Neon snapshot for the exact configured branch without requesting
-automatic expiry, then runs `db init`, readiness, app release from the already transferred images, and runtime probes from
-the immutable candidate image. The workflow does not delete the snapshot; cleanup remains an explicit
-operator action after the recovery window closes. Stable promotion follows only a successful probe.
+automatic expiry, then runs `db init`, readiness, app release from the already transferred and
+registry-verified images, and runtime probes from the immutable candidate image. The workflow does
+not delete the snapshot; cleanup remains an explicit operator action after the recovery window
+closes. Stable promotion follows only a successful probe. If promotion fails after a successful
+probe, the healthy apps remain online while the stable channel remains unchanged.
 
 Maintenance runs refuse GitHub Actions reruns because a failed network response can leave the
 actual migration state uncertain. A failure before the first scale operation leaves the existing
-service running; a failure once shutdown starts can leave one or both apps stopped, so inspect both
-formations and the database. If the workflow logs confirm that `db init` did not start, verify that
-the schema still matches the recorded pre-maintenance inventory before manually restoring the
+service running. A failure during shutdown or migration can leave one or both apps stopped, so
+inspect both formations and the database. A failed runtime probe attempts to stop both apps again;
+verify the actual formations because that containment can itself fail. If the workflow logs confirm
+that `db init` did not start, verify that the schema still matches the recorded pre-maintenance
+inventory before manually restoring the
 previous formation. Once `db init` starts, the database may be partially migrated: keep both apps
 stopped, inspect the live schema, then repair forward or restore the confirmed snapshot. Never start
 the old image against a database that may have migrated. Do not rerun the same execution; use a new
