@@ -89,8 +89,31 @@ case "${1:-}" in
     require_env HEROKU_APP_NAME
     require_env POSTGREST_APP_NAME
     core_app_created=false
-    app_json="$(heroku apps:info --app "$HEROKU_APP_NAME" --json 2>/dev/null || true)"
-    postgrest_json="$(heroku apps:info --app "$POSTGREST_APP_NAME" --json 2>/dev/null || true)"
+    if [ "${REQUIRE_EXISTING_APPS:-false}" = true ]; then
+      app_json="$(heroku apps:info --app "$HEROKU_APP_NAME" --json)" || {
+        echo "Could not read configured production Heroku app $HEROKU_APP_NAME" >&2
+        exit 1
+      }
+      postgrest_json="$(heroku apps:info --app "$POSTGREST_APP_NAME" --json)" || {
+        echo "Could not read configured production Heroku app $POSTGREST_APP_NAME" >&2
+        exit 1
+      }
+      for app in "$HEROKU_APP_NAME" "$POSTGREST_APP_NAME"; do
+        if [ "$app" = "$HEROKU_APP_NAME" ]; then
+          resolved_app_json="$app_json"
+        else
+          resolved_app_json="$postgrest_json"
+        fi
+        if ! jq -e --arg expected "$app" '.app.name == $expected' \
+          <<<"$resolved_app_json" >/dev/null; then
+          echo "Heroku returned an unexpected app identity for $app" >&2
+          exit 1
+        fi
+      done
+    else
+      app_json="$(heroku apps:info --app "$HEROKU_APP_NAME" --json 2>/dev/null || true)"
+      postgrest_json="$(heroku apps:info --app "$POSTGREST_APP_NAME" --json 2>/dev/null || true)"
+    fi
     if [ -n "${EXPECTED_DEPLOYMENT_PROFILE:-}" ]; then
       if [ -n "$app_json" ]; then
         require_deployment_profile "$HEROKU_APP_NAME"
@@ -100,6 +123,10 @@ case "${1:-}" in
       fi
     fi
     if [ -z "$app_json" ]; then
+      if [ "${REQUIRE_EXISTING_APPS:-false}" = true ]; then
+        echo "Configured Heroku app $HEROKU_APP_NAME does not exist" >&2
+        exit 1
+      fi
       heroku apps:create "$HEROKU_APP_NAME" --region us --stack container
       app_json="$(heroku apps:info --app "$HEROKU_APP_NAME" --json)"
       core_app_created=true
@@ -110,6 +137,10 @@ case "${1:-}" in
     fi
     postgrest_app_created=false
     if [ -z "$postgrest_json" ]; then
+      if [ "${REQUIRE_EXISTING_APPS:-false}" = true ]; then
+        echo "Configured Heroku app $POSTGREST_APP_NAME does not exist" >&2
+        exit 1
+      fi
       heroku apps:create "$POSTGREST_APP_NAME" --region us --stack container
       postgrest_json="$(heroku apps:info --app "$POSTGREST_APP_NAME" --json)"
       postgrest_app_created=true

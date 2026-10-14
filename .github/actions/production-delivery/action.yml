@@ -59,6 +59,7 @@ runs:
         HEROKU_API_KEY: ${{ inputs.heroku_api_key }}
         HEROKU_APP_NAME: ${{ inputs.heroku_app_name }}
         POSTGREST_APP_NAME: ${{ inputs.postgrest_app_name }}
+        REQUIRE_EXISTING_APPS: "true"
       run: bash scripts/automation/production_delivery.sh resolve-apps
 
     - name: Converge the production database contract
