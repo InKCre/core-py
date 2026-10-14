@@ -161,13 +161,17 @@ exact candidate Core, release, and PostgREST images to the Heroku registry befor
 window. It stops both configured Heroku apps and verifies that no dynos remain, then takes another
 inventory and blocks on observed active
 Peer leases, running Jobs, or database sessions. Those observations do not prove that unknown or
-external writers are absent; the acknowledgement remains an operational responsibility. The job
-creates and verifies a named Neon snapshot for the exact configured branch without requesting
-automatic expiry, then runs `db init`, readiness, app release from the already transferred and
-registry-verified images, and runtime probes from the immutable candidate image. The workflow does
-not delete the snapshot; cleanup remains an explicit operator action after the recovery window
-closes. Stable promotion follows only a successful probe. If promotion fails after a successful
-probe, the healthy apps remain online while the stable channel remains unchanged.
+external writers are absent; the acknowledgement remains an operational responsibility. After the
+stopped-service inventory passes, the job reads the production branch's flushed WAL LSN through
+the exact candidate image and creates a named Neon child branch at that LSN. The request omits
+compute endpoints and expiration; the workflow verifies the exact parent, LSN, non-default status,
+and that no endpoint was created. It checks current Neon branch quota before the write and reserves
+capacity for both the backup branch and a preserved failed-state branch. It then runs `db init`,
+readiness, app release from the already transferred and registry-verified images, and runtime probes
+from the immutable candidate image. The workflow does not delete the backup branch; cleanup remains
+an explicit operator action after the recovery window closes. Stable promotion follows only a
+successful probe. If promotion fails after a successful probe, the healthy apps remain online while
+the stable channel remains unchanged.
 
 Maintenance runs refuse GitHub Actions reruns because a failed network response can leave the
 actual migration state uncertain. A failure before the first scale operation leaves the existing
@@ -177,9 +181,12 @@ verify the actual formations because that containment can itself fail. If the wo
 that `db init` did not start, verify that the schema still matches the recorded pre-maintenance
 inventory before manually restoring the
 previous formation. Once `db init` starts, the database may be partially migrated: keep both apps
-stopped, inspect the live schema, then repair forward or restore the confirmed snapshot. Never start
-the old image against a database that may have migrated. Do not rerun the same execution; use a new
-approved maintenance run only after the observed state and recovery point are understood.
+stopped, inspect the live schema, then repair forward or restore the confirmed Neon backup branch.
+Production has child branches, so a restore must use `preserve_under_name`; verify the default
+branch and endpoint mappings before restarting services. Neon data restore does not roll back role
+passwords, so validate current configured credentials separately. Never start the old image against
+a database that may have migrated. Do not rerun the same execution; use a new approved maintenance
+run only after the observed state and recovery point are understood.
 
 ## PostgREST Runtime Contract
 

@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   migrate-and-release:
-    name: Quiesce, snapshot, migrate, and probe production
+    name: Quiesce, back up, migrate, and probe production
     if: github.repository == 'InKCre/core-py' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
@@ -123,14 +123,16 @@ jobs:
           REQUIRE_QUIESCENT_DATABASE: "true"
         run: bash scripts/automation/production_maintenance.sh read-only-inventory
 
-      - name: Create and verify a named Neon snapshot
-        id: snapshot
+      - name: Create and verify a no-compute Neon recovery branch at the stopped database LSN
+        id: backup
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           GITHUB_RUN_ID: ${{ github.run_id }}
-        run: bash scripts/automation/production_maintenance.sh snapshot
+          HEAD_SHA: ${{ github.sha }}
+          MIGRATION_DATABASE_URL: ${{ steps.neon.outputs.direct_owner_database_url }}
+        run: bash scripts/automation/production_maintenance.sh backup-branch
 
       - name: Migrate, release, and probe exact production images
         id: delivery
@@ -166,9 +168,10 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           HEAD_SHA: ${{ github.sha }}
           IMAGE_DIGEST: ${{ steps.core.outputs.digest_ref }}
-          SNAPSHOT_ID: ${{ steps.snapshot.outputs.snapshot_id }}
+          BACKUP_BRANCH_ID: ${{ steps.backup.outputs.backup_branch_id }}
+          BACKUP_BRANCH_LSN: ${{ steps.backup.outputs.backup_branch_lsn }}
           STOP_RESULT: ${{ steps.stop.outcome }}
-          SNAPSHOT_RESULT: ${{ steps.snapshot.outcome }}
+          BACKUP_RESULT: ${{ steps.backup.outcome }}
           DELIVERY_RESULT: ${{ steps.delivery.outcome }}
           STABLE_RESULT: ${{ steps.stable.outcome }}
         run: |
@@ -179,17 +182,17 @@ jobs:
             echo "Source: \`$HEAD_SHA\`"
             echo "Immutable image: \`${IMAGE_DIGEST:-not pulled}\`"
             echo "Heroku stop: \`${STOP_RESULT:-not run}\`"
-            echo "Neon snapshot: \`${SNAPSHOT_RESULT:-not run}\` / \`${SNAPSHOT_ID:-not confirmed}\`"
+            echo "Neon recovery branch: \`${BACKUP_RESULT:-not run}\` / \`${BACKUP_BRANCH_ID:-not confirmed}\` at \`${BACKUP_BRANCH_LSN:-unknown LSN}\`"
             echo "Migration and runtime probe: \`${DELIVERY_RESULT:-not run}\`"
             echo "Stable channel: \`${STABLE_RESULT:-not run}\`"
             echo
             if [ "$DELIVERY_RESULT" = failure ]; then
-              echo "Delivery or runtime probe failed. The probe attempts to stop both apps again; verify their actual formations and inspect the database and snapshot before recovery."
+              echo "Delivery or runtime probe failed. The probe attempts to stop both apps again; verify their actual formations and inspect the database and recovery branch before recovery."
             elif [ "$DELIVERY_RESULT" = success ] && [ "$STABLE_RESULT" != success ]; then
               echo "The migrated service passed its runtime probe and remains online, but stable promotion did not complete. Verify the live releases and stable channel separately."
             elif [ "$STOP_RESULT" = success ] && [ "$DELIVERY_RESULT" != success ]; then
               echo "Maintenance stopped the apps but did not complete a healthy runtime probe. Inspect both formations and the database before recovery."
             else
-              echo "Do not rerun this workflow or restore an old image against a migrated database; inspect the observed database and snapshot first."
+              echo "Do not rerun this workflow or restore an old image against a migrated database; inspect the observed database and recovery branch first."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

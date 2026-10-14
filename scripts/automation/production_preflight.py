@@ -355,7 +355,33 @@ def quiescence_conflicts(inventory: dict, core_peer_id: uuid.UUID) -> list[str]:
   return conflicts
 
 
+def read_flush_lsn(connection) -> str:
+  """Return the current WAL flush position for a stopped, quiescent database."""
+  with connection.transaction():
+    cursor = connection.cursor()
+    cursor.execute("SET TRANSACTION READ ONLY")
+    cursor.execute("SELECT pg_current_wal_flush_lsn()::text")
+    row = cursor.fetchone()
+  if not row or not isinstance(row[0], str) or "/" not in row[0]:
+    raise RuntimeError("PostgreSQL returned an invalid WAL flush LSN")
+  return row[0]
+
+
 def main() -> int:
+  if sys.argv[1:] == ["flush-lsn"]:
+    database_url = os.environ.get("MIGRATION_DATABASE_URL")
+    if not database_url:
+      print("MIGRATION_DATABASE_URL is required", file=sys.stderr)
+      return 2
+    try:
+      with database_connection(database_url) as connection:
+        print(read_flush_lsn(connection))
+    except Exception:
+      # Driver diagnostics may contain the owner URL. Keep failures credential-free.
+      print("Could not read the PostgreSQL WAL flush LSN", file=sys.stderr)
+      return 1
+    return 0
+
   database_url = os.environ.get("MIGRATION_DATABASE_URL")
   app_database_identity_url = os.environ.get("APP_DATABASE_IDENTITY_URL")
   core_app_name = os.environ.get("HEROKU_APP_NAME")

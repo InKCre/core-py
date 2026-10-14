@@ -9,6 +9,7 @@ from scripts.automation.production_preflight import (
   checked_in_production_profile,
   collect_database_inventory,
   quiescence_conflicts,
+  read_flush_lsn,
   verify_app_configuration,
 )
 
@@ -113,6 +114,40 @@ def test_quiescence_gate_allows_only_core_lease_and_pending_jobs() -> None:
   }
 
   assert quiescence_conflicts(inventory, CORE_PEER_ID) == []
+
+
+def test_flush_lsn_is_read_only_and_validates_the_database_value() -> None:
+  class LsnCursor:
+    def __init__(self, value: str) -> None:
+      self.value = value
+      self.statements: list[str] = []
+
+    def execute(self, statement: str) -> None:
+      self.statements.append(statement)
+
+    def fetchone(self):
+      return (self.value,)
+
+  class LsnConnection:
+    def __init__(self, value: str) -> None:
+      self.fake_cursor = LsnCursor(value)
+
+    def transaction(self):
+      return nullcontext()
+
+    def cursor(self):
+      return self.fake_cursor
+
+  connection = LsnConnection("0/AB12CD34")
+
+  assert read_flush_lsn(connection) == "0/AB12CD34"
+  assert connection.fake_cursor.statements == [
+    "SET TRANSACTION READ ONLY",
+    "SELECT pg_current_wal_flush_lsn()::text",
+  ]
+
+  with pytest.raises(RuntimeError, match="invalid WAL flush LSN"):
+    read_flush_lsn(LsnConnection("not-an-lsn"))
 
 
 def test_app_configuration_check_redacts_secrets_and_matches_roles_and_branch() -> None:
