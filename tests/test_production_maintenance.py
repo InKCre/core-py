@@ -68,7 +68,9 @@ def test_snapshot_requires_completed_operation_and_exact_branch(
   requests = [
     json.loads(line) for line in calls_path.read_text(encoding="utf-8").splitlines()
   ]
-  assert sum(request["method"] == "POST" for request in requests) == 1
+  post_requests = [request for request in requests if request["method"] == "POST"]
+  assert len(post_requests) == 1
+  assert "expires_at=" not in post_requests[0]["url"]
   assert any(request["url"].endswith("/operations/op-1") for request in requests)
   assert any(request["url"].endswith("/snapshots/snapshot-1") for request in requests)
   assert "snapshot_id=snapshot-1" in output_path.read_text(encoding="utf-8")

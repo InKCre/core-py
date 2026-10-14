@@ -2,6 +2,12 @@ name: Deploy self-hosted InKCre to Heroku
 
 on:
   workflow_dispatch:
+    inputs:
+      database_change_confirmed:
+        description: Confirm the target Neon branch is empty or all existing writers are stopped and data is backed up
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -50,6 +56,7 @@ jobs:
       - name: Validate required fork settings
         id: settings
         env:
+          DATABASE_MAINTENANCE_CONFIRMED: ${{ inputs.database_change_confirmed }}
           HEROKU_APP_PREFIX: ${{ vars.HEROKU_APP_PREFIX }}
         run: bash scripts/automation/self_host.sh validate-heroku
 

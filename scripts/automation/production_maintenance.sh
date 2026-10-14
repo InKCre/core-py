@@ -85,11 +85,10 @@ case "${1:-}" in
         exit 1
       fi
     else
-      expires_at="$(date -u -d '+30 days' '+%Y-%m-%dT%H:%M:%SZ')"
       created="$(curl --fail --silent --show-error --request POST \
         --header "Authorization: Bearer $NEON_API_KEY" \
         --header 'Accept: application/json' \
-        "$api/branches/$NEON_BRANCH_ID/snapshot?name=$snapshot_name&expires_at=$expires_at")"
+        "$api/branches/$NEON_BRANCH_ID/snapshot?name=$snapshot_name")"
       jq -e --arg name "$snapshot_name" --arg branch "$NEON_BRANCH_ID" \
         '.snapshot.name == $name and .snapshot.source_branch_id == $branch and
          (.snapshot.id | type == "string" and length > 0)' \

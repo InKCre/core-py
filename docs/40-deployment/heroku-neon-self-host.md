@@ -39,20 +39,26 @@ database roles and both app configurations are rotated together.
 Use independently generated values for all three credential secrets. Do not reuse a provider API
 key or another password as the JWT secret.
 
-5. Open **Actions → Deploy self-hosted InKCre to Heroku → Run workflow** and select the branch
-   to deploy.
-6. Read the workflow summary for the public app URLs, Peer identity, exact commit, and Heroku
+5. Before updating an existing deployment, stop both exact Heroku apps, stop any other Peer or
+   direct database writer, and preserve a backup of the Neon branch. For a new empty branch,
+   confirm it is the intended target. The workflow does not infer that an existing branch is
+   quiescent or disposable.
+6. Open **Actions → Deploy self-hosted InKCre to Heroku → Run workflow**, select the branch to
+   deploy, and set `database_change_confirmed` only after the appropriate check above. This
+   confirmation authorizes database initialization or migration; it does not bypass readiness or
+   database checks.
+7. Read the workflow summary for the public app URLs, Peer identity, exact commit, and Heroku
    releases. Keep using the repository's private `JWT_SECRET` when an admitted client asks for
    the signing key.
 
 ## Convergence And Safety
 
-The workflow validates all settings before provider mutation, builds the exact selected commit,
-resolves the Neon default branch owner coordinates, creates missing Heroku apps, and refuses an
-existing app unless its deployment profile matches the same Neon project. It then initializes the
-database contract, stores only role-specific URLs in Heroku config, releases both images, converges
-the Core Peer's public address, and verifies Core readiness plus the authenticated PostgREST
-read/write/deny contract.
+The workflow validates the explicit database-change confirmation and all settings before provider
+mutation, builds the exact selected commit, resolves the Neon default branch owner coordinates,
+creates missing Heroku apps, and refuses an existing app unless its deployment profile matches the
+same Neon project. It then initializes the database contract, stores only role-specific URLs in
+Heroku config, releases both images, converges the Core Peer's public address, and verifies Core
+readiness plus the authenticated PostgREST read/write/deny contract.
 
 The Neon owner URL exists only in the GitHub Actions job. It is never placed in either Heroku app.
 Workflow output contains no JWT, database password, or database URL. Rerunning the workflow is a

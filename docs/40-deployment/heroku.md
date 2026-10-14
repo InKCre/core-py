@@ -157,9 +157,10 @@ direct database writer has stopped. It records a read-only inventory, stops both
 apps and verifies that no dynos remain, then takes another inventory and blocks on observed active
 Peer leases, running Jobs, or database sessions. Those observations do not prove that unknown or
 external writers are absent; the acknowledgement remains an operational responsibility. The job
-creates and verifies a named, 30-day Neon snapshot for the exact configured branch before it runs
-`db init`, readiness, app release, and runtime probes from the immutable candidate image. Stable
-promotion follows only a successful probe.
+creates and verifies a named Neon snapshot for the exact configured branch without requesting
+automatic expiry, then runs `db init`, readiness, app release, and runtime probes from the
+immutable candidate image. The workflow does not delete the snapshot; cleanup remains an explicit
+operator action after the recovery window closes. Stable promotion follows only a successful probe.
 
 Maintenance runs refuse GitHub Actions reruns because a failed network response can leave the
 actual migration state uncertain. A failure before the first scale operation leaves the existing service running; a failure once
