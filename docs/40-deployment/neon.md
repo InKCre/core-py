@@ -71,6 +71,19 @@ When an operator performs a backup/restore or branch cutover that needs preserva
    row count;
 6. require an empty provider schema diff and a passing checked-in readiness command.
 
+For a Neon snapshot restore qualification, keep the restore unfinalized and inspect the new
+branch returned by the restore operation. Record the production branch and endpoint identities
+before the request, then verify the restored branch and its compute belong to the new branch and
+the production mappings remain unchanged. Do not target or finalize the production branch during
+a qualification. Wait for every returned operation to finish before connecting.
+
+Run candidate schema initialization only against the verified restore branch. Compare the same
+snapshot before and after migration using hashes or value-free manifests: all unchanged application
+tables, shared Extension config/state, migrated legacy selection data and the required database
+roles must remain intact. Keep raw data and credentials out of CI artifacts and summaries; retain
+only the resource identities and non-secret verification results in the existing recovery record.
+Snapshot and restore-branch cleanup is an explicit operator action after the recovery window closes.
+
 Do not drop and recreate Neon's `public` schema during restore. A database-owner connection
 cannot recreate provider-owned default privileges, while `pg_restore --clean` can replace the
 archive-listed application objects without disturbing those provider defaults.
