@@ -20,7 +20,7 @@ jobs:
   deploy:
     name: core-py deployment
     if: >-
-      github.repository == 'InKCre/core-py' &&
+      github.repository == 'InKCre/impl-py' &&
       ((github.event_name == 'workflow_run' &&
           github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.head_branch == 'main'))

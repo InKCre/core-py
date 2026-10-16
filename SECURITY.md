@@ -48,4 +48,4 @@ assets，trust boundaries and proportional classification。The local [Core Runt
 Boundaries](docs/30-unit-tdd/security-model.md) maps that model to this repository；implementation，
 tests，CI and deployment contracts remain authoritative for the controls they enforce。
 
-[report]: https://github.com/InKCre/core-py/security/advisories/new
+[report]: https://github.com/InKCre/impl-py/security/advisories/new

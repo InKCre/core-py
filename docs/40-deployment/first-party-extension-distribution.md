@@ -125,7 +125,7 @@ Recovery reruns only the failed publish job; rerunning all jobs is rejected beca
 new snapshot identities. Candidate artifacts are retained for 90 days.
 
 Official production publication and deployment jobs require
-`github.repository == 'InKCre/core-py'`. A fork may build and test normally, but it cannot enter the
+`github.repository == 'InKCre/impl-py'`. A fork may build and test normally, but it cannot enter the
 official production environment merely because its `main` branch published an artifact. Fork
 owners deploy through the explicit Render or Heroku self-host workflow instead.
 

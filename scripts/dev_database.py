@@ -46,7 +46,7 @@ from scripts.dev_database_provider import (
 
 STATE_FORMAT = 1
 PROFILE_FORMAT = 1
-OWNER_REPOSITORY = "InKCre/core-py"
+OWNER_REPOSITORY = "InKCre/impl-py"
 DEVELOPMENT_PEER_ID = "00000000-0000-4000-8000-000000000002"
 DEVELOPMENT_CAPABILITIES = {
   "core.extension.management.v2": "/extension-management/v2",

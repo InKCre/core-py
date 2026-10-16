@@ -16,7 +16,7 @@ dependencies = [
 inkcre-cli = "inkcre_cli.main:main"
 
 [project.urls]
-Repository = "https://github.com/InKCre/core-py"
+Repository = "https://github.com/InKCre/impl-py"
 
 [build-system]
 requires = ["pdm-backend"]

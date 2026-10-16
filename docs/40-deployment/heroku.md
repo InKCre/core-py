@@ -224,7 +224,7 @@ It records the configured non-secret app and Neon branch identities。Production
 not reuse preview authorization or database passwords. Preview and production deliberately
 share only the repository signing-key authority.
 
-The preview Heroku authorization named `GitHub InKCre/core-py preview CD` was created with a
+The preview Heroku authorization named `GitHub InKCre/impl-py preview CD` was created with a
 365-day lifetime on 2026-07-23. Rotate it no later than 2027-07-23 and revoke the superseded
 authorization after a green preview deployment.
 
