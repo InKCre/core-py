@@ -21,7 +21,7 @@ memos = "extensions.memos:Extension"
 [tool.inkcre-extension]
 name = "inkcre/memos"
 nickname = "Memos"
-host-sdk = "impl-py"
+host-sdk = "core-py"
 host-sdk-version = ">=0.3.0 <0.4.0"
 
 [tool.setuptools]

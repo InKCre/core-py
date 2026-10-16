@@ -23,7 +23,7 @@ github = "extensions.github:Extension"
 [tool.inkcre-extension]
 name = "inkcre/github"
 nickname = "GitHub"
-host-sdk = "impl-py"
+host-sdk = "core-py"
 host-sdk-version = ">=0.2.0 <0.4.0"
 
 [tool.setuptools]

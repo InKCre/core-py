@@ -20,7 +20,7 @@ example = "extensions.example:ExampleExtension"
 [tool.inkcre-extension]
 name = "inkcre/example"
 nickname = "Example"
-host-sdk = "impl-py"
+host-sdk = "core-py"
 host-sdk-version = ">=0.3.0 <0.4.0"
 """,
     encoding="utf-8",
@@ -37,7 +37,7 @@ host-sdk-version = ">=0.3.0 <0.4.0"
     "version": "1.2.3",
     "python": {
       "project": "inkcre-example",
-      "host_sdk": "impl-py",
+      "host_sdk": "core-py",
       "host_sdk_version": ">=0.3.0 <0.4.0",
       "entry_point": {
         "group": ENTRY_POINT_GROUP,

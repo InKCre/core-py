@@ -93,7 +93,7 @@ def read_project(project_directory: Path) -> ProducerProject:
     raise ValueError(f"{pyproject} contains incomplete producer metadata")
   if _NAME_PATTERN.fullmatch(typing.cast(str, required_strings["coordinate"])) is None:
     raise ValueError(f"{pyproject} contains a noncanonical Extension Name")
-  if required_strings["host_sdk"] != "impl-py":
+  if required_strings["host_sdk"] != "core-py":
     raise ValueError(f"{pyproject} targets another Host SDK")
   try:
     NpmSpec(typing.cast(str, required_strings["host_sdk_version"]))

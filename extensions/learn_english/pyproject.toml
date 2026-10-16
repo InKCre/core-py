@@ -17,7 +17,7 @@ learn_english = "extensions.learn_english:Extension"
 [tool.inkcre-extension]
 name = "inkcre/learn-english"
 nickname = "Learn English"
-host-sdk = "impl-py"
+host-sdk = "core-py"
 host-sdk-version = ">=0.2.0 <0.4.0"
 
 [tool.setuptools]
