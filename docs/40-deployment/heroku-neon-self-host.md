@@ -3,10 +3,10 @@
 ## Purpose And Boundary
 
 The checked-in `Deploy self-hosted InKCre to Heroku` workflow gives a repository owner a
-browser-only path from a public `core-py` fork to two Heroku Container Stack apps backed by
+browser-only path from a public `impl-py` fork to two Heroku Container Stack apps backed by
 the owner's Neon default branch:
 
-- `HEROKU_APP_PREFIX-core` runs the complete `core-py` Peer;
+- `HEROKU_APP_PREFIX-core` runs the complete `impl-py` Peer;
 - `HEROKU_APP_PREFIX-postgrest` exposes the executable peer database contract.
 
 The workflow builds the selected commit as `linux/amd64` images, creates missing apps in the

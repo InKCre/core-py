@@ -74,7 +74,7 @@ URL and the deterministic sibling Registry alias; the PostgREST app receives onl
 `authenticator` URL. The Pages deployment command is sufficient delivery evidence. Public edge
 reads and consumer acceptance are deliberately independent and do not block Core startup.
 
-Repository-qualified app and branch identities keep a core-py PR and a client-web PR with
+Repository-qualified app and branch identities keep an impl-py PR and an impl-ts PR with
 the same number from addressing the same review resources.
 
 ## Canonical Production
@@ -224,7 +224,7 @@ It records the configured non-secret app and Neon branch identities。Production
 not reuse preview authorization or database passwords. Preview and production deliberately
 share only the repository signing-key authority.
 
-The preview Heroku authorization named `GitHub InKCre/core-py preview CD` was created with a
+The preview Heroku authorization named `GitHub InKCre/impl-py preview CD` was created with a
 365-day lifetime on 2026-07-23. Rotate it no later than 2027-07-23 and revoke the superseded
 authorization after a green preview deployment.
 

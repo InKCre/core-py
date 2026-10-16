@@ -27,7 +27,7 @@ host-sdk-version = ">=0.3.0 <0.4.0"
   )
 
   prepare = read_project(project).prepare_document(
-    source_repository="https://github.com/InKCre/core-py",
+    source_repository="https://github.com/InKCre/impl-py",
     source_revision="a" * 40,
     build_id="12345",
   )
@@ -44,7 +44,7 @@ host-sdk-version = ">=0.3.0 <0.4.0"
         "name": "example",
         "object": "extensions.example:ExampleExtension",
       },
-      "source_repository": "https://github.com/InKCre/core-py",
+      "source_repository": "https://github.com/InKCre/impl-py",
       "source_revision": "a" * 40,
       "build_id": "12345",
     },
@@ -59,7 +59,7 @@ host-sdk-version = ">=0.3.0 <0.4.0"
       "--project",
       str(project),
       "--source-repository",
-      "https://github.com/InKCre/core-py",
+      "https://github.com/InKCre/impl-py",
       "--source-revision",
       "a" * 40,
       "--build-id",
