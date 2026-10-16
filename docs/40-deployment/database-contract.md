@@ -1,12 +1,12 @@
 # Executable Database Contract
 
 Shared Peer, capability, and wire semantics are owned by `../_shared/20-product-tdd/`. This document
-owns how core-py's database roles, lifecycle commands, readiness, and deployed profiles realize those
+owns how impl-py's database roles, lifecycle commands, readiness, and deployed profiles realize those
 contracts. A cross-unit semantic change must update the Hub owner before this runtime projection.
 
 ## Authority Boundary
 
-`core-py` owns the executable PostgreSQL protocol artifact without becoming a privileged central backend. Native
+`impl-py` owns the executable PostgreSQL protocol artifact without becoming a privileged central backend. Native
 runtimes and PostgREST callers are peer transports over the admitted `inkcre` schema。
 
 | Principal | Shape | Authority |
@@ -158,8 +158,8 @@ files, then use their own mature language tooling.
 Published core images are addressed as:
 
 ```text
-ghcr.io/inkcre/core-py:<40-character-commit>
-ghcr.io/inkcre/core-py@sha256:<digest>
+ghcr.io/inkcre/impl-py:<40-character-commit>
+ghcr.io/inkcre/impl-py@sha256:<digest>
 ```
 
 The digest is the consumption boundary. The commit tag identifies a published candidate and

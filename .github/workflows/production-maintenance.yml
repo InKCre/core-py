@@ -20,7 +20,7 @@ concurrency:
 jobs:
   migrate-and-release:
     name: Quiesce, back up, migrate, and probe production
-    if: github.repository == 'InKCre/core-py' && github.ref == 'refs/heads/main'
+    if: github.repository == 'InKCre/impl-py' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:

@@ -74,7 +74,7 @@ URL and the deterministic sibling Registry alias; the PostgREST app receives onl
 `authenticator` URL. The Pages deployment command is sufficient delivery evidence. Public edge
 reads and consumer acceptance are deliberately independent and do not block Core startup.
 
-Repository-qualified app and branch identities keep a core-py PR and a client-web PR with
+Repository-qualified app and branch identities keep an impl-py PR and an impl-ts PR with
 the same number from addressing the same review resources.
 
 ## Canonical Production

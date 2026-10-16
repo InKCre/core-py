@@ -53,7 +53,7 @@ jobs:
     name: Capture ${{ matrix.extension }} candidate
     needs: discover
     if: >-
-      github.repository == 'InKCre/core-py' &&
+      github.repository == 'InKCre/impl-py' &&
       needs.discover.result == 'success'
     runs-on: ubuntu-latest
     strategy:
@@ -147,7 +147,7 @@ jobs:
     name: Publish saved ${{ matrix.extension }} candidate
     needs: [capture, discover]
     if: >-
-      github.repository == 'InKCre/core-py' &&
+      github.repository == 'InKCre/impl-py' &&
       needs.capture.result == 'success' && needs.discover.result == 'success'
     runs-on: ubuntu-latest
     environment: production

@@ -1,4 +1,4 @@
-name: core-py deployment
+name: impl-py deployment
 
 on:
   workflow_run:
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: core-py deployment
+    name: impl-py deployment
     if: >-
       github.repository == 'InKCre/impl-py' &&
       ((github.event_name == 'workflow_run' &&

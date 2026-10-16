@@ -34,7 +34,7 @@ def release(name: str, version: str) -> NativeReleaseRecord:
     distribution=Distribution.python,
     python={
       "project": project,
-      "host_sdk": "core-py",
+      "host_sdk": "impl-py",
       "host_sdk_version": ">=0.2.0 <0.4.0",
       "entry_point": {
         "group": "inkcre.core.extensions",
@@ -130,7 +130,7 @@ def acquired_distribution(descriptor):
             "host_sdk": type(
               "HostSdk",
               (),
-              {"name": "core-py", "version": association.host_sdk_version},
+              {"name": "impl-py", "version": association.host_sdk_version},
             )(),
           },
         )(),

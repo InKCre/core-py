@@ -1,4 +1,4 @@
-"""Explicit registration of resolver decoders owned by core-py."""
+"""Explicit registration of resolver decoders owned by impl-py."""
 
 from .main import ResolverManager
 

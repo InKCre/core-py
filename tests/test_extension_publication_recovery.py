@@ -16,7 +16,7 @@ def test_full_rerun_fails_capture_and_publish_only_rerun_restores_saved_artifact
 
   capture_job_if = re.search(r"(?m)^    if: >-\n(?P<condition>(?:      .*\n)+)", capture)
   assert capture_job_if is not None
-  assert "github.repository == 'InKCre/core-py'" in capture_job_if["condition"]
+  assert "github.repository == 'InKCre/impl-py'" in capture_job_if["condition"]
   assert "needs.discover.result == 'success'" in capture_job_if["condition"]
   assert "github.run_attempt" not in capture_job_if["condition"]
 

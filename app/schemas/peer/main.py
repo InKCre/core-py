@@ -51,7 +51,7 @@ def normalize_capability_snapshot(
 
 
 class CorePeerConfig(pydantic.BaseModel):
-  """core-py-owned values stored in this Peer row's config object."""
+  """impl-py-owned values stored in this Peer row's config object."""
 
   model_config = pydantic.ConfigDict(extra="forbid", frozen=True)
 
