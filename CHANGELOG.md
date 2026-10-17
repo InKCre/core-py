@@ -4,6 +4,13 @@ Core release notes start from the current `0.1.1` baseline. Earlier repository h
 
 <!-- towncrier release notes start -->
 
+## 0.7.3 - 2026-10-17
+
+### Changed
+
+- Rename GitHub repository references from `InKCre/core-py` to `InKCre/impl-py`, including CI workflow repository checks, deployment docs, and the `cli` package Repository URL. The `core-py` peer instance name, GHCR image name (derived from repository), and `host-sdk = "core-py"` SDK identifier are preserved. (#rename-repository-impl-py)
+
+
 ## 0.7.2 - 2026-10-14
 
 ### Changed
