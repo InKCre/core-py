@@ -1,63 +1,42 @@
-# InKCre Core
+# InKCre Python Implementation
 
-Python backend implementation of InKCre, built with FastAPI, SQLModel, APScheduler, and PostgreSQL.
+The Python peer of InKCre. Owns the authoritative database schema and migrations, hosts the `inkcre-cli`, and ships Python-implemented first-party extensions.
 
-## Local Start
+`impl-py` 是 InKCre 的 Python 实现——一个持有数据库 schema 权威的 peer，同时承载命令行工具和一方 Python 扩展。
+
+## Quickstart
+
+### Self-host an InKCre instance
+
+You do not need to clone this repository. Fork it on GitHub, configure the documented secrets, and run the checked-in self-host workflow:
+
+- [Render + Neon](docs/40-deployment/render-neon-self-host.md)
+- [Heroku + Neon](docs/40-deployment/heroku-neon-self-host.md)
+
+### Develop locally
 
 ```bash
+git submodule update --init --recursive
 pdm install -G dev --frozen-lockfile
 svc dev ensure database --repo . --json
+pdm run dev
 ```
 
-This starts the complete peer runtime: pgvector, deterministic database initialization,
-core-py, and PostgREST. Committed configuration uses local Docker; ignored
-`svc.local.json` may select a validated SSH Docker provider. For Python-only iteration,
-run `pdm run check`, then `pdm run dev` against an initialized database.
+The full validation gate used by CI is `pdm run check`. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, migrations, and delivery details.
 
-`pdm run check` is the hermetic repository contract used by CI: frozen dependency
-checks, migration containment, formatting, lint, and the complete unit-test suite.
+## Documentation
 
-Developer setup and shared-skill notes: [CONTRIBUTING.md](CONTRIBUTING.md)
-
-## Browser-Only Self-Hosting
-
-A repository owner can deploy their own InKCre instance to Neon and either Render or Heroku
-without cloning this repository. Forking is the onboarding mechanism; the deployed instance is
-independent from InKCre's canonical production environment. Configure the provider profile's
-documented GitHub Secrets/Variables, then run its checked-in self-host workflow. The JWT signing
-secret remains private and grants full Peer authority.
-
-Exact onboarding steps, runtime limits, and cleanup:
-[Render and Neon](docs/40-deployment/render-neon-self-host.md) or
-[Heroku and Neon](docs/40-deployment/heroku-neon-self-host.md).
+- [Documentation index](docs/index.md)
+- [Agent operating guide](AGENTS.md)
+- [Deployment and runtime truth](docs/40-deployment/README.md)
+- [Local unit design](docs/30-unit-tdd/README.md)
+- Shared product truth Hub: [`InKCre/docs`](https://github.com/InKCre/docs) (mounted read-only at `docs/_shared/`)
 
 ## Security
 
-Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Security-sensitive design and
-triage use the shared [Security Boundary
-Model](docs/_shared/20-product-tdd/security-boundary-model.md) and core-py's local [runtime
-projection](docs/30-unit-tdd/security-model.md)，rather than treating hardening practices as
-context-free requirements。
+Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Security design follows the shared [Security Boundary Model](docs/_shared/20-product-tdd/security-boundary-model.md) and the local [runtime projection](docs/30-unit-tdd/security-model.md).
 
-## Documentation Map
+## Generated artifacts
 
-If `docs/_shared/` is missing, run `git submodule update --init --recursive` before following shared-doc links.
-
-- Agent operating guide: [AGENTS.md](AGENTS.md)
-- Working protocol: run `svc status . --json`, then read `index.md` with
-  `svc lookup --path`; the adopted SVC corpus is 14.0.0. Load
-  `sub-agents/index.md`, `verification/index.md`, or
-  `task-packet/index.md` only when their stated pressure exists.
-- Shared Hub/Spoke operations: [docs/_shared/00-meta/](docs/_shared/00-meta/)
-- Shared product truth: [docs/_shared/10-prd/index.md](docs/_shared/10-prd/index.md)
-- Shared product glossary: [docs/_shared/10-prd/glossary.md](docs/_shared/10-prd/glossary.md)
-- Shared cross-unit technical truth: [docs/_shared/20-product-tdd/](docs/_shared/20-product-tdd/)
-- Local unit design and runtime security boundaries: [docs/30-unit-tdd/README.md](docs/30-unit-tdd/README.md)
-- Deployment and runtime truth: [docs/40-deployment/README.md](docs/40-deployment/README.md)
-- Agent-owned volatile task workspaces: [tasks/](tasks/)
-
-## Generated Artifacts
-
-- OpenAPI schema: `docs/openapi.json`
-- Regenerate locally with `pdm run python scripts/generate-openapi.py`.
-- The repository does not publish hosted API documentation automatically.
+- OpenAPI schema: `docs/openapi.json` (regenerate with `pdm run python scripts/generate-openapi.py`)
+- This repository does not publish hosted API documentation automatically
